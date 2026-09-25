@@ -4,11 +4,9 @@
   "name": "Gmail",
   "description": "Read-only access to Gmail.",
   "setup": "Houston will ask Google for permission, then keep the token on this server. Your mail stays in Google.",
-  "publisher_id": "10c6c4ae-c531-4546-8ddf-7d05113f1b35",
   "auth": {
     "type": "oauth2",
     "oauth": {
-      "registration_id": "778feaf8-a69a-56ae-b152-80ddbd2ea4cb",
       "authorize_url": "https://accounts.google.com/o/oauth2/v2/auth",
       "token_url": "https://oauth2.googleapis.com/token",
       "token_path": "access_token",
@@ -28,7 +26,9 @@
         "https://www.googleapis.com/auth/gmail.compose",
         "https://www.googleapis.com/auth/gmail.send",
         "https://mail.google.com/"
-      ]
+      ],
+      "client_id": "{{CLIENT_ID}}",
+      "client_secret": "{{CLIENT_SECRET}}"
     }
   },
   "access": [

@@ -4,11 +4,9 @@
   "name": "Google Calendar",
   "description": "Read-only or read-write access to Google Calendar.",
   "setup": "Houston will ask Google for permission, then keep the token on this server. Your events stay in Google.",
-  "publisher_id": "10c6c4ae-c531-4546-8ddf-7d05113f1b35",
   "auth": {
     "type": "oauth2",
     "oauth": {
-      "registration_id": "ef1f6969-f024-5daf-9362-1568b25cabce",
       "authorize_url": "https://accounts.google.com/o/oauth2/v2/auth",
       "token_url": "https://oauth2.googleapis.com/token",
       "token_path": "access_token",
@@ -26,7 +24,9 @@
       "write_scopes": [
         "https://www.googleapis.com/auth/calendar",
         "https://www.googleapis.com/auth/calendar.events"
-      ]
+      ],
+      "client_id": "{{CLIENT_ID}}",
+      "client_secret": "{{CLIENT_SECRET}}"
     }
   },
   "access": [

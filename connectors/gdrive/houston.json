@@ -4,11 +4,9 @@
   "name": "Google Drive",
   "description": "Read-only access to Google Drive.",
   "setup": "Houston will ask Google for permission, then keep the token on this server. Your files stay in Google.",
-  "publisher_id": "10c6c4ae-c531-4546-8ddf-7d05113f1b35",
   "auth": {
     "type": "oauth2",
     "oauth": {
-      "registration_id": "efc13103-0011-5abb-9004-624e97bec5d6",
       "authorize_url": "https://accounts.google.com/o/oauth2/v2/auth",
       "token_url": "https://oauth2.googleapis.com/token",
       "token_path": "access_token",
@@ -27,7 +25,9 @@
         "https://www.googleapis.com/auth/drive",
         "https://www.googleapis.com/auth/drive.file",
         "https://www.googleapis.com/auth/drive.metadata"
-      ]
+      ],
+      "client_id": "{{CLIENT_ID}}",
+      "client_secret": "{{CLIENT_SECRET}}"
     }
   },
   "access": [

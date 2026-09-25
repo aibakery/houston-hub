@@ -16,17 +16,17 @@ import (
 var slugPattern = regexp.MustCompile(`^[a-z][a-z0-9_-]{0,63}$`)
 
 type manifest struct {
-	SchemaVersion int               `json:"schema_version"`
-	ID            string            `json:"id"`
-	Name          string            `json:"name"`
-	Description   string            `json:"description"`
-	Setup         string            `json:"setup"`
-	ConfigFields  []json.RawMessage `json:"config_fields"`
-	Module        string            `json:"module"`
-	PublisherID   string            `json:"publisher_id"`
-	Icon          string            `json:"icon"`
-	Auth          json.RawMessage   `json:"auth"`
-	Access        []struct {
+	SchemaVersion   int               `json:"schema_version"`
+	ID              string            `json:"id"`
+	Name            string            `json:"name"`
+	Description     string            `json:"description"`
+	Setup           string            `json:"setup"`
+	ConfigFields    []json.RawMessage `json:"config_fields"`
+	Module          string            `json:"module"`
+	VerificationKey string            `json:"verification_key"`
+	Icon            string            `json:"icon"`
+	Auth            json.RawMessage   `json:"auth"`
+	Access          []struct {
 		ID string `json:"id"`
 	} `json:"access"`
 	Proxy struct {
@@ -58,6 +58,16 @@ func main() {
 }
 
 func validate(root string) (int, error) {
+	if raw, err := os.ReadFile(filepath.Join(root, "houston.json")); err == nil {
+		var m manifest
+		if err := json.Unmarshal(raw, &m); err != nil {
+			return 0, err
+		}
+		if err := validateBundle(root, m.ID); err != nil {
+			return 0, err
+		}
+		return 1, nil
+	}
 	entries, err := os.ReadDir(filepath.Join(root, "connectors"))
 	if err != nil {
 		return 0, err
@@ -96,7 +106,7 @@ func validateBundle(dir, slug string) error {
 	if strings.TrimSpace(m.Name) == "" {
 		return fmt.Errorf("name is required")
 	}
-	if err := validateAuth(m.Auth, m.PublisherID); err != nil {
+	if err := validateAuth(m.Auth); err != nil {
 		return err
 	}
 	methods, _ := authMethods(m.Auth)
@@ -110,11 +120,8 @@ func validateBundle(dir, slug string) error {
 		}
 	}
 	tests, err := os.ReadDir(filepath.Join(dir, "tests"))
-	if err != nil {
+	if err != nil && !os.IsNotExist(err) {
 		return err
-	}
-	if len(tests) == 0 {
-		return fmt.Errorf("at least one Lua test is required")
 	}
 	for _, test := range tests {
 		if !luaFile(test.Name()) {
@@ -167,7 +174,7 @@ func resolveMethod(raw, method json.RawMessage) (manifest, error) {
 	if err := json.Unmarshal(method, &fields); err != nil {
 		return effective, err
 	}
-	for _, key := range []string{"schema_version", "name", "publisher_id", "icon"} {
+	for _, key := range []string{"schema_version", "name", "verification_key", "icon"} {
 		if _, ok := fields[key]; ok {
 			return effective, fmt.Errorf("%s belongs at the manifest top level", key)
 		}
@@ -227,7 +234,7 @@ func validateEffective(dir string, m manifest) error {
 	return nil
 }
 
-func validateAuth(raw json.RawMessage, publisher string) error {
+func validateAuth(raw json.RawMessage) error {
 	methods, err := authMethods(raw)
 	if err != nil {
 		return err
@@ -251,7 +258,7 @@ func validateAuth(raw json.RawMessage, publisher string) error {
 			if _, ok := fields[key]; ok {
 				return fmt.Errorf("auth must not contain %s", key)
 			}
-			if _, ok := parsed[i].OAuth[key]; ok {
+			if _, ok := parsed[i].OAuth[key]; ok && key != "client_secret" {
 				return fmt.Errorf("oauth must not contain %s", key)
 			}
 		}
@@ -269,10 +276,11 @@ func validateAuth(raw json.RawMessage, publisher string) error {
 		}
 		ids[id] = true
 		if method.Type == "oauth2" {
-			var registration string
-			_ = json.Unmarshal(method.OAuth["registration_id"], &registration)
-			if publisher == "" || registration == "" {
-				return fmt.Errorf("oauth2 requires publisher_id and oauth.registration_id")
+			var clientID, clientSecret string
+			_ = json.Unmarshal(method.OAuth["client_id"], &clientID)
+			_ = json.Unmarshal(method.OAuth["client_secret"], &clientSecret)
+			if clientID == "" || !regexp.MustCompile(`\{\{[A-Za-z_][A-Za-z0-9_]*\}\}`).MatchString(clientSecret) {
+				return fmt.Errorf("oauth2 requires client_id and a client_secret placeholder")
 			}
 		}
 	}

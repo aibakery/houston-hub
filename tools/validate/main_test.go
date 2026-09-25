@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-func fixture(t *testing.T, module string, auth any, publisher string) string {
+func fixture(t *testing.T, module string, auth any, verification string) string {
 	t.Helper()
 	root := t.TempDir()
 	dir := filepath.Join(root, "connectors", "example")
@@ -24,8 +24,8 @@ func fixture(t *testing.T, module string, auth any, publisher string) string {
 		m["module"] = module
 		filename = module
 	}
-	if publisher != "" {
-		m["publisher_id"] = publisher
+	if verification != "" {
+		m["verification_key"] = verification
 	}
 	raw, err := json.Marshal(m)
 	if err != nil {
@@ -43,7 +43,7 @@ func fixture(t *testing.T, module string, auth any, publisher string) string {
 }
 
 func oauth(id string) map[string]any {
-	method := map[string]any{"type": "oauth2", "oauth": map[string]any{"registration_id": "registration"}}
+	method := map[string]any{"type": "oauth2", "oauth": map[string]any{"client_id": "{{APP_ID}}", "client_secret": "{{APP_PASSWORD}}"}}
 	if id != "" {
 		method["id"] = id
 	}
@@ -60,26 +60,34 @@ func TestDefaultModuleAndExplicitLuauWithoutPublisher(t *testing.T) {
 	}
 }
 
+func TestStandaloneConnectorRoot(t *testing.T) {
+	root := fixture(t, "", map[string]any{"type": "secret"}, "")
+	count, err := validate(filepath.Join(root, "connectors", "example"))
+	if err != nil || count != 1 {
+		t.Fatalf("standalone root: %d %v", count, err)
+	}
+}
+
 func TestAuthenticationChoices(t *testing.T) {
 	tests := []struct {
-		name      string
-		auth      any
-		publisher string
-		want      string
+		name         string
+		auth         any
+		verification string
+		want         string
 	}{
-		{"single OAuth", oauth(""), "publisher", ""},
-		{"key and OAuth", []any{map[string]any{"type": "secret", "label": "API key"}, oauth("")}, "publisher", ""},
+		{"single OAuth", oauth(""), "verification", ""},
+		{"key and OAuth", []any{map[string]any{"type": "secret", "label": "API key"}, oauth("")}, "verification", ""},
 		{"two explicit keys", []any{map[string]any{"type": "secret", "id": "personal"}, map[string]any{"type": "secret", "id": "service"}}, "", ""},
 		{"ambiguous key IDs", []any{map[string]any{"type": "secret"}, map[string]any{"type": "secret"}}, "", "explicit ids"},
-		{"conflicting IDs", []any{map[string]any{"type": "secret", "id": "oauth2"}, oauth("")}, "publisher", "unique slugs"},
-		{"missing OAuth publisher", oauth(""), "", "publisher_id"},
-		{"missing registration", map[string]any{"type": "oauth2"}, "publisher", "registration_id"},
+		{"conflicting IDs", []any{map[string]any{"type": "secret", "id": "oauth2"}, oauth("")}, "verification", "unique slugs"},
+		{"OAuth without verification yet", oauth(""), "", ""},
+		{"missing credentials", map[string]any{"type": "oauth2"}, "verification", "client_id"},
 		{"empty choices", []any{}, "", "at least one"},
 		{"public credential", map[string]any{"type": "secret", "access_token": "do-not-publish"}, "", "access_token"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := validate(fixture(t, "", tt.auth, tt.publisher))
+			_, err := validate(fixture(t, "", tt.auth, tt.verification))
 			if tt.want == "" {
 				if err != nil {
 					t.Fatal(err)
@@ -93,14 +101,14 @@ func TestAuthenticationChoices(t *testing.T) {
 	}
 }
 
-func TestRefusesMissingTestsAndEscapingModule(t *testing.T) {
+func TestOptionalTestsAndEscapingModule(t *testing.T) {
 	root := fixture(t, "", map[string]any{"type": "secret"}, "")
 	dir := filepath.Join(root, "connectors", "example")
 	if err := os.Remove(filepath.Join(dir, "tests", "contract.lua")); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := validate(root); err == nil || !strings.Contains(err.Error(), "test is required") {
-		t.Fatalf("missing tests: %v", err)
+	if _, err := validate(root); err != nil {
+		t.Fatalf("tests should be optional: %v", err)
 	}
 	if _, err := bundleFile(dir, "../outside.lua"); err == nil {
 		t.Fatal("accepted escaping module")
@@ -116,7 +124,7 @@ func TestEachAuthenticationModeResolvesItsOwnConfiguration(t *testing.T) {
 	account["proxy"] = map[string]any{"protocol": "http"}
 	account["config_fields"] = []any{}
 	account["setup"] = ""
-	root := fixture(t, "", []any{key, account}, "publisher")
+	root := fixture(t, "", []any{key, account}, "verification")
 	if _, err := validate(root); err == nil || !strings.Contains(err.Error(), "oauth.luau") {
 		t.Fatalf("must check alternate module: %v", err)
 	}
@@ -135,7 +143,7 @@ func TestEachAuthenticationModeResolvesItsOwnConfiguration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if effective.ID != "example" || effective.PublisherID != "publisher" || effective.Module != "oauth.luau" || effective.Access[0].ID != "read-write" || effective.Proxy.Protocol != "http" {
+	if effective.ID != "example" || effective.VerificationKey != "verification" || effective.Module != "oauth.luau" || effective.Access[0].ID != "read-write" || effective.Proxy.Protocol != "http" {
 		t.Fatalf("wrong effective mode: %+v", effective)
 	}
 }
@@ -149,7 +157,7 @@ func TestOverridesReplaceWholeFieldsAndCannotChangeIdentity(t *testing.T) {
 		{"empty access replaces", map[string]any{"access": []any{}}, "access modes"},
 		{"partial proxy cannot merge", map[string]any{"proxy": map[string]any{"routes": []any{}}}, "unknown proxy protocol"},
 		{"blank description replaces", map[string]any{"description": ""}, "description"},
-		{"publisher stays top", map[string]any{"publisher_id": "other"}, "top level"},
+		{"verification stays top", map[string]any{"verification_key": "other"}, "top level"},
 		{"name stays top", map[string]any{"name": "other"}, "top level"},
 	} {
 		t.Run(test.name, func(t *testing.T) {

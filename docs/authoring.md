@@ -1,6 +1,6 @@
 # Authoring a Houston connector
 
-This repository is the source of truth for Houston connector definitions. Each connector has one directory under `connectors/`; Git commits version the complete catalog. Houston's hub service follows `main`, validates a complete commit, caches it in Redis, and publishes it at `https://hub.ok-houston.com/v1/catalog`. Invalid revisions leave the previous catalog available.
+The dashboard is the catalog registry; GitHub is the source of connector files. Organization admins register any public GitHub repository in **Connector Catalog**. Branch defaults to `main`, and an omitted path means `houston.json` at the repository root. Houston validates the manifest, module and declared icon, then publishes the connector immediately. Neither secrets nor verification are required. This repository provides examples, not an automatically published catalog.
 
 ## Bundle layout
 
@@ -9,11 +9,11 @@ connectors/my-service/
   houston.json
   connector.lua
   icon.png             # optional, exactly 1024 × 1024
-  tests/
+  tests/               # optional
     requests.lua
 ```
 
-The default module is `connector.lua`, so omit `module` from the manifest for that filename. To use another filename, including `connector.luau`, set `"module": "connector.luau"` explicitly. Both extensions run Luau. The manifest's `id` must equal its directory name and the module's `name`. `schema_version` is the manifest format version, not a connector release version. There are no version directories. Shared transport helpers live in `helpers/`; the runtime exposes `http.lua` as `connector_http` and `sql.lua` as `connector_sql`.
+The default module is `connector.lua`, so omit `module` from the manifest for that filename. To use another filename, including `connector.luau`, set `"module": "connector.luau"` explicitly. Both extensions run Luau. The manifest's `id` must match the module's `name` and be unique in the shared catalog. Its folder can have any name. In this examples repository, folder names also match IDs for the authoring tools. `schema_version` is the manifest format version, not a connector release version. There are no version directories. The runtime supplies the standard `connector_http` and `connector_sql` transport helpers. Repository code cannot replace the catalog’s shared helpers.
 
 Copy the closest existing connector as a starting point. `houston.json` is dashboard configuration and server policy: its title, description, setup text, authentication methods, access modes, configuration fields and protocol rules generate the connection and management screens and constrain server requests. The manifest does not export callable functions. Only the Lua module's `functions` and optional `writes` tables define the functions agents can call. `access` declares available modes, descriptions and OAuth scopes.
 
@@ -21,7 +21,7 @@ Copy the closest existing connector as a starting point. `houston.json` is dashb
 
 `auth` accepts one method object or an array of methods. Supported types are `secret` and `oauth2`. The first array entry is the default; the dashboard lets users choose another method. A method can have an `id` and display `label`. Its ID defaults to its type when that type appears only once. Give methods explicit, distinct IDs when offering two methods of the same type.
 
-An authentication method can also override `module`, `description`, `setup`, `access`, `config_fields`, and `proxy`. Omitted fields inherit the top-level value. A supplied field replaces the entire value: access lists, configuration fields and proxy objects are never merged. For example, `config_fields: []` removes inherited fields; a `proxy` override must include its protocol and complete route policy. The connector's identity, publisher and icon stay at the top level.
+An authentication method can also override `module`, `description`, `setup`, `access`, `config_fields`, and `proxy`. Omitted fields inherit the top-level value. A supplied field replaces the entire value: access lists, configuration fields and proxy objects are never merged. For example, `config_fields: []` removes inherited fields; a `proxy` override must include its protocol and complete route policy. The connector's identity, verification key and icon stay at the top level.
 
 This excerpt gives API-key connections the default read-only module and policy, while OAuth connections can use a different module and expose writes:
 
@@ -59,7 +59,8 @@ This excerpt gives API-key connections the default read-only module and policy, 
       ]
     },
     "oauth": {
-      "registration_id": "YOUR-REGISTRATION-UUID",
+      "client_id": "{{MY_APP_ID}}",
+      "client_secret": "{{MY_APP_SECRET}}",
       "authorize_url": "https://example.com/oauth/authorize",
       "token_url": "https://example.com/oauth/token"
     }
@@ -67,7 +68,7 @@ This excerpt gives API-key connections the default read-only module and policy, 
 ]
 ```
 
-This example is an excerpt, not a complete manifest. An OAuth method also requires the manifest's `publisher_id` to identify the organization owning that registration. Secret-only connectors do not need `publisher_id` or an application registration. Database connectors use secret authentication and declare their connection fields in `config_fields`.
+This example is an excerpt, not a complete manifest. OAuth credentials reference keys you choose in Connector Secrets. A connector without shared server secrets needs no verification key. Database connectors use secret authentication and declare their connection fields in `config_fields`.
 
 Here `connector.lua` can export a `records` function, while `account.lua` can additionally export `writes.createRecord`. Both modules return the same connector `name`; their callable functions may differ. The selected method determines the module and server policy for each connected account. Merely declaring write access or a proxy route never creates a function: each callable must be exported by the selected Lua module.
 
@@ -94,17 +95,30 @@ return {
 }
 ```
 
-## OAuth applications and ownership
+## Registration, secrets and verification
 
-For OAuth authentication, create a **Connector app** in your Houston organization's dashboard (`/dashboard/publishers`). Houston returns a registration ID and publisher organization ID. Put these in the OAuth method's `oauth.registration_id` and the manifest's `publisher_id`. Store the client ID and secret only in that dashboard; the public repository contains no OAuth app secrets. A registration is bound to its organization and connector slug, and the server verifies all three identifiers before using it.
+In **Connector Catalog**, enter the public GitHub repository, branch (default `main`) and optional connector folder or `houston.json` path. A valid registration immediately appears in the shared Hub. Each connector ID and source location has one catalog entry, owned by the registering organization. No pull request to this repository is required. Future valid Git commits update that entry; invalid updates show an error and retain the last validated module. Removing the registration removes it from the catalog.
 
-The OAuth manifest describes authorization/token/profile endpoints, response paths, scopes and any required response checks. Add `https://ok-houston.com/oauth/connectors/<id>/callback` to the provider's registered redirects. Access-mode scopes must match the provider application. Rotate credentials using the same dashboard; IDs remain stable.
+Admins manage optional, arbitrary key/value pairs in the separate **Connector Secrets** menu. Values are encrypted and write-only. Reference keys such as `{{MY_APP_ID}}` and `{{MY_APP_SECRET}}` in server-side config; names are your choice. Keys use letters, digits and underscores, starting with a letter or underscore. Each auth mode can reference different keys. Expansion happens once after selecting the mode; missing required keys disable that mode. A connector without shared secrets needs none of this setup.
 
-Official connectors use the same registration interface. Their publisher is Houston's designated official organization, `10c6c4ae-c531-4546-8ddf-7d05113f1b35`. Community connector registrations belong to their own organizations. Publication remains a reviewed pull request to this repository; adding a registration does not publish code automatically.
+Secrets belong to the registered catalog entry and its immutable source. Their use does **not** require a verification key. An admin may optionally request a verification challenge in Connector Catalog, then commit it as top-level `verification_key`. A matching challenge earns a **Verified** badge that proves repository control. Missing or mismatched keys remove the badge without blocking publication or secrets. Existing keys in a repository do not prevent registration or confer verification on a new entry.
+
+Secret resolution produces a detached server configuration. The public catalog always retains placeholders, and Lua never receives resolved values. Shared secrets are not injected into Lua-callable proxy requests.
+
+| Configuration | Secret placeholders |
+| --- | --- |
+| OAuth client ID/secret, authorization/token/profile URLs, authorization parameters, token parameters, token extraction paths, required response checks, auth style and scope formatting | Allowed; expanded only in a detached server configuration |
+| OAuth account/scopes/config response mappings, authorization input mappings and write-scope policy | Rejected; these affect public connection metadata or runtime policy |
+| Identity, descriptions, setup text, modules, access choices, connection form fields, and proxy policy (including auth overrides) | Rejected; these are public or used by the runtime |
+| Lua source and module context | Never expanded; no secret values are mounted |
+
+For custom token request fields use `auth.oauth.token_params`, for example `{"audience": "{{MY_AUDIENCE}}"}`. This is separate from `params`, which goes to the browser authorization URL. Use only values intended for the authorization provider/browser in authorization URLs, client IDs and `params`. Client secrets belong in `client_secret` or server token parameters.
+
+Add `https://ok-houston.com/oauth/connectors/<id>/callback` to the provider’s allowed redirects. Official examples and community connectors use the same registration and secret-management flow.
 
 ## Tests and contributions
 
-Every bundle includes credential-free `tests/*.lua` or `tests/*.luau`. Each test returns a function accepting the connector module:
+Bundles may include credential-free `tests/*.lua` or `tests/*.luau`. Each test returns a function accepting the connector module:
 
 ```lua
 return function(connector)
@@ -119,6 +133,6 @@ end
 
 Run `houston test-connectors /path/to/houston-hub`. Each test gets an isolated Luau VM, JSON helpers and shared connector helpers. HTTP fails unless mocked. No Houston login or provider credential is needed. Tests have a five-second execution deadline and a 64 MiB VM memory budget. Cover actual request shape, pagination, decoding, provider failures and write behavior; a module-shape assertion alone is insufficient for a new feature. Existing Slack and Fastmail tests demonstrate mocked transport and file operations.
 
-CI always checks bundle layout, manifests and icon dimensions with `go run ./tools/validate`, then downloads the public Houston CLI and runs Lua tests when it supports `test-connectors`. The layout validator uses only Go's standard library. During the initial CLI rollout, CI emits an explicit warning if Lua tests are unavailable; maintainers must run them from the implementation checkout before merging. Houston's implementation repository is private, so community PRs require no checkout credentials. Full manifest security validation and every Lua test run in the hub service before publication; missing or failing tests reject the Git revision.
+CI checks bundle layout, manifests and icon dimensions with `go run ./tools/validate`, then downloads the current public Houston CLI and runs every Lua test. An outdated runner fails the check. The layout validator uses only Go's standard library. Houston's implementation repository is private, so community PRs require no checkout credentials. Registration always validates module initialization in a bounded Luau sandbox. Supplied tests also run; failures reject the revision. A tests directory is optional.
 
-Submit a pull request containing only the bundle and tests unless a reusable protocol capability genuinely needs a host change. Maintainers review domain ownership, credential injection destinations and permissions as well as functionality. After merge, the hub and API poll the new Git revision; CLI and MCP load the served module without rebuilding provider code. Roll back by reverting the connector commit on `main`.
+Register your own repository from the dashboard to publish it. Pull requests to this repository are welcome for improving the examples, but merging files never creates a catalog entry automatically. GitHub commits update registered entries without rebuilding the API or CLI. Roll back by reverting the source commit.

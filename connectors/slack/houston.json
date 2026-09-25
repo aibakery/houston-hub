@@ -3,12 +3,10 @@
   "id": "slack",
   "name": "Slack",
   "description": "Read channels, threads, and mentions. Post messages and files as yourself.",
-  "setup": "Houston needs authorization in each Slack workspace you connect. Depending on your Slack workspace\u2019s app policy, a workspace admin may need to approve Houston before you can connect your account. Tokens stay on this server. Each connector connects one workspace. Add another connector for each additional workspace.",
-  "publisher_id": "10c6c4ae-c531-4546-8ddf-7d05113f1b35",
+  "setup": "Houston needs authorization in each Slack workspace you connect. Depending on your Slack workspace’s app policy, a workspace admin may need to approve Houston before you can connect your account. Tokens stay on this server. Each connector connects one workspace. Add another connector for each additional workspace.",
   "auth": {
     "type": "oauth2",
     "oauth": {
-      "registration_id": "6fefe85a-35d5-52bb-a447-548541091790",
       "authorize_url": "https://slack.com/oauth/v2/authorize",
       "token_url": "https://slack.com/api/oauth.v2.access",
       "token_path": "authed_user.access_token",
@@ -39,7 +37,9 @@
       ],
       "authorization_inputs": {
         "team": "team.id"
-      }
+      },
+      "client_id": "{{CLIENT_ID}}",
+      "client_secret": "{{CLIENT_SECRET}}"
     }
   },
   "access": [

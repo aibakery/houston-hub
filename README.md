@@ -2,15 +2,15 @@
 
 [Explore the Hub](https://hub.ok-houston.com) · [Houston](https://ok-houston.com) · [Dashboard](https://ok-houston.com/dashboard)
 
-Connect your agents to the tools you use. Houston Hub is the public home for Houston connectors—from Slack and Gmail to Postgres and Fastmail.
+Connect your agents to the tools you use. This repository contains example connectors—from Gmail and Slack to Postgres and Fastmail.
 
-Each connector is a small, reviewable bundle: a `houston.json` manifest, a Lua module, and tests. The manifest describes setup and server permissions; the module defines what agents can do. Credentials stay on Houston.
+A connector is a `houston.json` manifest and a Lua module, with an optional icon and tests. The manifest defines setup and server permissions; the module defines what agents can do. Credentials stay on Houston.
 
-Browse [`connectors/`](connectors/), copy a similar bundle, and make it your own. Both `.lua` and `.luau` work. New services usually need no changes to Houston itself.
+Copy a bundle from [`connectors/`](connectors/) into your own GitHub repository. In the dashboard’s **Connector Catalog**, provide the repository, branch and optional path. Houston validates it and publishes it immediately. Secrets and ownership verification are optional.
 
 ```sh
 go run ./tools/validate
 houston test-connectors .
 ```
 
-Read the [authoring guide](docs/authoring.md) for authentication choices, request policies, module exports, and examples. Submit a pull request when your connector is ready. After review and merge, Houston serves the new Git revision automatically—no version folders or client rebuilds needed.
+See the [authoring guide](docs/authoring.md) for authentication choices, module exports and examples. Pull requests improve these examples; dashboard registrations determine what appears in the live Hub.
