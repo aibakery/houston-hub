@@ -1,0 +1,80 @@
+{
+  "schema_version": 1,
+  "id": "gdrive",
+  "name": "Google Drive",
+  "description": "Read-only access to Google Drive.",
+  "setup": "Houston will ask Google for permission, then keep the token on this server. Your files stay in Google.",
+  "publisher_id": "10c6c4ae-c531-4546-8ddf-7d05113f1b35",
+  "module": "connector.lua",
+  "auth": {
+    "type": "oauth2",
+    "oauth": {
+      "registration_id": "efc13103-0011-5abb-9004-624e97bec5d6",
+      "authorize_url": "https://accounts.google.com/o/oauth2/v2/auth",
+      "token_url": "https://oauth2.googleapis.com/token",
+      "token_path": "access_token",
+      "refresh_token_path": "refresh_token",
+      "expires_in_path": "expires_in",
+      "scopes_path": "scope",
+      "params": {
+        "access_type": "offline",
+        "prompt": "consent"
+      },
+      "require_refresh": true,
+      "profile_url": "https://www.googleapis.com/oauth2/v2/userinfo",
+      "account_path": "email",
+      "write_scopes": [
+        "https://www.googleapis.com/auth/drive",
+        "https://www.googleapis.com/auth/drive.file",
+        "https://www.googleapis.com/auth/drive.metadata"
+      ]
+    }
+  },
+  "access": [
+    {
+      "id": "read-only",
+      "label": "Read-only",
+      "scopes": [
+        "openid",
+        "email",
+        "https://www.googleapis.com/auth/drive.readonly"
+      ]
+    },
+    {
+      "id": "read-write",
+      "label": "Read-write",
+      "disabled": true,
+      "help": "Write access is awaiting provider approval.",
+      "scopes": [
+        "openid",
+        "email",
+        "https://www.googleapis.com/auth/drive"
+      ]
+    }
+  ],
+  "proxy": {
+    "protocol": "http",
+    "routes": [
+      {
+        "hosts": [
+          "www.googleapis.com"
+        ],
+        "paths": [
+          "/drive/*",
+          "/upload/drive/*"
+        ],
+        "methods": [
+          "GET",
+          "HEAD",
+          "POST",
+          "PUT",
+          "PATCH",
+          "DELETE"
+        ],
+        "access": "method",
+        "auth": true
+      }
+    ]
+  },
+  "icon": "icon.png"
+}

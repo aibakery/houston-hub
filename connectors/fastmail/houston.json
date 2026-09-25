@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "id": "fastmail",
+  "name": "Fastmail",
+  "description": "Read mail and attachments. Optionally send messages and move mail to trash.",
+  "setup": "In Fastmail Settings \u2192 Privacy & Security \u2192 Manage API tokens, create a JMAP token with Email access. Choose Read-only access for reading, or enable Email submission for sending with read-write access. API tokens require a plan above Basic. Your token stays on this server.",
+  "publisher_id": "10c6c4ae-c531-4546-8ddf-7d05113f1b35",
+  "module": "connector.lua",
+  "auth": {
+    "type": "secret",
+    "secret_label": "API token",
+    "secret_placeholder": ""
+  },
+  "access": [
+    {
+      "id": "read-only",
+      "label": "Read-only"
+    },
+    {
+      "id": "read-write",
+      "label": "Read-write"
+    }
+  ],
+  "proxy": {
+    "protocol": "http",
+    "routes": [
+      {
+        "hosts": [
+          "api.fastmail.com",
+          "*.api.fastmail.com",
+          "jmap.fastmail.com"
+        ],
+        "paths": [
+          "/jmap/session",
+          "/jmap/download/*"
+        ],
+        "methods": [
+          "GET"
+        ],
+        "access": "read",
+        "auth": true
+      },
+      {
+        "hosts": [
+          "www.fastmailusercontent.com"
+        ],
+        "paths": [
+          "/jmap/download/*"
+        ],
+        "methods": [
+          "GET"
+        ],
+        "access": "read",
+        "auth": true
+      },
+      {
+        "hosts": [
+          "api.fastmail.com",
+          "*.api.fastmail.com",
+          "jmap.fastmail.com"
+        ],
+        "paths": [
+          "/jmap/api",
+          "/jmap/api/"
+        ],
+        "methods": [
+          "POST"
+        ],
+        "access": "batch",
+        "auth": true,
+        "batch": {
+          "format": "json-method-calls",
+          "read_methods": [
+            "Mailbox/get",
+            "Mailbox/query",
+            "Email/get",
+            "Email/query",
+            "Thread/get",
+            "Identity/get"
+          ],
+          "write_methods": [
+            "Email/set",
+            "EmailSubmission/set"
+          ]
+        }
+      }
+    ]
+  },
+  "icon": "icon.png"
+}

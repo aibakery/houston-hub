@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "id": "attio",
+  "name": "Attio",
+  "description": "Read-only access to Attio objects, records, and notes.",
+  "setup": "The API key stays on this server. Houston reads CRM data from Attio; your records stay in Attio.",
+  "publisher_id": "10c6c4ae-c531-4546-8ddf-7d05113f1b35",
+  "module": "connector.lua",
+  "auth": {
+    "type": "secret",
+    "secret_label": "API key",
+    "secret_placeholder": ""
+  },
+  "access": [
+    {
+      "id": "read-only",
+      "label": "Read-only"
+    }
+  ],
+  "proxy": {
+    "protocol": "http",
+    "routes": [
+      {
+        "hosts": [
+          "api.attio.com"
+        ],
+        "paths": [
+          "/v2/objects/{object}/records/query",
+          "/v2/objects/records/search",
+          "/v2/lists/{list}/entries/query"
+        ],
+        "methods": [
+          "POST"
+        ],
+        "access": "read",
+        "auth": true
+      },
+      {
+        "hosts": [
+          "api.attio.com"
+        ],
+        "paths": [
+          "/v2/*"
+        ],
+        "methods": [
+          "GET",
+          "HEAD"
+        ],
+        "access": "read",
+        "auth": true
+      }
+    ]
+  },
+  "icon": "icon.png"
+}

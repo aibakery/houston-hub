@@ -1,0 +1,27 @@
+name: Connector bundle tests
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check bundle manifests, layout and icons
+        run: python3 tools/validate.py
+      - name: Download the public Houston test runner
+        run: |
+          curl --fail --silent --show-error --location --retry 3 https://ok-houston.com/cli/houston-linux-amd64 --output /tmp/houston
+          chmod +x /tmp/houston
+      - name: Run every bundle test without credentials
+        run: |
+          usage=$(/tmp/houston 2>&1 || true)
+          if printf '%s' "$usage" | grep -q test-connectors; then
+            /tmp/houston test-connectors .
+          else
+            echo '::warning::Published Houston CLI predates test-connectors. Layout checks passed; run Lua tests from the implementation checkout until the CLI rollout completes.'
+          fi

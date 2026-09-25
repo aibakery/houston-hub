@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "id": "postgres",
+  "name": "Postgres",
+  "description": "SQL access to a Postgres database.",
+  "setup": "The database URL stays on this server. Queries are read-only. Enable read-write to also allow explicit write operations. Use a database role limited to the data and operations you want to share.",
+  "publisher_id": "10c6c4ae-c531-4546-8ddf-7d05113f1b35",
+  "module": "connector.lua",
+  "auth": {
+    "type": "secret",
+    "secret_label": "Database URL",
+    "secret_placeholder": "postgres://user:pass@host:5432/db"
+  },
+  "access": [
+    {
+      "id": "read-only",
+      "label": "Read-only"
+    },
+    {
+      "id": "read-write",
+      "label": "Read-write"
+    }
+  ],
+  "proxy": {
+    "protocol": "postgres"
+  },
+  "icon": "icon.png"
+}

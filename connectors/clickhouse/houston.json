@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "id": "clickhouse",
+  "name": "ClickHouse",
+  "description": "SQL access to a ClickHouse database.",
+  "setup": "Your credentials stay on this server. Queries are read-only. Enable read-write to also allow explicit write operations. Use a database role limited to the data and operations you want to share.",
+  "publisher_id": "10c6c4ae-c531-4546-8ddf-7d05113f1b35",
+  "module": "connector.lua",
+  "auth": {
+    "type": "secret",
+    "secret_label": "Database URL",
+    "secret_placeholder": "Paste your database connection URL"
+  },
+  "access": [
+    {
+      "id": "read-only",
+      "label": "Read-only"
+    },
+    {
+      "id": "read-write",
+      "label": "Read-write"
+    }
+  ],
+  "proxy": {
+    "protocol": "clickhouse"
+  },
+  "config_fields": [
+    {
+      "name": "protocol",
+      "label": "Protocol",
+      "type": "select",
+      "default": "https",
+      "options": [
+        {
+          "value": "https",
+          "label": "HTTPS"
+        },
+        {
+          "value": "native",
+          "label": "Native TLS"
+        }
+      ],
+      "help": "Use the matching endpoint from your ClickHouse Connect dialog: https://user:pass@host:8443/db for HTTPS, or clickhouse://user:pass@host:9440/db for Native TLS."
+    }
+  ],
+  "icon": "icon.png"
+}

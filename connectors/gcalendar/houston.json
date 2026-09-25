@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "id": "gcalendar",
+  "name": "Google Calendar",
+  "description": "Read-only or read-write access to Google Calendar.",
+  "setup": "Houston will ask Google for permission, then keep the token on this server. Your events stay in Google.",
+  "publisher_id": "10c6c4ae-c531-4546-8ddf-7d05113f1b35",
+  "module": "connector.lua",
+  "auth": {
+    "type": "oauth2",
+    "oauth": {
+      "registration_id": "ef1f6969-f024-5daf-9362-1568b25cabce",
+      "authorize_url": "https://accounts.google.com/o/oauth2/v2/auth",
+      "token_url": "https://oauth2.googleapis.com/token",
+      "token_path": "access_token",
+      "refresh_token_path": "refresh_token",
+      "expires_in_path": "expires_in",
+      "scopes_path": "scope",
+      "params": {
+        "access_type": "offline",
+        "prompt": "consent"
+      },
+      "require_refresh": true,
+      "profile_url": "https://www.googleapis.com/oauth2/v2/userinfo",
+      "account_path": "email",
+      "write_scopes": [
+        "https://www.googleapis.com/auth/calendar",
+        "https://www.googleapis.com/auth/calendar.events"
+      ]
+    }
+  },
+  "access": [
+    {
+      "id": "read-only",
+      "label": "Read-only",
+      "scopes": [
+        "openid",
+        "email",
+        "https://www.googleapis.com/auth/calendar.readonly"
+      ]
+    },
+    {
+      "id": "read-write",
+      "label": "Read-write",
+      "scopes": [
+        "openid",
+        "email",
+        "https://www.googleapis.com/auth/calendar"
+      ]
+    }
+  ],
+  "proxy": {
+    "protocol": "http",
+    "routes": [
+      {
+        "hosts": [
+          "www.googleapis.com"
+        ],
+        "paths": [
+          "/calendar/*"
+        ],
+        "methods": [
+          "GET",
+          "HEAD",
+          "POST",
+          "PUT",
+          "PATCH",
+          "DELETE"
+        ],
+        "access": "method",
+        "auth": true
+      }
+    ]
+  },
+  "icon": "icon.png"
+}

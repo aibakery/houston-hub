@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "id": "dropbox",
+  "name": "Dropbox",
+  "description": "Read-only access to Dropbox files and account info.",
+  "setup": "Houston will ask Dropbox for permission, then keep the token on this server. Your files stay in Dropbox.",
+  "publisher_id": "10c6c4ae-c531-4546-8ddf-7d05113f1b35",
+  "module": "connector.lua",
+  "auth": {
+    "type": "oauth2",
+    "oauth": {
+      "registration_id": "6d258b1a-4902-51aa-b4b0-095935d22429",
+      "authorize_url": "https://www.dropbox.com/oauth2/authorize",
+      "token_url": "https://api.dropboxapi.com/oauth2/token",
+      "token_path": "access_token",
+      "refresh_token_path": "refresh_token",
+      "expires_in_path": "expires_in",
+      "scopes_path": "scope",
+      "params": {
+        "token_access_type": "offline"
+      },
+      "require_refresh": true,
+      "profile_url": "https://api.dropboxapi.com/2/users/get_current_account",
+      "profile_method": "POST",
+      "account_path": "email"
+    }
+  },
+  "access": [
+    {
+      "id": "read-only",
+      "label": "Read-only",
+      "scopes": [
+        "account_info.read",
+        "files.metadata.read",
+        "files.content.read"
+      ]
+    }
+  ],
+  "proxy": {
+    "protocol": "http",
+    "routes": [
+      {
+        "hosts": [
+          "api.dropboxapi.com"
+        ],
+        "paths": [
+          "/2/users/get_current_account",
+          "/2/files/search/continue_v2",
+          "/2/files/list_folder/continue",
+          "/2/files/search_v2",
+          "/2/files/list_folder",
+          "/2/files/get_metadata"
+        ],
+        "methods": [
+          "POST"
+        ],
+        "access": "read",
+        "auth": true
+      },
+      {
+        "hosts": [
+          "content.dropboxapi.com"
+        ],
+        "paths": [
+          "/2/files/download"
+        ],
+        "methods": [
+          "POST"
+        ],
+        "access": "read",
+        "auth": true
+      }
+    ]
+  },
+  "icon": "icon.png"
+}

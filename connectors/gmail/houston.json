@@ -1,0 +1,106 @@
+{
+  "schema_version": 1,
+  "id": "gmail",
+  "name": "Gmail",
+  "description": "Read-only access to Gmail.",
+  "setup": "Houston will ask Google for permission, then keep the token on this server. Your mail stays in Google.",
+  "publisher_id": "10c6c4ae-c531-4546-8ddf-7d05113f1b35",
+  "module": "connector.lua",
+  "auth": {
+    "type": "oauth2",
+    "oauth": {
+      "registration_id": "778feaf8-a69a-56ae-b152-80ddbd2ea4cb",
+      "authorize_url": "https://accounts.google.com/o/oauth2/v2/auth",
+      "token_url": "https://oauth2.googleapis.com/token",
+      "token_path": "access_token",
+      "refresh_token_path": "refresh_token",
+      "expires_in_path": "expires_in",
+      "scopes_path": "scope",
+      "params": {
+        "access_type": "offline",
+        "prompt": "consent"
+      },
+      "require_refresh": true,
+      "profile_url": "https://www.googleapis.com/oauth2/v2/userinfo",
+      "account_path": "email",
+      "write_scopes": [
+        "https://www.googleapis.com/auth/gmail.modify",
+        "https://www.googleapis.com/auth/gmail.compose",
+        "https://www.googleapis.com/auth/gmail.send",
+        "https://mail.google.com/"
+      ]
+    }
+  },
+  "access": [
+    {
+      "id": "read-only",
+      "label": "Read-only",
+      "scopes": [
+        "openid",
+        "email",
+        "https://www.googleapis.com/auth/gmail.readonly"
+      ]
+    },
+    {
+      "id": "read-write",
+      "label": "Read-write",
+      "disabled": true,
+      "help": "Write access is awaiting provider approval.",
+      "scopes": [
+        "openid",
+        "email",
+        "https://www.googleapis.com/auth/gmail.modify"
+      ]
+    }
+  ],
+  "proxy": {
+    "protocol": "http",
+    "routes": [
+      {
+        "hosts": [
+          "gmail.googleapis.com"
+        ],
+        "paths": [
+          "/batch/gmail/v1"
+        ],
+        "methods": [
+          "POST"
+        ],
+        "access": "batch",
+        "auth": true,
+        "batch": {
+          "format": "http-multipart",
+          "read_methods": [
+            "GET",
+            "HEAD"
+          ],
+          "write_methods": [
+            "POST",
+            "PUT",
+            "PATCH",
+            "DELETE"
+          ]
+        }
+      },
+      {
+        "hosts": [
+          "gmail.googleapis.com"
+        ],
+        "paths": [
+          "/*"
+        ],
+        "methods": [
+          "GET",
+          "HEAD",
+          "POST",
+          "PUT",
+          "PATCH",
+          "DELETE"
+        ],
+        "access": "method",
+        "auth": true
+      }
+    ]
+  },
+  "icon": "icon.png"
+}
