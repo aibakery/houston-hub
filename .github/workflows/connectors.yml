@@ -24,10 +24,4 @@ jobs:
           curl --fail --silent --show-error --location --retry 3 https://ok-houston.com/cli/houston-linux-amd64 --output /tmp/houston
           chmod +x /tmp/houston
       - name: Run every bundle test without credentials
-        run: |
-          usage=$(/tmp/houston 2>&1 || true)
-          if printf '%s' "$usage" | grep -q test-connectors; then
-            /tmp/houston test-connectors .
-          else
-            echo '::warning::Published Houston CLI predates test-connectors. Layout checks passed; run Lua tests from the implementation checkout until the CLI rollout completes.'
-          fi
+        run: /tmp/houston test-connectors .
