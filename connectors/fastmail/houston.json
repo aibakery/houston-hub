@@ -4,8 +4,6 @@
   "name": "Fastmail",
   "description": "Read mail and attachments. Optionally send messages and move mail to trash.",
   "setup": "In Fastmail Settings \u2192 Privacy & Security \u2192 Manage API tokens, create a JMAP token with Email access. Choose Read-only access for reading, or enable Email submission for sending with read-write access. API tokens require a plan above Basic. Your token stays on this server.",
-  "publisher_id": "10c6c4ae-c531-4546-8ddf-7d05113f1b35",
-  "module": "connector.lua",
   "auth": {
     "type": "secret",
     "secret_label": "API token",

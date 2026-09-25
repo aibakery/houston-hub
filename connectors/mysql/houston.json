@@ -4,8 +4,6 @@
   "name": "MySQL",
   "description": "Read-only SQL over a MySQL connection URL.",
   "setup": "The database URL stays on this server. Houston runs one read-only SQL statement per query.",
-  "publisher_id": "10c6c4ae-c531-4546-8ddf-7d05113f1b35",
-  "module": "connector.lua",
   "auth": {
     "type": "secret",
     "secret_label": "Database URL",

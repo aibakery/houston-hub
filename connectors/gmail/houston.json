@@ -5,7 +5,6 @@
   "description": "Read-only access to Gmail.",
   "setup": "Houston will ask Google for permission, then keep the token on this server. Your mail stays in Google.",
   "publisher_id": "10c6c4ae-c531-4546-8ddf-7d05113f1b35",
-  "module": "connector.lua",
   "auth": {
     "type": "oauth2",
     "oauth": {

@@ -11,8 +11,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: false
       - name: Check bundle manifests, layout and icons
-        run: python3 tools/validate.py
+        run: |
+          go test ./tools/validate
+          go run ./tools/validate
       - name: Download the public Houston test runner
         run: |
           curl --fail --silent --show-error --location --retry 3 https://ok-houston.com/cli/houston-linux-amd64 --output /tmp/houston

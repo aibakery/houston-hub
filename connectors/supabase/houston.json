@@ -4,8 +4,6 @@
   "name": "Supabase",
   "description": "SQL access to your Supabase Postgres database.",
   "setup": "The database URL stays on this server. Queries are read-only. Enable read-write to also allow explicit write operations. Use a database role limited to the data and operations you want to share.",
-  "publisher_id": "10c6c4ae-c531-4546-8ddf-7d05113f1b35",
-  "module": "connector.lua",
   "auth": {
     "type": "secret",
     "secret_label": "Database URL",

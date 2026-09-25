@@ -5,7 +5,6 @@
   "description": "Read channels, threads, and mentions. Post messages and files as yourself.",
   "setup": "Houston needs authorization in each Slack workspace you connect. Depending on your Slack workspace\u2019s app policy, a workspace admin may need to approve Houston before you can connect your account. Tokens stay on this server. Each connector connects one workspace. Add another connector for each additional workspace.",
   "publisher_id": "10c6c4ae-c531-4546-8ddf-7d05113f1b35",
-  "module": "connector.lua",
   "auth": {
     "type": "oauth2",
     "oauth": {
