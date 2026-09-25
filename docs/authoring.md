@@ -1,6 +1,6 @@
 # Authoring a Houston connector
 
-The dashboard is the catalog registry; GitHub is the source of connector files. Organization admins register any public GitHub repository in **Connector Catalog**. Branch defaults to `main`, and an omitted path means `houston.json` at the repository root. Houston validates the manifest, module and declared icon, then publishes the connector immediately. Neither secrets nor verification are required. This repository provides examples, not an automatically published catalog.
+The dashboard is the catalog registry; GitHub is the source of connector files. Personal accounts and organization admins register any public GitHub repository in **Hub**. Branch defaults to `main`, and an omitted path means `houston.json` at the repository root. Houston validates the manifest, module and declared icon, then publishes the connector immediately. Neither secrets nor verification are required. This repository provides examples, not an automatically published catalog.
 
 ## Bundle layout
 
@@ -68,7 +68,7 @@ This excerpt gives API-key connections the default read-only module and policy, 
 ]
 ```
 
-This example is an excerpt, not a complete manifest. OAuth credentials reference keys you choose in Connector Secrets. A connector without shared server secrets needs no verification key. Database connectors use secret authentication and declare their connection fields in `config_fields`.
+This example is an excerpt, not a complete manifest. OAuth credentials reference keys you choose on the connector in Hub. A connector without shared server secrets needs no verification key. Database connectors use secret authentication and declare their connection fields in `config_fields`.
 
 Here `connector.lua` can export a `records` function, while `account.lua` can additionally export `writes.createRecord`. Both modules return the same connector `name`; their callable functions may differ. The selected method determines the module and server policy for each connected account. Merely declaring write access or a proxy route never creates a function: each callable must be exported by the selected Lua module.
 
@@ -97,11 +97,11 @@ return {
 
 ## Registration, secrets and verification
 
-In **Connector Catalog**, enter the public GitHub repository, branch (default `main`) and optional connector folder or `houston.json` path. A valid registration immediately appears in the shared Hub. Each connector ID and source location has one catalog entry, owned by the registering organization. No pull request to this repository is required. Future valid Git commits update that entry; invalid updates show an error and retain the last validated module. Removing the registration removes it from the catalog.
+In **Hub**, enter the public GitHub repository, branch (default `main`) and optional connector folder or `houston.json` path. A valid registration immediately appears in the shared Hub. Each connector ID and source location has one catalog entry, owned by the registering user or organization. No pull request to this repository is required. Future valid Git commits update that entry; invalid updates show an error and retain the last validated module. Removing the registration removes it from the catalog.
 
-Admins manage optional, arbitrary key/value pairs in the separate **Connector Secrets** menu. Values are encrypted and write-only. Reference keys such as `{{MY_APP_ID}}` and `{{MY_APP_SECRET}}` in server-side config; names are your choice. Keys use letters, digits and underscores, starting with a letter or underscore. Each auth mode can reference different keys. Expansion happens once after selecting the mode; missing required keys disable that mode. A connector without shared secrets needs none of this setup.
+Publishers manage optional, arbitrary key/value pairs on that connector. Values are encrypted and write-only. Reference keys such as `{{MY_APP_ID}}` and `{{MY_APP_SECRET}}` in server-side config; names are your choice. Keys use letters, digits and underscores, starting with a letter or underscore. Each auth mode can reference different keys. Expansion happens once after selecting the mode; missing required keys disable that mode. A connector without shared secrets needs none of this setup.
 
-Secrets belong to the registered catalog entry and its immutable source. Their use does **not** require a verification key. An admin may optionally request a verification challenge in Connector Catalog, then commit it as top-level `verification_key`. A matching challenge earns a **Verified** badge that proves repository control. Missing or mismatched keys remove the badge without blocking publication or secrets. Existing keys in a repository do not prevent registration or confer verification on a new entry.
+Secrets belong to the registered catalog entry and its immutable source. Their use does **not** require a verification key. A publisher may optionally request a verification challenge in Hub, then commit it as top-level `verification_key`. A matching challenge earns a **Verified** badge that proves repository control. Missing or mismatched keys remove the badge without blocking publication or secrets. Existing keys in a repository do not prevent registration or confer verification on a new entry.
 
 Secret resolution produces a detached server configuration. The public catalog always retains placeholders, and Lua never receives resolved values. Shared secrets are not injected into Lua-callable proxy requests.
 

@@ -6,7 +6,7 @@ Connect your agents to the tools you use. This repository contains example conne
 
 A connector is a `houston.json` manifest and a Lua module, with an optional icon and tests. The manifest defines setup and server permissions; the module defines what agents can do. Credentials stay on Houston.
 
-Copy a bundle from [`connectors/`](connectors/) into your own GitHub repository. In the dashboard’s **Connector Catalog**, provide the repository, branch and optional path. Houston validates it and publishes it immediately. Secrets and ownership verification are optional.
+Copy a bundle from [`connectors/`](connectors/) into your own GitHub repository. In the dashboard’s **Hub**, provide the repository, branch and optional path. Houston validates it and publishes it immediately. Secrets and ownership verification are optional.
 
 ```sh
 go run ./tools/validate
