@@ -8,7 +8,7 @@ The dashboard is the catalog registry; GitHub is the source of connector files. 
 connectors/my-service/
   houston.json
   connector.lua
-  icon.png             # optional, exactly 1024 × 1024
+  icon.svg             # optional; icon.png is also accepted and must be 1024 × 1024
   tests/               # optional
     requests.lua
 ```

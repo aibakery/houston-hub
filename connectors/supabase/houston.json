@@ -22,5 +22,5 @@
   "proxy": {
     "protocol": "postgres"
   },
-  "icon": "icon.png"
+  "icon": "icon.svg"
 }

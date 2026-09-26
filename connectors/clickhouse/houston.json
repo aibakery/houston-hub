@@ -41,5 +41,5 @@
       "help": "Use the matching endpoint from your ClickHouse Connect dialog: https://user:pass@host:8443/db for HTTPS, or clickhouse://user:pass@host:9440/db for Native TLS."
     }
   ],
-  "icon": "icon.png"
+  "icon": "icon.svg"
 }

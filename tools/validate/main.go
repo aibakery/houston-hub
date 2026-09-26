@@ -132,16 +132,20 @@ func validateBundle(dir, slug string) error {
 		}
 	}
 	if m.Icon != "" {
-		if m.Icon != "icon.png" {
-			return fmt.Errorf("icon must be icon.png")
+		if m.Icon != "icon.png" && m.Icon != "icon.svg" {
+			return fmt.Errorf("icon must be icon.png or icon.svg")
 		}
 		raw, err := bundleFile(dir, m.Icon)
 		if err != nil {
 			return err
 		}
-		image, err := png.DecodeConfig(bytes.NewReader(raw))
-		if err != nil || image.Width != 1024 || image.Height != 1024 {
-			return fmt.Errorf("icon must be a 1024x1024 PNG")
+		if m.Icon == "icon.png" {
+			image, err := png.DecodeConfig(bytes.NewReader(raw))
+			if err != nil || image.Width != 1024 || image.Height != 1024 {
+				return fmt.Errorf("icon must be a 1024x1024 PNG")
+			}
+		} else if !bytes.Contains(bytes.ToLower(raw), []byte("<svg")) || bytes.Contains(bytes.ToLower(raw), []byte("<script")) {
+			return fmt.Errorf("icon.svg must be an SVG document without scripts")
 		}
 	}
 	return nil
