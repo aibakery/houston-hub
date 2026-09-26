@@ -13,7 +13,7 @@ connectors/my-service/
     requests.lua
 ```
 
-The default module is `connector.lua`, so omit `module` from the manifest for that filename. To use another filename, including `connector.luau`, set `"module": "connector.luau"` explicitly. Both extensions run Luau. The manifest's `id` must match the module's `name` and be unique in the shared catalog. Its folder can have any name. In this examples repository, folder names also match IDs for the authoring tools. `schema_version` is the manifest format version, not a connector release version. There are no version directories. The runtime supplies the standard `connector_http` and `connector_sql` transport helpers. Repository code cannot replace the catalog’s shared helpers.
+The default module is `connector.lua`, so omit `module` from the manifest for that filename. To use another filename, including `connector.luau`, set `"module": "connector.luau"` explicitly. Both extensions run Luau. The manifest's `id` must match the module's `name`. Houston assigns each Hub registration its own UUID, so different publishers can use the same manifest ID and GitHub source. Its folder can have any name. In this examples repository, folder names also match IDs for the authoring tools. `schema_version` is the manifest format version, not a connector release version. There are no version directories. The runtime supplies the standard `connector_http` and `connector_sql` transport helpers. Repository code cannot replace the catalog’s shared helpers.
 
 Copy the closest existing connector as a starting point. `houston.json` is dashboard configuration and server policy: its title, description, setup text, authentication methods, access modes, configuration fields and protocol rules generate the connection and management screens and constrain server requests. The manifest does not export callable functions. Only the Lua module's `functions` and optional `writes` tables define the functions agents can call. `access` declares available modes, descriptions and OAuth scopes.
 
@@ -97,9 +97,9 @@ return {
 
 ## Registration, secrets and verification
 
-In **Hub**, enter the public GitHub repository, branch (default `main`) and optional connector folder or `houston.json` path. A valid registration immediately appears in the shared Hub. Each connector ID and source location has one catalog entry, owned by the registering user or organization. No pull request to this repository is required. Future valid Git commits update that entry; invalid updates show an error and retain the last validated module. Removing the registration removes it from the catalog.
+In **Hub**, enter the public GitHub repository, branch (default `main`) and optional connector folder or `houston.json` path. A valid registration immediately appears in the shared Hub. Each registration belongs to the registering user or organization and has its own generated UUID. A source location can be registered once per publisher; other publishers can register the same source with independent credentials. No pull request to this repository is required. Future valid Git commits update that entry; invalid updates show an error and retain the last validated module. Removing the registration removes it from the catalog.
 
-Publishers manage optional, arbitrary key/value pairs on that connector. Values are encrypted and write-only. Reference keys such as `{{MY_APP_ID}}` and `{{MY_APP_SECRET}}` in server-side config; names are your choice. Keys use letters, digits and underscores, starting with a letter or underscore. Each auth mode can reference different keys. Expansion happens once after selecting the mode; missing required keys disable that mode. A connector without shared secrets needs none of this setup.
+Publishers manage optional, arbitrary key/value pairs on that connector. Values are encrypted and loaded into masked fields for the publisher or organization admins to manage. Reference keys such as `{{MY_APP_ID}}` and `{{MY_APP_SECRET}}` in server-side config; names are your choice. Keys use letters, digits and underscores, starting with a letter or underscore. Each auth mode can reference different keys. Expansion happens once after selecting the mode; missing required keys disable that mode. A connector without shared secrets needs none of this setup.
 
 Secrets belong to the registered catalog entry and its immutable source. Their use does **not** require a verification key. A publisher may optionally request a verification challenge in Hub, then commit it as top-level `verification_key`. A matching challenge earns a **Verified** badge that proves repository control. Missing or mismatched keys remove the badge without blocking publication or secrets. Existing keys in a repository do not prevent registration or confer verification on a new entry.
 
@@ -114,7 +114,7 @@ Secret resolution produces a detached server configuration. The public catalog a
 
 For custom token request fields use `auth.oauth.token_params`, for example `{"audience": "{{MY_AUDIENCE}}"}`. This is separate from `params`, which goes to the browser authorization URL. Use only values intended for the authorization provider/browser in authorization URLs, client IDs and `params`. Client secrets belong in `client_secret` or server token parameters.
 
-Add `https://ok-houston.com/oauth/connectors/<id>/callback` to the provider’s allowed redirects. Official examples and community connectors use the same registration and secret-management flow.
+For OAuth, the Hub card shows the registration ID and a copyable callback URL: `https://ok-houston.com/oauth/connectors/<registration-id>/callback`. Copy that exact URL into your provider app’s allowed redirects. The callback is generated by Houston; do not add it or the registration ID to `houston.json`. Each registration uses its own saved app credentials. Official examples and community connectors use the same registration and secret-management flow.
 
 ## Tests and contributions
 
