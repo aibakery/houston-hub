@@ -3,12 +3,12 @@
   "schema_version": 1,
   "id": "fastmail",
   "name": "Fastmail",
-  "description": "Read mail and attachments. Optionally send messages and move mail to trash.",
-  "setup": "In Fastmail Settings \u2192 Privacy & Security \u2192 Manage API tokens, create a JMAP token with Email access. Choose Read-only access for reading, or enable Email submission for sending with read-write access. API tokens require a plan above Basic. Your token stays on this server.",
+  "description": "Read mail and attachments with a JMAP API token. Optionally send messages and move mail to trash.",
+  "setup": "In Fastmail Settings \u2192 Privacy & Security \u2192 Manage API tokens, select the JMAP protocol and enable Email access. MCP and Dynamic DNS tokens are not supported. Choose Read-only access for reading, or Read-write access to send or trash mail; sending also requires Email submission. API tokens require a plan above Basic. Your token stays on this server.",
   "auth": {
     "type": "secret",
-    "secret_label": "API token",
-    "secret_placeholder": ""
+    "secret_label": "JMAP API token",
+    "secret_placeholder": "Paste your Fastmail JMAP API token"
   },
   "access": [
     {
