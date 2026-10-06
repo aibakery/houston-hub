@@ -1,76 +1,117 @@
 {
-  "schema_version": 1,
-  "id": "gcalendar",
-  "name": "Google Calendar",
-  "description": "Read-only or read-write access to Google Calendar.",
-  "setup": "Houston will ask Google for permission, then keep the token on this server. Your events stay in Google.",
   "auth": {
-    "type": "oauth2",
     "oauth": {
-      "authorize_url": "https://accounts.google.com/o/oauth2/v2/auth",
-      "token_url": "https://oauth2.googleapis.com/token",
-      "token_path": "access_token",
-      "refresh_token_path": "refresh_token",
-      "expires_in_path": "expires_in",
-      "scopes_path": "scope",
-      "params": {
-        "access_type": "offline",
-        "prompt": "consent",
-        "include_granted_scopes": "false"
+      "account": {
+        "headers": {
+          "Authorization": {
+            "value": "Bearer {{auth.oauth.access_token}}"
+          }
+        },
+        "label": "/email",
+        "method": "GET",
+        "url": "https://www.googleapis.com/oauth2/v2/userinfo"
       },
+      "authorize_params": {
+        "access_type": "offline",
+        "include_granted_scopes": "false",
+        "prompt": "consent"
+      },
+      "authorize_url": "https://accounts.google.com/o/oauth2/v2/auth",
+      "client_auth": "body",
+      "client_id": "{{publisher.client_id}}",
+      "client_secret": "{{publisher.client_secret}}",
+      "label": "Connect account",
+      "pkce": "S256",
       "require_refresh": true,
-      "profile_url": "https://www.googleapis.com/oauth2/v2/userinfo",
-      "account_path": "email",
-      "write_scopes": [
-        "https://www.googleapis.com/auth/calendar",
-        "https://www.googleapis.com/auth/calendar.events"
+      "scopes": [
+        {
+          "if": "{{ is config.access \"read-only\" }}",
+          "values": [
+            "openid",
+            "email",
+            "https://www.googleapis.com/auth/calendar.readonly"
+          ]
+        },
+        {
+          "if": "{{ is config.access \"read-write\" }}",
+          "values": [
+            "openid",
+            "email",
+            "https://www.googleapis.com/auth/calendar"
+          ]
+        }
       ],
-      "client_id": "{{CLIENT_ID}}",
-      "client_secret": "{{CLIENT_SECRET}}"
+      "token_url": "https://oauth2.googleapis.com/token",
+      "type": "oauth2"
     }
   },
-  "access": [
+  "config": {
+    "access": {
+      "default": "read-only",
+      "label": "Access",
+      "options": [
+        {
+          "label": "Read-only",
+          "value": "read-only"
+        },
+        {
+          "label": "Read and write",
+          "value": "read-write"
+        }
+      ],
+      "order": 1,
+      "type": "string"
+    }
+  },
+  "description": "Read-only or read-write access to Google Calendar.",
+  "files": [
+    "connector.lua"
+  ],
+  "icon": "icon.svg",
+  "name": "Google Calendar",
+  "proxy": [
     {
-      "id": "read-only",
-      "label": "Read-only",
-      "scopes": [
-        "openid",
-        "email",
-        "https://www.googleapis.com/auth/calendar.readonly"
-      ]
-    },
-    {
-      "id": "read-write",
-      "label": "Read-write",
-      "scopes": [
-        "openid",
-        "email",
-        "https://www.googleapis.com/auth/calendar"
-      ]
+      "origins": {
+        "https://www.googleapis.com": {
+          "allowlist": [
+            {
+              "methods": [
+                "GET",
+                "HEAD",
+                "POST",
+                "PUT",
+                "PATCH",
+                "DELETE"
+              ],
+              "paths": [
+                "/calendar/*"
+              ]
+            }
+          ],
+          "headers": {
+            "Authorization": {
+              "value": "Bearer {{auth.oauth.access_token}}"
+            }
+          }
+        }
+      },
+      "protocol": "http"
     }
   ],
-  "proxy": {
-    "protocol": "http",
-    "routes": [
-      {
-        "hosts": [
-          "www.googleapis.com"
-        ],
-        "paths": [
-          "/calendar/*"
-        ],
-        "methods": [
-          "GET",
-          "HEAD",
-          "POST",
-          "PUT",
-          "PATCH",
-          "DELETE"
-        ],
-        "access": "method",
-        "auth": true
-      }
-    ]
+  "publisher": {
+    "client_id": {
+      "label": "OAuth client ID",
+      "order": 1,
+      "required": true,
+      "type": "string"
+    },
+    "client_secret": {
+      "label": "OAuth client secret",
+      "order": 2,
+      "required": true,
+      "type": "secret"
+    }
   },
-  "icon": "icon.svg"
+  "schema_version": 1,
+  "setup": "Houston will ask Google for permission, then keep the token on this server. Your events stay in Google."
 }

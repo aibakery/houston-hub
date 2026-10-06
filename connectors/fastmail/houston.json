@@ -1,89 +1,123 @@
 {
-  "verification_key": "bb713b2b43b9d518171d0ad2908658f8a0013a496b155bca12d6c8ddadb2b8e5",
-  "schema_version": 1,
-  "id": "fastmail",
-  "name": "Fastmail",
-  "description": "Read mail and attachments with a JMAP API token. Optionally send messages and move mail to trash.",
-  "setup": "In Fastmail Settings \u2192 Privacy & Security \u2192 Manage API tokens, select the JMAP protocol and enable Email access. MCP and Dynamic DNS tokens are not supported. Choose Read-only access for reading, or Read-write access to send or trash mail; sending also requires Email submission. API tokens require a plan above Basic. Your token stays on this server.",
   "auth": {
-    "type": "secret",
-    "secret_label": "JMAP API token",
-    "secret_placeholder": "Paste your Fastmail JMAP API token"
+    "token": {
+      "config": {
+        "token": {
+          "label": "JMAP API token",
+          "required": true,
+          "type": "secret"
+        }
+      },
+      "label": "JMAP API token",
+      "type": "manual"
+    }
   },
-  "access": [
+  "config": {
+    "access": {
+      "default": "read-only",
+      "label": "Access",
+      "options": [
+        {
+          "label": "Read-only",
+          "value": "read-only"
+        },
+        {
+          "label": "Read and write",
+          "value": "read-write"
+        }
+      ],
+      "order": 1,
+      "type": "string"
+    }
+  },
+  "description": "Read mail and attachments with a JMAP API token. Optionally send messages and move mail to trash.",
+  "files": [
+    "connector.lua"
+  ],
+  "icon": "icon.svg",
+  "implements": [
+    "mail.folders@1"
+  ],
+  "name": "Fastmail",
+  "proxy": [
     {
-      "id": "read-only",
-      "label": "Read-only"
-    },
-    {
-      "id": "read-write",
-      "label": "Read-write"
+      "origins": {
+        "https://api.fastmail.com": {
+          "allowlist": [
+            {
+              "methods": [
+                "GET"
+              ],
+              "paths": [
+                "/jmap/session",
+                "/jmap/download/*"
+              ]
+            },
+            {
+              "methods": [
+                "POST"
+              ],
+              "paths": [
+                "/jmap/api",
+                "/jmap/api/"
+              ]
+            }
+          ],
+          "headers": {
+            "Authorization": {
+              "value": "Bearer {{auth.token.token}}"
+            }
+          }
+        },
+        "https://jmap.fastmail.com": {
+          "allowlist": [
+            {
+              "methods": [
+                "GET"
+              ],
+              "paths": [
+                "/jmap/session",
+                "/jmap/download/*"
+              ]
+            },
+            {
+              "methods": [
+                "POST"
+              ],
+              "paths": [
+                "/jmap/api",
+                "/jmap/api/"
+              ]
+            }
+          ],
+          "headers": {
+            "Authorization": {
+              "value": "Bearer {{auth.token.token}}"
+            }
+          }
+        },
+        "https://www.fastmailusercontent.com": {
+          "allowlist": [
+            {
+              "methods": [
+                "GET"
+              ],
+              "paths": [
+                "/jmap/download/*"
+              ]
+            }
+          ],
+          "headers": {
+            "Authorization": {
+              "value": "Bearer {{auth.token.token}}"
+            }
+          }
+        }
+      },
+      "protocol": "http"
     }
   ],
-  "proxy": {
-    "protocol": "http",
-    "routes": [
-      {
-        "hosts": [
-          "api.fastmail.com",
-          "*.api.fastmail.com",
-          "jmap.fastmail.com"
-        ],
-        "paths": [
-          "/jmap/session",
-          "/jmap/download/*"
-        ],
-        "methods": [
-          "GET"
-        ],
-        "access": "read",
-        "auth": true
-      },
-      {
-        "hosts": [
-          "www.fastmailusercontent.com"
-        ],
-        "paths": [
-          "/jmap/download/*"
-        ],
-        "methods": [
-          "GET"
-        ],
-        "access": "read",
-        "auth": true
-      },
-      {
-        "hosts": [
-          "api.fastmail.com",
-          "*.api.fastmail.com",
-          "jmap.fastmail.com"
-        ],
-        "paths": [
-          "/jmap/api",
-          "/jmap/api/"
-        ],
-        "methods": [
-          "POST"
-        ],
-        "access": "batch",
-        "auth": true,
-        "batch": {
-          "format": "json-method-calls",
-          "read_methods": [
-            "Mailbox/get",
-            "Mailbox/query",
-            "Email/get",
-            "Email/query",
-            "Thread/get",
-            "Identity/get"
-          ],
-          "write_methods": [
-            "Email/set",
-            "EmailSubmission/set"
-          ]
-        }
-      }
-    ]
-  },
-  "icon": "icon.svg"
+  "schema_version": 1,
+  "setup": "In Fastmail Settings → Privacy \u0026 Security → Manage API tokens, select the JMAP protocol and enable Email access. MCP and Dynamic DNS tokens are not supported. Choose Read-only access for reading, or Read-write access to send or trash mail; sending also requires Email submission. API tokens require a plan above Basic. Your token stays on this server.",
+  "verification_key": "bb713b2b43b9d518171d0ad2908658f8a0013a496b155bca12d6c8ddadb2b8e5"
 }

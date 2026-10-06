@@ -1,0 +1,66 @@
+[
+  {
+    "reference": "mail.folders@1",
+    "description": "List the named mail folders or labels in one mailbox.",
+    "operations": {
+      "listMailFolders": {
+        "access": "read",
+        "arguments": [],
+        "result": {
+          "kind": "array",
+          "element": {
+            "kind": "object",
+            "fields": {
+              "id": {
+                "kind": "string",
+                "nonempty": true
+              },
+              "name": {
+                "kind": "string"
+              }
+            }
+          }
+        },
+        "help": "listMailFolders(): {id: string, name: string}[]"
+      }
+    },
+    "semantics": "No arguments or defaults. Returns every available mail folder/label, sorted by ID in ascending byte order. IDs are opaque, unique and scoped to this connection; names are display text and need not be unique. No pagination. Provider failures raise an error and never return an empty success. Gmail labels and Fastmail mailboxes are both organizational containers; membership semantics are outside this capability."
+  },
+  {
+    "reference": "files.metadata@1",
+    "description": "Read metadata for one file or folder in file storage.",
+    "operations": {
+      "statFile": {
+        "access": "read",
+        "arguments": [
+          {
+            "kind": "string",
+            "nonempty": true
+          }
+        ],
+        "result": {
+          "kind": "object",
+          "fields": {
+            "id": {
+              "kind": "string",
+              "nonempty": true
+            },
+            "isFolder": {
+              "kind": "boolean"
+            },
+            "name": {
+              "kind": "string"
+            },
+            "size": {
+              "kind": "integer",
+              "optional": true,
+              "minimum": 0
+            }
+          }
+        },
+        "help": "statFile(id: string): {id: string, name: string, isFolder: boolean, size?: integer}"
+      }
+    },
+    "semantics": "One nonempty opaque provider ID scoped to this connection; no defaults. Returns one file or folder, with size in bytes only when known for a non-folder. Cloud-native documents may omit size. Names are display text, not paths. No pagination or ordering. Missing or inaccessible IDs and provider failures raise errors. Extra provider fields are excluded from the normalized result."
+  }
+]

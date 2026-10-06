@@ -1,26 +1,75 @@
 {
-  "schema_version": 1,
-  "id": "postgres",
-  "name": "Postgres",
-  "description": "SQL access to a Postgres database.",
-  "setup": "The database URL stays on this server. Queries are read-only. Enable read-write to also allow explicit write operations. Use a database role limited to the data and operations you want to share.",
-  "auth": {
-    "type": "secret",
-    "secret_label": "Database URL",
-    "secret_placeholder": "postgres://user:pass@host:5432/db"
-  },
-  "access": [
-    {
-      "id": "read-only",
-      "label": "Read-only"
+  "config": {
+    "access": {
+      "default": "read-only",
+      "label": "Access",
+      "options": [
+        {
+          "label": "Read-only",
+          "value": "read-only"
+        },
+        {
+          "label": "Read and write",
+          "value": "read-write"
+        }
+      ],
+      "order": 1,
+      "type": "string"
     },
+    "database": {
+      "label": "Database",
+      "order": 3,
+      "required": true,
+      "type": "string"
+    },
+    "host": {
+      "label": "Host",
+      "order": 2,
+      "required": true,
+      "type": "string"
+    },
+    "password": {
+      "label": "Password",
+      "order": 5,
+      "required": true,
+      "type": "secret"
+    },
+    "port": {
+      "default": 5432,
+      "label": "Port",
+      "maximum": 65535,
+      "minimum": 1,
+      "order": 3,
+      "type": "integer"
+    },
+    "username": {
+      "label": "Username",
+      "order": 4,
+      "required": true,
+      "type": "string"
+    }
+  },
+  "description": "SQL access to a Postgres database.",
+  "files": [
+    "connector.lua"
+  ],
+  "icon": "icon.svg",
+  "name": "Postgres",
+  "proxy": [
     {
-      "id": "read-write",
-      "label": "Read-write"
+      "connection": {
+        "database": "{{config.database}}",
+        "host": "{{config.host}}",
+        "password": "{{config.password}}",
+        "port": "{{config.port}}",
+        "tls": {
+          "mode": "verify-full"
+        },
+        "user": "{{config.username}}"
+      },
+      "protocol": "postgres"
     }
   ],
-  "proxy": {
-    "protocol": "postgres"
-  },
-  "icon": "icon.svg"
+  "schema_version": 1,
+  "setup": "Enter the database host, database name, username and password separately. TLS verifies the server certificate and hostname. Use a database role limited to the operations you want to share. Query uses the database read-only transaction support; execute is available when Access is Read and write."
 }

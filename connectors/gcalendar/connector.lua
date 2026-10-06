@@ -1,16 +1,17 @@
+local connector_http = require("lib/http.lua")
 -- Google Calendar connector: read calendars and events through Houston's HTTP proxy.
--- Host primitives used: http.send (with this instance's connector id) and json.
+-- Host primitives used: private http.request and json.
 
 local BASE = "https://www.googleapis.com/calendar/v3"
 
-local function encode(s)
+local function encode(s: any)
 	s = tostring(s)
-	return (string.gsub(s, "[^A-Za-z0-9%-_%.~]", function(c)
+	return (string.gsub(s, "[^A-Za-z0-9%-_%.~]", function(c: any)
 		return string.format("%%%02X", string.byte(c))
 	end))
 end
 
-local function scalar(value)
+local function scalar(value: any)
 	if type(value) == "boolean" then
 		if value then
 			return "true"
@@ -20,7 +21,7 @@ local function scalar(value)
 	return tostring(value)
 end
 
-local function add_query(parts, key, value)
+local function add_query(parts: any,key: any,value: any)
 	if value == nil then
 		return
 	end
@@ -33,7 +34,7 @@ local function add_query(parts, key, value)
 	parts[#parts + 1] = encode(key) .. "=" .. encode(scalar(value))
 end
 
-local function query_string(params)
+local function query_string(params: any)
 	if type(params) ~= "table" then
 		return ""
 	end
@@ -51,10 +52,7 @@ local function query_string(params)
 	return s
 end
 
-local function request(ctx, method, path, params, operation, cursor, body)
-	if type(ctx) ~= "table" or type(ctx.id) ~= "string" or ctx.id == "" then
-		error("gcalendar connector id is required")
-	end
+local function request(method: any,path: any,params: any,operation: any,cursor: any,body: any)
 	local url = BASE .. path
 	local qs = query_string(params)
 	if qs ~= "" then
@@ -76,12 +74,12 @@ local function request(ctx, method, path, params, operation, cursor, body)
 		url = url,
 		headers = headers,
 		body = payload,
-		connector_id = ctx.id,
+
 		affected_cursor = cursor,
 	})
 end
 
-local function list_calendar_params(opts)
+local function list_calendar_params(opts: any)
 	opts = opts or {}
 	return {
 		maxResults = opts.maxResults,
@@ -92,7 +90,7 @@ local function list_calendar_params(opts)
 	}
 end
 
-local function list_event_params(opts)
+local function list_event_params(opts: any)
 	opts = opts or {}
 	return {
 		timeMin = opts.timeMin,
@@ -106,7 +104,7 @@ local function list_event_params(opts)
 	}
 end
 
-local function get_event_params(opts)
+local function get_event_params(opts: any)
 	opts = opts or {}
 	return {
 		timeZone = opts.timeZone,
@@ -115,11 +113,11 @@ end
 
 local functions = {}
 
-function functions.listCalendars(ctx, opts)
-	return request(ctx, "GET", "/users/me/calendarList", list_calendar_params(opts), "listCalendars")
+function functions.listCalendars(opts: any)
+	return request("GET", "/users/me/calendarList", list_calendar_params(opts), "listCalendars")
 end
 
-function functions.listEvents(ctx, calendarId, opts)
+function functions.listEvents(calendarId: any,opts: any)
 	if type(calendarId) == "table" then
 		opts = calendarId
 		calendarId = calendarId.calendarId
@@ -127,10 +125,10 @@ function functions.listEvents(ctx, calendarId, opts)
 	if type(calendarId) ~= "string" or calendarId == "" then
 		error("gcalendar.listEvents requires a calendar id")
 	end
-	return request(ctx, "GET", "/calendars/" .. encode(calendarId) .. "/events", list_event_params(opts), "listEvents")
+	return request("GET", "/calendars/" .. encode(calendarId) .. "/events", list_event_params(opts), "listEvents")
 end
 
-function functions.getEvent(ctx, calendarId, eventId, opts)
+function functions.getEvent(calendarId: any,eventId: any,opts: any)
 	if type(calendarId) == "table" then
 		opts = calendarId
 		eventId = calendarId.eventId
@@ -143,7 +141,6 @@ function functions.getEvent(ctx, calendarId, eventId, opts)
 		error("gcalendar.getEvent requires an event id")
 	end
 	return request(
-		ctx,
 		"GET",
 		"/calendars/" .. encode(calendarId) .. "/events/" .. encode(eventId),
 		get_event_params(opts),
@@ -154,7 +151,7 @@ end
 
 local writes = {}
 
-function writes.insertEvent(ctx, calendarId, event)
+function writes.insertEvent(calendarId: any,event: any)
 	if type(calendarId) == "table" then
 		event = calendarId.event or calendarId
 		calendarId = calendarId.calendarId
@@ -165,10 +162,10 @@ function writes.insertEvent(ctx, calendarId, event)
 	if type(event) ~= "table" then
 		error("gcalendar.insertEvent requires an event body")
 	end
-	return request(ctx, "POST", "/calendars/" .. encode(calendarId) .. "/events", nil, "insertEvent", nil, event)
+	return request("POST", "/calendars/" .. encode(calendarId) .. "/events", nil, "insertEvent", nil, event)
 end
 
-function writes.deleteEvent(ctx, calendarId, eventId)
+function writes.deleteEvent(calendarId: any,eventId: any)
 	if type(calendarId) == "table" then
 		eventId = calendarId.eventId
 		calendarId = calendarId.calendarId
@@ -180,7 +177,6 @@ function writes.deleteEvent(ctx, calendarId, eventId)
 		error("gcalendar.deleteEvent requires an event id")
 	end
 	return request(
-		ctx,
 		"DELETE",
 		"/calendars/" .. encode(calendarId) .. "/events/" .. encode(eventId),
 		nil,
@@ -189,86 +185,8 @@ function writes.deleteEvent(ctx, calendarId, eventId)
 	)
 end
 
-return {
-	name = "gcalendar",
-	description = "Read a connected Google Calendar account.",
-	signatures = {
-		listCalendars = "listCalendars(opts?)",
-		listEvents = "listEvents(calendarId, opts?)",
-		getEvent = "getEvent(calendarId, eventId, opts?)",
-		insertEvent = "insertEvent(calendarId, event)",
-		deleteEvent = "deleteEvent(calendarId, eventId)",
-	},
-	help = [[
-# Google Calendar
+if config.access == "read-write" then
+    for name, fn in (writes :: {[string]: any}) do (functions :: {[string]: any})[name] = fn end
+end
 
-Read calendars and events for one connected Google Calendar account.
-Credentials stay on the Houston server; these functions only see JSON from
-Calendar.
-
-Several Calendar accounts are several instances of this connector, each
-with its own `id`. Use the instance returned by `houston.connectors()` — do
-not call Calendar URLs yourself.
-
-## listCalendars(opts?)
-
-Calendar `calendarList.list`. Optional fields on `opts`:
-
-- `maxResults` (number)
-- `pageToken` (string)
-- `minAccessRole` (string)
-- `showDeleted` (boolean)
-- `showHidden` (boolean)
-
-Returns `items` (`{ id, summary, ... }[]`) and `nextPageToken`.
-
-## listEvents(calendarId, opts?)
-
-Calendar `events.list`. `calendarId` may be a string (e.g. `"primary"`)
-or a table with `calendarId`. Optional fields on `opts`:
-
-- `timeMin` / `timeMax` (RFC3339 strings)
-- `maxResults` (number)
-- `pageToken` (string)
-- `q` (string)
-- `singleEvents` (boolean)
-- `orderBy` (string)
-- `timeZone` (string)
-
-Returns `items` (`{ id, summary, start, end, ... }[]`) and
-`nextPageToken`. `listEvents` already has `id`, `summary`, `start`,
-and `end`. Do not `getEvent` every row unless you need extra fields
-(attendees, description, conference data). Loop pagination in one
-`run`.
-
-## getEvent(calendarId, eventId, opts?)
-
-Calendar `events.get`. `calendarId` and `eventId` may be strings, or a
-table with those fields. Optional `timeZone` on `opts`.
-
-Returns the Event resource. Use only when `listEvents` is missing a
-field you need.
-
-Write functions are bound only when this instance is read-write.
-
-## insertEvent(calendarId, event)
-
-Calendar `events.insert`. `calendarId` may be a string (e.g. `"primary"`)
-or a table with `calendarId` and `event`. `event` is the Event resource.
-
-## deleteEvent(calendarId, eventId)
-
-Calendar `events.delete`. `calendarId` and `eventId` may be strings, or a
-table with those fields.
-
-## Example
-
-	return {
-		run = function()
-			return c.listEvents("primary", { maxResults = 10 })
-		end,
-	}
-]],
-	functions = functions,
-	writes = writes,
-}
+return functions

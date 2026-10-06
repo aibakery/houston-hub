@@ -1,0 +1,198 @@
+{
+  "schema_version": 1,
+  "name": "Example Files",
+  "description": "Read files and optionally upload or change them.",
+  "setup": "Choose an API key or authorize your Example Files account.",
+  "files": [
+    "connector.luau"
+  ],
+  "implements": [
+    "files.read@1",
+    "files.write@1"
+  ],
+  "config": {
+    "access": {
+      "type": "string",
+      "label": "Access",
+      "default": "read-only",
+      "options": [
+        {
+          "value": "read-only",
+          "label": "Read only"
+        },
+        {
+          "value": "read-write",
+          "label": "Read and write"
+        }
+      ],
+      "order": 1
+    },
+    "page_size": {
+      "type": "integer",
+      "label": "Page size",
+      "default": 50,
+      "minimum": 1,
+      "maximum": 100,
+      "order": 3
+    }
+  },
+  "publisher": {
+    "region": {
+      "type": "string",
+      "label": "Service region",
+      "default": "us",
+      "options": [
+        {
+          "value": "us",
+          "label": "United States"
+        },
+        {
+          "value": "eu",
+          "label": "Europe"
+        }
+      ],
+      "order": 0
+    },
+    "client_id": {
+      "type": "string",
+      "label": "OAuth client ID",
+      "required": true,
+      "order": 1
+    },
+    "client_secret": {
+      "type": "secret",
+      "label": "OAuth client secret",
+      "required": true,
+      "order": 2
+    }
+  },
+  "auth": {
+    "api_key": {
+      "type": "manual",
+      "label": "API key",
+      "order": 1,
+      "config": {
+        "token": {
+          "type": "secret",
+          "label": "API key",
+          "placeholder": "Paste your API key",
+          "required": true,
+          "order": 2
+        }
+      }
+    },
+    "oauth": {
+      "type": "oauth2",
+      "label": "Sign in with Example",
+      "order": 2,
+      "client_id": "{{publisher.client_id}}",
+      "client_secret": "{{publisher.client_secret}}",
+      "authorize_url": "https://accounts.files.example.com/oauth/authorize",
+      "token_url": "https://accounts.files.example.com/oauth/token",
+      "client_auth": "basic",
+      "pkce": "S256",
+      "scopes": [
+        {
+          "values": [
+            "files.read"
+          ]
+        },
+        {
+          "if": "{{ is config.access \"read-write\" }}",
+          "values": [
+            "files.write"
+          ]
+        }
+      ],
+      "require_refresh": true
+    }
+  },
+  "proxy": [
+    {
+      "if": "{{ is publisher.region \"us\" }}",
+      "protocol": "http",
+      "origins": {
+        "https://api.files.example.com": {
+          "headers": {
+            "Accept": {
+              "value": "application/json"
+            },
+            "X-API-Key": {
+              "if": "{{ isDefined auth.api_key.token }}",
+              "value": "{{auth.api_key.token}}"
+            },
+            "Authorization": {
+              "if": "{{ isDefined auth.oauth.access_token }}",
+              "value": "Bearer {{auth.oauth.access_token}}"
+            },
+            "X-Service-Region": {
+              "value": "us"
+            }
+          }
+        },
+        "https://downloads.us.files.example.com": {
+          "headers": {
+            "X-Download-Token": {
+              "value": "{{auth.api_key.token || auth.oauth.access_token}}"
+            }
+          }
+        },
+        "https://uploads.us.files.example.com": {
+          "allowlist": [
+            {
+              "methods": [
+                "PUT"
+              ],
+              "paths": [
+                "/signed/*"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "if": "{{ is publisher.region \"eu\" }}",
+      "protocol": "http",
+      "origins": {
+        "https://api.files.example.com": {
+          "headers": {
+            "Accept": {
+              "value": "application/json"
+            },
+            "X-API-Key": {
+              "if": "{{ isDefined auth.api_key.token }}",
+              "value": "{{auth.api_key.token}}"
+            },
+            "Authorization": {
+              "if": "{{ isDefined auth.oauth.access_token }}",
+              "value": "Bearer {{auth.oauth.access_token}}"
+            },
+            "X-Service-Region": {
+              "value": "eu"
+            }
+          }
+        },
+        "https://downloads.eu.files.example.com": {
+          "headers": {
+            "X-Download-Token": {
+              "value": "{{auth.api_key.token || auth.oauth.access_token}}"
+            }
+          }
+        },
+        "https://uploads.eu.files.example.com": {
+          "allowlist": [
+            {
+              "methods": [
+                "PUT"
+              ],
+              "paths": [
+                "/signed/*"
+              ]
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

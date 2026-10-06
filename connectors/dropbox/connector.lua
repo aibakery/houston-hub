@@ -1,14 +1,12 @@
+local connector_http = require("lib/http.lua")
 -- Dropbox connector: read a connected account through Houston's HTTP proxy.
 -- Public functions are the storage/drive contract; vendor RPC paths stay here.
--- Host primitives used: http.send (with this instance's connector id) and json.
+-- Host primitives used: private http.request and json.
 
 local BASE = "https://api.dropboxapi.com/2"
 local CONTENT = "https://content.dropboxapi.com/2"
 
-local function request(ctx, path, payload, operation)
-	if type(ctx) ~= "table" or type(ctx.id) ~= "string" or ctx.id == "" then
-		error("dropbox connector id is required")
-	end
+local function request(path: any,payload: any,operation: any)
 	local body = "null"
 	if payload ~= nil then
 		body = json.encode(payload)
@@ -25,15 +23,12 @@ local function request(ctx, path, payload, operation)
 		url = BASE .. path,
 		headers = { ["Content-Type"] = "application/json" },
 		body = body,
-		connector_id = ctx.id,
+
 		affected_cursor = cursor,
 	})
 end
 
-local function request_file(ctx, arg_path, dest, operation)
-	if type(ctx) ~= "table" or type(ctx.id) ~= "string" or ctx.id == "" then
-		error("dropbox connector id is required")
-	end
+local function request_file(arg_path: any,dest: any,operation: any)
 	return connector_http.send({
 		connector = "dropbox",
 		operation = operation,
@@ -45,12 +40,12 @@ local function request_file(ctx, arg_path, dest, operation)
 			["Dropbox-API-Arg"] = json.encode({ path = arg_path }),
 		},
 		dest = dest,
-		connector_id = ctx.id,
+
 		affected_cursor = arg_path,
 	})
 end
 
-local function as_path(value)
+local function as_path(value: any)
 	if value == nil then
 		return ""
 	end
@@ -67,20 +62,20 @@ local function as_path(value)
 	return "/" .. s
 end
 
-local function stamp(value)
+local function stamp(value: any)
 	local s = tostring(value)
 	local y, m, d = string.match(s, "^(%d%d%d%d)%D(%d%d)%D(%d%d)")
-	if not y then
+	if not y or not m or not d then
 		return s
 	end
 	local h, min, sec = string.match(s, "T(%d%d):(%d%d):(%d%d)")
-	if not h then
+	if not h or not min or not sec then
 		h, min, sec = "00", "00", "00"
 	end
-	return y .. "-" .. m .. "-" .. d .. "T" .. h .. ":" .. min .. ":" .. sec
+	return y .. "-" .. m .. "-" .. d .. "T" .. (h or "00") .. ":" .. (min or "00") .. ":" .. (sec or "00")
 end
 
-local function unwrap_meta(item)
+local function unwrap_meta(item: any)
 	local cur = item
 	for _ = 1, 4 do
 		if type(cur) ~= "table" or type(cur.metadata) ~= "table" then
@@ -97,7 +92,7 @@ local function unwrap_meta(item)
 end
 
 local FOLDER_MIME = "application/vnd.google-apps.folder"
-local EXT_MIME = {
+local EXT_MIME: {[string]: string} = {
 	txt = "text/plain",
 	md = "text/markdown",
 	pdf = "application/pdf",
@@ -106,7 +101,7 @@ local EXT_MIME = {
 	jpeg = "image/jpeg",
 }
 
-local function file_ext(name)
+local function file_ext(name: any)
 	local ext = string.lower(string.match(tostring(name or ""), "%.([^%.]+)$") or "")
 	if ext == "jpeg" then
 		return "jpg"
@@ -114,7 +109,7 @@ local function file_ext(name)
 	return ext
 end
 
-local function mime_from_name(name)
+local function mime_from_name(name: any)
 	local ext = file_ext(name)
 	if ext == "" then
 		return "application/octet-stream"
@@ -122,7 +117,7 @@ local function mime_from_name(name)
 	return EXT_MIME[ext] or "application/octet-stream"
 end
 
-local function mime_ext(want)
+local function mime_ext(want: any): string?
 	want = string.lower(tostring(want))
 	if want == "folder" or want == FOLDER_MIME then
 		return "folder"
@@ -139,7 +134,7 @@ local function mime_ext(want)
 	return sub
 end
 
-local function decorate_file(entry)
+local function decorate_file(entry: any)
 	entry = unwrap_meta(entry)
 	if type(entry) ~= "table" then
 		return entry
@@ -161,7 +156,7 @@ local function decorate_file(entry)
 	return entry
 end
 
-local function mime_ok(entry, mime)
+local function mime_ok(entry: any,mime: any)
 	if mime == nil or tostring(mime) == "" then
 		return true
 	end
@@ -176,7 +171,7 @@ local function mime_ok(entry, mime)
 	return mime_ext(want) == file_ext(entry.name)
 end
 
-local function in_window(entry, after, before)
+local function in_window(entry: any,after: any,before: any)
 	local t = entry.modified or entry.server_modified or entry.client_modified
 	if t == nil then
 		return true
@@ -191,7 +186,7 @@ local function in_window(entry, after, before)
 	return true
 end
 
-local function filter_rows(rows, opts)
+local function filter_rows(rows: any,opts: any)
 	opts = opts or {}
 	local out = {}
 	for _, row in rows do
@@ -202,7 +197,7 @@ local function filter_rows(rows, opts)
 	return out
 end
 
-local function collect_rows(raw)
+local function collect_rows(raw: any)
 	local rows = {}
 	if type(raw) ~= "table" then
 		return rows
@@ -217,7 +212,7 @@ local function collect_rows(raw)
 	return rows
 end
 
-local function decorate_list(raw, opts)
+local function decorate_list(raw: any,opts: any)
 	if type(raw) ~= "table" then
 		return raw
 	end
@@ -228,7 +223,7 @@ local function decorate_list(raw, opts)
 	return raw
 end
 
-local function search_query(opts)
+local function search_query(opts: any): (string?, boolean)
 	local text, name = nil, nil
 	if opts.text ~= nil and tostring(opts.text) ~= "" then
 		text = tostring(opts.text)
@@ -248,26 +243,26 @@ local function search_query(opts)
 	return nil, false
 end
 
-local function page_limit(opts)
+local function page_limit(opts: any)
 	return opts.pageSize or opts.maxResults
 end
 
 local functions = {}
 
-function functions.getCurrentAccount(ctx)
-	return request(ctx, "/users/get_current_account", nil, "getCurrentAccount")
+function functions.getCurrentAccount()
+	return request("/users/get_current_account", nil, "getCurrentAccount")
 end
 
-function functions.listFiles(ctx, opts)
+function functions.listFiles(opts: any)
 	opts = opts or {}
 	local token = opts.pageToken or opts.cursor
 	local query, filename_only = search_query(opts)
 	local raw
 	if type(token) == "string" and token ~= "" then
 		if query then
-			raw = request(ctx, "/files/search/continue_v2", { cursor = token }, "listFiles")
+			raw = request("/files/search/continue_v2", { cursor = token }, "listFiles")
 		else
-			raw = request(ctx, "/files/list_folder/continue", { cursor = token }, "listFiles")
+			raw = request("/files/list_folder/continue", { cursor = token }, "listFiles")
 		end
 	elseif query then
 		local options = {
@@ -278,7 +273,7 @@ function functions.listFiles(ctx, opts)
 		if limit ~= nil then
 			options.max_results = limit
 		end
-		raw = request(ctx, "/files/search_v2", { query = query, options = options }, "listFiles")
+		raw = request("/files/search_v2", { query = query, options = options }, "listFiles")
 	else
 		local payload = { path = as_path(opts.folder) }
 		local limit = page_limit(opts)
@@ -288,12 +283,12 @@ function functions.listFiles(ctx, opts)
 		if opts.recursive ~= nil then
 			payload.recursive = opts.recursive
 		end
-		raw = request(ctx, "/files/list_folder", payload, "listFiles")
+		raw = request("/files/list_folder", payload, "listFiles")
 	end
 	return decorate_list(raw, opts)
 end
 
-function functions.getFile(ctx, id, opts)
+function functions.getFile(id: any,opts: any)
 	if type(id) == "table" then
 		opts = id
 		id = id.id or id.path
@@ -309,10 +304,10 @@ function functions.getFile(ctx, id, opts)
 	if opts.includeMediaInfo ~= nil then
 		payload.include_media_info = opts.includeMediaInfo
 	end
-	return decorate_file(request(ctx, "/files/get_metadata", payload, "getFile"))
+	return decorate_file(request("/files/get_metadata", payload, "getFile"))
 end
 
-function functions.downloadFile(ctx, id, path, opts)
+function functions.downloadFile(id: any,path: any,opts: any)
 	if type(id) == "table" then
 		opts = id
 		path = id.path
@@ -325,7 +320,7 @@ function functions.downloadFile(ctx, id, path, opts)
 	if type(path) ~= "string" or path == "" then
 		error("dropbox.downloadFile requires a session path")
 	end
-	local saved = request_file(ctx, as_path(id), path, "downloadFile")
+	local saved = request_file(as_path(id), path, "downloadFile")
 	local signed = nil
 	if type(fs) == "table" and type(fs.signedGetUrl) == "function" then
 		signed = fs.signedGetUrl(path)
@@ -337,70 +332,20 @@ function functions.downloadFile(ctx, id, path, opts)
 	}
 end
 
-return {
-	name = "dropbox",
-	description = "Read a connected Dropbox account.",
-	signatures = {
-		getCurrentAccount = "getCurrentAccount()",
-		listFiles = "listFiles(opts?)",
-		getFile = "getFile(id, opts?)",
-		downloadFile = "downloadFile(id, path, opts?)",
-	},
-	help = [[
-# Dropbox
+function functions.statFile(id: string): {id: string, name: string, isFolder: boolean, size: number?}
+    if type(id) ~= "string" or id == "" then error("statFile requires a nonempty file ID") end
+    local file = functions.getFile(id)
+    if type(file) ~= "table" or type(file.id) ~= "string" or file.id == "" or type(file.name) ~= "string" then
+        error("storage provider returned invalid file metadata")
+    end
+    local folder = file.folder == true or file.mimeType == "application/vnd.google-apps.folder"
+    local result: {id: string, name: string, isFolder: boolean, size: number?} = {id = file.id, name = file.name, isFolder = folder}
+    if not folder and file.size ~= nil then
+        local size = tonumber(file.size)
+        if not size or size < 0 or size % 1 ~= 0 then error("storage provider returned invalid size") end
+        result.size = size
+    end
+    return result
+end
 
-Read files for one connected Dropbox account. Credentials stay on the
-Houston server. This is the storage/drive contract: later file-drive
-providers implement the same functions. Use the instance from
-`houston.connectors()` — do not call provider URLs yourself.
-
-List-connector signatures are enough to call. Return compact rows;
-`truncate` defaults true. Loop pagination in one `run`.
-
-## listFiles(opts?)
-
-Search and list files. Rows already have `id`, `name`, `mime`, `size`,
-`modified`, and `folder` (boolean) — do not `getFile` every row. `mime` is
-best-effort from the name (folders match Drive's folder mime). Optional
-filters on `opts`:
-
-- `folder` (Dropbox path or `id:...`; default the connected root)
-- `name`, `text` (search; `name` is filename-only)
-- `mime`, `after`, `before` (best-effort local filter; YYYY-MM-DD)
-- `pageSize` or `maxResults` (number)
-- `pageToken` (string)
-
-`folder` maps to a list-folder path. `name` / `text` use Dropbox search.
-Do not call `/files/list_folder` yourself.
-
-Returns `files` and `nextPageToken`. Loop pages in the same `run`.
-
-## getFile(id, opts?)
-
-One file. `id` may be a string or a table with `id` (Dropbox path or
-`id:...`). Same shared fields as `listFiles`.
-
-`getFile("id:abc")` and `getFile({ id = "id:abc" })` are the same call.
-This does not download file bytes into Houston.
-
-## downloadFile(id, path, opts?)
-
-Downloads file bytes onto the session path (streams past the proxy buffer)
-and returns `{ path, url, bytes }` where `url` is a Houston signed GET URL.
-Do not return the file bytes from `run`; give the caller the signed URL.
-
-## getCurrentAccount()
-
-Dropbox account profile (`account_id`, `email`, `name`). Extra to this
-provider; not part of the storage/drive contract.
-
-## Example
-
-	return {
-		run = function()
-			return c.listFiles({ folder = "/Reports", pageSize = 10 })
-		end,
-	}
-]],
-	functions = functions,
-}
+return functions

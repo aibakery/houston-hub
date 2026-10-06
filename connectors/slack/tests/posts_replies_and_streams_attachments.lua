@@ -1,22 +1,20 @@
-return function(slack)
+return {scenario={["auth_config"]={},["auth_method"]="oauth",["config"]={["workspace_id"]="T_FIXTURE"},["publisher"]={["client_id"]="fixture-value",["client_secret"]="fixture-private-password !@#"}},config={access="read-write"}, configure=function()
 
         requests = {}
         responses = {}
-        local encode = connector_http.query_string
-        connector_http = {
-            query_string = encode,
-            fail = function(err) error(err.message) end,
-            send = function(req)
-                table.insert(requests, req)
-                assert(#responses > 0, "unexpected request")
-                return table.remove(responses, 1)
-            end,
-        }
+        http = {request = function(req)
+            requests[#requests + 1] = req
+            if req.dest and #responses == 0 then return {status=200, body="", bytes=123} end
+            assert(#responses > 0, "unexpected request: " .. req.url)
+            local response = table.remove(responses, 1)
+            if req.dest then return {status=200,body="",bytes=response.bytes} end
+            return {status=200,body=if type(response)=="string" then response else json.encode(response)}
+        end}
         fs = {
             stat = function(path) assert(path == "report.txt"); return { size = 11, isFile = true } end,
             signedGetUrl = function(path) return "https://houston.test/files/" .. path end,
         }
-    
+
 
         responses={
             {ok=true,ts="1.000001"},
@@ -26,16 +24,16 @@ return function(slack)
             {ok=true,file={url_private_download="https://files.slack.com/files-pri/T1-F1/report.txt"}},
             {bytes=11},
         }
-        local c={id="c"}
+end, run=function(slack)
         local opts={username="someone-else",attachments={{text="attachment"}}}
-        slack.writes.reply(c,"C1","1.000000","Hello",opts)
+        slack.reply("C1","1.000000","Hello",opts)
         assert(opts.username=="someone-else", "do not mutate options")
-        slack.writes.uploadFile(c,"report.txt",{channel="C1",thread_ts="1.000000",text="report"})
+        slack.uploadFile("report.txt",{channel="C1",thread_ts="1.000000",text="report"})
         assert(requests[3].src=="report.txt" and requests[3].body==nil)
-        assert(requests[3].raw and requests[3].method=="POST")
-        local file=slack.functions.downloadFile(c,"F1","copy.txt")
+        assert(requests[3].method=="POST")
+        local file=slack.downloadFile("F1","copy.txt")
         assert(requests[6].dest=="copy.txt")
         assert(file.url=="https://houston.test/files/copy.txt" and file.bytes==11)
         assert(#requests==6)
-    
-end
+
+end}

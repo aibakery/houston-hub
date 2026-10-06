@@ -1,44 +1,18 @@
-// Command validate checks public bundle layout without credentials or dependencies.
-// The Houston hub performs full policy validation and Lua tests before publication.
+// Command validate checks manifests using the same contract as Houston.
 package main
 
 import (
 	"bytes"
-	"encoding/json"
+	"context"
 	"fmt"
+	"github.com/aibakery/houston-hub/analysis"
+	"github.com/aibakery/houston-hub/conformance"
+	"github.com/aibakery/houston-hub/manifest"
 	"image/png"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 )
-
-var slugPattern = regexp.MustCompile(`^[a-z][a-z0-9_-]{0,63}$`)
-
-type manifest struct {
-	SchemaVersion   int               `json:"schema_version"`
-	ID              string            `json:"id"`
-	Name            string            `json:"name"`
-	Description     string            `json:"description"`
-	Setup           string            `json:"setup"`
-	ConfigFields    []json.RawMessage `json:"config_fields"`
-	Module          string            `json:"module"`
-	VerificationKey string            `json:"verification_key"`
-	Icon            string            `json:"icon"`
-	Auth            json.RawMessage   `json:"auth"`
-	Access          []struct {
-		ID string `json:"id"`
-	} `json:"access"`
-	Proxy struct {
-		Protocol string `json:"protocol"`
-	} `json:"proxy"`
-}
-
-type authMethod struct {
-	ID    string                     `json:"id"`
-	Type  string                     `json:"type"`
-	OAuth map[string]json.RawMessage `json:"oauth"`
-}
 
 func main() {
 	root := "."
@@ -54,19 +28,11 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	fmt.Printf("%d connector bundle layouts validated\n", count)
+	fmt.Printf("%d connector bundles validated\n", count)
 }
-
 func validate(root string) (int, error) {
-	if raw, err := os.ReadFile(filepath.Join(root, "houston.json")); err == nil {
-		var m manifest
-		if err := json.Unmarshal(raw, &m); err != nil {
-			return 0, err
-		}
-		if err := validateBundle(root, m.ID); err != nil {
-			return 0, err
-		}
-		return 1, nil
+	if _, err := os.Stat(filepath.Join(root, "houston.json")); err == nil {
+		return 1, validateBundle(root)
 	}
 	entries, err := os.ReadDir(filepath.Join(root, "connectors"))
 	if err != nil {
@@ -77,7 +43,7 @@ func validate(root string) (int, error) {
 		if !entry.IsDir() {
 			continue
 		}
-		if err := validateBundle(filepath.Join(root, "connectors", entry.Name()), entry.Name()); err != nil {
+		if err := validateBundle(filepath.Join(root, "connectors", entry.Name())); err != nil {
 			return count, fmt.Errorf("%s: %w", entry.Name(), err)
 		}
 		count++
@@ -87,54 +53,53 @@ func validate(root string) (int, error) {
 	}
 	return count, nil
 }
-
-func validateBundle(dir, slug string) error {
+func validateBundle(dir string) error {
 	raw, err := bundleFile(dir, "houston.json")
 	if err != nil {
 		return err
 	}
-	var m manifest
-	if err := json.Unmarshal(raw, &m); err != nil {
+	m, err := manifest.Parse(raw)
+	if err != nil {
 		return err
 	}
-	if m.ID != slug || !slugPattern.MatchString(m.ID) {
-		return fmt.Errorf("id must match connector folder and be a slug")
+	modules := map[string]string{}
+	fixtures := map[string]string{}
+	for _, file := range m.Files {
+		if _, err := bundleFile(dir, file); err != nil {
+			return fmt.Errorf("entrypoint: %w", err)
+		}
 	}
-	if m.SchemaVersion != 1 {
-		return fmt.Errorf("schema_version must be 1")
-	}
-	if strings.TrimSpace(m.Name) == "" {
-		return fmt.Errorf("name is required")
-	}
-	if err := validateAuth(m.Auth); err != nil {
-		return err
-	}
-	methods, _ := authMethods(m.Auth)
-	for i, method := range methods {
-		effective, err := resolveMethod(raw, method)
+	if err := filepath.WalkDir(dir, func(path string, entry os.DirEntry, err error) error {
 		if err != nil {
-			return fmt.Errorf("auth method %d: %w", i+1, err)
+			return err
 		}
-		if err := validateEffective(dir, effective); err != nil {
-			return fmt.Errorf("auth method %d: %w", i+1, err)
+		if entry.IsDir() {
+			return nil
 		}
-	}
-	tests, err := os.ReadDir(filepath.Join(dir, "tests"))
-	if err != nil && !os.IsNotExist(err) {
+		rel, err := filepath.Rel(dir, path)
+		if err != nil {
+			return err
+		}
+		if luaFile(rel) {
+			var source []byte
+			source, err = bundleFile(dir, rel)
+			if strings.HasPrefix(filepath.ToSlash(rel), "tests/") {
+				fixtures[filepath.ToSlash(rel)] = string(source)
+			} else {
+				modules[filepath.ToSlash(rel)] = string(source)
+			}
+		}
+		return err
+	}); err != nil {
 		return err
 	}
-	for _, test := range tests {
-		if !luaFile(test.Name()) {
-			return fmt.Errorf("test %q must use .lua or .luau", test.Name())
-		}
-		if _, err := bundleFile(dir, filepath.Join("tests", test.Name())); err != nil {
-			return fmt.Errorf("test: %w", err)
-		}
+	if err := analysis.Check(context.Background(), "", *m, modules); err != nil {
+		return err
+	}
+	if err := conformance.Check(context.Background(), "", *m, modules, fixtures); err != nil {
+		return err
 	}
 	if m.Icon != "" {
-		if m.Icon != "icon.png" && m.Icon != "icon.svg" {
-			return fmt.Errorf("icon must be icon.png or icon.svg")
-		}
 		raw, err := bundleFile(dir, m.Icon)
 		if err != nil {
 			return err
@@ -144,153 +109,12 @@ func validateBundle(dir, slug string) error {
 			if err != nil || image.Width != 1024 || image.Height != 1024 {
 				return fmt.Errorf("icon must be a 1024x1024 PNG")
 			}
-		} else if !bytes.Contains(bytes.ToLower(raw), []byte("<svg")) || bytes.Contains(bytes.ToLower(raw), []byte("<script")) {
-			return fmt.Errorf("icon.svg must be an SVG document without scripts")
+		} else if !bytes.Contains(bytes.ToLower(raw), []byte("<svg")) {
+			return fmt.Errorf("icon must be an SVG document")
 		}
 	}
 	return nil
 }
-
-func authMethods(raw json.RawMessage) ([]json.RawMessage, error) {
-	raw = bytes.TrimSpace(raw)
-	var methods []json.RawMessage
-	if len(raw) > 0 && raw[0] == '[' {
-		if err := json.Unmarshal(raw, &methods); err != nil {
-			return nil, err
-		}
-	} else {
-		methods = []json.RawMessage{raw}
-	}
-	if len(methods) == 0 {
-		return nil, fmt.Errorf("auth requires at least one method")
-	}
-	return methods, nil
-}
-
-// Mode fields replace whole top-level values. Omission inherits; there is no
-// deep merge of access lists, configuration fields or proxy routes.
-func resolveMethod(raw, method json.RawMessage) (manifest, error) {
-	var base, fields map[string]json.RawMessage
-	var effective manifest
-	if err := json.Unmarshal(raw, &base); err != nil {
-		return effective, err
-	}
-	if err := json.Unmarshal(method, &fields); err != nil {
-		return effective, err
-	}
-	for _, key := range []string{"schema_version", "name", "verification_key", "icon"} {
-		if _, ok := fields[key]; ok {
-			return effective, fmt.Errorf("%s belongs at the manifest top level", key)
-		}
-	}
-	for _, key := range []string{"module", "description", "setup", "access", "config_fields", "proxy"} {
-		if value, ok := fields[key]; ok {
-			if bytes.Equal(bytes.TrimSpace(value), []byte("null")) {
-				return effective, fmt.Errorf("%s override must not be null", key)
-			}
-			base[key] = value
-		}
-	}
-	base["auth"] = method
-	resolved, err := json.Marshal(base)
-	if err != nil {
-		return effective, err
-	}
-	if err := json.Unmarshal(resolved, &effective); err != nil {
-		return effective, err
-	}
-	return effective, nil
-}
-
-func validateEffective(dir string, m manifest) error {
-	if strings.TrimSpace(m.Description) == "" {
-		return fmt.Errorf("description is required")
-	}
-	if m.Module == "" {
-		m.Module = "connector.lua"
-	}
-	if !luaFile(m.Module) || strings.ContainsAny(m.Module, "/\\") {
-		return fmt.Errorf("module must be a .lua or .luau file in the bundle")
-	}
-	if _, err := bundleFile(dir, m.Module); err != nil {
-		return fmt.Errorf("module: %w", err)
-	}
-	switch m.Proxy.Protocol {
-	case "http", "postgres", "mysql", "clickhouse":
-	default:
-		return fmt.Errorf("unknown proxy protocol")
-	}
-	var selected authMethod
-	if err := json.Unmarshal(m.Auth, &selected); err != nil {
-		return err
-	}
-	if selected.Type == "oauth2" && m.Proxy.Protocol != "http" {
-		return fmt.Errorf("oauth2 requires the http protocol")
-	}
-	if len(m.Access) == 0 {
-		return fmt.Errorf("access modes are required")
-	}
-	for _, mode := range m.Access {
-		if mode.ID != "read-only" && mode.ID != "read-write" {
-			return fmt.Errorf("invalid access mode %q", mode.ID)
-		}
-	}
-	return nil
-}
-
-func validateAuth(raw json.RawMessage) error {
-	methods, err := authMethods(raw)
-	if err != nil {
-		return err
-	}
-	ids := map[string]bool{}
-	types := map[string]int{}
-	parsed := make([]authMethod, len(methods))
-	for i, method := range methods {
-		if err := json.Unmarshal(method, &parsed[i]); err != nil {
-			return fmt.Errorf("auth: %w", err)
-		}
-		if parsed[i].Type != "secret" && parsed[i].Type != "oauth2" {
-			return fmt.Errorf("auth type must be secret or oauth2")
-		}
-		types[parsed[i].Type]++
-		var fields map[string]json.RawMessage
-		if err := json.Unmarshal(method, &fields); err != nil {
-			return err
-		}
-		for _, key := range []string{"client_secret", "access_token", "refresh_token"} {
-			if _, ok := fields[key]; ok {
-				return fmt.Errorf("auth must not contain %s", key)
-			}
-			if _, ok := parsed[i].OAuth[key]; ok && key != "client_secret" {
-				return fmt.Errorf("oauth must not contain %s", key)
-			}
-		}
-	}
-	for _, method := range parsed {
-		id := method.ID
-		if id == "" {
-			if types[method.Type] != 1 {
-				return fmt.Errorf("auth methods sharing a type require explicit ids")
-			}
-			id = method.Type
-		}
-		if !slugPattern.MatchString(id) || ids[id] {
-			return fmt.Errorf("auth method ids must be unique slugs")
-		}
-		ids[id] = true
-		if method.Type == "oauth2" {
-			var clientID, clientSecret string
-			_ = json.Unmarshal(method.OAuth["client_id"], &clientID)
-			_ = json.Unmarshal(method.OAuth["client_secret"], &clientSecret)
-			if clientID == "" || !regexp.MustCompile(`\{\{[A-Za-z_][A-Za-z0-9_]*\}\}`).MatchString(clientSecret) {
-				return fmt.Errorf("oauth2 requires client_id and a client_secret placeholder")
-			}
-		}
-	}
-	return nil
-}
-
 func luaFile(name string) bool { ext := filepath.Ext(name); return ext == ".lua" || ext == ".luau" }
 
 func bundleFile(dir, name string) ([]byte, error) {

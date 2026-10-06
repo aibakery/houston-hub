@@ -1,75 +1,108 @@
 {
-  "schema_version": 1,
-  "id": "dropbox",
-  "name": "Dropbox",
-  "description": "Read-only access to Dropbox files and account info.",
-  "setup": "Houston will ask Dropbox for permission, then keep the token on this server. Your files stay in Dropbox.",
   "auth": {
-    "type": "oauth2",
     "oauth": {
-      "authorize_url": "https://www.dropbox.com/oauth2/authorize",
-      "token_url": "https://api.dropboxapi.com/oauth2/token",
-      "token_path": "access_token",
-      "refresh_token_path": "refresh_token",
-      "expires_in_path": "expires_in",
-      "scopes_path": "scope",
-      "params": {
+      "account": {
+        "headers": {
+          "Authorization": {
+            "value": "Bearer {{auth.oauth.access_token}}"
+          }
+        },
+        "label": "/email",
+        "method": "POST",
+        "url": "https://api.dropboxapi.com/2/users/get_current_account"
+      },
+      "authorize_params": {
         "token_access_type": "offline"
       },
+      "authorize_url": "https://www.dropbox.com/oauth2/authorize",
+      "client_auth": "body",
+      "client_id": "{{publisher.client_id}}",
+      "client_secret": "{{publisher.client_secret}}",
+      "label": "Connect account",
+      "pkce": "S256",
       "require_refresh": true,
-      "profile_url": "https://api.dropboxapi.com/2/users/get_current_account",
-      "profile_method": "POST",
-      "account_path": "email",
-      "client_id": "{{CLIENT_ID}}",
-      "client_secret": "{{CLIENT_SECRET}}"
+      "scopes": [
+        {
+          "values": [
+            "account_info.read",
+            "files.metadata.read",
+            "files.content.read"
+          ]
+        }
+      ],
+      "token_url": "https://api.dropboxapi.com/oauth2/token",
+      "type": "oauth2"
     }
   },
-  "access": [
+  "description": "Read-only access to Dropbox files and account info.",
+  "files": [
+    "connector.lua"
+  ],
+  "icon": "icon.svg",
+  "implements": [
+    "files.metadata@1"
+  ],
+  "name": "Dropbox",
+  "proxy": [
     {
-      "id": "read-only",
-      "label": "Read-only",
-      "scopes": [
-        "account_info.read",
-        "files.metadata.read",
-        "files.content.read"
-      ]
+      "origins": {
+        "https://api.dropboxapi.com": {
+          "allowlist": [
+            {
+              "methods": [
+                "POST"
+              ],
+              "paths": [
+                "/2/users/get_current_account",
+                "/2/files/search/continue_v2",
+                "/2/files/list_folder/continue",
+                "/2/files/search_v2",
+                "/2/files/list_folder",
+                "/2/files/get_metadata"
+              ]
+            }
+          ],
+          "headers": {
+            "Authorization": {
+              "value": "Bearer {{auth.oauth.access_token}}"
+            }
+          }
+        },
+        "https://content.dropboxapi.com": {
+          "allowlist": [
+            {
+              "methods": [
+                "POST"
+              ],
+              "paths": [
+                "/2/files/download"
+              ]
+            }
+          ],
+          "headers": {
+            "Authorization": {
+              "value": "Bearer {{auth.oauth.access_token}}"
+            }
+          }
+        }
+      },
+      "protocol": "http"
     }
   ],
-  "proxy": {
-    "protocol": "http",
-    "routes": [
-      {
-        "hosts": [
-          "api.dropboxapi.com"
-        ],
-        "paths": [
-          "/2/users/get_current_account",
-          "/2/files/search/continue_v2",
-          "/2/files/list_folder/continue",
-          "/2/files/search_v2",
-          "/2/files/list_folder",
-          "/2/files/get_metadata"
-        ],
-        "methods": [
-          "POST"
-        ],
-        "access": "read",
-        "auth": true
-      },
-      {
-        "hosts": [
-          "content.dropboxapi.com"
-        ],
-        "paths": [
-          "/2/files/download"
-        ],
-        "methods": [
-          "POST"
-        ],
-        "access": "read",
-        "auth": true
-      }
-    ]
+  "publisher": {
+    "client_id": {
+      "label": "OAuth client ID",
+      "order": 1,
+      "required": true,
+      "type": "string"
+    },
+    "client_secret": {
+      "label": "OAuth client secret",
+      "order": 2,
+      "required": true,
+      "type": "secret"
+    }
   },
-  "icon": "icon.svg"
+  "schema_version": 1,
+  "setup": "Houston will ask Dropbox for permission, then keep the token on this server. Your files stay in Dropbox."
 }

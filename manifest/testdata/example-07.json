@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "name": "Example Account Records",
+  "description": "Read records using one account reference and API key.",
+  "files": [
+    "connector.luau"
+  ],
+  "config": {
+    "account_reference": {
+      "type": "string",
+      "label": "Account reference",
+      "display": "masked",
+      "required": true,
+      "order": 1
+    },
+    "api_key": {
+      "type": "secret",
+      "label": "API key",
+      "required": true,
+      "order": 2
+    },
+    "page_size": {
+      "type": "integer",
+      "label": "Page size",
+      "default": 50,
+      "minimum": 1,
+      "maximum": 100,
+      "order": 3
+    }
+  },
+  "proxy": [
+    {
+      "protocol": "http",
+      "origins": {
+        "https://api.accounts.example.com": {
+          "headers": {
+            "X-Account-Reference": {
+              "value": "{{config.account_reference}}"
+            },
+            "Authorization": {
+              "value": "Bearer {{config.api_key}}"
+            }
+          },
+          "allowlist": [
+            {
+              "methods": [
+                "GET"
+              ],
+              "paths": [
+                "/records",
+                "/records/{id}"
+              ]
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "name": "Inventory Database",
+  "description": "Query the inventory MySQL database.",
+  "files": [
+    "connector.luau"
+  ],
+  "config": {
+    "username": {
+      "type": "string",
+      "label": "Username",
+      "required": true,
+      "order": 1
+    },
+    "password": {
+      "type": "secret",
+      "label": "Password",
+      "required": true,
+      "order": 2
+    }
+  },
+  "proxy": [
+    {
+      "protocol": "mysql",
+      "connection": {
+        "host": "inventory-db.example.com",
+        "database": "inventory",
+        "user": "{{config.username}}",
+        "password": "{{config.password}}",
+        "tls": {
+          "mode": "verify-full"
+        }
+      }
+    }
+  ]
+}

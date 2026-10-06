@@ -1,0 +1,124 @@
+{
+  "schema_version": 1,
+  "name": "Example Supabase Project",
+  "description": "Access one Supabase project through REST or Postgres.",
+  "files": [
+    "rest.luau",
+    "database.luau"
+  ],
+  "config": {
+    "connection_type": {
+      "type": "string",
+      "label": "Connection type",
+      "default": "http",
+      "options": [
+        {
+          "value": "http",
+          "label": "Data REST API"
+        },
+        {
+          "value": "postgres",
+          "label": "Postgres"
+        }
+      ],
+      "order": 1
+    },
+    "database": {
+      "if": "{{ is config.connection_type \"postgres\" }}",
+      "type": "string",
+      "label": "Database",
+      "default": "postgres",
+      "required": true,
+      "order": 2
+    },
+    "port": {
+      "if": "{{ is config.connection_type \"postgres\" }}",
+      "type": "integer",
+      "label": "Port",
+      "default": 5432,
+      "minimum": 1,
+      "maximum": 65535,
+      "order": 3
+    },
+    "username": {
+      "if": "{{ is config.connection_type \"postgres\" }}",
+      "type": "string",
+      "label": "Database username",
+      "required": true,
+      "order": 4
+    },
+    "password": {
+      "if": "{{ is config.connection_type \"postgres\" }}",
+      "type": "secret",
+      "label": "Database password",
+      "required": true,
+      "order": 5
+    }
+  },
+  "auth": {
+    "rest": {
+      "if": "{{ is config.connection_type \"http\" }}",
+      "type": "manual",
+      "label": "REST API credentials",
+      "config": {
+        "api_key": {
+          "type": "string",
+          "label": "Publishable API key",
+          "placeholder": "sb_publishable_...",
+          "required": true,
+          "order": 2
+        },
+        "user_jwt": {
+          "type": "secret",
+          "label": "User access token (optional)",
+          "description": "A Supabase Auth user JWT, separate from the publishable key.",
+          "min_length": 1,
+          "order": 3
+        }
+      }
+    }
+  },
+  "proxy": [
+    {
+      "if": "{{ and (is config.connection_type \"http\") (isDefined auth.rest) }}",
+      "protocol": "http",
+      "origins": {
+        "https://example-project.supabase.co": {
+          "headers": {
+            "apikey": {
+              "value": "{{auth.rest.api_key}}"
+            },
+            "Authorization": {
+              "if": "{{ isDefined auth.rest.user_jwt }}",
+              "value": "Bearer {{auth.rest.user_jwt}}"
+            }
+          },
+          "allowlist": [
+            {
+              "methods": [
+                "GET"
+              ],
+              "paths": [
+                "/rest/v1/*"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "if": "{{ is config.connection_type \"postgres\" }}",
+      "protocol": "postgres",
+      "connection": {
+        "host": "db.example-project.supabase.co",
+        "port": "{{config.port}}",
+        "database": "{{config.database}}",
+        "user": "{{config.username}}",
+        "password": "{{config.password}}",
+        "tls": {
+          "mode": "verify-full"
+        }
+      }
+    }
+  ]
+}

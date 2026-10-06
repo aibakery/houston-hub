@@ -1,5 +1,6 @@
+local connector_http = require("lib/http.lua")
 -- Gmail connector: one mailbox through Houston's HTTP proxy.
--- Host primitives used: http.send (with this instance's connector id) and json.
+-- Host primitives used: private http.request and json.
 -- Public functions are the mail contract later providers reuse; only the
 -- HTTP paths and filter compilation below are Gmail-specific.
 
@@ -9,14 +10,14 @@ local MAX_BATCH = 50
 local BATCH_BOUNDARY = "batch_houston"
 local B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
 
-local function encode(s)
+local function encode(s: any)
 	s = tostring(s)
-	return (string.gsub(s, "[^A-Za-z0-9%-_%.~]", function(c)
+	return (string.gsub(s, "[^A-Za-z0-9%-_%.~]", function(c: any)
 		return string.format("%%%02X", string.byte(c))
 	end))
 end
 
-local function scalar(value)
+local function scalar(value: any)
 	if type(value) == "boolean" then
 		if value then
 			return "true"
@@ -26,7 +27,7 @@ local function scalar(value)
 	return tostring(value)
 end
 
-local function add_query(parts, key, value)
+local function add_query(parts: any,key: any,value: any)
 	if value == nil then
 		return
 	end
@@ -39,7 +40,7 @@ local function add_query(parts, key, value)
 	parts[#parts + 1] = encode(key) .. "=" .. encode(scalar(value))
 end
 
-local function query_string(params)
+local function query_string(params: any)
 	if type(params) ~= "table" then
 		return ""
 	end
@@ -57,14 +58,8 @@ local function query_string(params)
 	return s
 end
 
-local function require_ctx(ctx)
-	if type(ctx) ~= "table" or type(ctx.id) ~= "string" or ctx.id == "" then
-		error("gmail connector id is required")
-	end
-end
 
-local function request(ctx, method, path, params, operation, cursor, body)
-	require_ctx(ctx)
+local function request(method: any,path: any,params: any,operation: any,cursor: any,body: any)
 	local url = BASE .. path
 	local qs = query_string(params)
 	if qs ~= "" then
@@ -86,21 +81,21 @@ local function request(ctx, method, path, params, operation, cursor, body)
 		url = url,
 		headers = headers,
 		body = payload,
-		connector_id = ctx.id,
+
 		affected_cursor = cursor,
 	})
 end
 
-local function gmail_date(value)
+local function gmail_date(value: any)
 	local s = tostring(value)
 	local y, m, d = string.match(s, "^(%d%d%d%d)%D(%d%d)%D(%d%d)")
-	if y then
+	if y and m and d then
 		return y .. "/" .. m .. "/" .. d
 	end
 	return s
 end
 
-local function quote_term(value)
+local function quote_term(value: any)
 	local s = tostring(value)
 	if string.find(s, '[%s"()]') == nil then
 		return s
@@ -110,7 +105,7 @@ local function quote_term(value)
 	return '"' .. s .. '"'
 end
 
-local function add_term(terms, prefix, value)
+local function add_term(terms: any,prefix: any,value: any)
 	if value == nil then
 		return
 	end
@@ -131,7 +126,7 @@ local function add_term(terms, prefix, value)
 	end
 end
 
-local function compile_query(opts)
+local function compile_query(opts: any): string?
 	local terms = {}
 	add_term(terms, "from:", opts.from)
 	add_term(terms, "to:", opts.to)
@@ -150,9 +145,9 @@ local function compile_query(opts)
 	return table.concat(terms, " ")
 end
 
-local function folder_ids(opts)
-	local ids = {}
-	local function add(value)
+local function folder_ids(opts: any): {string}?
+	local ids: {string} = {}
+	local function add(value: any)
 		if value == nil then
 			return
 		end
@@ -176,7 +171,7 @@ local function folder_ids(opts)
 	return ids
 end
 
-local function list_params(opts)
+local function list_params(opts: any)
 	opts = opts or {}
 	return {
 		maxResults = opts.maxResults,
@@ -187,7 +182,7 @@ local function list_params(opts)
 	}
 end
 
-local function get_params(opts)
+local function get_params(opts: any)
 	opts = opts or {}
 	return {
 		format = opts.format,
@@ -195,14 +190,14 @@ local function get_params(opts)
 	}
 end
 
-local function message_id(value)
+local function message_id(value: any)
 	if type(value) == "table" then
 		return value.id
 	end
 	return value
 end
 
-local function collect_ids(ids)
+local function collect_ids(ids: any): {string}
 	if type(ids) ~= "table" then
 		return {}
 	end
@@ -216,7 +211,7 @@ local function collect_ids(ids)
 	return out
 end
 
-local function last_json_end(part, json_start)
+local function last_json_end(part: any,json_start: any)
 	local last = nil
 	local k = json_start
 	while true do
@@ -230,7 +225,7 @@ local function last_json_end(part, json_start)
 	return last
 end
 
-local function parse_batch(body)
+local function parse_batch(body: any)
 	if type(body) ~= "string" or body == "" then
 		error("gmail.getMessages: empty batch response")
 	end
@@ -252,7 +247,7 @@ local function parse_batch(body)
 		end
 		local part = string.sub(body, j + 1, next_i - 1)
 		local status = string.match(part, "HTTP/%d%.%d (%d+)")
-		if status and tonumber(status) >= 400 then
+		if status and (tonumber(status) or 0) >= 400 then
 			error("gmail.getMessages part failed: " .. tostring(status))
 		end
 		local json_start = string.find(part, "{", 1, true)
@@ -267,7 +262,7 @@ local function parse_batch(body)
 	return out
 end
 
-local function decode_base64url(data)
+local function decode_base64url(data: any)
 	if type(data) ~= "string" or data == "" then
 		return ""
 	end
@@ -306,7 +301,7 @@ local function decode_base64url(data)
 	return table.concat(out)
 end
 
-local function header_map(headers)
+local function header_map(headers: any)
 	local map = {}
 	if type(headers) ~= "table" then
 		return map
@@ -319,7 +314,7 @@ local function header_map(headers)
 	return map
 end
 
-local function header_values(headers, name)
+local function header_values(headers: any,name: any)
 	local want = string.lower(name)
 	local out = {}
 	if type(headers) ~= "table" then
@@ -333,14 +328,14 @@ local function header_values(headers, name)
 	return out
 end
 
-local function content_id(raw)
+local function content_id(raw: any): string?
 	if type(raw) ~= "string" or raw == "" then
 		return nil
 	end
 	return (string.gsub(string.gsub(raw, "^%s*<", ""), ">%s*$", ""))
 end
 
-local function collect_part(part, bodies, atts)
+local function collect_part(part: any,bodies: any,atts: any)
 	if type(part) ~= "table" then
 		return
 	end
@@ -398,7 +393,7 @@ local function collect_part(part, bodies, atts)
 	}
 end
 
-local function decorate_message(msg)
+local function decorate_message(msg: any)
 	if type(msg) ~= "table" then
 		return msg
 	end
@@ -418,7 +413,7 @@ local function decorate_message(msg)
 	msg.messageId = map["message-id"]
 	msg.headers = headers
 	msg.received = header_values(headers, "Received")
-	local bodies = {}
+	local bodies: {[string]: string} = {}
 	local atts = {}
 	if type(payload) == "table" then
 		collect_part(payload, bodies, atts)
@@ -435,7 +430,7 @@ local function decorate_message(msg)
 	return msg
 end
 
-local function decorate_thread(thread)
+local function decorate_thread(thread: any)
 	if type(thread) == "table" and type(thread.messages) == "table" then
 		for _, m in thread.messages do
 			decorate_message(m)
@@ -446,18 +441,18 @@ end
 
 local functions = {}
 
-function functions.getProfile(ctx)
-	return request(ctx, "GET", "/profile", nil, "getProfile")
+function functions.getProfile()
+	return request("GET", "/profile", nil, "getProfile")
 end
 
-function functions.listFolders(ctx)
-	local raw = request(ctx, "GET", "/labels", nil, "listFolders")
+function functions.listFolders()
+	local raw = request("GET", "/labels", nil, "listFolders")
 	if type(raw) ~= "table" then
 		return { folders = {} }
 	end
 	local folders = {}
 	if type(raw.labels) == "table" then
-		for _, lab in raw.labels do
+		for _, lab in (raw.labels :: {{[string]: any}}) do
 			if type(lab) == "table" then
 				folders[#folders + 1] = {
 					id = lab.id,
@@ -471,11 +466,11 @@ function functions.listFolders(ctx)
 	return raw
 end
 
-function functions.listMessages(ctx, opts)
-	return request(ctx, "GET", "/messages", list_params(opts), "listMessages")
+function functions.listMessages(opts: any)
+	return request("GET", "/messages", list_params(opts), "listMessages")
 end
 
-function functions.getMessage(ctx, id, opts)
+function functions.getMessage(id: any,opts: any)
 	if type(id) == "table" then
 		opts = id
 		id = id.id
@@ -483,14 +478,14 @@ function functions.getMessage(ctx, id, opts)
 	if type(id) ~= "string" or id == "" then
 		error("gmail.getMessage requires a message id")
 	end
-	return decorate_message(request(ctx, "GET", "/messages/" .. encode(id), get_params(opts), "getMessage", id))
+	return decorate_message(request("GET", "/messages/" .. encode(id), get_params(opts), "getMessage", id))
 end
 
-function functions.listThreads(ctx, opts)
-	return request(ctx, "GET", "/threads", list_params(opts), "listThreads")
+function functions.listThreads(opts: any)
+	return request("GET", "/threads", list_params(opts), "listThreads")
 end
 
-function functions.getThread(ctx, id, opts)
+function functions.getThread(id: any,opts: any)
 	if type(id) == "table" then
 		opts = id
 		id = id.id
@@ -498,10 +493,10 @@ function functions.getThread(ctx, id, opts)
 	if type(id) ~= "string" or id == "" then
 		error("gmail.getThread requires a thread id")
 	end
-	return decorate_thread(request(ctx, "GET", "/threads/" .. encode(id), get_params(opts), "getThread", id))
+	return decorate_thread(request("GET", "/threads/" .. encode(id), get_params(opts), "getThread", id))
 end
 
-function functions.getMessages(ctx, ids, opts)
+function functions.getMessages(ids: any,opts: any)
 	if type(ids) == "table" and ids[1] == nil and type(ids.ids) == "table" then
 		opts = ids
 		ids = ids.ids
@@ -513,7 +508,6 @@ function functions.getMessages(ctx, ids, opts)
 	if #collected > MAX_BATCH then
 		error("gmail.getMessages accepts at most 50 ids")
 	end
-	require_ctx(ctx)
 	local qs = query_string(get_params(opts))
 	local parts = {}
 	for i, id in collected do
@@ -539,7 +533,7 @@ function functions.getMessages(ctx, ids, opts)
 		url = BATCH_URL,
 		headers = { ["Content-Type"] = "multipart/mixed; boundary=" .. BATCH_BOUNDARY },
 		body = body,
-		connector_id = ctx.id,
+
 		raw = true,
 	})
 	local out = parse_batch(raw)
@@ -549,7 +543,7 @@ function functions.getMessages(ctx, ids, opts)
 	return out
 end
 
-function functions.listAttachments(ctx, id)
+function functions.listAttachments(id: any)
 	if type(id) == "table" then
 		if type(id.attachments) == "table" then
 			return id.attachments
@@ -559,14 +553,14 @@ function functions.listAttachments(ctx, id)
 	if type(id) ~= "string" or id == "" then
 		error("gmail.listAttachments requires a message id")
 	end
-	local msg = functions.getMessage(ctx, id)
+	local msg = functions.getMessage(id)
 	if type(msg) ~= "table" or type(msg.attachments) ~= "table" then
 		return {}
 	end
 	return msg.attachments
 end
 
-local function attachment_path(attachmentId, path)
+local function attachment_path(attachmentId: any,path: any)
 	if type(path) == "string" and path ~= "" then
 		return path
 	end
@@ -580,8 +574,7 @@ local function attachment_path(attachmentId, path)
 	return "attachments/" .. safe
 end
 
-local function start_attachment(ctx, messageId, attachmentId, path)
-	require_ctx(ctx)
+local function start_attachment(messageId: any,attachmentId: any,path: any)
 	return connector_http.sendAsync({
 		connector = "gmail",
 		operation = "getAttachment",
@@ -589,12 +582,12 @@ local function start_attachment(ctx, messageId, attachmentId, path)
 		path = "/messages/" .. encode(messageId) .. "/attachments/" .. encode(attachmentId),
 		url = BASE .. "/messages/" .. encode(messageId) .. "/attachments/" .. encode(attachmentId),
 		dest = path,
-		connector_id = ctx.id,
+
 		affected_cursor = attachmentId,
 	})
 end
 
-local function finish_attachment(path)
+local function finish_attachment(path: any)
 	local parsed = json.decode(fs.read(path))
 	if type(parsed) ~= "table" then
 		error("gmail.getAttachment: invalid attachment payload")
@@ -612,7 +605,7 @@ local function finish_attachment(path)
 	}
 end
 
-function functions.getAttachments(ctx, messageId, items)
+function functions.getAttachments(messageId: any,items: any): {any}
 	if type(messageId) == "table" and items == nil then
 		items = messageId
 		messageId = messageId.messageId or messageId.id
@@ -623,10 +616,10 @@ function functions.getAttachments(ctx, messageId, items)
 	if type(items) ~= "table" then
 		error("gmail.getAttachments requires a list of attachments")
 	end
-	local jobs = {}
-	for _, item in ipairs(items) do
+	local jobs: {{handle: any, path: string}} = {}
+	for _, item in ipairs(items :: {any}) do
 		local attachmentId = item
-		local path = nil
+		local path: string? = nil
 		if type(item) == "table" then
 			attachmentId = item.id or item.attachmentId
 			path = item.path
@@ -635,7 +628,7 @@ function functions.getAttachments(ctx, messageId, items)
 			error("gmail.getAttachments requires an attachment id")
 		end
 		path = attachment_path(attachmentId, path)
-		jobs[#jobs + 1] = { handle = start_attachment(ctx, messageId, attachmentId, path), path = path }
+		jobs[#jobs + 1] = { handle = start_attachment(messageId, attachmentId, path), path = path }
 	end
 	if #jobs == 0 then
 		return {}
@@ -651,7 +644,7 @@ function functions.getAttachments(ctx, messageId, items)
 	local out = {}
 	for i, job in ipairs(jobs) do
 		local res = results[i]
-		if type(res) ~= "table" or (res.status ~= nil and (res.status < 200 or res.status >= 300)) then
+		if type(res) ~= "table" or (res.status ~= nil and (type(res.status) ~= "number" or res.status < 200 or res.status >= 300)) then
 			connector_http.fail({
 				layer = "upstream",
 				upstream_status = res and res.status,
@@ -666,7 +659,7 @@ function functions.getAttachments(ctx, messageId, items)
 	return out
 end
 
-function functions.getAttachment(ctx, messageId, attachmentId, path)
+function functions.getAttachment(messageId: any,attachmentId: any,path: any)
 	if type(messageId) == "table" and attachmentId == nil then
 		path = messageId.path
 		attachmentId = messageId.attachmentId or messageId.id
@@ -681,154 +674,46 @@ function functions.getAttachment(ctx, messageId, attachmentId, path)
 	if type(attachmentId) ~= "string" or attachmentId == "" then
 		error("gmail.getAttachment requires an attachment id")
 	end
-	return functions.getAttachments(ctx, messageId, { { id = attachmentId, path = path } })[1]
+	return functions.getAttachments(messageId, { { id = attachmentId, path = path } })[1]
 end
 
 local writes = {}
 
-function writes.sendMessage(ctx, body)
+function writes.sendMessage(body: any)
 	if type(body) ~= "table" then
 		error("gmail.sendMessage requires a message body")
 	end
-	return request(ctx, "POST", "/messages/send", nil, "sendMessage", nil, body)
+	return request("POST", "/messages/send", nil, "sendMessage", nil, body)
 end
 
-function writes.trashMessage(ctx, id)
+function writes.trashMessage(id: any)
 	if type(id) == "table" then
 		id = id.id
 	end
 	if type(id) ~= "string" or id == "" then
 		error("gmail.trashMessage requires a message id")
 	end
-	return request(ctx, "POST", "/messages/" .. encode(id) .. "/trash", nil, "trashMessage", id)
+	return request("POST", "/messages/" .. encode(id) .. "/trash", nil, "trashMessage", id)
 end
 
-return {
-	name = "gmail",
-	description = "Read a connected Gmail mailbox.",
-	signatures = {
-		getProfile = "getProfile()",
-		listFolders = "listFolders()",
-		listMessages = "listMessages(opts?)",
-		getMessage = "getMessage(id, opts?)",
-		listThreads = "listThreads(opts?)",
-		getThread = "getThread(id, opts?)",
-		getMessages = "getMessages(ids, opts?)",
-		listAttachments = "listAttachments(id)",
-		getAttachment = "getAttachment(messageId, attachmentId, path?)",
-		getAttachments = "getAttachments(messageId, items)",
-		sendMessage = "sendMessage(body)",
-		trashMessage = "trashMessage(id)",
-	},
-	help = [[
-# Gmail
+if config.access == "read-write" then
+    for name, fn in (writes :: {[string]: any}) do (functions :: {[string]: any})[name] = fn end
+end
 
-Read mail for one connected mailbox. Credentials stay on the Houston
-server. This is the mail contract: later mailbox providers implement the
-same functions. Use the instance from `houston.connectors()` — do not
-call provider URLs yourself.
+function functions.listMailFolders(): {{id: string, name: string}}
+    local folders = functions.listFolders().folders
+    if type(folders) ~= "table" then error("mail provider returned invalid folders") end
+    local out: {{id: string, name: string}} = json.decode("[]")
+    local seen = {}
+    for _, folder in (folders :: {any}) do
+        if type(folder.id) ~= "string" or folder.id == "" or type(folder.name) ~= "string" or seen[folder.id] then
+            error("mail provider returned invalid folder metadata")
+        end
+        seen[folder.id] = true
+        out[#out + 1] = {id = folder.id, name = folder.name}
+    end
+    table.sort(out, function(a: any,b: any) return a.id < b.id end)
+    return out
+end
 
-List-connector signatures are enough to call. Return compact rows;
-`truncate` defaults true. Loop pagination in one `run`.
-
-## getProfile()
-
-Mailbox identity (`emailAddress`, plus provider extras).
-
-## listFolders()
-
-Folders in this mailbox (Gmail labels). Returns `folders`
-(`{ id, name, type }[]`). Use `id` as `folder` when listing messages.
-
-## listMessages(opts?)
-
-Search and list message ids. Returns **ids only** (`id`, `threadId`) —
-not subjects or bodies. Optional filters on `opts`:
-
-- `from`, `to`, `subject` (string, or array of strings)
-- `after`, `before` (YYYY-MM-DD)
-- `folder` or `folders` (id from `listFolders`, or array)
-- `text` (free-text)
-- `maxResults` (number, default 100, max 500)
-- `pageToken` (string)
-- `includeSpamTrash` (boolean)
-
-This list+filters path is search. Returns `messages` (`{ id, threadId }[]`),
-`nextPageToken`, and `resultSizeEstimate`. `resultSizeEstimate` is capped
-(often ~201) and is **not a count**. Use `#messages` plus `nextPageToken`.
-`messages` is omitted when there are no results.
-
-## getMessage(id, opts?)
-
-One message. `id` may be a string or a table with `id`. Returns envelope
-fields so callers do not parse headers or MIME:
-
-- `from`, `to`, `cc`, `bcc`, `replyTo`, `subject`, `date`, `messageId`
-- `body` (plain text when present)
-- `attachments` (metadata rows; use `getAttachment` to download)
-- `headers` (raw header list, including `Received`)
-- `received` (Received header values, for originating IP when present)
-
-`getMessage("abc")` and `getMessage({ id = "abc" })` are the same call.
-
-## listAttachments(id)
-
-Attachment rows for one message: `id`, `filename`, `mimeType`, `size`,
-`inline`, `contentId`. Same rows as `getMessage(id).attachments`. `id`
-may be a message id, `{ id }`, or an already-fetched message.
-
-## getAttachment(messageId, attachmentId, path?)
-
-Downloads one listed attachment onto a session path (streams past the
-proxy buffer) and returns `{ path, url, size }` where `url` is a Houston
-signed GET URL. `attachmentId` is `id` from `listAttachments` /
-`getMessage.attachments`. Optional `path` defaults under `attachments/`.
-`getAttachment({ messageId, id, path })` is the same call. Do not inline
-bytes or base64; give the caller the signed URL.
-
-## getAttachments(messageId, items)
-
-Downloads several attachments in parallel. `items` is `{ { id, path? }, ... }`.
-Returns an array of `{ path, url, size }` in the same order. Uses `http.sendAsync`
-handles and `http.wait`.
-
-## listThreads(opts?)
-
-Conversation list. Same optional filters as `listMessages`. Returns
-`threads` (`{ id, snippet, historyId }[]`), `nextPageToken`, and
-`resultSizeEstimate` (capped; not a count). Prefer this plus `getThread`
-for conversation state. Loop pagination in one `run`.
-
-## getThread(id, opts?)
-
-The thread and **all messages** in that conversation. Each message has
-the same envelope, body, and attachments fields as `getMessage`.
-
-## getMessages(ids, opts?)
-
-Batch get, at most 50 ids. `ids` is an array of message ids (strings or
-`{ id }`), or a table with `ids`. Returns an array of messages (same
-shape as `getMessage`). One Houston call. Otherwise loop `getMessage`
-in the same `run`.
-
-Write functions are bound only when this instance is read-write.
-
-## sendMessage(body)
-
-Send a message. `body` is typically `{ raw = "<base64url RFC 2822>" }`.
-
-## trashMessage(id)
-
-Move a message to trash. `id` may be a string or a table with `id`.
-
-## Example
-
-	return {
-		run = function()
-			return c.listMessages({ maxResults = 5, folder = "INBOX" })
-		end,
-	}
-]],
-	functions = functions,
-	writes = writes,
-}
+return functions

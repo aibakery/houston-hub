@@ -1,22 +1,14 @@
-return function(fastmail)
+return {scenario={["auth_config"]={["token"]="fixture-private-password !@#"},["auth_method"]="token",["config"]={},["publisher"]={}},config={access="read-write"}, configure=function()
 
         requests, responses = {}, {}
-        local encode = connector_http.encode
-        connector_http = {
-            encode = encode,
-            fail = function(err) error(err.message) end,
-            send = function(req)
-                requests[#requests+1] = req
-                assert(#responses > 0, "unexpected request")
-                return table.remove(responses, 1)
-            end,
-            sendAsync = function(req) requests[#requests+1]=req; return #requests end,
-            wait = function(handles)
-                local out={}
-                for _,_ in handles do out[#out+1]={status=200} end
-                return out
-            end,
-        }
+        http = {request = function(req)
+            requests[#requests + 1] = req
+            if req.dest and #responses == 0 then return {status=200, body="", bytes=123} end
+            assert(#responses > 0, "unexpected request: " .. req.url)
+            local response = table.remove(responses, 1)
+            if req.dest then return {status=200,body="",bytes=response.bytes} end
+            return {status=200,body=if type(response)=="string" then response else json.encode(response)}
+        end}
         fs = {signedGetUrl=function(path) return "https://houston.test/"..path end}
         local MAIL="urn:ietf:params:jmap:mail"
         local SUB="urn:ietf:params:jmap:submission"
@@ -29,9 +21,9 @@ return function(fastmail)
         folders={{id="in",role="inbox",name="Inbox"},{id="tr",role="trash"},{id="sp",role="junk"},
             {id="dr",role="drafts"},{id="se",role="sent"}}
         function args(n) return json.decode(requests[n].body).methodCalls[1][2] end
-    
 
-        local c={id="c"}
+
+end, run=function(fastmail)
         local message=json.decode([[{"id":"m1","threadId":"t1","from":[{"name":null,"email":"a@example.com"}],
             "to":null,"cc":null,"bcc":null,"replyTo":null,"sentAt":"2026-09-01T12:00:00Z","messageId":["m@example.com"],
             "headers":[{"name":"Received","value":"by mail"}],"textBody":[{"partId":"p"}],"htmlBody":[],
@@ -39,7 +31,7 @@ return function(fastmail)
             "attachments":[{"blobId":"b1","name":"file +.txt","type":"text/plain","size":123,"cid":null,"disposition":"attachment"}]}]])
         responses={session(),result("Email/get",{list={{id="m2",preview="two"},message}}),
             result("Email/get",{list={message}})}
-        local messages=fastmail.functions.getMessages(c,{{id="m1"},"m2"},{maxBodyValueBytes=1234})
+        local messages=fastmail.getMessages({{id="m1"},"m2"},{maxBodyValueBytes=1234})
         local m=messages[1]
         assert(args(2).maxBodyValueBytes==1234)
         assert(m.id=="m1" and messages[2].id=="m2")
@@ -48,12 +40,12 @@ return function(fastmail)
         assert(m.attachments[1].id=="b1" and not m.attachments[1].inline and not m.attachments[1].contentId)
         -- Return a fresh provider object; connector decoration must not alter transport fixtures.
         responses[1]=result("Email/get",{list={json.decode([[{"id":"m1","attachments":[{"blobId":"b1","name":"file +.txt","type":"text/plain","size":123}]}]])}})
-        local downloaded=fastmail.functions.getAttachment(c,"m1","b1","mail/a.txt")
+        local downloaded=fastmail.getAttachment("m1","b1","mail/a.txt")
         assert(downloaded.size==123 and downloaded.url=="https://houston.test/mail/a.txt")
         assert(requests[4].dest=="mail/a.txt")
         assert(requests[4].url=="https://www.fastmailusercontent.com/jmap/download/u1/b1/file%20%2B.txt?type=text%2Fplain")
         local ids={}
         for i=1,51 do ids[i]="m"..i end
-        assert(not pcall(fastmail.functions.getMessages,c,ids))
-    
-end
+        assert(not pcall(fastmail.getMessages,ids))
+
+end}

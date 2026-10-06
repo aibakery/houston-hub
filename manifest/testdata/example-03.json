@@ -1,0 +1,168 @@
+{
+  "schema_version": 1,
+  "name": "Collaboration Files",
+  "description": "Read files as an authorized user in one collaboration workspace.",
+  "files": [
+    "files.luau",
+    "folders.luau"
+  ],
+  "implements": [
+    "files.read@1"
+  ],
+  "config": {
+    "workspace": {
+      "type": "string",
+      "label": "Workspace ID",
+      "required": true,
+      "order": 1
+    }
+  },
+  "publisher": {
+    "client_id": {
+      "type": "string",
+      "label": "OAuth client ID",
+      "required": true,
+      "order": 1
+    },
+    "client_secret": {
+      "type": "secret",
+      "label": "OAuth client secret",
+      "required": true,
+      "order": 2
+    }
+  },
+  "auth": {
+    "oauth": {
+      "type": "oauth2",
+      "label": "Connect your workspace account",
+      "client_id": "{{publisher.client_id}}",
+      "client_secret": "{{publisher.client_secret}}",
+      "authorize_url": "https://accounts.collaboration.example.com/authorize",
+      "token_url": "https://accounts.collaboration.example.com/token",
+      "client_auth": "body",
+      "pkce": "S256",
+      "scopes": [
+        {
+          "values": [
+            "files.read",
+            "identity.read"
+          ]
+        }
+      ],
+      "scope_parameter": "user_scope",
+      "scope_separator": ",",
+      "authorize_params": {
+        "workspace": "{{config.workspace}}",
+        "access_type": "offline"
+      },
+      "token_response": {
+        "access_token": "/user/access_token",
+        "refresh_token": "/user/refresh_token",
+        "expires_in": "/user/expires_in",
+        "scopes": "/user/scope",
+        "checks": [
+          {
+            "path": "/ok",
+            "op": "equals",
+            "value": true
+          },
+          {
+            "path": "/user/token_type",
+            "op": "equals",
+            "value": "user"
+          },
+          {
+            "path": "/user/id",
+            "op": "exists"
+          }
+        ]
+      },
+      "refresh_response": {
+        "access_token": "/access_token",
+        "refresh_token": "/refresh_token",
+        "expires_in": "/expires_in",
+        "scopes": "/scope",
+        "checks": [
+          {
+            "path": "/ok",
+            "op": "equals",
+            "value": true
+          }
+        ]
+      },
+      "require_refresh": true,
+      "account": {
+        "url": "https://api.collaboration.example.com/identity",
+        "method": "GET",
+        "headers": {
+          "Authorization": {
+            "value": "Bearer {{auth.oauth.access_token}}"
+          }
+        },
+        "label": "/workspace/name",
+        "checks": [
+          {
+            "path": "/ok",
+            "op": "equals",
+            "value": true
+          }
+        ],
+        "bindings": {
+          "workspace": "/workspace/id"
+        }
+      }
+    }
+  },
+  "proxy": [
+    {
+      "protocol": "http",
+      "origins": {
+        "https://api.collaboration.example.com": {
+          "headers": {
+            "Authorization": {
+              "value": "Bearer {{auth.oauth.access_token}}"
+            }
+          },
+          "allowlist": [
+            {
+              "methods": [
+                "GET"
+              ],
+              "paths": [
+                "/files",
+                "/files/{id}",
+                "/folders"
+              ]
+            }
+          ]
+        },
+        "https://files.collaboration.example.com": {
+          "headers": {
+            "Authorization": {
+              "value": "Bearer {{auth.oauth.access_token}}"
+            }
+          },
+          "allowlist": [
+            {
+              "methods": [
+                "GET"
+              ],
+              "paths": [
+                "/private/*"
+              ]
+            },
+            {
+              "methods": [
+                "PUT"
+              ],
+              "paths": [
+                "/signed-upload/*"
+              ],
+              "headers": {}
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

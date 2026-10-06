@@ -1,8 +1,9 @@
-return function(connector)
-    assert(connector.name == "slack")
-    assert(type(connector.help) == "string" and #connector.help > 0)
-    assert(type(connector.functions) == "table")
-    for name, fn in pairs(connector.functions) do
-        assert(type(fn) == "function", name .. " must be callable")
+return {scenario={["auth_config"]={},["auth_method"]="oauth",["config"]={["workspace_id"]="T_FIXTURE"},["publisher"]={["client_id"]="fixture-value",["client_secret"]="fixture-private-password !@#"}},config = {access = "read-only"}, run = function(exports)
+    assert(exports.postMessage == nil, "read-only configuration must omit write exports")
+    local count = 0
+    for name, fn in exports do
+        assert(type(name) == "string" and type(fn) == "function")
+        count += 1
     end
-end
+    assert(count > 0)
+end}

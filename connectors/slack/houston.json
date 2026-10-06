@@ -1,176 +1,250 @@
 {
-  "schema_version": 1,
-  "id": "slack",
-  "name": "Slack",
-  "description": "Read channels, threads, and mentions. Post messages and files as yourself.",
-  "setup": "Houston needs authorization in each Slack workspace you connect. Depending on your Slack workspace’s app policy, a workspace admin may need to approve Houston before you can connect your account. Tokens stay on this server. Each connector connects one workspace. Add another connector for each additional workspace.",
   "auth": {
-    "type": "oauth2",
     "oauth": {
+      "account": {
+        "bindings": {
+          "team": "/team_id"
+        },
+        "checks": [
+          {
+            "op": "equals",
+            "path": "/ok",
+            "value": true
+          }
+        ],
+        "headers": {
+          "Authorization": {
+            "value": "Bearer {{auth.oauth.access_token}}"
+          }
+        },
+        "label": "/team",
+        "method": "GET",
+        "url": "https://slack.com/api/auth.test"
+      },
+      "authorize_params": {
+        "team": "{{config.workspace_id}}"
+      },
       "authorize_url": "https://slack.com/oauth/v2/authorize",
-      "token_url": "https://slack.com/api/oauth.v2.access",
-      "token_path": "authed_user.access_token",
-      "refresh_token_path": "authed_user.refresh_token",
-      "expires_in_path": "authed_user.expires_in",
-      "scopes_path": "authed_user.scope",
+      "client_auth": "body",
+      "client_id": "{{publisher.client_id}}",
+      "client_secret": "{{publisher.client_secret}}",
+      "label": "Connect account",
+      "pkce": "none",
+      "refresh_response": {
+        "checks": [
+          {
+            "op": "equals",
+            "path": "/ok",
+            "value": true
+          }
+        ]
+      },
       "scope_parameter": "user_scope",
       "scope_separator": ",",
-      "required": {
-        "ok": "true",
-        "authed_user.token_type": "user",
-        "team.id": "*",
-        "authed_user.id": "*",
-        "is_enterprise_install": "false"
-      },
-      "config": {
-        "team_id": "team.id",
-        "team_name": "team.name",
-        "user_id": "authed_user.id"
-      },
-      "account_path": "team.name",
-      "write_scopes": [
-        "chat:write",
-        "files:write",
-        "im:write",
-        "mpim:write",
-        "reactions:write"
+      "scopes": [
+        {
+          "if": "{{ is config.access \"read-only\" }}",
+          "values": [
+            "channels:read",
+            "channels:history",
+            "groups:read",
+            "groups:history",
+            "im:read",
+            "im:history",
+            "mpim:read",
+            "mpim:history",
+            "users:read",
+            "search:read",
+            "files:read",
+            "reactions:read"
+          ]
+        },
+        {
+          "if": "{{ is config.access \"read-write\" }}",
+          "values": [
+            "channels:read",
+            "channels:history",
+            "groups:read",
+            "groups:history",
+            "im:read",
+            "im:history",
+            "mpim:read",
+            "mpim:history",
+            "users:read",
+            "search:read",
+            "files:read",
+            "reactions:read",
+            "chat:write",
+            "files:write",
+            "im:write",
+            "mpim:write",
+            "reactions:write"
+          ]
+        }
       ],
-      "authorization_inputs": {
-        "team": "team.id"
+      "token_response": {
+        "access_token": "/authed_user/access_token",
+        "checks": [
+          {
+            "op": "equals",
+            "path": "/ok",
+            "value": true
+          },
+          {
+            "op": "equals",
+            "path": "/authed_user/token_type",
+            "value": "user"
+          },
+          {
+            "op": "equals",
+            "path": "/is_enterprise_install",
+            "value": false
+          },
+          {
+            "op": "exists",
+            "path": "/team/id"
+          },
+          {
+            "op": "exists",
+            "path": "/authed_user/id"
+          }
+        ],
+        "expires_in": "/authed_user/expires_in",
+        "refresh_token": "/authed_user/refresh_token",
+        "scopes": "/authed_user/scope"
       },
-      "client_id": "{{CLIENT_ID}}",
-      "client_secret": "{{CLIENT_SECRET}}"
+      "token_url": "https://slack.com/api/oauth.v2.access",
+      "type": "oauth2"
     }
   },
-  "access": [
-    {
-      "id": "read-only",
-      "label": "Read-only",
-      "scopes": [
-        "channels:read",
-        "channels:history",
-        "groups:read",
-        "groups:history",
-        "im:read",
-        "im:history",
-        "mpim:read",
-        "mpim:history",
-        "users:read",
-        "search:read",
-        "files:read",
-        "reactions:read"
-      ]
+  "config": {
+    "access": {
+      "default": "read-only",
+      "label": "Access",
+      "options": [
+        {
+          "label": "Read-only",
+          "value": "read-only"
+        },
+        {
+          "label": "Read and write",
+          "value": "read-write"
+        }
+      ],
+      "order": 1,
+      "type": "string"
     },
+    "workspace_id": {
+      "description": "Workspace ID beginning with T, available in your Slack workspace URL. Consent must return this workspace.",
+      "label": "Slack workspace ID",
+      "order": 2,
+      "required": true,
+      "type": "string"
+    }
+  },
+  "description": "Read channels, threads, and mentions. Post messages and files as yourself.",
+  "files": [
+    "connector.lua"
+  ],
+  "icon": "icon.svg",
+  "name": "Slack",
+  "proxy": [
     {
-      "id": "read-write",
-      "label": "Read-write",
-      "scopes": [
-        "channels:read",
-        "channels:history",
-        "groups:read",
-        "groups:history",
-        "im:read",
-        "im:history",
-        "mpim:read",
-        "mpim:history",
-        "users:read",
-        "search:read",
-        "files:read",
-        "reactions:read",
-        "chat:write",
-        "files:write",
-        "im:write",
-        "mpim:write",
-        "reactions:write"
-      ]
+      "origins": {
+        "https://files.slack.com": {
+          "allowlist": [
+            {
+              "methods": [
+                "GET"
+              ],
+              "paths": [
+                "/files-pri/*"
+              ]
+            },
+            {
+              "headers": {},
+              "methods": [
+                "POST"
+              ],
+              "paths": [
+                "/upload/v1/*"
+              ]
+            }
+          ],
+          "headers": {
+            "Authorization": {
+              "value": "Bearer {{auth.oauth.access_token}}"
+            }
+          }
+        },
+        "https://slack.com": {
+          "allowlist": [
+            {
+              "methods": [
+                "GET"
+              ],
+              "paths": [
+                "/api/auth.test",
+                "/api/users.conversations",
+                "/api/conversations.info",
+                "/api/conversations.history",
+                "/api/conversations.replies",
+                "/api/conversations.members",
+                "/api/search.messages",
+                "/api/users.info",
+                "/api/users.list",
+                "/api/files.info",
+                "/api/chat.getPermalink",
+                "/api/reactions.get"
+              ]
+            },
+            {
+              "methods": [
+                "POST"
+              ],
+              "paths": [
+                "/api/chat.postMessage",
+                "/api/chat.update",
+                "/api/chat.delete",
+                "/api/conversations.open",
+                "/api/reactions.add",
+                "/api/reactions.remove",
+                "/api/files.completeUploadExternal"
+              ]
+            },
+            {
+              "methods": [
+                "GET"
+              ],
+              "paths": [
+                "/api/files.getUploadURLExternal"
+              ]
+            }
+          ],
+          "headers": {
+            "Authorization": {
+              "value": "Bearer {{auth.oauth.access_token}}"
+            }
+          }
+        }
+      },
+      "protocol": "http"
     }
   ],
-  "proxy": {
-    "protocol": "http",
-    "routes": [
-      {
-        "hosts": [
-          "slack.com"
-        ],
-        "paths": [
-          "/api/auth.test",
-          "/api/users.conversations",
-          "/api/conversations.info",
-          "/api/conversations.history",
-          "/api/conversations.replies",
-          "/api/conversations.members",
-          "/api/search.messages",
-          "/api/users.info",
-          "/api/users.list",
-          "/api/files.info",
-          "/api/chat.getPermalink",
-          "/api/reactions.get"
-        ],
-        "methods": [
-          "GET"
-        ],
-        "access": "read",
-        "auth": true
-      },
-      {
-        "hosts": [
-          "slack.com"
-        ],
-        "paths": [
-          "/api/chat.postMessage",
-          "/api/chat.update",
-          "/api/chat.delete",
-          "/api/conversations.open",
-          "/api/reactions.add",
-          "/api/reactions.remove",
-          "/api/files.completeUploadExternal"
-        ],
-        "methods": [
-          "POST"
-        ],
-        "access": "write",
-        "auth": true
-      },
-      {
-        "hosts": [
-          "slack.com"
-        ],
-        "paths": [
-          "/api/files.getUploadURLExternal"
-        ],
-        "methods": [
-          "GET"
-        ],
-        "access": "write",
-        "auth": true
-      },
-      {
-        "hosts": [
-          "files.slack.com"
-        ],
-        "paths": [
-          "/files-pri/*"
-        ],
-        "methods": [
-          "GET"
-        ],
-        "access": "read",
-        "auth": true
-      },
-      {
-        "hosts": [
-          "files.slack.com"
-        ],
-        "paths": [
-          "/upload/v1/*"
-        ],
-        "methods": [
-          "POST"
-        ],
-        "access": "write",
-        "auth": false
-      }
-    ]
+  "publisher": {
+    "client_id": {
+      "label": "OAuth client ID",
+      "order": 1,
+      "required": true,
+      "type": "string"
+    },
+    "client_secret": {
+      "label": "OAuth client secret",
+      "order": 2,
+      "required": true,
+      "type": "secret"
+    }
   },
-  "icon": "icon.svg"
+  "schema_version": 1,
+  "setup": "Houston needs authorization in each Slack workspace you connect. Depending on your Slack workspace’s app policy, a workspace admin may need to approve Houston before you can connect your account. Tokens stay on this server. Each connector connects one workspace. Add another connector for each additional workspace."
 }

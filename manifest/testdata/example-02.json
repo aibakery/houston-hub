@@ -1,0 +1,80 @@
+{
+  "schema_version": 1,
+  "name": "Postgres",
+  "description": "Query a Postgres database and optionally execute writes.",
+  "setup": "Use a database role with the privileges you want this connection to have.",
+  "files": [
+    "query.luau",
+    "execute.luau"
+  ],
+  "implements": [
+    "postgres.query@1",
+    "postgres.execute@1"
+  ],
+  "config": {
+    "host": {
+      "type": "string",
+      "label": "Host",
+      "placeholder": "database.example.com",
+      "required": true,
+      "order": 1
+    },
+    "port": {
+      "type": "integer",
+      "label": "Port",
+      "default": 5432,
+      "minimum": 1,
+      "maximum": 65535,
+      "order": 2
+    },
+    "database": {
+      "type": "string",
+      "label": "Database",
+      "required": true,
+      "order": 3
+    },
+    "username": {
+      "type": "string",
+      "label": "Username",
+      "required": true,
+      "order": 4
+    },
+    "access": {
+      "type": "string",
+      "label": "Access",
+      "default": "read-only",
+      "options": [
+        {
+          "value": "read-only",
+          "label": "Read only"
+        },
+        {
+          "value": "read-write",
+          "label": "Read and write"
+        }
+      ],
+      "order": 5
+    },
+    "password": {
+      "type": "secret",
+      "label": "Password",
+      "required": true,
+      "order": 6
+    }
+  },
+  "proxy": [
+    {
+      "protocol": "postgres",
+      "connection": {
+        "host": "{{config.host}}",
+        "port": "{{config.port}}",
+        "database": "{{config.database}}",
+        "user": "{{config.username}}",
+        "password": "{{config.password}}",
+        "tls": {
+          "mode": "verify-full"
+        }
+      }
+    }
+  ]
+}

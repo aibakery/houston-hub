@@ -1,38 +1,48 @@
 {
-  "schema_version": 1,
-  "id": "granola",
-  "name": "Granola",
-  "description": "Read-only access to Granola notes, folders, and transcripts.",
-  "setup": "The API key stays on this server. Houston reads notes from Granola; your notes stay in Granola.",
   "auth": {
-    "type": "secret",
-    "secret_label": "API key",
-    "secret_placeholder": "grn_\u2026"
+    "token": {
+      "config": {
+        "token": {
+          "label": "API key",
+          "required": true,
+          "type": "secret"
+        }
+      },
+      "label": "API key",
+      "type": "manual"
+    }
   },
-  "access": [
+  "description": "Read-only access to Granola notes, folders, and transcripts.",
+  "files": [
+    "connector.lua"
+  ],
+  "icon": "icon.svg",
+  "name": "Granola",
+  "proxy": [
     {
-      "id": "read-only",
-      "label": "Read-only"
+      "origins": {
+        "https://public-api.granola.ai": {
+          "allowlist": [
+            {
+              "methods": [
+                "GET",
+                "HEAD"
+              ],
+              "paths": [
+                "/v1/*"
+              ]
+            }
+          ],
+          "headers": {
+            "Authorization": {
+              "value": "Bearer {{auth.token.token}}"
+            }
+          }
+        }
+      },
+      "protocol": "http"
     }
   ],
-  "proxy": {
-    "protocol": "http",
-    "routes": [
-      {
-        "hosts": [
-          "public-api.granola.ai"
-        ],
-        "paths": [
-          "/v1/*"
-        ],
-        "methods": [
-          "GET",
-          "HEAD"
-        ],
-        "access": "read",
-        "auth": true
-      }
-    ]
-  },
-  "icon": "icon.svg"
+  "schema_version": 1,
+  "setup": "The API key stays on this server. Houston reads notes from Granola; your notes stay in Granola."
 }

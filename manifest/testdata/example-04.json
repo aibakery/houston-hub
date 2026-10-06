@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "name": "Warehouse",
+  "description": "Read warehouse inventory.",
+  "files": [
+    "connector.luau"
+  ],
+  "auth": {
+    "basic": {
+      "type": "manual",
+      "label": "Warehouse credentials",
+      "config": {
+        "username": {
+          "type": "string",
+          "label": "Username",
+          "required": true,
+          "order": 1
+        },
+        "password": {
+          "type": "secret",
+          "label": "Password",
+          "required": true,
+          "order": 2
+        }
+      }
+    }
+  },
+  "proxy": [
+    {
+      "protocol": "http",
+      "origins": {
+        "https://warehouse.example.com": {
+          "basic_auth": {
+            "username": "{{auth.basic.username}}",
+            "password": "{{auth.basic.password}}"
+          },
+          "allowlist": [
+            {
+              "methods": [
+                "GET"
+              ],
+              "paths": [
+                "/items",
+                "/items/{id}"
+              ]
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

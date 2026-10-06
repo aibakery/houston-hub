@@ -1,0 +1,832 @@
+{
+  "$defs": {
+    "AllowedRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "basic_auth": {
+          "$ref": "#/$defs/BasicAuth"
+        },
+        "headers": {
+          "additionalProperties": {
+            "$ref": "#/$defs/HeaderValue"
+          },
+          "type": "object"
+        },
+        "methods": {
+          "items": {
+            "enum": [
+              "GET",
+              "HEAD",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE",
+              "OPTIONS"
+            ]
+          },
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "paths": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "methods",
+        "paths"
+      ],
+      "type": "object"
+    },
+    "AuthMethod": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "else": {
+            "properties": {
+              "config": false
+            },
+            "required": [
+              "authorize_url",
+              "token_url",
+              "client_id"
+            ]
+          },
+          "if": {
+            "properties": {
+              "type": {
+                "const": "manual"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "account": false,
+              "authorize_params": false,
+              "authorize_url": false,
+              "client_auth": false,
+              "client_id": false,
+              "client_secret": false,
+              "pkce": false,
+              "refresh_params": false,
+              "refresh_response": false,
+              "require_refresh": false,
+              "scope_parameter": false,
+              "scope_separator": false,
+              "scopes": false,
+              "token_params": false,
+              "token_response": false,
+              "token_url": false
+            },
+            "required": [
+              "config"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "oauth2"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "else": {
+              "required": [
+                "client_secret"
+              ]
+            },
+            "if": {
+              "properties": {
+                "client_auth": {
+                  "const": "none"
+                }
+              },
+              "required": [
+                "client_auth"
+              ]
+            },
+            "then": {
+              "properties": {
+                "client_secret": false,
+                "pkce": {
+                  "const": "S256"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "properties": {
+        "account": {
+          "$ref": "#/$defs/OAuthAccount"
+        },
+        "authorize_params": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "authorize_url": {
+          "type": "string"
+        },
+        "client_auth": {
+          "enum": [
+            "basic",
+            "body",
+            "none"
+          ],
+          "type": "string"
+        },
+        "client_id": {
+          "type": "string"
+        },
+        "client_secret": {
+          "type": "string"
+        },
+        "config": {
+          "additionalProperties": {
+            "$ref": "#/$defs/Field"
+          },
+          "minProperties": 1,
+          "propertyNames": {
+            "pattern": "^[a-z][a-z0-9_]{0,63}$"
+          },
+          "type": "object"
+        },
+        "description": {
+          "type": "string"
+        },
+        "if": {
+          "pattern": "^\\s*\\{\\{.+\\}\\}\\s*$",
+          "type": "string"
+        },
+        "label": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "order": {
+          "maximum": 9007199254740991,
+          "minimum": -9007199254740991,
+          "type": "integer"
+        },
+        "pkce": {
+          "enum": [
+            "S256",
+            "none"
+          ],
+          "type": "string"
+        },
+        "refresh_params": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "refresh_response": {
+          "$ref": "#/$defs/TokenResponse"
+        },
+        "require_refresh": {
+          "type": "boolean"
+        },
+        "scope_parameter": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "scope_separator": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "scopes": {
+          "items": {
+            "$ref": "#/$defs/ScopeGroup"
+          },
+          "type": "array"
+        },
+        "token_params": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "token_response": {
+          "$ref": "#/$defs/TokenResponse"
+        },
+        "token_url": {
+          "type": "string"
+        },
+        "type": {
+          "enum": [
+            "manual",
+            "oauth2"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "label"
+      ],
+      "type": "object"
+    },
+    "BasicAuth": {
+      "additionalProperties": false,
+      "oneOf": [
+        {
+          "maxProperties": 0
+        },
+        {
+          "required": [
+            "username",
+            "password"
+          ]
+        }
+      ],
+      "properties": {
+        "password": {
+          "type": "string"
+        },
+        "username": {
+          "type": "string"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "DatabaseConnection": {
+      "additionalProperties": false,
+      "properties": {
+        "database": {
+          "type": "string"
+        },
+        "host": {
+          "type": "string"
+        },
+        "password": {
+          "type": "string"
+        },
+        "port": {
+          "type": [
+            "string",
+            "boolean",
+            "number"
+          ]
+        },
+        "tls": {
+          "$ref": "#/$defs/TLS"
+        },
+        "transport": {
+          "type": "string"
+        },
+        "user": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "host",
+        "database",
+        "user",
+        "password"
+      ],
+      "type": "object"
+    },
+    "Field": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "secret"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "default": false,
+              "display": false,
+              "options": false
+            }
+          }
+        },
+        {
+          "else": {
+            "properties": {
+              "display": false,
+              "max_length": false,
+              "min_length": false,
+              "options": false,
+              "placeholder": false
+            }
+          },
+          "if": {
+            "properties": {
+              "type": {
+                "enum": [
+                  "string",
+                  "secret"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "maximum": false,
+              "minimum": false
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "options"
+            ]
+          },
+          "then": {
+            "properties": {
+              "display": false
+            }
+          }
+        }
+      ],
+      "properties": {
+        "default": {
+          "type": [
+            "string",
+            "boolean",
+            "number"
+          ]
+        },
+        "description": {
+          "type": "string"
+        },
+        "display": {
+          "enum": [
+            "plain",
+            "masked"
+          ],
+          "type": "string"
+        },
+        "if": {
+          "pattern": "^\\s*\\{\\{.+\\}\\}\\s*$",
+          "type": "string"
+        },
+        "label": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "max_length": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "maximum": {
+          "type": "number"
+        },
+        "min_length": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "minimum": {
+          "type": "number"
+        },
+        "options": {
+          "items": {
+            "$ref": "#/$defs/Option"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "order": {
+          "maximum": 9007199254740991,
+          "minimum": -9007199254740991,
+          "type": "integer"
+        },
+        "placeholder": {
+          "type": "string"
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "type": {
+          "enum": [
+            "string",
+            "boolean",
+            "integer",
+            "number",
+            "secret"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "label"
+      ],
+      "type": "object"
+    },
+    "HTTPOrigin": {
+      "additionalProperties": false,
+      "properties": {
+        "allowlist": {
+          "items": {
+            "$ref": "#/$defs/AllowedRequest"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "basic_auth": {
+          "$ref": "#/$defs/BasicAuth"
+        },
+        "headers": {
+          "additionalProperties": {
+            "$ref": "#/$defs/HeaderValue"
+          },
+          "type": "object"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "HeaderValue": {
+      "additionalProperties": false,
+      "properties": {
+        "if": {
+          "pattern": "^\\s*\\{\\{.+\\}\\}\\s*$",
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "value"
+      ],
+      "type": "object"
+    },
+    "Manifest": {
+      "additionalProperties": false,
+      "properties": {
+        "auth": {
+          "additionalProperties": {
+            "$ref": "#/$defs/AuthMethod"
+          },
+          "propertyNames": {
+            "pattern": "^[a-z][a-z0-9_]{0,63}$"
+          },
+          "type": "object"
+        },
+        "config": {
+          "additionalProperties": {
+            "$ref": "#/$defs/Field"
+          },
+          "propertyNames": {
+            "pattern": "^[a-z][a-z0-9_]{0,63}$"
+          },
+          "type": "object"
+        },
+        "description": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "files": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "icon": {
+          "enum": [
+            "icon.svg",
+            "icon.png"
+          ],
+          "type": "string"
+        },
+        "implements": {
+          "items": {
+            "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*@[1-9][0-9]*$",
+            "type": "string"
+          },
+          "type": "array",
+          "uniqueItems": true
+        },
+        "name": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "proxy": {
+          "items": {
+            "$ref": "#/$defs/Proxy"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "publisher": {
+          "additionalProperties": {
+            "$ref": "#/$defs/Field"
+          },
+          "propertyNames": {
+            "pattern": "^[a-z][a-z0-9_]{0,63}$"
+          },
+          "type": "object"
+        },
+        "schema_version": {
+          "const": 1
+        },
+        "setup": {
+          "type": "string"
+        },
+        "verification_key": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema_version",
+        "name",
+        "description",
+        "files",
+        "proxy"
+      ],
+      "type": "object"
+    },
+    "OAuthAccount": {
+      "additionalProperties": false,
+      "properties": {
+        "bindings": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "checks": {
+          "items": {
+            "$ref": "#/$defs/ResponseCheck"
+          },
+          "type": "array"
+        },
+        "headers": {
+          "additionalProperties": {
+            "$ref": "#/$defs/HeaderValue"
+          },
+          "type": "object"
+        },
+        "label": {
+          "type": "string"
+        },
+        "method": {
+          "enum": [
+            "GET",
+            "POST"
+          ],
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "url",
+        "label"
+      ],
+      "type": "object"
+    },
+    "Option": {
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "value": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "value",
+        "label"
+      ],
+      "type": "object"
+    },
+    "Proxy": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "else": {
+            "properties": {
+              "origins": false
+            },
+            "required": [
+              "connection"
+            ]
+          },
+          "if": {
+            "properties": {
+              "protocol": {
+                "const": "http"
+              }
+            },
+            "required": [
+              "protocol"
+            ]
+          },
+          "then": {
+            "properties": {
+              "connection": false
+            },
+            "required": [
+              "origins"
+            ]
+          }
+        },
+        {
+          "if": {
+            "not": {
+              "properties": {
+                "protocol": {
+                  "const": "clickhouse"
+                }
+              },
+              "required": [
+                "protocol"
+              ]
+            }
+          },
+          "then": {
+            "properties": {
+              "connection": {
+                "properties": {
+                  "transport": false
+                }
+              }
+            }
+          }
+        }
+      ],
+      "properties": {
+        "connection": {
+          "$ref": "#/$defs/DatabaseConnection"
+        },
+        "if": {
+          "pattern": "^\\s*\\{\\{.+\\}\\}\\s*$",
+          "type": "string"
+        },
+        "origins": {
+          "additionalProperties": {
+            "$ref": "#/$defs/HTTPOrigin"
+          },
+          "minProperties": 1,
+          "type": "object"
+        },
+        "protocol": {
+          "enum": [
+            "http",
+            "postgres",
+            "mysql",
+            "clickhouse"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "protocol"
+      ],
+      "type": "object"
+    },
+    "ResponseCheck": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "else": {
+            "properties": {
+              "value": false
+            }
+          },
+          "if": {
+            "properties": {
+              "op": {
+                "const": "equals"
+              }
+            },
+            "required": [
+              "op"
+            ]
+          },
+          "then": {
+            "required": [
+              "value"
+            ]
+          }
+        }
+      ],
+      "properties": {
+        "op": {
+          "enum": [
+            "exists",
+            "equals"
+          ],
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "value": {
+          "type": [
+            "string",
+            "boolean",
+            "number"
+          ]
+        }
+      },
+      "required": [
+        "path",
+        "op"
+      ],
+      "type": "object"
+    },
+    "ScopeGroup": {
+      "additionalProperties": false,
+      "properties": {
+        "if": {
+          "pattern": "^\\s*\\{\\{.+\\}\\}\\s*$",
+          "type": "string"
+        },
+        "values": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "values"
+      ],
+      "type": "object"
+    },
+    "TLS": {
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "enum": [
+            "verify-full"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "mode"
+      ],
+      "type": "object"
+    },
+    "TokenResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "access_token": {
+          "type": "string"
+        },
+        "checks": {
+          "items": {
+            "$ref": "#/$defs/ResponseCheck"
+          },
+          "type": "array"
+        },
+        "expires_in": {
+          "type": "string"
+        },
+        "refresh_token": {
+          "type": "string"
+        },
+        "scopes": {
+          "type": "string"
+        }
+      },
+      "required": [],
+      "type": "object"
+    }
+  },
+  "$id": "https://ok-houston.com/schemas/connector-manifest-v1.json",
+  "$ref": "#/$defs/Manifest",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Houston connector manifest v1"
+}
