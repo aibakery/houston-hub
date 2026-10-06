@@ -1,6 +1,5 @@
-local connector_http = require("lib/http.lua")
 -- Google Drive connector: metadata, vendor links, and session-file transfer.
--- Host primitives used: private http.request (via lib/http.lua) and fs.signedGetUrl.
+-- Host primitives used: private http.request and fs.signedGetUrl.
 -- Public functions are the storage/drive contract later providers reuse;
 -- only the HTTP paths and filter compilation below are Drive-specific.
 -- File bytes do not travel in the MCP RPC envelope.
@@ -12,39 +11,53 @@ local FILE_FIELDS =
 	"id,name,mimeType,size,md5Checksum,webViewLink,webContentLink,exportLinks,modifiedTime"
 local LIST_FIELDS = "nextPageToken,files(" .. FILE_FIELDS .. ")"
 
-local function encode(s: any)
-	return connector_http.encode(s)
+local function encode(value: any)
+    return (string.gsub(tostring(value), "[^A-Za-z0-9%-_%.~]", function(c: any)
+        return string.format("%%%02X", string.byte(c))
+    end))
 end
 
 local function query_string(params: any)
-	return connector_http.query_string(params)
+    local parts = {}
+    local function add(key: any, value: any)
+        if value == nil then return end
+        if type(value) == "table" then for _, item in value do add(key, item) end
+        else parts[#parts + 1] = encode(key) .. "=" .. encode(value) end
+    end
+    for key, value in params or {} do add(key, value) end
+    table.sort(parts)
+    return table.concat(parts, "&")
 end
 
-local function request(method: any,path: any,params: any,operation: any,cursor: any,body: any)
+local function request(method: any,path: any,params: any,operation: any,body: any)
 	local url = BASE .. path
 	local qs = query_string(params)
 	if qs ~= "" then
 		url = url .. "?" .. qs
-	end
-	if cursor == nil and type(params) == "table" then
-		cursor = params.pageToken
 	end
 	local headers, payload = nil, nil
 	if body ~= nil then
 		headers = { ["Content-Type"] = "application/json" }
 		payload = json.encode(body)
 	end
-	return connector_http.send({
-		connector = "gdrive",
-		operation = operation,
+	local response = http.request({
 		method = method,
-		path = path,
 		url = url,
 		headers = headers,
 		body = payload,
-
-		affected_cursor = cursor,
 	})
+	if response.status < 200 or response.status >= 300 then
+		houston.fail({operation = operation, layer = "upstream", upstream_status = response.status,
+			retryable = response.status == 429 or response.status == 502 or response.status == 503 or response.status == 504,
+			message = "upstream HTTP request failed"})
+	end
+	local decoded = nil
+	if response.body ~= nil and response.body ~= "" then
+		local ok, body = pcall(json.decode, response.body)
+		assert(ok, "upstream returned invalid JSON")
+		decoded = body
+	end
+	return decoded
 end
 
 local function drive_quote(value: any)
@@ -196,31 +209,40 @@ local function decorate_list(raw: any)
 	return raw
 end
 
-local function request_file(method: any,url: any,path: any,operation: any,cursor: any,headers: any)
-	return connector_http.send({
-		connector = "gdrive",
-		operation = operation,
+local function request_file(method: any,url: any,path: any,operation: any,headers: any)
+	local response = http.request({
 		method = method,
-		path = path,
 		url = url,
 		headers = headers,
 		dest = path,
-
-		affected_cursor = cursor,
 	})
+	if response.status < 200 or response.status >= 300 then
+		houston.fail({operation = operation, layer = "upstream", upstream_status = response.status,
+			retryable = response.status == 429 or response.status == 502 or response.status == 503 or response.status == 504,
+			message = "upstream HTTP request failed"})
+	end
+	return response
 end
 
 local function upload_file_body(method: any,url: any,path: any,operation: any,headers: any)
-	return connector_http.send({
-		connector = "gdrive",
-		operation = operation,
+	local response = http.request({
 		method = method,
-		path = path,
 		url = url,
 		headers = headers,
 		src = path,
-
 	})
+	if response.status < 200 or response.status >= 300 then
+		houston.fail({operation = operation, layer = "upstream", upstream_status = response.status,
+			retryable = response.status == 429 or response.status == 502 or response.status == 503 or response.status == 504,
+			message = "upstream HTTP request failed"})
+	end
+	local decoded = nil
+	if response.body ~= nil and response.body ~= "" then
+		local ok, body = pcall(json.decode, response.body)
+		assert(ok, "upstream returned invalid JSON")
+		decoded = body
+	end
+	return decoded
 end
 
 local functions = {}
@@ -237,7 +259,7 @@ function functions.getFile(id: any,opts: any)
 	if type(id) ~= "string" or id == "" then
 		error("gdrive.getFile requires a file id")
 	end
-	return decorate_file(request("GET", "/files/" .. encode(id), get_params(opts), "getFile", id))
+	return decorate_file(request("GET", "/files/" .. encode(id), get_params(opts), "getFile"))
 end
 
 function functions.downloadFile(id: any,path: any,opts: any)
@@ -259,7 +281,7 @@ function functions.downloadFile(id: any,path: any,opts: any)
 	else
 		url = BASE .. "/files/" .. encode(id) .. "?alt=media"
 	end
-	local saved = request_file("GET", url, path, "downloadFile", id)
+	local saved = request_file("GET", url, path, "downloadFile")
 	local signed = nil
 	if type(fs) == "table" and type(fs.signedGetUrl) == "function" then
 		signed = fs.signedGetUrl(path)
@@ -277,7 +299,7 @@ function writes.createFile(meta: any)
 	if meta ~= nil and type(meta) ~= "table" then
 		error("gdrive.createFile requires a metadata table")
 	end
-	return request("POST", "/files", nil, "createFile", nil, meta or {})
+	return request("POST", "/files", nil, "createFile", meta or {})
 end
 
 function writes.deleteFile(id: any)
@@ -287,7 +309,7 @@ function writes.deleteFile(id: any)
 	if type(id) ~= "string" or id == "" then
 		error("gdrive.deleteFile requires a file id")
 	end
-	return request("DELETE", "/files/" .. encode(id), nil, "deleteFile", id)
+	return request("DELETE", "/files/" .. encode(id), nil, "deleteFile")
 end
 
 function writes.uploadFile(path: any,meta: any)
@@ -323,7 +345,7 @@ function writes.uploadFile(path: any,meta: any)
 	if not has_patch then
 		return created
 	end
-	return request("PATCH", "/files/" .. encode(created.id), nil, "uploadFile", created.id, patch)
+	return request("PATCH", "/files/" .. encode(created.id), nil, "uploadFile", patch)
 end
 
 if config.access == "read-write" then

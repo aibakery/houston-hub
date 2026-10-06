@@ -1,4 +1,3 @@
-local connector_http = require("lib/http.lua")
 -- Gmail connector: one mailbox through Houston's HTTP proxy.
 -- Host primitives used: private http.request and json.
 -- Public functions are the mail contract later providers reuse; only the
@@ -59,31 +58,35 @@ local function query_string(params: any)
 end
 
 
-local function request(method: any,path: any,params: any,operation: any,cursor: any,body: any)
+local function request(method: any,path: any,params: any,operation: any,body: any)
 	local url = BASE .. path
 	local qs = query_string(params)
 	if qs ~= "" then
 		url = url .. "?" .. qs
-	end
-	if cursor == nil and type(params) == "table" then
-		cursor = params.pageToken
 	end
 	local headers, payload = nil, nil
 	if body ~= nil then
 		headers = { ["Content-Type"] = "application/json" }
 		payload = json.encode(body)
 	end
-	return connector_http.send({
-		connector = "gmail",
-		operation = operation,
+	local response = http.request({
 		method = method,
-		path = path,
 		url = url,
 		headers = headers,
 		body = payload,
-
-		affected_cursor = cursor,
 	})
+	if response.status < 200 or response.status >= 300 then
+		houston.fail({operation = operation, layer = "upstream", upstream_status = response.status,
+			retryable = response.status == 429 or response.status == 502 or response.status == 503 or response.status == 504,
+			message = "upstream HTTP request failed"})
+	end
+	local decoded = nil
+	if response.body ~= nil and response.body ~= "" then
+		local ok, body = pcall(json.decode, response.body)
+		assert(ok, "upstream returned invalid JSON")
+		decoded = body
+	end
+	return decoded
 end
 
 local function gmail_date(value: any)
@@ -478,7 +481,7 @@ function functions.getMessage(id: any,opts: any)
 	if type(id) ~= "string" or id == "" then
 		error("gmail.getMessage requires a message id")
 	end
-	return decorate_message(request("GET", "/messages/" .. encode(id), get_params(opts), "getMessage", id))
+	return decorate_message(request("GET", "/messages/" .. encode(id), get_params(opts), "getMessage"))
 end
 
 function functions.listThreads(opts: any)
@@ -493,7 +496,7 @@ function functions.getThread(id: any,opts: any)
 	if type(id) ~= "string" or id == "" then
 		error("gmail.getThread requires a thread id")
 	end
-	return decorate_thread(request("GET", "/threads/" .. encode(id), get_params(opts), "getThread", id))
+	return decorate_thread(request("GET", "/threads/" .. encode(id), get_params(opts), "getThread"))
 end
 
 function functions.getMessages(ids: any,opts: any)
@@ -525,17 +528,18 @@ function functions.getMessages(ids: any,opts: any)
 	end
 	parts[#parts + 1] = "--" .. BATCH_BOUNDARY .. "--\r\n"
 	local body = table.concat(parts, "")
-	local raw = connector_http.send({
-		connector = "gmail",
-		operation = "getMessages",
+	local response = http.request({
 		method = "POST",
-		path = "/batch/gmail/v1",
 		url = BATCH_URL,
 		headers = { ["Content-Type"] = "multipart/mixed; boundary=" .. BATCH_BOUNDARY },
 		body = body,
-
-		raw = true,
 	})
+	if response.status < 200 or response.status >= 300 then
+		houston.fail({operation = "getMessages", layer = "upstream", upstream_status = response.status,
+			retryable = response.status == 429 or response.status == 502 or response.status == 503 or response.status == 504,
+			message = "upstream HTTP request failed"})
+	end
+	local raw = response.body
 	local out = parse_batch(raw)
 	for _, msg in out do
 		decorate_message(msg)
@@ -574,16 +578,11 @@ local function attachment_path(attachmentId: any,path: any)
 	return "attachments/" .. safe
 end
 
-local function start_attachment(messageId: any,attachmentId: any,path: any)
-	return connector_http.sendAsync({
-		connector = "gmail",
-		operation = "getAttachment",
+local function download_attachment(messageId: any,attachmentId: any,path: any)
+	return http.request({
 		method = "GET",
-		path = "/messages/" .. encode(messageId) .. "/attachments/" .. encode(attachmentId),
 		url = BASE .. "/messages/" .. encode(messageId) .. "/attachments/" .. encode(attachmentId),
 		dest = path,
-
-		affected_cursor = attachmentId,
 	})
 end
 
@@ -616,7 +615,7 @@ function functions.getAttachments(messageId: any,items: any): {any}
 	if type(items) ~= "table" then
 		error("gmail.getAttachments requires a list of attachments")
 	end
-	local jobs: {{handle: any, path: string}} = {}
+	local jobs: {{id: string, path: string}} = {}
 	for _, item in ipairs(items :: {any}) do
 		local attachmentId = item
 		local path: string? = nil
@@ -628,24 +627,16 @@ function functions.getAttachments(messageId: any,items: any): {any}
 			error("gmail.getAttachments requires an attachment id")
 		end
 		path = attachment_path(attachmentId, path)
-		jobs[#jobs + 1] = { handle = start_attachment(messageId, attachmentId, path), path = path }
+		jobs[#jobs + 1] = { id = attachmentId, path = path }
 	end
 	if #jobs == 0 then
 		return {}
 	end
-	local handles = {}
-	for i, job in ipairs(jobs) do
-		handles[i] = job.handle
-	end
-	local results = connector_http.wait(handles)
-	if type(results) ~= "table" or results.status ~= nil then
-		results = { results }
-	end
 	local out = {}
 	for i, job in ipairs(jobs) do
-		local res = results[i]
+		local res = download_attachment(messageId, job.id, job.path)
 		if type(res) ~= "table" or (res.status ~= nil and (type(res.status) ~= "number" or res.status < 200 or res.status >= 300)) then
-			connector_http.fail({
+			houston.fail({
 				layer = "upstream",
 				upstream_status = res and res.status,
 				connector = "gmail",
@@ -683,7 +674,7 @@ function writes.sendMessage(body: any)
 	if type(body) ~= "table" then
 		error("gmail.sendMessage requires a message body")
 	end
-	return request("POST", "/messages/send", nil, "sendMessage", nil, body)
+	return request("POST", "/messages/send", nil, "sendMessage", body)
 end
 
 function writes.trashMessage(id: any)
@@ -693,7 +684,7 @@ function writes.trashMessage(id: any)
 	if type(id) ~= "string" or id == "" then
 		error("gmail.trashMessage requires a message id")
 	end
-	return request("POST", "/messages/" .. encode(id) .. "/trash", nil, "trashMessage", id)
+	return request("POST", "/messages/" .. encode(id) .. "/trash", nil, "trashMessage")
 end
 
 if config.access == "read-write" then

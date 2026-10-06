@@ -12,13 +12,12 @@ handles, credentials, or connector source authority.
 connectors/example/
   houston.json
   connector.lua
-  lib/http.lua
   icon.svg
   tests/behavior.lua
 ```
 
 `files` is a required nonempty array of entrypoints. Private imports use exact
-canonical paths relative to the manifest, such as `require("lib/http.lua")`.
+canonical paths relative to the manifest, such as `require("lib/pagination.lua")`.
 Every imported file belongs to the pinned release; imports cannot cross bundles.
 Entrypoints return function maps, without metadata or implicit context arguments.
 Duplicate export names fail publication. Initialization cannot make network calls.
@@ -49,18 +48,19 @@ Duplicate export names fail publication. Initialization cannot make network call
 ```
 
 ```lua
-local request = require("lib/http.lua")
 return {
     listItems = function()
-        return request.send({method = "GET", url = "https://api.example.com/items"})
+        local response = http.request({method = "GET", url = "https://api.example.com/items"})
+        assert(response.status == 200, "Example service request failed")
+        return json.decode(response.body)
     end,
 }
 ```
 
-The repository's canonical convenience helper is `helpers/http.lua`. Run
-`go run ./tools/sync-helpers` after changing it; generated copies remain entirely
-inside each standalone bundle. Helpers have no authority of their own. Only the
-native invocation-bound `http.request` or `db.query` can transport requests.
+`http` is provided natively by the sandbox for HTTP connections. Call
+`http.request` directly and handle the provider's status and response format in
+the connector. No HTTP module import or generated helper copy is needed. The
+request completes within the invocation, including uploads and downloads.
 
 ## Settings and authentication
 
@@ -138,13 +138,17 @@ and provider/database grants remain part of authorization.
 
 ## Typed domain contracts
 
-The trusted [interface registry](../interfaces/registry.json) is generated from
-`interfaces/registry.go` using `go run ./tools/interfaces`. It defines operation
-argument/result types and domain semantics, which drive guards and help.
+Each trusted interface has one authoritative JSON definition in [interfaces](../interfaces/).
+The Go registry embeds those files directly; types, guards and help all use the
+same definition. Beside each JSON file, a typed `.lua` reference implementation
+and `.test.lua` fixture demonstrate the contract with mocked native HTTP.
+`go test ./interfaces` typechecks and executes these examples through the same
+publication checks used for provider bundles. It verifies real arguments/results
+and domain behavior, including empty results, normalization and provider errors.
 
-- `mail.folders@1`: `listMailFolders()` lists normalized, ID-sorted folder/label
+- [`mail.folders@1`](../interfaces/mail.folders@1.json): `listMailFolders()` lists normalized, ID-sorted folder/label
   metadata. Gmail and Fastmail implement it.
-- `files.metadata@1`: `statFile(id)` returns normalized file/folder metadata,
+- [`files.metadata@1`](../interfaces/files.metadata@1.json): `statFile(id)` returns normalized file/folder metadata,
   including byte size when known. Drive and Dropbox implement it.
 
 These deliberately scoped capabilities do not promise portability for provider

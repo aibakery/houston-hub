@@ -1,4 +1,3 @@
-local connector_http = require("lib/http.lua")
 -- Granola connector: read notes through Houston's HTTP proxy.
 -- Host primitives used: private http.request and json.
 -- Those primitives are sufficient; the API key never appears in this module.
@@ -53,24 +52,28 @@ local function query_string(params: any)
 	return s
 end
 
-local function request(method: any,path: any,params: any,operation: any,cursor: any)
+local function request(method: any,path: any,params: any,operation: any)
 	local url = BASE .. path
 	local qs = query_string(params)
 	if qs ~= "" then
 		url = url .. "?" .. qs
 	end
-	if cursor == nil and type(params) == "table" then
-		cursor = params.cursor
-	end
-	return connector_http.send({
-		connector = "granola",
-		operation = operation,
+	local response = http.request({
 		method = method,
-		path = path,
 		url = url,
-
-		affected_cursor = cursor,
 	})
+	if response.status < 200 or response.status >= 300 then
+		houston.fail({operation = operation, layer = "upstream", upstream_status = response.status,
+			retryable = response.status == 429 or response.status == 502 or response.status == 503 or response.status == 504,
+			message = "upstream HTTP request failed"})
+	end
+	local decoded = nil
+	if response.body ~= nil and response.body ~= "" then
+		local ok, body = pcall(json.decode, response.body)
+		assert(ok, "upstream returned invalid JSON")
+		decoded = body
+	end
+	return decoded
 end
 
 local function date_only(value: any): string?
@@ -128,7 +131,7 @@ function functions.getNote(id: any,opts: any)
 	if type(id) ~= "string" or id == "" then
 		error("granola.getNote requires a note id")
 	end
-	return request("GET", "/notes/" .. encode(id), get_note_params(opts), "getNote", id)
+	return request("GET", "/notes/" .. encode(id), get_note_params(opts), "getNote")
 end
 
 function functions.listFolders(opts: any)
@@ -143,7 +146,7 @@ function functions.getTranscript(id: any,opts: any)
 	if type(id) ~= "string" or id == "" then
 		error("granola.getTranscript requires a note id")
 	end
-	return request("GET", "/notes/" .. encode(id) .. "/transcript", page_params(opts), "getTranscript", id)
+	return request("GET", "/notes/" .. encode(id) .. "/transcript", page_params(opts), "getTranscript")
 end
 
 return functions

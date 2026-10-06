@@ -1,4 +1,3 @@
-local connector_http = require("lib/http.lua")
 -- Attio connector: read CRM data through Houston's HTTP proxy.
 -- Host primitives used: private http.request and json.
 -- Those primitives are sufficient; the API key never appears in this module.
@@ -53,29 +52,28 @@ local function query_string(params: any)
 	return s
 end
 
-
-local function cursor_of(params: any)
-	if type(params) ~= "table" then
-		return nil
-	end
-	return params.offset or params.pageToken or params.cursor
-end
-
 local function get(path: any,params: any,operation: any)
 	local url = BASE .. path
 	local qs = query_string(params)
 	if qs ~= "" then
 		url = url .. "?" .. qs
 	end
-	return connector_http.send({
-		connector = "attio",
-		operation = operation,
+	local response = http.request({
 		method = "GET",
-		path = path,
 		url = url,
-
-		affected_cursor = cursor_of(params),
 	})
+	if response.status < 200 or response.status >= 300 then
+		houston.fail({operation = operation, layer = "upstream", upstream_status = response.status,
+			retryable = response.status == 429 or response.status == 502 or response.status == 503 or response.status == 504,
+			message = "upstream HTTP request failed"})
+	end
+	local decoded = nil
+	if response.body ~= nil and response.body ~= "" then
+		local ok, body = pcall(json.decode, response.body)
+		assert(ok, "upstream returned invalid JSON")
+		decoded = body
+	end
+	return decoded
 end
 
 local function post(path: any,payload: any,operation: any)
@@ -83,17 +81,24 @@ local function post(path: any,payload: any,operation: any)
 	if payload ~= nil then
 		body = json.encode(payload)
 	end
-	return connector_http.send({
-		connector = "attio",
-		operation = operation,
+	local response = http.request({
 		method = "POST",
-		path = path,
 		url = BASE .. path,
 		headers = { ["Content-Type"] = "application/json" },
 		body = body,
-
-		affected_cursor = cursor_of(payload),
 	})
+	if response.status < 200 or response.status >= 300 then
+		houston.fail({operation = operation, layer = "upstream", upstream_status = response.status,
+			retryable = response.status == 429 or response.status == 502 or response.status == 503 or response.status == 504,
+			message = "upstream HTTP request failed"})
+	end
+	local decoded = nil
+	if response.body ~= nil and response.body ~= "" then
+		local ok, body = pcall(json.decode, response.body)
+		assert(ok, "upstream returned invalid JSON")
+		decoded = body
+	end
+	return decoded
 end
 
 local function object_slug(object: any)

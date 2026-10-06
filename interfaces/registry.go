@@ -3,6 +3,8 @@
 package interfaces
 
 import (
+	"bytes"
+	"embed"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -30,25 +32,35 @@ type Definition struct {
 	Semantics   string               `json:"semantics"`
 }
 
-func str() Type                          { return Type{Kind: "string"} }
-func id() Type                           { return Type{Kind: "string", Nonempty: true} }
-func object(fields map[string]Type) Type { return Type{Kind: "object", Fields: fields} }
+//go:embed *.json
+var contracts embed.FS
 
-var zero = 0.0
-var definitions = map[string]Definition{
-	"mail.folders@1": {
-		Reference: "mail.folders@1", Description: "List the named mail folders or labels in one mailbox.",
-		Operations: map[string]Operation{"listMailFolders": {Access: "read", Arguments: []Type{}, Result: Type{Kind: "array", Element: ptr(object(map[string]Type{"id": id(), "name": str()}))}, Help: "listMailFolders(): {id: string, name: string}[]"}},
-		Semantics:  "No arguments or defaults. Returns every available mail folder/label, sorted by ID in ascending byte order. IDs are opaque, unique and scoped to this connection; names are display text and need not be unique. No pagination. Provider failures raise an error and never return an empty success. Gmail labels and Fastmail mailboxes are both organizational containers; membership semantics are outside this capability.",
-	},
-	"files.metadata@1": {
-		Reference: "files.metadata@1", Description: "Read metadata for one file or folder in file storage.",
-		Operations: map[string]Operation{"statFile": {Access: "read", Arguments: []Type{id()}, Result: object(map[string]Type{"id": id(), "name": str(), "isFolder": {Kind: "boolean"}, "size": {Kind: "integer", Optional: true, Minimum: &zero}}), Help: "statFile(id: string): {id: string, name: string, isFolder: boolean, size?: integer}"}},
-		Semantics:  "One nonempty opaque provider ID scoped to this connection; no defaults. Returns one file or folder, with size in bytes only when known for a non-folder. Cloud-native documents may omit size. Names are display text, not paths. No pagination or ordering. Missing or inaccessible IDs and provider failures raise errors. Extra provider fields are excluded from the normalized result.",
-	},
+var definitions = loadDefinitions()
+
+func loadDefinitions() map[string]Definition {
+	entries, err := contracts.ReadDir(".")
+	if err != nil {
+		panic(err)
+	}
+	definitions := make(map[string]Definition, len(entries))
+	for _, entry := range entries {
+		raw, err := contracts.ReadFile(entry.Name())
+		if err != nil {
+			panic(err)
+		}
+		var definition Definition
+		decoder := json.NewDecoder(bytes.NewReader(raw))
+		decoder.DisallowUnknownFields()
+		if err := decoder.Decode(&definition); err != nil {
+			panic(err)
+		}
+		if definition.Reference+".json" != entry.Name() || len(definition.Operations) == 0 {
+			panic("invalid interface definition: " + entry.Name())
+		}
+		definitions[definition.Reference] = definition
+	}
+	return definitions
 }
-
-func ptr(t Type) *Type { return &t }
 
 // Resolve returns detached definitions so a release or caller cannot mutate the registry.
 func Resolve(refs []string) ([]Definition, error) {

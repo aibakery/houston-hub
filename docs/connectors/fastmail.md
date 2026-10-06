@@ -2,8 +2,6 @@
 
 Provider-specific exported operations retain the documented request and pagination semantics.
 
-
-# Fastmail
 Use an instance from houston.connectors(). API tokens stay on the server.
 getProfile() returns emailAddress, accountId, name. listFolders() returns folders
 with id/name/role; use an id or a role such as INBOX as a folder filter.
@@ -25,7 +23,7 @@ getThread(id, opts?) returns all messages in conversation order, fetching in bat
 
 listAttachments(id) returns metadata: id, filename, mimeType, size, inline, contentId.
 getAttachment(messageId, attachmentId, path?) returns {path,url,size}; the URL is a
-signed Houston download. getAttachments(messageId, items) downloads in parallel;
+signed Houston download. getAttachments(messageId, items) downloads each attachment;
 items is {{id,path?},...}. Bytes are stored in session files, never returned inline.
 
 Writes appear only with read-write access. trashMessage(id) moves mail to Trash.

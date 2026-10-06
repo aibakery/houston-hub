@@ -3,8 +3,6 @@
 Provider-specific exported operations retain the documented request and pagination semantics.
 
 
-# Google Drive
-
 Read files for one connected Google Drive account. Credentials stay on the
 Houston server. This is the storage/drive contract: later file-drive
 providers implement the same functions. Use the instance from

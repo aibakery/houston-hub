@@ -1,4 +1,3 @@
-local connector_http = require("lib/http.lua")
 -- Google Calendar connector: read calendars and events through Houston's HTTP proxy.
 -- Host primitives used: private http.request and json.
 
@@ -52,31 +51,35 @@ local function query_string(params: any)
 	return s
 end
 
-local function request(method: any,path: any,params: any,operation: any,cursor: any,body: any)
+local function request(method: any,path: any,params: any,operation: any,body: any)
 	local url = BASE .. path
 	local qs = query_string(params)
 	if qs ~= "" then
 		url = url .. "?" .. qs
-	end
-	if cursor == nil and type(params) == "table" then
-		cursor = params.pageToken
 	end
 	local headers, payload = nil, nil
 	if body ~= nil then
 		headers = { ["Content-Type"] = "application/json" }
 		payload = json.encode(body)
 	end
-	return connector_http.send({
-		connector = "gcalendar",
-		operation = operation,
+	local response = http.request({
 		method = method,
-		path = path,
 		url = url,
 		headers = headers,
 		body = payload,
-
-		affected_cursor = cursor,
 	})
+	if response.status < 200 or response.status >= 300 then
+		houston.fail({operation = operation, layer = "upstream", upstream_status = response.status,
+			retryable = response.status == 429 or response.status == 502 or response.status == 503 or response.status == 504,
+			message = "upstream HTTP request failed"})
+	end
+	local decoded = nil
+	if response.body ~= nil and response.body ~= "" then
+		local ok, body = pcall(json.decode, response.body)
+		assert(ok, "upstream returned invalid JSON")
+		decoded = body
+	end
+	return decoded
 end
 
 local function list_calendar_params(opts: any)
@@ -144,9 +147,7 @@ function functions.getEvent(calendarId: any,eventId: any,opts: any)
 		"GET",
 		"/calendars/" .. encode(calendarId) .. "/events/" .. encode(eventId),
 		get_event_params(opts),
-		"getEvent",
-		eventId
-	)
+		"getEvent")
 end
 
 local writes = {}
@@ -162,7 +163,7 @@ function writes.insertEvent(calendarId: any,event: any)
 	if type(event) ~= "table" then
 		error("gcalendar.insertEvent requires an event body")
 	end
-	return request("POST", "/calendars/" .. encode(calendarId) .. "/events", nil, "insertEvent", nil, event)
+	return request("POST", "/calendars/" .. encode(calendarId) .. "/events", nil, "insertEvent", event)
 end
 
 function writes.deleteEvent(calendarId: any,eventId: any)
@@ -180,9 +181,7 @@ function writes.deleteEvent(calendarId: any,eventId: any)
 		"DELETE",
 		"/calendars/" .. encode(calendarId) .. "/events/" .. encode(eventId),
 		nil,
-		"deleteEvent",
-		eventId
-	)
+		"deleteEvent")
 end
 
 if config.access == "read-write" then

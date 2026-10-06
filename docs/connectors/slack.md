@@ -2,8 +2,6 @@
 
 Provider-specific exported operations retain the documented request and pagination semantics.
 
-# Slack
-
 Each instance is one user account in one authorized Slack workspace. Personal
 connections are private to their owner. Shared connections are available to the
 organization admins and granted members. Add a separate connection for each Slack

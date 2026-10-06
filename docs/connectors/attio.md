@@ -3,8 +3,6 @@
 Provider-specific exported operations retain the documented request and pagination semantics.
 
 
-# Attio
-
 Read objects, records, notes, and CRM activity (emails, tasks, comments,
 meetings, calls) for one connected Attio workspace. Credentials stay on
 the Houston server; these functions only see JSON from Attio.

@@ -1,4 +1,21 @@
-local connector_http = require("lib/http.lua")
+local function encode(value: any)
+    return (string.gsub(tostring(value), "[^A-Za-z0-9%-_%.~]", function(c: any)
+        return string.format("%%%02X", string.byte(c))
+    end))
+end
+
+local function query_string(params: any)
+    local parts = {}
+    local function add(key: any, value: any)
+        if value == nil then return end
+        if type(value) == "table" then for _, item in value do add(key, item) end
+        else parts[#parts + 1] = encode(key) .. "=" .. encode(value) end
+    end
+    for key, value in params or {} do add(key, value) end
+    table.sort(parts)
+    return table.concat(parts, "&")
+end
+
 -- One connected Slack user in one workspace. Houston owns the credentials.
 local BASE = "https://slack.com/api/"
 
@@ -23,18 +40,30 @@ local function request(method: any,params: any,write: any)
 		body = json.encode(params)
 		headers = { ["Content-Type"] = "application/json; charset=utf-8" }
 	else
-		local query = connector_http.query_string(params)
+		local query = query_string(params)
 		if query ~= "" then url ..= "?" .. query end
 	end
-	local result = connector_http.send({
-		connector = "slack", operation = method,
-		method = if write then "POST" else "GET", path = method,
-		url = url, body = body, headers = headers, affected_cursor = params.cursor,
+	local response = http.request({
+		method = if write then "POST" else "GET",
+		url = url,
+		body = body,
+		headers = headers,
 	})
+	if response.status < 200 or response.status >= 300 then
+		houston.fail({operation = method, layer = "upstream", upstream_status = response.status,
+			retryable = response.status == 429 or response.status == 502 or response.status == 503 or response.status == 504,
+			message = "upstream HTTP request failed"})
+	end
+	local result = nil
+	if response.body ~= nil and response.body ~= "" then
+		local ok, body = pcall(json.decode, response.body)
+		assert(ok, "upstream returned invalid JSON")
+		result = body
+	end
 	-- Slack reports most failures as HTTP 200 with ok=false.
 	if type(result) ~= "table" or result.ok ~= true then
 		local code = if type(result) == "table" then result.error else "invalid_response"
-		connector_http.fail({
+		houston.fail({
 			connector = "slack", operation = method, layer = "upstream",
 			message = "slack: " .. tostring(code),
 			retryable = code == "ratelimited", recovery = if code == "ratelimited" then "retry later" else "do not retry",
@@ -130,12 +159,17 @@ end
 function functions.downloadFile(id: any,path: any)
 	local file = functions.getFile(id)
 	required(path, "session path")
-	local saved = connector_http.send({
-		connector = "slack", operation = "downloadFile",
-		method = "GET", path = path, dest = path,
+	local response = http.request({
+		method = "GET",
+		dest = path,
 		url = required(file.url_private_download or file.url_private, "file download URL"),
 	})
-	return { path = path, url = fs.signedGetUrl(path), bytes = saved.bytes }
+	if response.status < 200 or response.status >= 300 then
+		houston.fail({operation = "downloadFile", layer = "upstream", upstream_status = response.status,
+			retryable = response.status == 429 or response.status == 502 or response.status == 503 or response.status == 504,
+			message = "upstream HTTP request failed"})
+	end
+	return { path = path, url = fs.signedGetUrl(path), bytes = response.bytes }
 end
 
 function writes.postMessage(channel: any,text: any,opts: any)
@@ -182,11 +216,17 @@ function writes.uploadFile(path: any,opts: any)
 	if not stat.isFile then error("slack: upload path must be a file") end
 	local name = params.filename or string.match(path, "([^/]+)$")
 	local upload = request("files.getUploadURLExternal", { filename = required(name, "filename"), length = stat.size, alt_txt = params.alt_text })
-	connector_http.send({
-		connector = "slack", operation = "uploadFile",
-		method = "POST", path = path, src = path, raw = true,
-		url = required(upload.upload_url, "upload URL"), headers = { ["Content-Type"] = "application/octet-stream" },
+	local response = http.request({
+		method = "POST",
+		src = path,
+		url = required(upload.upload_url, "upload URL"),
+		headers = { ["Content-Type"] = "application/octet-stream" },
 	})
+	if response.status < 200 or response.status >= 300 then
+		houston.fail({operation = "uploadFile", layer = "upstream", upstream_status = response.status,
+			retryable = response.status == 429 or response.status == 502 or response.status == 503 or response.status == 504,
+			message = "upstream HTTP request failed"})
+	end
 	return request("files.completeUploadExternal", {
 		files = { { id = upload.file_id, title = params.title or name } },
 		channel_id = params.channel, thread_ts = params.thread_ts, initial_comment = params.text,

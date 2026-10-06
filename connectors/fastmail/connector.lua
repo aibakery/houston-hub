@@ -1,21 +1,33 @@
-local connector_http = require("lib/http.lua")
 local state: {session: any, accountId: string?} = {}
 -- Fastmail's JMAP transport uses the shared Houston HTTP/error/file plumbing.
 local CORE = "urn:ietf:params:jmap:core"
 local MAIL = "urn:ietf:params:jmap:mail"
 local SUBMISSION = "urn:ietf:params:jmap:submission"
-local encode = connector_http.encode
+local function encode(value: any)
+    return (string.gsub(tostring(value), "[^A-Za-z0-9%-_%.~]", function(c: any)
+        return string.format("%%%02X", string.byte(c))
+    end))
+end
 
 local function fail(operation: any,message: any): never
 	error(json.encode({ connector = "fastmail", operation = operation, layer = "upstream", message = message, retryable = false }))
 end
 
-local function request(method: any,url: any,operation: any,body: any,dest: any)
-	return connector_http.send({
-		connector = "fastmail", operation = operation,
-		method = method, url = url, path = url, body = body, dest = dest,
+local function request(method: any,url: any,operation: any,body: any)
+	local response = http.request({
+		method = method,
+		url = url,
+		body = body,
 		headers = { ["Content-Type"] = "application/json" },
 	})
+	if response.status < 200 or response.status >= 300 then
+		houston.fail({operation = operation, layer = "upstream", upstream_status = response.status,
+			retryable = response.status == 429 or response.status == 502 or response.status == 503 or response.status == 504,
+			message = "upstream HTTP request failed"})
+	end
+	local ok, decoded = pcall(json.decode, response.body)
+	assert(ok, "upstream returned invalid JSON")
+	return decoded
 end
 
 local function session(): any
@@ -300,16 +312,9 @@ function functions.getAttachments(messageId: any,items: any): {any}
 		local url = string.gsub(s.downloadUrl, "{(%w+)}", function(key: any) return encode(values[key] or "") end)
 		jobs[#jobs + 1] = { path = path, size = attachment.size, url = url }
 	end
-	local handles = {}
-	for _, job in jobs do
-		handles[#handles + 1] = connector_http.sendAsync({ connector = "fastmail",
-			operation = "getAttachment", method = "GET", url = job.url, path = job.url, dest = job.path })
-	end
-	local results = connector_http.wait(handles)
-	if results.status then results = { results } end
 	local out = {}
-	for i, job in jobs do
-		local res = results[i]
+	for _, job in jobs do
+		local res = http.request({method = "GET", url = job.url, dest = job.path})
 		if not res or type(res.status) ~= "number" or res.status < 200 or res.status >= 300 then fail("getAttachment", "Download failed") end
 		out[#out + 1] = { path = job.path, url = fs.signedGetUrl(job.path), size = job.size }
 	end

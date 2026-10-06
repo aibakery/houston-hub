@@ -1,4 +1,3 @@
-local connector_http = require("lib/http.lua")
 -- Dropbox connector: read a connected account through Houston's HTTP proxy.
 -- Public functions are the storage/drive contract; vendor RPC paths stay here.
 -- Host primitives used: private http.request and json.
@@ -11,38 +10,42 @@ local function request(path: any,payload: any,operation: any)
 	if payload ~= nil then
 		body = json.encode(payload)
 	end
-	local cursor
-	if type(payload) == "table" then
-		cursor = payload.cursor
-	end
-	return connector_http.send({
-		connector = "dropbox",
-		operation = operation,
+	local response = http.request({
 		method = "POST",
-		path = path,
 		url = BASE .. path,
 		headers = { ["Content-Type"] = "application/json" },
 		body = body,
-
-		affected_cursor = cursor,
 	})
+	if response.status < 200 or response.status >= 300 then
+		houston.fail({operation = operation, layer = "upstream", upstream_status = response.status,
+			retryable = response.status == 429 or response.status == 502 or response.status == 503 or response.status == 504,
+			message = "upstream HTTP request failed"})
+	end
+	local decoded = nil
+	if response.body ~= nil and response.body ~= "" then
+		local ok, body = pcall(json.decode, response.body)
+		assert(ok, "upstream returned invalid JSON")
+		decoded = body
+	end
+	return decoded
 end
 
 local function request_file(arg_path: any,dest: any,operation: any)
-	return connector_http.send({
-		connector = "dropbox",
-		operation = operation,
+	local response = http.request({
 		method = "POST",
-		path = dest,
 		url = CONTENT .. "/files/download",
 		headers = {
 			["Content-Type"] = "application/octet-stream",
 			["Dropbox-API-Arg"] = json.encode({ path = arg_path }),
 		},
 		dest = dest,
-
-		affected_cursor = arg_path,
 	})
+	if response.status < 200 or response.status >= 300 then
+		houston.fail({operation = operation, layer = "upstream", upstream_status = response.status,
+			retryable = response.status == 429 or response.status == 502 or response.status == 503 or response.status == 504,
+			message = "upstream HTTP request failed"})
+	end
+	return response
 end
 
 local function as_path(value: any)

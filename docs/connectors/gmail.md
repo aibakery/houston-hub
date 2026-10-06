@@ -3,8 +3,6 @@
 Provider-specific exported operations retain the documented request and pagination semantics.
 
 
-# Gmail
-
 Read mail for one connected mailbox. Credentials stay on the Houston
 server. This is the mail contract: later mailbox providers implement the
 same functions. Use the instance from `houston.connectors()` — do not
@@ -70,7 +68,7 @@ bytes or base64; give the caller the signed URL.
 
 ## getAttachments(messageId, items)
 
-Downloads several attachments in parallel. `items` is `{ { id, path? }, ... }`.
+Downloads several attachments in order. `items` is `{ { id, path? }, ... }`.
 Returns an array of `{ path, url, size }` in the same order. Uses `http.sendAsync`
 handles and `http.wait`.
 

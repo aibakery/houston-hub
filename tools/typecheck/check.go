@@ -1,7 +1,7 @@
-// Package analysis typechecks bundled Luau against trusted native primitives and
+// Package typecheck typechecks bundled Luau against trusted native primitives and
 // the same interface definitions used by runtime guards. Analysis is a publication
 // check, never a grant of transport authority or a proof of provider behavior.
-package analysis
+package typecheck
 
 import (
 	"context"

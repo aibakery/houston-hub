@@ -3,8 +3,6 @@
 Provider-specific exported operations retain the documented request and pagination semantics.
 
 
-# Granola
-
 Read notes, folders, and transcripts for one connected Granola account.
 Credentials stay on the Houston server; these functions only see JSON from
 Granola.

@@ -3,8 +3,6 @@
 Provider-specific exported operations retain the documented request and pagination semantics.
 
 
-# Google Calendar
-
 Read calendars and events for one connected Google Calendar account.
 Credentials stay on the Houston server; these functions only see JSON from
 Calendar.

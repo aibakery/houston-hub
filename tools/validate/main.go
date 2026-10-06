@@ -5,9 +5,9 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"github.com/aibakery/houston-hub/analysis"
-	"github.com/aibakery/houston-hub/conformance"
 	"github.com/aibakery/houston-hub/manifest"
+	"github.com/aibakery/houston-hub/tools/conformance"
+	"github.com/aibakery/houston-hub/tools/typecheck"
 	"image/png"
 	"os"
 	"path/filepath"
@@ -93,7 +93,7 @@ func validateBundle(dir string) error {
 	}); err != nil {
 		return err
 	}
-	if err := analysis.Check(context.Background(), "", *m, modules); err != nil {
+	if err := typecheck.Check(context.Background(), "", *m, modules); err != nil {
 		return err
 	}
 	if err := conformance.Check(context.Background(), "", *m, modules, fixtures); err != nil {
