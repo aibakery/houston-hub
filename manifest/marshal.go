@@ -23,12 +23,9 @@ func (a AuthMethod) MarshalJSON() ([]byte, error) {
 	return json.Marshal(v)
 }
 
-// Simple values stay concise; guarded values retain the same template contract.
+// OAuth account headers require a value even when it is explicitly empty.
 func (h *HeaderValue) UnmarshalJSON(data []byte) error {
-	if len(data) > 0 && data[0] == '"' {
-		*h = HeaderValue{}
-		return json.Unmarshal(data, &h.Value)
-	}
+
 	type plain HeaderValue
 	var value plain
 	if err := decode(data, &value); err != nil {
@@ -43,13 +40,6 @@ func (h *HeaderValue) UnmarshalJSON(data []byte) error {
 	}
 	*h = HeaderValue(value)
 	return nil
-}
-func (h HeaderValue) MarshalJSON() ([]byte, error) {
-	if h.If == "" {
-		return json.Marshal(h.Value)
-	}
-	type plain HeaderValue
-	return json.Marshal(plain(h))
 }
 
 // Omit HTTP header actions from database snapshots as well as pass-through rules.

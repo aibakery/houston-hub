@@ -324,25 +324,12 @@ func (m *Manifest) resolve(publisher, config, auth map[string]any, selected stri
 				}
 				continue
 			}
-			recipe := HTTPRecipe{Headers: p.Action.Headers.Set, BasicAuth: p.Action.BasicAuth}
+			recipe := p.Action.httpRecipe("")
 			if _, err := recipe.Prepare(preparation, nil); err != nil {
 				return r, err
 			}
-			for _, h := range p.Action.Headers.Set {
-				refs, _ := PredicateReferences(h.If)
-				for _, ref := range refs {
-					if _, _, err := c.Lookup(ref); err != nil {
-						return r, err
-					}
-				}
-				yes, err := EvaluatePredicate(h.If, *c)
-				if err != nil {
-					return r, err
-				}
-				if !yes {
-					continue
-				}
-				refs, _ = TemplateReferences(h.Value)
+			for _, value := range p.Action.Headers.Set {
+				refs, _ := TemplateReferences(value)
 				for _, ref := range refs {
 					if strings.HasPrefix(ref, "publisher.") {
 						if _, _, err := c.Lookup(ref); err != nil {

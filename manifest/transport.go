@@ -209,7 +209,7 @@ func (m *Manifest) validateProxy(p Proxy, used map[string]bool) error {
 		if err := validateHeaderFilters(p.Match.Header); err != nil {
 			return err
 		}
-		if err := m.validateRecipe(p.Action.Headers.Set, p.Action.BasicAuth, used); err != nil {
+		if err := m.validateRecipe(p.Action.httpRecipe("").Headers, p.Action.BasicAuth, used); err != nil {
 			return err
 		}
 		seen = map[string]bool{}
@@ -302,6 +302,16 @@ type HTTPRecipe struct {
 	RemoveHeaders []string
 }
 
+// Proxy sets are unconditional templates; OAuth account headers reuse preparation
+// with their separate conditional HeaderValue contract.
+func (a ProxyAction) httpRecipe(rawURL string) HTTPRecipe {
+	headers := make(map[string]HeaderValue, len(a.Headers.Set))
+	for name, value := range a.Headers.Set {
+		headers[name] = HeaderValue{Value: value}
+	}
+	return HTTPRecipe{URL: rawURL, Headers: headers, BasicAuth: a.BasicAuth, RemoveHeaders: a.Headers.Remove}
+}
+
 func (rules ProxyRules) Select(indices []int) ProxyRules {
 	selected := make(ProxyRules, 0, len(indices))
 	for _, i := range indices {
@@ -354,7 +364,7 @@ func (rules ProxyRules) HTTPRecipe(method, rawURL string, caller http.Header) (H
 		if !rule.Match.matchesRequest(method, path, caller) {
 			continue
 		}
-		out = HTTPRecipe{URL: rawURL, Headers: rule.Action.Headers.Set, BasicAuth: rule.Action.BasicAuth, RemoveHeaders: rule.Action.Headers.Remove}
+		out = rule.Action.httpRecipe(rawURL)
 		if rewrite := rule.Action.Rewrite; rewrite != nil {
 			if err := validateStripPrefix(rewrite.StripPrefix); err != nil {
 				return HTTPRecipe{}, err

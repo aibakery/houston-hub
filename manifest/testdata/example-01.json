@@ -117,19 +117,34 @@
           ],
           "set": {
             "Accept": "application/json",
-            "Authorization": {
-              "if": "{{ isDefined auth.oauth.access_token }}",
-              "value": "Bearer {{auth.oauth.access_token}}"
-            },
-            "X-API-Key": {
-              "if": "{{ isDefined auth.api_key.token }}",
-              "value": "{{auth.api_key.token}}"
-            },
+            "Authorization": "Bearer {{auth.oauth.access_token}}",
             "X-Service-Region": "us"
           }
         }
       },
-      "if": "{{ is publisher.region \"us\" }}",
+      "if": "{{ and (is publisher.region \"us\") (isDefined auth.oauth) }}",
+      "match": {
+        "host": [
+          "api.files.example.com"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "remove": [
+            "Authorization",
+            "X-API-Key"
+          ],
+          "set": {
+            "Accept": "application/json",
+            "X-API-Key": "{{auth.api_key.token}}",
+            "X-Service-Region": "us"
+          }
+        }
+      },
+      "if": "{{ and (is publisher.region \"us\") (isDefined auth.api_key) }}",
       "match": {
         "host": [
           "api.files.example.com"
@@ -178,19 +193,34 @@
           ],
           "set": {
             "Accept": "application/json",
-            "Authorization": {
-              "if": "{{ isDefined auth.oauth.access_token }}",
-              "value": "Bearer {{auth.oauth.access_token}}"
-            },
-            "X-API-Key": {
-              "if": "{{ isDefined auth.api_key.token }}",
-              "value": "{{auth.api_key.token}}"
-            },
+            "Authorization": "Bearer {{auth.oauth.access_token}}",
             "X-Service-Region": "eu"
           }
         }
       },
-      "if": "{{ is publisher.region \"eu\" }}",
+      "if": "{{ and (is publisher.region \"eu\") (isDefined auth.oauth) }}",
+      "match": {
+        "host": [
+          "api.files.example.com"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "remove": [
+            "Authorization",
+            "X-API-Key"
+          ],
+          "set": {
+            "Accept": "application/json",
+            "X-API-Key": "{{auth.api_key.token}}",
+            "X-Service-Region": "eu"
+          }
+        }
+      },
+      "if": "{{ and (is publisher.region \"eu\") (isDefined auth.api_key) }}",
       "match": {
         "host": [
           "api.files.example.com"

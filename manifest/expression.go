@@ -425,8 +425,13 @@ func (m *Manifest) validatePredicate(s, phase string, used map[string]bool) erro
 		if isAuth && phase != "proxy" && phase != "header" {
 			return fmt.Errorf("auth references forbidden before selection")
 		}
-		if f.Type == "secret" && (phase != "header" || n.op != "isDefined") {
-			return fmt.Errorf("secret references only permitted in header presence checks")
+		if f.Type == "secret" {
+			parts := strings.Split(n.ref, ".")
+			managedToken := len(parts) == 3 && parts[0] == "auth" && m.Auth[parts[1]].Type == "oauth2"
+			allowedPresence := phase == "header" || phase == "proxy" && !managedToken
+			if n.op != "isDefined" || !allowedPresence {
+				return fmt.Errorf("secret references require an allowed presence check; proxy rules cannot depend on OAuth tokens")
+			}
 		}
 		if f.Type == "marker" && n.op != "isDefined" {
 			return fmt.Errorf("method markers support only isDefined")

@@ -29,7 +29,7 @@ func parseRules(t *testing.T, rules string) *Manifest {
 
 func TestRulesConditionsAndSnapshot(t *testing.T) {
 	m := parseRules(t, `[
- {"if":"{{ is config.enabled true }}","match":{"protocol":"http","host":["api.example.com","*.api.example.com"],"method":["GET","POST"],"path":["/records/*","/users/*"]},"action":{"headers":{"set":{"Authorization":"Bearer {{config.token}}","X-Off":{"value":"never","if":"{{ is config.enabled false }}"}}}}},
+ {"if":"{{ is config.enabled true }}","match":{"protocol":"http","host":["api.example.com","*.api.example.com"],"method":["GET","POST"],"path":["/records/*","/users/*"]},"action":{"headers":{"set":{"Authorization":"Bearer {{config.token}}"},"remove":["X-Off"]}}},
  {"match":{"protocol":"http","host":["api.example.com","*.api.example.com"]},"action":{}}
  ]`)
 	encoded, err := json.Marshal(m)
@@ -61,10 +61,12 @@ func TestRulesConditionsAndSnapshot(t *testing.T) {
 			}
 			headers, err := recipe.Prepare(r.Context, caller)
 			wantAuth := "caller"
+			wantOff := "caller"
 			if enabled {
 				wantAuth = "Bearer bound-secret"
+				wantOff = ""
 			}
-			if err != nil || headers.Get("Authorization") != wantAuth || headers.Get("X-Off") != "caller" {
+			if err != nil || headers.Get("Authorization") != wantAuth || headers.Get("X-Off") != wantOff {
 				t.Fatalf("headers: %v %v", headers, err)
 			}
 			if caller.Get("Authorization") != "caller" {
@@ -123,25 +125,75 @@ func TestRulesHeaderMatchingAndPriority(t *testing.T) {
 	}
 }
 
-func TestRulesRemoveAndConditionalSet(t *testing.T) {
-	m := parseRules(t, `[{"match":{"protocol":"http","host":["api.example.com"]},"action":{"headers":{"remove":["Authorization","X-Delete"],"set":{"Authorization":{"value":"Bearer {{config.token}}","if":"{{ is config.enabled true }}"},"X-Keep":{"value":"replacement","if":"{{ is config.enabled true }}"}}}}}]`)
-	for _, enabled := range []bool{true, false} {
-		caller := http.Header{"Authorization": {"caller"}, "X-Delete": {"private"}, "X-Keep": {"original"}}
-		recipe, err := m.Proxy.HTTPRecipe("GET", "https://api.example.com/", caller)
-		if err != nil {
-			t.Fatal(err)
-		}
-		h, err := recipe.Prepare(Context{Config: map[string]any{"token": "secret", "enabled": enabled}}, caller)
-		if err != nil {
-			t.Fatal(err)
-		}
-		auth, keep := "", "original"
-		if enabled {
-			auth, keep = "Bearer secret", "replacement"
-		}
-		if h.Get("Authorization") != auth || h.Get("X-Keep") != keep || h.Get("X-Delete") != "" {
-			t.Fatalf("remove/set order: %v", h)
-		}
+func TestRulesOptionalSecretAndFallback(t *testing.T) {
+	for _, source := range []string{"config", "publisher", "manual"} {
+		t.Run(source, func(t *testing.T) {
+			ref, selected := source+".token", ""
+			fields := `"` + source + `":{"token":{"type":"secret","label":"Optional token"}}`
+			if source == "manual" {
+				ref, selected = "auth.manual.token", "manual"
+				fields = `"auth":{"manual":{"type":"manual","label":"Manual","config":{"token":{"type":"secret","label":"Optional token"}}}}`
+			}
+			data := fmt.Sprintf(`{"schema_version":1,"name":"Optional credential","description":"Rule fallback","files":["main.luau"],%s,"proxy":[
+ {"if":"{{ isDefined %s }}","match":{"protocol":"http","host":["api.example.com"]},"action":{"headers":{"remove":["Authorization"],"set":{"Authorization":"Bearer {{%s}}","X-Selected":"credential"}}}},
+ {"match":{"protocol":"http","host":["api.example.com"]},"action":{"headers":{"remove":["Authorization"],"set":{"X-Selected":"fallback"}}}}
+ ]}`, fields, ref, ref)
+			m, err := Parse([]byte(data))
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, present := range []bool{true, false} {
+				var publisher, config, auth map[string]any
+				if present {
+					values := map[string]any{"token": "secret"}
+					switch source {
+					case "config":
+						config = values
+					case "publisher":
+						publisher = values
+					case "manual":
+						auth = values
+					}
+				}
+				r, err := m.Resolve(publisher, config, auth, selected)
+				if err != nil {
+					t.Fatal(err)
+				}
+				caller := http.Header{"Authorization": {"caller"}}
+				recipe, err := m.Proxy.Select(r.ProxyIndices).HTTPRecipe("GET", "https://api.example.com/", caller)
+				if err != nil {
+					t.Fatal(err)
+				}
+				h, err := recipe.Prepare(r.Context, caller)
+				wantAuth, wantRule := "", "fallback"
+				if present {
+					wantAuth, wantRule = "Bearer secret", "credential"
+				}
+				if err != nil || h.Get("Authorization") != wantAuth || h.Get("X-Selected") != wantRule {
+					t.Fatalf("present=%v, headers=%v, error=%v", present, h, err)
+				}
+			}
+			m.Proxy[0].If = `{{ is ` + ref + ` "guess" }}`
+			if err := m.Validate(); err == nil {
+				t.Fatal("accepted secret equality in rule predicate")
+			}
+		})
+	}
+}
+
+func TestRulesOAuthSelectionUsesMethodMarker(t *testing.T) {
+	data := `{"schema_version":1,"name":"OAuth rules","description":"Stable selection","files":["main.luau"],"publisher":{"client_id":{"type":"string","label":"Client","required":true}},"auth":{"oauth":{"type":"oauth2","label":"OAuth","authorize_url":"https://example.com/auth","token_url":"https://example.com/token","client_id":"{{publisher.client_id}}","client_auth":"none","pkce":"S256"}},"proxy":[{"if":"{{ isDefined auth.oauth }}","match":{"protocol":"http","host":["api.example.com"]},"action":{"headers":{"set":{"Authorization":"Bearer {{auth.oauth.access_token}}"}}}}]}`
+	m, err := Parse([]byte(data))
+	if err != nil {
+		t.Fatal(err)
+	}
+	r, err := m.Resolve(map[string]any{"client_id": "client"}, nil, nil, "oauth")
+	if err != nil || !reflect.DeepEqual(r.ProxyIndices, []int{0}) {
+		t.Fatalf("OAuth rule unavailable before token acquisition: %v %v", r, err)
+	}
+	m.Proxy[0].If = "{{ isDefined auth.oauth.access_token }}"
+	if err := m.Validate(); err == nil {
+		t.Fatal("accepted rule selection depending on managed OAuth token")
 	}
 }
 
@@ -156,19 +208,6 @@ func TestHeaderNamedIfIsNotAPredicate(t *testing.T) {
 		if err != nil || !reflect.DeepEqual(headers.Values("If"), []string{""}) {
 			t.Fatalf("header named if: %v %v", headers, err)
 		}
-	}
-}
-
-func TestHeaderValueDecodeReplacesPriorCondition(t *testing.T) {
-	var value HeaderValue
-	if err := json.Unmarshal([]byte(`{"value":"guarded","if":"{{ is config.enabled true }}"}`), &value); err != nil {
-		t.Fatal(err)
-	}
-	if err := json.Unmarshal([]byte(`"unconditional"`), &value); err != nil {
-		t.Fatal(err)
-	}
-	if value.Value != "unconditional" || value.If != "" {
-		t.Fatalf("retained previous header state: %#v", value)
 	}
 }
 
@@ -190,6 +229,10 @@ func TestRulesRejectInvalidDeclarations(t *testing.T) {
 		`{"match":{"protocol":"http","host":["api.example.com"]},"action":{"headers":{"remove":["X-Test","x-test"]}}}`,
 		`{"match":{"protocol":"http","host":["api.example.com"]},"action":{"headers":{"set":{"X-Test":{}}}}}`,
 		`{"match":{"protocol":"http","host":["api.example.com"]},"action":{"headers":{"set":{"if":{"value":"x","if":""}}}}}`,
+		`{"match":{"protocol":"http","host":["api.example.com"]},"action":{"headers":{"set":{"X-Test":{"value":"x"}}}}}`,
+		`{"match":{"protocol":"http","host":["api.example.com"]},"action":{"headers":{"set":{"X-Test":{"value":"x","if":"{{ is config.enabled true }}"}}}}}`,
+		`{"match":{"protocol":"http","host":["api.example.com"],"if":"{{ is config.enabled true }}"},"action":{}}`,
+		`{"match":{"protocol":"http","host":["api.example.com"]},"action":{"if":"{{ is config.enabled true }}"}}`,
 		`{"match":{"protocol":"http","host":["api.example.com"]},"action":{"headers":{"remove":["SomeOtherHeader "]}}}`,
 		`{"origins":["api.example.com"],"routes":[{"path":["/"]}]}`,
 	} {

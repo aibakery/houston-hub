@@ -126,6 +126,5 @@ func Schema() ([]byte, error) {
 	def("BasicAuth")["oneOf"] = []any{map[string]any{"maxProperties": 0}, map[string]any{"required": []string{"username", "password"}}}
 	def("ResponseCheck")["allOf"] = []any{map[string]any{"if": condition("op", "equals"), "then": map[string]any{"required": []string{"value"}}, "else": forbid("value")}}
 	def("Field")["allOf"] = []any{map[string]any{"if": condition("type", "secret"), "then": forbid("default", "display", "options")}, map[string]any{"if": map[string]any{"properties": map[string]any{"type": map[string]any{"enum": []string{"string", "secret"}}}}, "then": forbid("minimum", "maximum"), "else": forbid("placeholder", "min_length", "max_length", "options", "display")}, map[string]any{"if": map[string]any{"required": []string{"options"}}, "then": forbid("display")}}
-	defs["HeaderValue"] = map[string]any{"oneOf": []any{map[string]any{"type": "string"}, def("HeaderValue")}}
 	return json.MarshalIndent(map[string]any{"$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "https://ok-houston.com/schemas/connector-manifest-v1.json", "title": "Houston connector manifest v1", "$ref": "#/$defs/Manifest", "$defs": defs}, "", "  ")
 }

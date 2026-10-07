@@ -86,10 +86,32 @@
             "Authorization"
           ],
           "set": {
-            "Authorization": {
-              "if": "{{ isDefined auth.rest.user_jwt }}",
-              "value": "Bearer {{auth.rest.user_jwt}}"
-            },
+            "Authorization": "Bearer {{auth.rest.user_jwt}}",
+            "apikey": "{{auth.rest.api_key}}"
+          }
+        }
+      },
+      "if": "{{ and (and (is config.connection_type \"http\") (isDefined auth.rest)) (isDefined auth.rest.user_jwt) }}",
+      "match": {
+        "host": [
+          "example-project.supabase.co"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/rest/v1/*"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "remove": [
+            "Authorization"
+          ],
+          "set": {
             "apikey": "{{auth.rest.api_key}}"
           }
         }

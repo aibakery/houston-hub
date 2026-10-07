@@ -113,7 +113,8 @@ it activates; failures never reuse another method's credentials.
 ## Transport and exports
 
 `proxy` is a nonempty ordered array of rules containing `match`, `action`, and an
-optional `if` predicate. Enabled rules must share one protocol. For HTTP, the
+optional `if` predicate. Within `proxy`, conditions belong only on rules, never
+inside `match` or `action`. Enabled rules must share one protocol. For HTTP, the
 first enabled rule matching the original request wins; only its action runs.
 Rules never merge, rematch after changes, or fall through after errors.
 
@@ -154,12 +155,21 @@ match exactly and `true` means present, including an empty value. Filters are
 literal and inspect caller headers before action changes.
 
 `action.headers.remove` runs before `set`. A set replaces existing values; a name
-may appear in both collections. Set values are string templates or objects with
-`value` and optional `if`. A false header predicate skips the set and leaves caller
-values alone unless explicitly removed. No other rule modifies those headers.
+may appear in both collections. Set values are string templates only; objects
+and nested conditions are invalid. For conditional injection, put a complete
+conditional rule before a fallback rule. A false predicate skips the whole rule.
+Only the selected action modifies headers; caller values otherwise remain intact.
 `action.basic_auth` supplies native Basic credentials; it cannot be combined with
 an `Authorization` set. `action: {}` intentionally passes a matching request
 through. Signed-upload rules can explicitly remove `Authorization`.
+
+Rule predicates may test selected-method markers and nonsecret settings. They
+may also use `isDefined` for stored root, publisher, or selected manual-auth
+secrets. Required credentials are validated first; absence cannot silently select
+a fallback. Secret equality and managed OAuth token references are forbidden in
+rule predicates, so token refresh cannot change the enabled rule set. OAuth
+account headers are separate lifecycle declarations and retain their original
+`{value, if?}` objects.
 
 `rewrite.strip_prefix` strips a literal absolute nonroot prefix at a path boundary.
 `/v1` maps `/v1/records` to `/records` and `/v1` to `/`; it does not match `/v10`.

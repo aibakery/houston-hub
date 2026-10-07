@@ -410,7 +410,7 @@
         },
         "set": {
           "additionalProperties": {
-            "$ref": "#/$defs/HeaderValue"
+            "type": "string"
           },
           "type": "object"
         }
@@ -419,27 +419,20 @@
       "type": "object"
     },
     "HeaderValue": {
-      "oneOf": [
-        {
+      "additionalProperties": false,
+      "properties": {
+        "if": {
+          "pattern": "^\\s*\\{\\{.+\\}\\}\\s*$",
           "type": "string"
         },
-        {
-          "additionalProperties": false,
-          "properties": {
-            "if": {
-              "pattern": "^\\s*\\{\\{.+\\}\\}\\s*$",
-              "type": "string"
-            },
-            "value": {
-              "type": "string"
-            }
-          },
-          "required": [
-            "value"
-          ],
-          "type": "object"
+        "value": {
+          "type": "string"
         }
-      ]
+      },
+      "required": [
+        "value"
+      ],
+      "type": "object"
     },
     "Manifest": {
       "additionalProperties": false,

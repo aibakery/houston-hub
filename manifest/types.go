@@ -112,8 +112,8 @@ type ProxyAction struct {
 	Connection *DatabaseConnection `json:"connection,omitempty"`
 }
 type HeaderActions struct {
-	Set    map[string]HeaderValue `json:"set,omitempty"`
-	Remove []string               `json:"remove,omitempty"`
+	Set    map[string]string `json:"set,omitempty"`
+	Remove []string          `json:"remove,omitempty"`
 }
 type Rewrite struct {
 	StripPrefix string `json:"strip_prefix"`

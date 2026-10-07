@@ -90,7 +90,7 @@ func TestInactiveValuesAndSelection(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	if (len(r.ProxyIndices) != 1 || r.ProxyIndices[0] != 0) || len(r.PublicConfig) != 1 {
+	if (len(r.ProxyIndices) != 1 || r.ProxyIndices[0] != 1) || len(r.PublicConfig) != 1 {
 		t.Fatalf("wrong HTTP projection %#v", r.PublicConfig)
 	}
 	if _, ok := r.Context.Config["password"]; ok {
@@ -100,7 +100,7 @@ func TestInactiveValuesAndSelection(t *testing.T) {
 		t.Fatal("accepted inactive submission")
 	}
 	r, e = m.Resolve(nil, map[string]any{"connection_type": "postgres", "password": "secret", "username": "reader"}, nil, "")
-	if e != nil || (len(r.ProxyIndices) != 1 || r.ProxyIndices[0] != 1) {
+	if e != nil || (len(r.ProxyIndices) != 1 || r.ProxyIndices[0] != 2) {
 		t.Fatalf("Postgres resolution %v", e)
 	}
 	if _, ok, _ := r.Context.Lookup("auth.rest"); ok {
@@ -161,17 +161,14 @@ func TestTemplatesAndPredicates(t *testing.T) {
 }
 func TestSensitiveReferenceValidation(t *testing.T) {
 	m := example(t, 8)
-	m.Proxy[0].If = `{{ isDefined config.password }}`
-	if e := m.Validate(); e == nil {
-		t.Fatal("secret selected proxy")
+	m.Proxy[0].If = `{{ is config.password "secret" }}`
+	if err := m.Validate(); err == nil {
+		t.Fatal("secret comparison selected proxy")
 	}
-	m = example(t, 8)
-	h := m.Proxy[0].Action.Headers.Set["Authorization"]
-	h.If = `{{ is auth.rest.user_jwt "secret" }}`
-	o := &m.Proxy[0].Action.Headers.Set
-	(*o)["Authorization"] = h
-	if e := m.Validate(); e == nil {
-		t.Fatal("secret equality accepted")
+	m = example(t, 1)
+	m.Proxy[0].If = `{{ isDefined auth.oauth.access_token }}`
+	if err := m.Validate(); err == nil {
+		t.Fatal("OAuth token presence selected proxy")
 	}
 	m = example(t, 2)
 	m.Proxy[0].Action.Connection.Host = `{{config.password}}`
@@ -279,12 +276,12 @@ func TestDatabaseTransportDefaults(t *testing.T) {
 }
 func TestAmbiguousAndMissingProxy(t *testing.T) {
 	m := example(t, 8)
-	m.Proxy[1].If = `{{ is config.connection_type "http" }}`
+	m.Proxy[2].If = `{{ is config.connection_type "http" }}`
 	if _, e := m.Resolve(nil, nil, map[string]any{"api_key": "test"}, "rest"); e == nil {
 		t.Fatal("multiple proxy matches accepted")
 	}
 	m = example(t, 8)
-	m.Proxy = m.Proxy[1:]
+	m.Proxy = m.Proxy[2:]
 	if _, e := m.Resolve(nil, nil, map[string]any{"api_key": "test"}, "rest"); e == nil {
 		t.Fatal("zero proxy matches accepted")
 	}
