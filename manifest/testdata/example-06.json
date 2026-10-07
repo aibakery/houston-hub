@@ -50,16 +50,20 @@
   },
   "proxy": [
     {
-      "protocol": "clickhouse",
-      "connection": {
-        "host": "{{config.host}}",
-        "transport": "{{config.transport}}",
-        "database": "{{config.database}}",
-        "user": "{{config.username}}",
-        "password": "{{config.password}}",
-        "tls": {
-          "mode": "verify-full"
+      "action": {
+        "connection": {
+          "database": "{{config.database}}",
+          "host": "{{config.host}}",
+          "password": "{{config.password}}",
+          "tls": {
+            "mode": "verify-full"
+          },
+          "transport": "{{config.transport}}",
+          "user": "{{config.username}}"
         }
+      },
+      "match": {
+        "protocol": "clickhouse"
       }
     }
   ]

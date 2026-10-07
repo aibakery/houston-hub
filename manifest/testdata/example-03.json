@@ -115,53 +115,68 @@
   },
   "proxy": [
     {
-      "protocol": "http",
-      "origins": {
-        "https://api.collaboration.example.com": {
-          "headers": {
-            "Authorization": {
-              "value": "Bearer {{auth.oauth.access_token}}"
-            }
-          },
-          "allowlist": [
-            {
-              "methods": [
-                "GET"
-              ],
-              "paths": [
-                "/files",
-                "/files/{id}",
-                "/folders"
-              ]
-            }
-          ]
-        },
-        "https://files.collaboration.example.com": {
-          "headers": {
-            "Authorization": {
-              "value": "Bearer {{auth.oauth.access_token}}"
-            }
-          },
-          "allowlist": [
-            {
-              "methods": [
-                "GET"
-              ],
-              "paths": [
-                "/private/*"
-              ]
-            },
-            {
-              "methods": [
-                "PUT"
-              ],
-              "paths": [
-                "/signed-upload/*"
-              ],
-              "headers": {}
-            }
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      },
+      "match": {
+        "host": [
+          "api.collaboration.example.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/files",
+          "/files/{id}",
+          "/folders"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      },
+      "match": {
+        "host": [
+          "files.collaboration.example.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/private/*"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "remove": [
+            "Authorization"
           ]
         }
+      },
+      "match": {
+        "host": [
+          "files.collaboration.example.com"
+        ],
+        "method": [
+          "PUT"
+        ],
+        "path": [
+          "/signed-upload/*"
+        ],
+        "protocol": "http"
       }
     }
   ]

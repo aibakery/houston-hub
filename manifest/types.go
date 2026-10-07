@@ -22,7 +22,7 @@ type Manifest struct {
 	Config          map[string]Field      `json:"config,omitempty"`
 	Publisher       map[string]Field      `json:"publisher,omitempty"`
 	Auth            map[string]AuthMethod `json:"auth,omitempty"`
-	Proxy           []Proxy               `json:"proxy"`
+	Proxy           ProxyRules            `json:"proxy"`
 }
 type Field struct {
 	If          string   `json:"if,omitempty"`
@@ -93,21 +93,30 @@ type OAuthAccount struct {
 	Bindings map[string]string      `json:"bindings,omitempty"`
 }
 type Proxy struct {
-	If         string              `json:"if,omitempty"`
-	Protocol   string              `json:"protocol"`
-	Origins    HTTPOrigins         `json:"origins,omitempty"`
+	If     string      `json:"if,omitempty"`
+	Match  ProxyMatch  `json:"match"`
+	Action ProxyAction `json:"action"`
+}
+type ProxyRules []Proxy
+type ProxyMatch struct {
+	Protocol string         `json:"protocol"`
+	Host     []string       `json:"host,omitempty"`
+	Method   []string       `json:"method,omitempty"`
+	Path     []string       `json:"path,omitempty"`
+	Header   map[string]any `json:"header,omitempty"`
+}
+type ProxyAction struct {
+	Rewrite    *Rewrite            `json:"rewrite,omitempty"`
+	Headers    HeaderActions       `json:"headers,omitempty"`
+	BasicAuth  *BasicAuth          `json:"basic_auth,omitempty"`
 	Connection *DatabaseConnection `json:"connection,omitempty"`
 }
-type HTTPOrigin struct {
-	Headers   map[string]HeaderValue `json:"headers,omitempty"`
-	BasicAuth *BasicAuth             `json:"basic_auth,omitempty"`
-	Allowlist []AllowedRequest       `json:"allowlist,omitempty"`
+type HeaderActions struct {
+	Set    map[string]HeaderValue `json:"set,omitempty"`
+	Remove []string               `json:"remove,omitempty"`
 }
-type AllowedRequest struct {
-	Methods   []string               `json:"methods"`
-	Paths     []string               `json:"paths"`
-	Headers   map[string]HeaderValue `json:"headers,omitempty"`
-	BasicAuth *BasicAuth             `json:"basic_auth,omitempty"`
+type Rewrite struct {
+	StripPrefix string `json:"strip_prefix"`
 }
 type HeaderValue struct {
 	If    string `json:"if,omitempty"`
@@ -299,12 +308,12 @@ func (m *Manifest) defaults() {
 		}
 	}
 	for i := range m.Proxy {
-		c := m.Proxy[i].Connection
+		c := m.Proxy[i].Action.Connection
 		if c != nil {
 			if c.TLS == nil {
 				c.TLS = &TLS{Mode: "verify-full"}
 			}
-			if m.Proxy[i].Protocol == "clickhouse" && c.Transport == "" {
+			if m.Proxy[i].Match.Protocol == "clickhouse" && c.Transport == "" {
 				c.Transport = "https"
 			}
 		}

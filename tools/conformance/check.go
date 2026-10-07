@@ -101,7 +101,7 @@ func Check(ctx context.Context, binary string, m manifest.Manifest, modules, fix
 		if err != nil {
 			return fmt.Errorf("fixture %s settings: %w", name, err)
 		}
-		input := map[string]any{"files": m.Files, "modules": modules, "config": resolved.PublicConfig, "protocol": m.Proxy[resolved.ProxyIndex].Protocol, "args": []any{}}
+		input := map[string]any{"files": m.Files, "modules": modules, "config": resolved.PublicConfig, "protocol": m.Proxy[resolved.ProxyIndices[0]].Match.Protocol, "args": []any{}}
 		var output struct {
 			Type    string   `json:"type"`
 			Exports []string `json:"exports"`
@@ -134,7 +134,9 @@ func Check(ctx context.Context, binary string, m manifest.Manifest, modules, fix
 			return fmt.Errorf("fixture %s: %w", name, err)
 		}
 		methods[scenario.AuthMethod] = true
-		proxies[resolved.ProxyIndex] = true
+		for _, index := range resolved.ProxyIndices {
+			proxies[index] = true
+		}
 		for _, definition := range active {
 			if contracts[definition.Reference] == nil {
 				contracts[definition.Reference] = map[string]bool{}
@@ -158,7 +160,7 @@ func Check(ctx context.Context, binary string, m manifest.Manifest, modules, fix
 	}
 	for i := range m.Proxy {
 		if !proxies[i] {
-			return fmt.Errorf("proxy alternative %d has no conformance fixture", i)
+			return fmt.Errorf("proxy rule %d has no conformance fixture", i)
 		}
 	}
 	for _, definition := range definitions {

@@ -1,48 +1,5 @@
 {
   "$defs": {
-    "AllowedRequest": {
-      "additionalProperties": false,
-      "properties": {
-        "basic_auth": {
-          "$ref": "#/$defs/BasicAuth"
-        },
-        "headers": {
-          "additionalProperties": {
-            "$ref": "#/$defs/HeaderValue"
-          },
-          "type": "object"
-        },
-        "methods": {
-          "items": {
-            "enum": [
-              "GET",
-              "HEAD",
-              "POST",
-              "PUT",
-              "PATCH",
-              "DELETE",
-              "OPTIONS"
-            ]
-          },
-          "minItems": 1,
-          "type": "array",
-          "uniqueItems": true
-        },
-        "paths": {
-          "items": {
-            "type": "string"
-          },
-          "minItems": 1,
-          "type": "array",
-          "uniqueItems": true
-        }
-      },
-      "required": [
-        "methods",
-        "paths"
-      ],
-      "type": "object"
-    },
     "AuthMethod": {
       "additionalProperties": false,
       "allOf": [
@@ -441,20 +398,17 @@
       ],
       "type": "object"
     },
-    "HTTPOrigin": {
+    "HeaderActions": {
       "additionalProperties": false,
       "properties": {
-        "allowlist": {
+        "remove": {
           "items": {
-            "$ref": "#/$defs/AllowedRequest"
+            "type": "string"
           },
-          "minItems": 1,
-          "type": "array"
+          "type": "array",
+          "uniqueItems": true
         },
-        "basic_auth": {
-          "$ref": "#/$defs/BasicAuth"
-        },
-        "headers": {
+        "set": {
           "additionalProperties": {
             "$ref": "#/$defs/HeaderValue"
           },
@@ -464,42 +418,28 @@
       "required": [],
       "type": "object"
     },
-    "HTTPOriginGroup": {
-      "additionalProperties": false,
-      "properties": {
-        "config": {
-          "$ref": "#/$defs/HTTPOrigin"
-        },
-        "match": {
-          "items": {
-            "type": "string"
-          },
-          "minItems": 1,
-          "type": "array",
-          "uniqueItems": true
-        }
-      },
-      "required": [
-        "match",
-        "config"
-      ],
-      "type": "object"
-    },
     "HeaderValue": {
-      "additionalProperties": false,
-      "properties": {
-        "if": {
-          "pattern": "^\\s*\\{\\{.+\\}\\}\\s*$",
+      "oneOf": [
+        {
           "type": "string"
         },
-        "value": {
-          "type": "string"
+        {
+          "additionalProperties": false,
+          "properties": {
+            "if": {
+              "pattern": "^\\s*\\{\\{.+\\}\\}\\s*$",
+              "type": "string"
+            },
+            "value": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "value"
+          ],
+          "type": "object"
         }
-      },
-      "required": [
-        "value"
-      ],
-      "type": "object"
+      ]
     },
     "Manifest": {
       "additionalProperties": false,
@@ -654,49 +594,81 @@
         {
           "else": {
             "properties": {
-              "origins": false
-            },
-            "required": [
-              "connection"
-            ]
-          },
-          "if": {
-            "properties": {
-              "protocol": {
-                "const": "http"
-              }
-            },
-            "required": [
-              "protocol"
-            ]
-          },
-          "then": {
-            "properties": {
-              "connection": false
-            },
-            "required": [
-              "origins"
-            ]
-          }
-        },
-        {
-          "if": {
-            "not": {
-              "properties": {
-                "protocol": {
-                  "const": "clickhouse"
-                }
+              "action": {
+                "properties": {
+                  "basic_auth": false,
+                  "headers": false,
+                  "rewrite": false
+                },
+                "required": [
+                  "connection"
+                ]
               },
-              "required": [
-                "protocol"
-              ]
+              "match": {
+                "properties": {
+                  "header": false,
+                  "host": false,
+                  "method": false,
+                  "path": false
+                }
+              }
+            }
+          },
+          "if": {
+            "properties": {
+              "match": {
+                "properties": {
+                  "protocol": {
+                    "const": "http"
+                  }
+                },
+                "required": [
+                  "protocol"
+                ]
+              }
             }
           },
           "then": {
             "properties": {
-              "connection": {
+              "action": {
                 "properties": {
-                  "transport": false
+                  "connection": false
+                }
+              },
+              "match": {
+                "required": [
+                  "host"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "match": {
+                "not": {
+                  "properties": {
+                    "protocol": {
+                      "const": "clickhouse"
+                    }
+                  },
+                  "required": [
+                    "protocol"
+                  ]
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "action": {
+                "properties": {
+                  "connection": {
+                    "properties": {
+                      "transport": false
+                    }
+                  }
                 }
               }
             }
@@ -704,31 +676,91 @@
         }
       ],
       "properties": {
-        "connection": {
-          "$ref": "#/$defs/DatabaseConnection"
+        "action": {
+          "$ref": "#/$defs/ProxyAction"
         },
         "if": {
           "pattern": "^\\s*\\{\\{.+\\}\\}\\s*$",
           "type": "string"
         },
-        "origins": {
-          "description": "HTTPS origin recipes, as an origin map or groups of match patterns sharing one config. One leading *. hostname label matches subdomains only. Exact origins win, then the longest wildcard suffix; entries never merge or fall back. Ports must match; 443 is the default.",
-          "oneOf": [
-            {
-              "additionalProperties": {
-                "$ref": "#/$defs/HTTPOrigin"
+        "match": {
+          "$ref": "#/$defs/ProxyMatch"
+        }
+      },
+      "required": [
+        "match",
+        "action"
+      ],
+      "type": "object"
+    },
+    "ProxyAction": {
+      "additionalProperties": false,
+      "properties": {
+        "basic_auth": {
+          "$ref": "#/$defs/BasicAuth"
+        },
+        "connection": {
+          "$ref": "#/$defs/DatabaseConnection"
+        },
+        "headers": {
+          "$ref": "#/$defs/HeaderActions"
+        },
+        "rewrite": {
+          "$ref": "#/$defs/Rewrite"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "ProxyMatch": {
+      "additionalProperties": false,
+      "properties": {
+        "header": {
+          "additionalProperties": {
+            "oneOf": [
+              {
+                "type": "string"
               },
-              "minProperties": 1,
-              "type": "object"
-            },
-            {
-              "items": {
-                "$ref": "#/$defs/HTTPOriginGroup"
-              },
-              "minItems": 1,
-              "type": "array"
-            }
-          ]
+              {
+                "const": true
+              }
+            ]
+          },
+          "type": "object"
+        },
+        "host": {
+          "description": "Hostnames with optional ports; HTTPS only. Leading *. matches subdomains, not the base host.",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "method": {
+          "items": {
+            "enum": [
+              "GET",
+              "HEAD",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE",
+              "OPTIONS"
+            ],
+            "type": "string"
+          },
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "path": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
         },
         "protocol": {
           "enum": [
@@ -793,6 +825,18 @@
       "required": [
         "path",
         "op"
+      ],
+      "type": "object"
+    },
+    "Rewrite": {
+      "additionalProperties": false,
+      "properties": {
+        "strip_prefix": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "strip_prefix"
       ],
       "type": "object"
     },

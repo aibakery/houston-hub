@@ -20,27 +20,26 @@
   "name": "Granola",
   "proxy": [
     {
-      "origins": {
-        "https://public-api.granola.ai": {
-          "allowlist": [
-            {
-              "methods": [
-                "GET",
-                "HEAD"
-              ],
-              "paths": [
-                "/v1/*"
-              ]
-            }
-          ],
-          "headers": {
-            "Authorization": {
-              "value": "Bearer {{auth.token.token}}"
-            }
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.token.token}}"
           }
         }
       },
-      "protocol": "http"
+      "match": {
+        "host": [
+          "public-api.granola.ai"
+        ],
+        "method": [
+          "GET",
+          "HEAD"
+        ],
+        "path": [
+          "/v1/*"
+        ],
+        "protocol": "http"
+      }
     }
   ],
   "schema_version": 1,

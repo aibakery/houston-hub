@@ -41,17 +41,21 @@
   "name": "MySQL",
   "proxy": [
     {
-      "connection": {
-        "database": "{{config.database}}",
-        "host": "{{config.host}}",
-        "password": "{{config.password}}",
-        "port": "{{config.port}}",
-        "tls": {
-          "mode": "verify-full"
-        },
-        "user": "{{config.username}}"
+      "action": {
+        "connection": {
+          "database": "{{config.database}}",
+          "host": "{{config.host}}",
+          "password": "{{config.password}}",
+          "port": "{{config.port}}",
+          "tls": {
+            "mode": "verify-full"
+          },
+          "user": "{{config.username}}"
+        }
       },
-      "protocol": "mysql"
+      "match": {
+        "protocol": "mysql"
+      }
     }
   ],
   "schema_version": 1,

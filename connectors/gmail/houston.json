@@ -70,31 +70,30 @@
   "name": "Gmail",
   "proxy": [
     {
-      "origins": {
-        "https://gmail.googleapis.com": {
-          "allowlist": [
-            {
-              "methods": [
-                "GET",
-                "HEAD",
-                "POST",
-                "PUT",
-                "PATCH",
-                "DELETE"
-              ],
-              "paths": [
-                "/*"
-              ]
-            }
-          ],
-          "headers": {
-            "Authorization": {
-              "value": "Bearer {{auth.oauth.access_token}}"
-            }
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
           }
         }
       },
-      "protocol": "http"
+      "match": {
+        "host": [
+          "gmail.googleapis.com"
+        ],
+        "method": [
+          "GET",
+          "HEAD",
+          "POST",
+          "PUT",
+          "PATCH",
+          "DELETE"
+        ],
+        "path": [
+          "/*"
+        ],
+        "protocol": "http"
+      }
     }
   ],
   "publisher": {

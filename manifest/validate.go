@@ -221,18 +221,7 @@ func (m *Manifest) Validate() error {
 			return e
 		}
 	}
-	unconditional := 0
-	conditions := map[string]bool{}
 	for i, p := range m.Proxy {
-		if p.If == "" {
-			unconditional++
-		} else {
-			canonical := strings.Join(strings.Fields(p.If), " ")
-			if conditions[canonical] {
-				return fmt.Errorf("duplicate proxy predicate")
-			}
-			conditions[canonical] = true
-		}
 		if e := m.validatePredicate(p.If, "proxy", used); e != nil {
 			return fmt.Errorf("proxy[%d].if: %w", i, e)
 		}
@@ -240,16 +229,7 @@ func (m *Manifest) Validate() error {
 			return fmt.Errorf("proxy[%d]: %w", i, e)
 		}
 	}
-	for i := range m.Proxy {
-		for j := 0; j < i; j++ {
-			if m.proxiesOverlap(m.Proxy[i], m.Proxy[j]) {
-				return fmt.Errorf("proxy alternatives %d and %d statically overlap", j, i)
-			}
-		}
-	}
-	if unconditional > 1 {
-		return fmt.Errorf("multiple unconditional proxy alternatives")
-	}
+
 	for n := range m.Publisher {
 		if !used["publisher."+n] {
 			return fmt.Errorf("unused publisher field %s", n)
@@ -551,8 +531,15 @@ func checkPresence(data []byte) error {
 	walk = func(v any, p string) error {
 		switch x := v.(type) {
 		case map[string]any:
+			// Dictionary keys (including a valid HTTP header named "if") are
+			// declarations, not predicate properties. Their values still recurse.
+			parts := strings.Split(p, ".")
+			dictionary := p == "manifest.config" || p == "manifest.publisher" || p == "manifest.auth" ||
+				p == "manifest.proxy[].match.header" || p == "manifest.proxy[].action.headers.set" ||
+				len(parts) == 4 && parts[1] == "auth" && parts[3] == "config" ||
+				len(parts) == 5 && parts[1] == "auth" && parts[3] == "account" && parts[4] == "headers"
 			for k, v := range x {
-				if k == "if" {
+				if k == "if" && !dictionary {
 					if s, ok := v.(string); !ok || s == "" {
 						return fmt.Errorf("%s.if: predicate required", p)
 					}
@@ -652,83 +639,39 @@ func checkPresence(data []byte) error {
 			}
 		}
 	}
-	var headers func(any) error
-	headers = func(v any) error {
-		if h, ok := v.(map[string]any); ok {
-			for _, v := range h {
-				if h, ok := v.(map[string]any); ok {
-					if _, ok := h["value"]; !ok {
-						return fmt.Errorf("header value required")
-					}
-				}
-			}
-		}
-		return nil
-	}
-	var recipe func(any) error
-	recipe = func(v any) error {
-		if o, ok := v.(map[string]any); ok {
-			return headers(o["headers"])
-		}
-		return nil
-	}
-	if auth, ok := root["auth"].(map[string]any); ok {
-		for _, v := range auth {
-			if a, ok := v.(map[string]any); ok {
-				if e := recipe(a["account"]); e != nil {
-					return e
-				}
-			}
-		}
-	}
+
 	if proxies, ok := root["proxy"].([]any); ok {
 		for _, v := range proxies {
 			p, ok := v.(map[string]any)
 			if !ok {
 				continue
 			}
-			if p["protocol"] == "http" {
-				if _, ok := p["connection"]; ok {
-					return fmt.Errorf("HTTP forbids connection")
-				}
-			} else {
-				if _, ok := p["origins"]; ok {
-					return fmt.Errorf("database forbids origins")
-				}
-				if c, ok := p["connection"].(map[string]any); ok {
-					if _, ok := c["password"]; !ok {
-						return fmt.Errorf("database password required")
+			match, ok := p["match"].(map[string]any)
+			if !ok {
+				return fmt.Errorf("proxy match required")
+			}
+			action, ok := p["action"].(map[string]any)
+			if !ok {
+				return fmt.Errorf("proxy action required")
+			}
+			if match["protocol"] != "http" {
+				for _, key := range []string{"host", "method", "path", "header"} {
+					if _, exists := match[key]; exists {
+						return fmt.Errorf("database forbids HTTP filters")
 					}
-					if _, ok := c["transport"]; ok && (p["protocol"] != "clickhouse" || c["transport"] == "") {
-						return fmt.Errorf("transport requires clickhouse")
+				}
+				for _, key := range []string{"headers", "rewrite", "basic_auth"} {
+					if _, exists := action[key]; exists {
+						return fmt.Errorf("database forbids HTTP actions")
 					}
 				}
 			}
-			var origins []any
-			switch declared := p["origins"].(type) {
-			case map[string]any:
-				for _, config := range declared {
-					origins = append(origins, config)
+			if c, ok := action["connection"].(map[string]any); ok {
+				if _, exists := c["password"]; !exists {
+					return fmt.Errorf("database password required")
 				}
-			case []any:
-				for _, group := range declared {
-					if g, ok := group.(map[string]any); ok {
-						origins = append(origins, g["config"])
-					}
-				}
-			}
-			for _, v := range origins {
-				if e := recipe(v); e != nil {
-					return e
-				}
-				if o, ok := v.(map[string]any); ok {
-					if routes, ok := o["allowlist"].([]any); ok {
-						for _, r := range routes {
-							if e := recipe(r); e != nil {
-								return e
-							}
-						}
-					}
+				if v, exists := c["transport"]; exists && (match["protocol"] != "clickhouse" || v == "") {
+					return fmt.Errorf("transport requires clickhouse")
 				}
 			}
 		}

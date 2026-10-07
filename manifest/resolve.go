@@ -29,7 +29,7 @@ type Resolved struct {
 	ConnectionFields []FormField
 	Methods          []MethodAvailability
 	Scopes           []string
-	ProxyIndex       int
+	ProxyIndices     []int
 }
 
 func (m *Manifest) MethodKeys() []string {
@@ -183,7 +183,7 @@ func (m *Manifest) ResolveDraft(publisher, config, auth map[string]any, selected
 	return m.resolve(publisher, config, auth, selected, true)
 }
 func (m *Manifest) resolve(publisher, config, auth map[string]any, selected string, draft bool) (*Resolved, error) {
-	r := &Resolved{Context: Context{Publisher: map[string]any{}, Config: map[string]any{}, Auth: map[string]map[string]any{}, SelectedAuth: selected, Errors: map[string]error{}}, PublicConfig: map[string]any{}, ProxyIndex: -1}
+	r := &Resolved{Context: Context{Publisher: map[string]any{}, Config: map[string]any{}, Auth: map[string]map[string]any{}, SelectedAuth: selected, Errors: map[string]error{}}, PublicConfig: map[string]any{}}
 	c := &r.Context
 	var e error
 	r.PublisherFields, e = m.resolveFields("publisher", m.Publisher, publisher, c, false)
@@ -278,94 +278,83 @@ func (m *Manifest) resolve(publisher, config, auth map[string]any, selected stri
 		}
 	}
 	r.ConnectionFields = m.connectionOrder(r.ConfigFields, r.AuthFields)
-	matches := 0
+
 	for i, p := range m.Proxy {
-		yes, e := EvaluatePredicate(p.If, *c)
-		if e != nil {
+		yes, err := EvaluatePredicate(p.If, *c)
+		if err != nil {
 			if !draft {
-				return r, e
+				return r, err
 			}
 			continue
 		}
 		if yes {
-			matches++
-			r.ProxyIndex = i
+			r.ProxyIndices = append(r.ProxyIndices, i)
 		}
 	}
-	if matches != 1 {
-		r.ProxyIndex = -1
+	active := m.Proxy.Select(r.ProxyIndices)
+	valid := len(active) > 0
+	for _, p := range active {
+		if p.Match.Protocol != active[0].Match.Protocol {
+			valid = false
+		}
+	}
+	if !valid {
+		r.ProxyIndices = nil
 		if !draft {
-			return r, fmt.Errorf("exactly one proxy required; matched %d", matches)
+			return r, fmt.Errorf("require active proxy rules with one protocol")
 		}
 		return r, nil
 	}
-	if selected != "" && m.Auth[selected].Type == "oauth2" && m.Proxy[r.ProxyIndex].Protocol != "http" {
+	if selected != "" && m.Auth[selected].Type == "oauth2" && active[0].Match.Protocol != "http" {
 		return r, fmt.Errorf("OAuth requires HTTP proxy")
 	}
-	// Publisher credentials gate only the active native consumers. Unused OAuth
-	// clients therefore do not block an independently configured manual method.
 	if !draft {
-		p := m.Proxy[r.ProxyIndex]
-		if p.Protocol != "http" {
-			if _, e := p.ResolveDatabase(*c); e != nil {
-				return r, e
-			}
-		} else {
-			// Setup precedes OAuth acquisition. Validate the selected HTTP recipes
-			// with a private stand-in only in this temporary validation context;
-			// the resolved snapshot never contains a fabricated credential.
-			preparation := *c
-			if selected != "" && m.Auth[selected].Type == "oauth2" {
-				preparation.Auth = map[string]map[string]any{selected: {"access_token": "pending-oauth-acquisition"}}
-			}
-			for _, o := range p.Origins {
-				var recipes []HTTPRecipe
-				if o.Allowlist == nil {
-					recipes = append(recipes, HTTPRecipe{Headers: o.Headers, BasicAuth: o.BasicAuth})
+		preparation := *c
+		// OAuth setup precedes acquisition; use a private stand-in only here.
+		if selected != "" && m.Auth[selected].Type == "oauth2" {
+			preparation.Auth = map[string]map[string]any{selected: {"access_token": "pending-oauth-acquisition"}}
+		}
+		for i, p := range active {
+			if p.Match.Protocol != "http" {
+				if i > 0 {
+					break
 				}
-				for _, route := range o.Allowlist {
-					h, b := route.Headers, route.BasicAuth
-					if h == nil {
-						h = o.Headers
-					}
-					if b == nil {
-						b = o.BasicAuth
-					}
-					recipes = append(recipes, HTTPRecipe{Headers: h, BasicAuth: b})
+				if _, err := p.ResolveDatabase(*c); err != nil {
+					return r, err
 				}
-				for _, recipe := range recipes {
-					if _, e := recipe.Prepare(preparation, nil); e != nil {
-						return r, e
+				continue
+			}
+			recipe := HTTPRecipe{Headers: p.Action.Headers.Set, BasicAuth: p.Action.BasicAuth}
+			if _, err := recipe.Prepare(preparation, nil); err != nil {
+				return r, err
+			}
+			for _, h := range p.Action.Headers.Set {
+				refs, _ := PredicateReferences(h.If)
+				for _, ref := range refs {
+					if _, _, err := c.Lookup(ref); err != nil {
+						return r, err
 					}
-					for _, h := range recipe.Headers {
-						refs, _ := PredicateReferences(h.If)
-						for _, ref := range refs {
-							if _, _, e := c.Lookup(ref); e != nil {
-								return r, e
-							}
-						}
-						yes, e := EvaluatePredicate(h.If, *c)
-						if e != nil {
-							return r, e
-						}
-						if !yes {
-							continue
-						}
-						refs, _ = TemplateReferences(h.Value)
-						for _, ref := range refs {
-							if strings.HasPrefix(ref, "publisher.") {
-								if _, _, e := c.Lookup(ref); e != nil {
-									return r, e
-								}
-							}
+				}
+				yes, err := EvaluatePredicate(h.If, *c)
+				if err != nil {
+					return r, err
+				}
+				if !yes {
+					continue
+				}
+				refs, _ = TemplateReferences(h.Value)
+				for _, ref := range refs {
+					if strings.HasPrefix(ref, "publisher.") {
+						if _, _, err := c.Lookup(ref); err != nil {
+							return r, err
 						}
 					}
-					if recipe.BasicAuth.Enabled() {
-						for _, s := range []string{recipe.BasicAuth.Username, recipe.BasicAuth.Password} {
-							if _, e := RenderString(s, *c); e != nil {
-								return r, e
-							}
-						}
+				}
+			}
+			if p.Action.BasicAuth.Enabled() {
+				for _, value := range []string{p.Action.BasicAuth.Username, p.Action.BasicAuth.Password} {
+					if _, err := RenderString(value, *c); err != nil {
+						return r, err
 					}
 				}
 			}

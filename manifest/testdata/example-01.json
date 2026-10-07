@@ -109,89 +109,125 @@
   },
   "proxy": [
     {
-      "if": "{{ is publisher.region \"us\" }}",
-      "protocol": "http",
-      "origins": {
-        "https://api.files.example.com": {
-          "headers": {
-            "Accept": {
-              "value": "application/json"
+      "action": {
+        "headers": {
+          "remove": [
+            "Authorization",
+            "X-API-Key"
+          ],
+          "set": {
+            "Accept": "application/json",
+            "Authorization": {
+              "if": "{{ isDefined auth.oauth.access_token }}",
+              "value": "Bearer {{auth.oauth.access_token}}"
             },
             "X-API-Key": {
               "if": "{{ isDefined auth.api_key.token }}",
               "value": "{{auth.api_key.token}}"
             },
-            "Authorization": {
-              "if": "{{ isDefined auth.oauth.access_token }}",
-              "value": "Bearer {{auth.oauth.access_token}}"
-            },
-            "X-Service-Region": {
-              "value": "us"
-            }
+            "X-Service-Region": "us"
           }
-        },
-        "https://downloads.us.files.example.com": {
-          "headers": {
-            "X-Download-Token": {
-              "value": "{{auth.api_key.token || auth.oauth.access_token}}"
-            }
-          }
-        },
-        "https://uploads.us.files.example.com": {
-          "allowlist": [
-            {
-              "methods": [
-                "PUT"
-              ],
-              "paths": [
-                "/signed/*"
-              ]
-            }
-          ]
         }
+      },
+      "if": "{{ is publisher.region \"us\" }}",
+      "match": {
+        "host": [
+          "api.files.example.com"
+        ],
+        "protocol": "http"
       }
     },
     {
-      "if": "{{ is publisher.region \"eu\" }}",
-      "protocol": "http",
-      "origins": {
-        "https://api.files.example.com": {
-          "headers": {
-            "Accept": {
-              "value": "application/json"
+      "action": {
+        "headers": {
+          "set": {
+            "X-Download-Token": "{{auth.api_key.token || auth.oauth.access_token}}"
+          }
+        }
+      },
+      "if": "{{ is publisher.region \"us\" }}",
+      "match": {
+        "host": [
+          "downloads.us.files.example.com"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {},
+      "if": "{{ is publisher.region \"us\" }}",
+      "match": {
+        "host": [
+          "uploads.us.files.example.com"
+        ],
+        "method": [
+          "PUT"
+        ],
+        "path": [
+          "/signed/*"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "remove": [
+            "Authorization",
+            "X-API-Key"
+          ],
+          "set": {
+            "Accept": "application/json",
+            "Authorization": {
+              "if": "{{ isDefined auth.oauth.access_token }}",
+              "value": "Bearer {{auth.oauth.access_token}}"
             },
             "X-API-Key": {
               "if": "{{ isDefined auth.api_key.token }}",
               "value": "{{auth.api_key.token}}"
             },
-            "Authorization": {
-              "if": "{{ isDefined auth.oauth.access_token }}",
-              "value": "Bearer {{auth.oauth.access_token}}"
-            },
-            "X-Service-Region": {
-              "value": "eu"
-            }
+            "X-Service-Region": "eu"
           }
-        },
-        "https://downloads.eu.files.example.com": {
-          "headers": {
-            "X-Download-Token": {
-              "value": "{{auth.api_key.token || auth.oauth.access_token}}"
-            }
-          }
-        },
-        "https://uploads.eu.files.example.com": {
-          "allowlist": [
-            {
-              "methods": [
-                "PUT"
-              ],
-              "paths": [
-                "/signed/*"
-              ]
-            }
-          ]
         }
+      },
+      "if": "{{ is publisher.region \"eu\" }}",
+      "match": {
+        "host": [
+          "api.files.example.com"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "set": {
+            "X-Download-Token": "{{auth.api_key.token || auth.oauth.access_token}}"
+          }
+        }
+      },
+      "if": "{{ is publisher.region \"eu\" }}",
+      "match": {
+        "host": [
+          "downloads.eu.files.example.com"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {},
+      "if": "{{ is publisher.region \"eu\" }}",
+      "match": {
+        "host": [
+          "uploads.eu.files.example.com"
+        ],
+        "method": [
+          "PUT"
+        ],
+        "path": [
+          "/signed/*"
+        ],
+        "protocol": "http"
       }
     }
   ]

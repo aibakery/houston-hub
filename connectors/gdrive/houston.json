@@ -70,32 +70,31 @@
   "name": "Google Drive",
   "proxy": [
     {
-      "origins": {
-        "https://www.googleapis.com": {
-          "allowlist": [
-            {
-              "methods": [
-                "GET",
-                "HEAD",
-                "POST",
-                "PUT",
-                "PATCH",
-                "DELETE"
-              ],
-              "paths": [
-                "/drive/*",
-                "/upload/drive/*"
-              ]
-            }
-          ],
-          "headers": {
-            "Authorization": {
-              "value": "Bearer {{auth.oauth.access_token}}"
-            }
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
           }
         }
       },
-      "protocol": "http"
+      "match": {
+        "host": [
+          "www.googleapis.com"
+        ],
+        "method": [
+          "GET",
+          "HEAD",
+          "POST",
+          "PUT",
+          "PATCH",
+          "DELETE"
+        ],
+        "path": [
+          "/drive/*",
+          "/upload/drive/*"
+        ],
+        "protocol": "http"
+      }
     }
   ],
   "publisher": {

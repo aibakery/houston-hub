@@ -29,7 +29,7 @@ func TestReferenceImplementations(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			m, err := manifest.Parse([]byte(fmt.Sprintf(`{"schema_version":1,"name":"Reference example","description":"Mocked interface verification","files":["example.lua"],"implements":[%q],"proxy":[{"protocol":"http","origins":{"https://interface.example.com":{}}}]}`, reference)))
+			m, err := manifest.Parse([]byte(fmt.Sprintf(`{"description":"Mocked interface verification","files":["example.lua"],"implements":[%q],"name":"Reference example","proxy":[{"action":{},"match":{"host":["interface.example.com"],"protocol":"http"}}],"schema_version":1}`, reference)))
 			if err != nil {
 				t.Fatal(err)
 			}

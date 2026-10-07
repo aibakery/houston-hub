@@ -29,14 +29,14 @@ func fixtureHost(t *testing.T) string {
 	return absolute
 }
 func TestPublicationProjectsConfigAndRequiresEveryVariant(t *testing.T) {
-	m, err := manifest.Parse([]byte(`{"schema_version":1,"name":"Fixture","description":"Publication projection","files":["main.lua"],"config":{"enabled":{"type":"boolean","label":"Enabled","default":false},"private":{"type":"secret","label":"Private","required":true}},"proxy":[{"protocol":"http","if":"{{ is config.enabled false }}","origins":{"https://one.example.com":{"headers":{"Authorization":{"value":"{{config.private}}"}}}}},{"protocol":"http","if":"{{ is config.enabled true }}","origins":{"https://two.example.com":{"headers":{"Authorization":{"value":"{{config.private}}"}}}}}]}`))
+	m, err := manifest.Parse([]byte(`{"config":{"enabled":{"default":false,"label":"Enabled","type":"boolean"},"private":{"label":"Private","required":true,"type":"secret"}},"description":"Publication projection","files":["main.lua"],"name":"Fixture","proxy":[{"action":{"headers":{"set":{"Authorization":"{{config.private}}"}}},"if":"{{ is config.enabled false }}","match":{"host":["one.example.com"],"protocol":"http"}},{"action":{"headers":{"set":{"Authorization":"{{config.private}}"}}},"if":"{{ is config.enabled true }}","match":{"host":["two.example.com"],"protocol":"http"}}],"schema_version":1}`))
 	if err != nil {
 		t.Fatal(err)
 	}
 	modules := map[string]string{"main.lua": `return {read=function() return config.enabled end}`}
 	fixtures := map[string]string{"disabled.lua": `return {scenario={config={private="synthetic"}},run=function(c) assert(c.read()==false) end}`}
 	binary := fixtureHost(t)
-	if err := Check(context.Background(), binary, *m, modules, fixtures); err == nil || !strings.Contains(err.Error(), "alternative 1") {
+	if err := Check(context.Background(), binary, *m, modules, fixtures); err == nil || !strings.Contains(err.Error(), "proxy rule 1") {
 		t.Fatalf("missing variant accepted: %v", err)
 	}
 	fixtures["enabled.lua"] = `return {scenario={config={private="synthetic"}},config={enabled=true},run=function(c) assert(c.read()==true) end}`
@@ -55,7 +55,7 @@ func TestPublicationRequiresBehaviorFixtures(t *testing.T) {
 }
 
 func TestPublicationChecksActualContractBehavior(t *testing.T) {
-	m, err := manifest.Parse([]byte(`{"schema_version":1,"name":"Mail fixture","description":"Typed behavior evidence","files":["main.lua"],"implements":["mail.folders@1"],"proxy":[{"protocol":"http","origins":{"https://mail.example.com":{}}}]}`))
+	m, err := manifest.Parse([]byte(`{"description":"Typed behavior evidence","files":["main.lua"],"implements":["mail.folders@1"],"name":"Mail fixture","proxy":[{"action":{},"match":{"host":["mail.example.com"],"protocol":"http"}}],"schema_version":1}`))
 	if err != nil {
 		t.Fatal(err)
 	}

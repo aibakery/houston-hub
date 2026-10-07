@@ -65,17 +65,21 @@
   "name": "ClickHouse",
   "proxy": [
     {
-      "connection": {
-        "database": "{{config.database}}",
-        "host": "{{config.host}}",
-        "password": "{{config.password}}",
-        "tls": {
-          "mode": "verify-full"
-        },
-        "transport": "{{config.transport}}",
-        "user": "{{config.username}}"
+      "action": {
+        "connection": {
+          "database": "{{config.database}}",
+          "host": "{{config.host}}",
+          "password": "{{config.password}}",
+          "tls": {
+            "mode": "verify-full"
+          },
+          "transport": "{{config.transport}}",
+          "user": "{{config.username}}"
+        }
       },
-      "protocol": "clickhouse"
+      "match": {
+        "protocol": "clickhouse"
+      }
     }
   ],
   "schema_version": 1,

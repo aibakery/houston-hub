@@ -30,29 +30,26 @@
   },
   "proxy": [
     {
-      "protocol": "http",
-      "origins": {
-        "https://api.accounts.example.com": {
-          "headers": {
-            "X-Account-Reference": {
-              "value": "{{config.account_reference}}"
-            },
-            "Authorization": {
-              "value": "Bearer {{config.api_key}}"
-            }
-          },
-          "allowlist": [
-            {
-              "methods": [
-                "GET"
-              ],
-              "paths": [
-                "/records",
-                "/records/{id}"
-              ]
-            }
-          ]
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{config.api_key}}",
+            "X-Account-Reference": "{{config.account_reference}}"
+          }
         }
+      },
+      "match": {
+        "host": [
+          "api.accounts.example.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/records",
+          "/records/{id}"
+        ],
+        "protocol": "http"
       }
     }
   ]

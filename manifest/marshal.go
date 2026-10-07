@@ -1,9 +1,11 @@
 package manifest
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"fmt"
+)
 
-// Union serialization must not invent properties of another method type. Empty
-// route maps must survive a pinned-release roundtrip because they remove injection.
+// Union serialization must not invent properties of another method type.
 func (a AuthMethod) MarshalJSON() ([]byte, error) {
 	type plain AuthMethod
 	b, e := json.Marshal(plain(a))
@@ -20,21 +22,45 @@ func (a AuthMethod) MarshalJSON() ([]byte, error) {
 	}
 	return json.Marshal(v)
 }
-func (r AllowedRequest) MarshalJSON() ([]byte, error) {
-	type plain AllowedRequest
-	b, e := json.Marshal(plain(r))
-	if e != nil {
-		return nil, e
+
+// Simple values stay concise; guarded values retain the same template contract.
+func (h *HeaderValue) UnmarshalJSON(data []byte) error {
+	if len(data) > 0 && data[0] == '"' {
+		*h = HeaderValue{}
+		return json.Unmarshal(data, &h.Value)
 	}
-	var v map[string]json.RawMessage
-	if e = json.Unmarshal(b, &v); e != nil {
-		return nil, e
+	type plain HeaderValue
+	var value plain
+	if err := decode(data, &value); err != nil {
+		return err
 	}
-	if r.Headers != nil {
-		v["headers"], e = json.Marshal(r.Headers)
-		if e != nil {
-			return nil, e
-		}
+	var keys map[string]json.RawMessage
+	if err := json.Unmarshal(data, &keys); err != nil {
+		return err
 	}
-	return json.Marshal(v)
+	if _, ok := keys["value"]; !ok {
+		return fmt.Errorf("header value required")
+	}
+	*h = HeaderValue(value)
+	return nil
+}
+func (h HeaderValue) MarshalJSON() ([]byte, error) {
+	if h.If == "" {
+		return json.Marshal(h.Value)
+	}
+	type plain HeaderValue
+	return json.Marshal(plain(h))
+}
+
+// Omit HTTP header actions from database snapshots as well as pass-through rules.
+func (a ProxyAction) MarshalJSON() ([]byte, error) {
+	type plain ProxyAction
+	var headers *HeaderActions
+	if a.Headers.Set != nil || a.Headers.Remove != nil {
+		headers = &a.Headers
+	}
+	return json.Marshal(struct {
+		plain
+		Headers *HeaderActions `json:"headers,omitempty"`
+	}{plain(a), headers})
 }

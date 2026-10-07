@@ -57,17 +57,21 @@
   "name": "Postgres",
   "proxy": [
     {
-      "connection": {
-        "database": "{{config.database}}",
-        "host": "{{config.host}}",
-        "password": "{{config.password}}",
-        "port": "{{config.port}}",
-        "tls": {
-          "mode": "verify-full"
-        },
-        "user": "{{config.username}}"
+      "action": {
+        "connection": {
+          "database": "{{config.database}}",
+          "host": "{{config.host}}",
+          "password": "{{config.password}}",
+          "port": "{{config.port}}",
+          "tls": {
+            "mode": "verify-full"
+          },
+          "user": "{{config.username}}"
+        }
       },
-      "protocol": "postgres"
+      "match": {
+        "protocol": "postgres"
+      }
     }
   ],
   "schema_version": 1,

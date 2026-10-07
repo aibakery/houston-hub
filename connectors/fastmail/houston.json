@@ -41,74 +41,75 @@
   "name": "Fastmail",
   "proxy": [
     {
-      "origins": [
-        {
-          "config": {
-            "allowlist": [
-              {
-                "methods": [
-                  "GET"
-                ],
-                "paths": [
-                  "/jmap/session",
-                  "/jmap/download/*"
-                ]
-              },
-              {
-                "methods": [
-                  "POST"
-                ],
-                "paths": [
-                  "/jmap/api",
-                  "/jmap/api/"
-                ]
-              },
-              {
-                "methods": [
-                  "POST"
-                ],
-                "paths": [
-                  "/jmap/upload/*"
-                ]
-              }
-            ],
-            "headers": {
-              "Authorization": {
-                "value": "Bearer {{auth.token.token}}"
-              }
-            }
-          },
-          "match": [
-            "https://api.fastmail.com",
-            "https://*.api.fastmail.com",
-            "https://jmap.fastmail.com"
-          ]
-        },
-        {
-          "config": {
-            "allowlist": [
-              {
-                "methods": [
-                  "GET"
-                ],
-                "paths": [
-                  "/jmap/download/*"
-                ]
-              }
-            ],
-            "headers": {
-              "Authorization": {
-                "value": "Bearer {{auth.token.token}}"
-              }
-            }
-          },
-          "match": [
-            "https://fastmailusercontent.com",
-            "https://*.fastmailusercontent.com"
-          ]
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.token.token}}"
+          }
         }
-      ],
-      "protocol": "http"
+      },
+      "match": {
+        "host": [
+          "api.fastmail.com",
+          "*.api.fastmail.com",
+          "jmap.fastmail.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/jmap/session",
+          "/jmap/download/*"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.token.token}}"
+          }
+        }
+      },
+      "match": {
+        "host": [
+          "api.fastmail.com",
+          "*.api.fastmail.com",
+          "jmap.fastmail.com"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/jmap/api",
+          "/jmap/api/",
+          "/jmap/upload/*"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.token.token}}"
+          }
+        }
+      },
+      "match": {
+        "host": [
+          "fastmailusercontent.com",
+          "*.fastmailusercontent.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/jmap/download/*"
+        ],
+        "protocol": "http"
+      }
     }
   ],
   "schema_version": 1,

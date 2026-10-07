@@ -52,7 +52,7 @@ func TestEveryProviderAuthenticationAndTransport(t *testing.T) {
 				if provider == "slack" {
 					config["workspace_id"] = "T_SYNTHETIC"
 				}
-				if m.Proxy[0].Protocol != "http" {
+				if m.Proxy[0].Match.Protocol != "http" {
 					config["host"] = "database.example.com"
 					config["database"] = "sample"
 					config["username"] = "reader"
@@ -70,7 +70,7 @@ func TestEveryProviderAuthenticationAndTransport(t *testing.T) {
 						t.Fatalf("private value in runtime config: %s", k)
 					}
 				}
-				if m.Proxy[r.ProxyIndex].Protocol == "http" {
+				if m.Proxy[r.ProxyIndices[0]].Match.Protocol == "http" {
 					credential := "synthetic-method-secret"
 					if m.Auth[method].Type == "oauth2" {
 						credential = "synthetic-oauth-token"
@@ -83,7 +83,7 @@ func TestEveryProviderAuthenticationAndTransport(t *testing.T) {
 						t.Fatal(err)
 					}
 					ep := endpoints[provider]
-					recipe, err := m.Proxy[r.ProxyIndex].HTTPRecipe(ep[0], ep[1])
+					recipe, err := m.Proxy.Select(r.ProxyIndices).HTTPRecipe(ep[0], ep[1], nil)
 					if err != nil {
 						t.Fatal(err)
 					}
@@ -94,11 +94,11 @@ func TestEveryProviderAuthenticationAndTransport(t *testing.T) {
 					if h.Get("Authorization") != "Bearer "+credential {
 						t.Fatalf("wrong injection %q", h.Get("Authorization"))
 					}
-					if _, err := m.Proxy[r.ProxyIndex].HTTPRecipe("GET", "https://unlisted.example.com/"); err == nil {
+					if _, err := m.Proxy.Select(r.ProxyIndices).HTTPRecipe("GET", "https://unlisted.example.com/", nil); err == nil {
 						t.Fatal("unlisted origin accepted")
 					}
 					if provider == "slack" {
-						recipe, err := m.Proxy[r.ProxyIndex].HTTPRecipe("POST", "https://files.slack.com/upload/v1/signed")
+						recipe, err := m.Proxy.Select(r.ProxyIndices).HTTPRecipe("POST", "https://files.slack.com/upload/v1/signed", nil)
 						if err != nil {
 							t.Fatal(err)
 						}
@@ -108,7 +108,7 @@ func TestEveryProviderAuthenticationAndTransport(t *testing.T) {
 						}
 					}
 				} else {
-					db, err := m.Proxy[r.ProxyIndex].ResolveDatabase(r.Context)
+					db, err := m.Proxy[r.ProxyIndices[0]].ResolveDatabase(r.Context)
 					if err != nil {
 						t.Fatal(err)
 					}
@@ -121,7 +121,7 @@ func TestEveryProviderAuthenticationAndTransport(t *testing.T) {
 						if err != nil {
 							t.Fatal(err)
 						}
-						db, err = m.Proxy[r.ProxyIndex].ResolveDatabase(r.Context)
+						db, err = m.Proxy[r.ProxyIndices[0]].ResolveDatabase(r.Context)
 						if err != nil || db.Port != 9440 {
 							t.Fatalf("native ClickHouse port %d: %v", db.Port, err)
 						}
@@ -146,10 +146,10 @@ func TestFastmailDiscoveredOrigins(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	p := m.Proxy[r.ProxyIndex]
+	p := m.Proxy.Select(r.ProxyIndices)
 	for _, host := range []string{"api.fastmail.com", "phl.api.fastmail.com", "ams.api.fastmail.com", "jmap.fastmail.com"} {
 		for _, route := range [][2]string{{"GET", "/jmap/session"}, {"POST", "/jmap/api/"}, {"POST", "/jmap/upload/u1/"}, {"GET", "/jmap/download/u1/blob/file"}} {
-			recipe, err := p.HTTPRecipe(route[0], "https://"+host+route[1])
+			recipe, err := p.HTTPRecipe(route[0], "https://"+host+route[1], nil)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -160,7 +160,7 @@ func TestFastmailDiscoveredOrigins(t *testing.T) {
 		}
 	}
 	for _, host := range []string{"fastmailusercontent.com", "www.fastmailusercontent.com", "phl-www.fastmailusercontent.com"} {
-		recipe, err := p.HTTPRecipe("GET", "https://"+host+"/jmap/download/u1/blob/file?type=text%2Fplain")
+		recipe, err := p.HTTPRecipe("GET", "https://"+host+"/jmap/download/u1/blob/file?type=text%2Fplain", nil)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -169,13 +169,13 @@ func TestFastmailDiscoveredOrigins(t *testing.T) {
 			t.Fatalf("%s: %v %v", host, h, err)
 		}
 		for _, route := range [][2]string{{"POST", "/jmap/api/"}, {"POST", "/jmap/upload/u1/"}, {"GET", "/other"}} {
-			if _, err := p.HTTPRecipe(route[0], "https://"+host+route[1]); err == nil {
+			if _, err := p.HTTPRecipe(route[0], "https://"+host+route[1], nil); err == nil {
 				t.Fatalf("download host accepted %v", route)
 			}
 		}
 	}
 	for _, host := range []string{"fastmail.com", "app.fastmail.com", "evilapi.fastmail.com", "api.fastmail.com.evil.test", "www.fastmailusercontent.com.evil.test"} {
-		if _, err := p.HTTPRecipe("GET", "https://"+host+"/jmap/download/u1/blob/file"); err == nil {
+		if _, err := p.HTTPRecipe("GET", "https://"+host+"/jmap/download/u1/blob/file", nil); err == nil {
 			t.Fatalf("accepted %s", host)
 		}
 	}

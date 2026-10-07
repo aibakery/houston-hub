@@ -80,44 +80,50 @@
   },
   "proxy": [
     {
-      "if": "{{ and (is config.connection_type \"http\") (isDefined auth.rest) }}",
-      "protocol": "http",
-      "origins": {
-        "https://example-project.supabase.co": {
-          "headers": {
-            "apikey": {
-              "value": "{{auth.rest.api_key}}"
-            },
+      "action": {
+        "headers": {
+          "remove": [
+            "Authorization"
+          ],
+          "set": {
             "Authorization": {
               "if": "{{ isDefined auth.rest.user_jwt }}",
               "value": "Bearer {{auth.rest.user_jwt}}"
-            }
-          },
-          "allowlist": [
-            {
-              "methods": [
-                "GET"
-              ],
-              "paths": [
-                "/rest/v1/*"
-              ]
-            }
-          ]
+            },
+            "apikey": "{{auth.rest.api_key}}"
+          }
         }
+      },
+      "if": "{{ and (is config.connection_type \"http\") (isDefined auth.rest) }}",
+      "match": {
+        "host": [
+          "example-project.supabase.co"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/rest/v1/*"
+        ],
+        "protocol": "http"
       }
     },
     {
-      "if": "{{ is config.connection_type \"postgres\" }}",
-      "protocol": "postgres",
-      "connection": {
-        "host": "db.example-project.supabase.co",
-        "port": "{{config.port}}",
-        "database": "{{config.database}}",
-        "user": "{{config.username}}",
-        "password": "{{config.password}}",
-        "tls": {
-          "mode": "verify-full"
+      "action": {
+        "connection": {
+          "database": "{{config.database}}",
+          "host": "db.example-project.supabase.co",
+          "password": "{{config.password}}",
+          "port": "{{config.port}}",
+          "tls": {
+            "mode": "verify-full"
+          },
+          "user": "{{config.username}}"
         }
+      },
+      "if": "{{ is config.connection_type \"postgres\" }}",
+      "match": {
+        "protocol": "postgres"
       }
     }
   ]

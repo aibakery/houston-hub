@@ -150,85 +150,106 @@
   "name": "Slack",
   "proxy": [
     {
-      "origins": {
-        "https://files.slack.com": {
-          "allowlist": [
-            {
-              "methods": [
-                "GET"
-              ],
-              "paths": [
-                "/files-pri/*"
-              ]
-            },
-            {
-              "headers": {},
-              "methods": [
-                "POST"
-              ],
-              "paths": [
-                "/upload/v1/*"
-              ]
-            }
-          ],
-          "headers": {
-            "Authorization": {
-              "value": "Bearer {{auth.oauth.access_token}}"
-            }
-          }
-        },
-        "https://slack.com": {
-          "allowlist": [
-            {
-              "methods": [
-                "GET"
-              ],
-              "paths": [
-                "/api/auth.test",
-                "/api/users.conversations",
-                "/api/conversations.info",
-                "/api/conversations.history",
-                "/api/conversations.replies",
-                "/api/conversations.members",
-                "/api/search.messages",
-                "/api/users.info",
-                "/api/users.list",
-                "/api/files.info",
-                "/api/chat.getPermalink",
-                "/api/reactions.get"
-              ]
-            },
-            {
-              "methods": [
-                "POST"
-              ],
-              "paths": [
-                "/api/chat.postMessage",
-                "/api/chat.update",
-                "/api/chat.delete",
-                "/api/conversations.open",
-                "/api/reactions.add",
-                "/api/reactions.remove",
-                "/api/files.completeUploadExternal"
-              ]
-            },
-            {
-              "methods": [
-                "GET"
-              ],
-              "paths": [
-                "/api/files.getUploadURLExternal"
-              ]
-            }
-          ],
-          "headers": {
-            "Authorization": {
-              "value": "Bearer {{auth.oauth.access_token}}"
-            }
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
           }
         }
       },
-      "protocol": "http"
+      "match": {
+        "host": [
+          "files.slack.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/files-pri/*"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "remove": [
+            "Authorization"
+          ]
+        }
+      },
+      "match": {
+        "host": [
+          "files.slack.com"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/upload/v1/*"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      },
+      "match": {
+        "host": [
+          "slack.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/api/auth.test",
+          "/api/users.conversations",
+          "/api/conversations.info",
+          "/api/conversations.history",
+          "/api/conversations.replies",
+          "/api/conversations.members",
+          "/api/search.messages",
+          "/api/users.info",
+          "/api/users.list",
+          "/api/files.info",
+          "/api/chat.getPermalink",
+          "/api/reactions.get",
+          "/api/files.getUploadURLExternal"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      },
+      "match": {
+        "host": [
+          "slack.com"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/api/chat.postMessage",
+          "/api/chat.update",
+          "/api/chat.delete",
+          "/api/conversations.open",
+          "/api/reactions.add",
+          "/api/reactions.remove",
+          "/api/files.completeUploadExternal"
+        ],
+        "protocol": "http"
+      }
     }
   ],
   "publisher": {

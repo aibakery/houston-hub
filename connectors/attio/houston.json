@@ -20,37 +20,49 @@
   "name": "Attio",
   "proxy": [
     {
-      "origins": {
-        "https://api.attio.com": {
-          "allowlist": [
-            {
-              "methods": [
-                "POST"
-              ],
-              "paths": [
-                "/v2/objects/{object}/records/query",
-                "/v2/objects/records/search",
-                "/v2/lists/{list}/entries/query"
-              ]
-            },
-            {
-              "methods": [
-                "GET",
-                "HEAD"
-              ],
-              "paths": [
-                "/v2/*"
-              ]
-            }
-          ],
-          "headers": {
-            "Authorization": {
-              "value": "Bearer {{auth.token.token}}"
-            }
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.token.token}}"
           }
         }
       },
-      "protocol": "http"
+      "match": {
+        "host": [
+          "api.attio.com"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/v2/objects/{object}/records/query",
+          "/v2/objects/records/search",
+          "/v2/lists/{list}/entries/query"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.token.token}}"
+          }
+        }
+      },
+      "match": {
+        "host": [
+          "api.attio.com"
+        ],
+        "method": [
+          "GET",
+          "HEAD"
+        ],
+        "path": [
+          "/v2/*"
+        ],
+        "protocol": "http"
+      }
     }
   ],
   "schema_version": 1,

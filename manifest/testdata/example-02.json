@@ -64,16 +64,20 @@
   },
   "proxy": [
     {
-      "protocol": "postgres",
-      "connection": {
-        "host": "{{config.host}}",
-        "port": "{{config.port}}",
-        "database": "{{config.database}}",
-        "user": "{{config.username}}",
-        "password": "{{config.password}}",
-        "tls": {
-          "mode": "verify-full"
+      "action": {
+        "connection": {
+          "database": "{{config.database}}",
+          "host": "{{config.host}}",
+          "password": "{{config.password}}",
+          "port": "{{config.port}}",
+          "tls": {
+            "mode": "verify-full"
+          },
+          "user": "{{config.username}}"
         }
+      },
+      "match": {
+        "protocol": "postgres"
       }
     }
   ]

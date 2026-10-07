@@ -35,15 +35,29 @@ Duplicate export names fail publication. Initialization cannot make network call
       "config": {"token": {"type": "secret", "label": "Token", "required": true}}
     }
   },
-  "proxy": [{
-    "protocol": "http",
-    "origins": {
-      "https://api.example.com": {
-        "headers": {"Authorization": {"value": "Bearer {{auth.token.token}}"}},
-        "allowlist": [{"methods": ["GET"], "paths": ["/items"]}]
+  "proxy": [
+    {
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.token.token}}"
+          }
+        }
+      },
+      "match": {
+        "host": [
+          "api.example.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/items"
+        ],
+        "protocol": "http"
       }
     }
-  }]
+  ]
 }
 ```
 
@@ -98,44 +112,75 @@ it activates; failures never reuse another method's credentials.
 
 ## Transport and exports
 
-`proxy` is a nonempty array of complete variants. Exactly one must match. HTTP
-`origins` accepts the origin-to-config map or a nonempty array of groups. Each
-group has a nonempty `match` array and one required `config` object containing
-the shared headers, Basic authentication and allowlist:
+`proxy` is a nonempty ordered array of rules containing `match`, `action`, and an
+optional `if` predicate. Enabled rules must share one protocol. For HTTP, the
+first enabled rule matching the original request wins; only its action runs.
+Rules never merge, rematch after changes, or fall through after errors.
 
 ```json
-"origins": [
+"proxy": [
   {
-    "match": ["https://api.example.com", "https://*.api.example.com"],
-    "config": {
-      "headers": {"Authorization": {"value": "Bearer {{auth.token.token}}"}},
-      "allowlist": [{"methods": ["GET"], "paths": ["/records/*"]}]
+    "match": {
+      "protocol": "http",
+      "host": ["api.example.com", "*.api.example.com"],
+      "method": ["GET"],
+      "path": ["/v1/records/*"],
+      "header": {"Accept": "application/json", "X-Request-ID": true}
+    },
+    "action": {
+      "rewrite": {"strip_prefix": "/v1"},
+      "headers": {
+        "remove": ["SomeOtherHeader"],
+        "set": {"Authorization": "Bearer {{auth.token.token}}"}
+      }
     }
   }
 ]
 ```
 
-Groups expand into the existing map at parsing; runtime and pinned snapshots use
-that map. Duplicate normalized patterns within or across groups are invalid;
-group order does not affect matching. All origins are HTTPS without interpolation.
-One leading `*.` hostname label matches any depth of subdomains, excluding the
-base hostname; declare the base as another pattern (in the same group if desired).
-Other wildcard positions and wildcard IPs are invalid. Ports must match, with
-implicit and explicit 443 equivalent. Exact entries win; otherwise
-the longest matching wildcard suffix wins. Entries never merge or fall back when
-the selected entry denies a route. Independent origin recipes inject object-shaped
-headers and optional object-shaped Basic
-credentials. An allowlist entry may replace the whole header map or disable Basic.
-Unlisted requests fail, and redirects are not followed automatically. A new
-provider endpoint must match a declared origin or wildcard in the pinned release.
-Origin-denial errors include the requested origin, never its path or query.
-Fastmail groups `api.fastmail.com`, its subdomains and `jmap.fastmail.com` for JMAP,
-plus `fastmailusercontent.com` and its subdomains only for JMAP downloads.
+HTTP requires `match.protocol: "http"` and a nonempty `host` array. Hosts have no
+scheme or path; transport is HTTPS. One leading `*.` matches subdomains at any
+depth, excluding the base hostname. Ports must match, with implicit and explicit
+443 equivalent. Other wildcard positions and wildcard IPs are invalid. First-rule
+priority also applies when an exact host and a wildcard both match.
 
-Database variants declare host, integer port, database, user, password and verified
-TLS; ClickHouse also selects `https` or `native`. Credentials and targets cannot be
-overridden by Luau query arguments. Database URLs are not accepted. Publisher
-credentials may be sent only to literal or publisher-owned database targets.
+Optional `method` and `path` arrays accept any listed value; different filter
+fields combine with AND. Omission leaves that filter unrestricted; empty arrays
+are invalid. Paths support exact paths, whole-segment `{id}` placeholders, and a
+terminal `/*` subtree wildcard. Keep separate rules when different methods allow
+different path sets: combining method/path arrays permits their Cartesian product.
+All `header` entries must match. Header names are case-insensitive; string values
+match exactly and `true` means present, including an empty value. Filters are
+literal and inspect caller headers before action changes.
+
+`action.headers.remove` runs before `set`. A set replaces existing values; a name
+may appear in both collections. Set values are string templates or objects with
+`value` and optional `if`. A false header predicate skips the set and leaves caller
+values alone unless explicitly removed. No other rule modifies those headers.
+`action.basic_auth` supplies native Basic credentials; it cannot be combined with
+an `Authorization` set. `action: {}` intentionally passes a matching request
+through. Signed-upload rules can explicitly remove `Authorization`.
+
+`rewrite.strip_prefix` strips a literal absolute nonroot prefix at a path boundary.
+`/v1` maps `/v1/records` to `/records` and `/v1` to `/`; it does not match `/v10`.
+The query and authority stay unchanged. A prefix mismatch fails the selected rule.
+Trailing slashes, templates, wildcard/placeholder syntax, percent escapes, dot
+segments, and repeated slashes are invalid prefixes.
+
+Unmatched requests fail before transport, and redirects are not followed
+automatically. A new provider endpoint must match a host filter in the pinned
+release. Origin-denial errors report the origin without its path or query.
+Fastmail shares API actions across `api.fastmail.com`, `*.api.fastmail.com`, and
+`jmap.fastmail.com`. Separate download rules allow `fastmailusercontent.com` and
+its subdomains, as documented in Fastmail's
+[security documentation](https://www.fastmail.help/hc/en-us/articles/1500000280221-How-Fastmail-provides-a-secure-service).
+
+Database rules contain only the protocol in `match` and native settings in
+`action.connection`: host, integer port, database, user, password, and verified
+TLS; ClickHouse also selects `https` or `native`. The first enabled database rule
+wins. Credentials and targets cannot be overridden by Luau query arguments.
+Database URLs are not accepted. Publisher credentials may be sent only to literal
+or publisher-owned database targets.
 
 `http.request({url, method, headers, body, src?, dest?})` returns a response with
 `status`, `headers`, and `body`; file transfers use invocation-scoped session files.
@@ -195,7 +240,9 @@ public `config` overrides, optional `configure`, and `run`. The scenario contain
 synthetic `publisher`, root `config`, `auth_method`, and selected `auth_config`
 inputs. Houston resolves them through the production manifest contract before
 projecting only active nonsecret root values into the fixture VM. Include every
-declared auth method, proxy alternative and intended enabled/disabled surface.
+declared auth method, enabled proxy rule, and intended enabled/disabled surface.
+Eligibility coverage does not establish which rule wins; matcher tests separately
+cover rule order, request filters, and action behavior.
 Each claimed interface must be fully enabled and every operation successfully
 called in fixtures. The host records actual calls through immutable export
 wrappers; publication validates their arguments and returned values against the

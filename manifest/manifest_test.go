@@ -45,10 +45,21 @@ func TestCompleteExamples(t *testing.T) {
 	}
 }
 func TestStrictShape(t *testing.T) {
-	base := `{"schema_version":1,"name":"test","description":"test","files":["main.luau"],"proxy":[{"protocol":"http","origins":{"https://api.example.com":{}}}]}`
+	base := `{"description":"test","files":["main.luau"],"name":"test","proxy":[{"match":{"protocol":"http","host":["api.example.com"]},"action":{}}],"schema_version":1}`
 	for _, bad := range []string{
-		strings.Replace(base, `"name":"test"`, `"name":"test","name":"other"`, 1), strings.Replace(base, `"name":"test"`, `"name":null`, 1), strings.Replace(base, `"name":"test"`, `"name":"test","id":"old"`, 1), base + `{}`, strings.Replace(base, `["main.luau"]`, `"main.luau"`, 1), strings.Replace(base, `"proxy":`, `"auth":[],"proxy":`, 1), strings.Replace(base, `"proxy":`, `"secrets":{},"proxy":`, 1), strings.Replace(base, `"protocol":"http"`, `"protocol":"http","when":true`, 1), strings.Replace(base, `"protocol":"http"`, `"protocol":"http","if":""`, 1), strings.Replace(base, `"https://api.example.com":{}`, `"https://api.example.com":{"headers":{"X-Test":{}}}`, 1), strings.Replace(base, `"https://api.example.com":{}`, `"https://api.example.com":{"basic_auth":{"password":""}}`, 1), strings.Replace(base, `"https://api.example.com":{}`, `"https://api.example.com":{"allowlist":[]}`, 1), strings.Replace(base, `"files":["main.luau"]`, `"files":["../main.luau"]`, 1)} {
-		if _, e := Parse([]byte(bad)); e == nil {
+		strings.Replace(base, `"name":"test"`, `"name":"test","name":"other"`, 1),
+		strings.Replace(base, `"name":"test"`, `"name":null`, 1),
+		strings.Replace(base, `"name":"test"`, `"name":"test","id":"old"`, 1),
+		base + `{}`,
+		strings.Replace(base, `["main.luau"]`, `"main.luau"`, 1),
+		strings.Replace(base, `"proxy":`, `"auth":[],"proxy":`, 1),
+		strings.Replace(base, `"proxy":`, `"secrets":{},"proxy":`, 1),
+		strings.Replace(base, `"action":{}`, `"action":{},"if":""`, 1),
+		strings.Replace(base, `"action":{}`, `"action":{"headers":{"set":{"X-Test":{}}}}`, 1),
+		strings.Replace(base, `"action":{}`, `"action":{"basic_auth":{"password":""}}`, 1),
+		strings.Replace(base, `["main.luau"]`, `["../main.luau"]`, 1),
+	} {
+		if _, err := Parse([]byte(bad)); err == nil {
 			t.Errorf("accepted invalid shape %s", bad)
 		}
 	}
@@ -62,7 +73,7 @@ func TestDefaultsAndPrivateProjection(t *testing.T) {
 	if _, ok := r.PublicConfig["password"]; ok {
 		t.Fatal("secret exposed")
 	}
-	db, e := m.Proxy[r.ProxyIndex].ResolveDatabase(r.Context)
+	db, e := m.Proxy[r.ProxyIndices[0]].ResolveDatabase(r.Context)
 	if e != nil || db.Port != 5432 || db.Password != " exact secret " {
 		t.Fatalf("database resolution: %#v %v", db, e)
 	}
@@ -79,7 +90,7 @@ func TestInactiveValuesAndSelection(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	if r.ProxyIndex != 0 || len(r.PublicConfig) != 1 {
+	if (len(r.ProxyIndices) != 1 || r.ProxyIndices[0] != 0) || len(r.PublicConfig) != 1 {
 		t.Fatalf("wrong HTTP projection %#v", r.PublicConfig)
 	}
 	if _, ok := r.Context.Config["password"]; ok {
@@ -89,7 +100,7 @@ func TestInactiveValuesAndSelection(t *testing.T) {
 		t.Fatal("accepted inactive submission")
 	}
 	r, e = m.Resolve(nil, map[string]any{"connection_type": "postgres", "password": "secret", "username": "reader"}, nil, "")
-	if e != nil || r.ProxyIndex != 1 {
+	if e != nil || (len(r.ProxyIndices) != 1 || r.ProxyIndices[0] != 1) {
 		t.Fatalf("Postgres resolution %v", e)
 	}
 	if _, ok, _ := r.Context.Lookup("auth.rest"); ok {
@@ -155,15 +166,15 @@ func TestSensitiveReferenceValidation(t *testing.T) {
 		t.Fatal("secret selected proxy")
 	}
 	m = example(t, 8)
-	h := m.Proxy[0].Origins["https://example-project.supabase.co"].Headers["Authorization"]
+	h := m.Proxy[0].Action.Headers.Set["Authorization"]
 	h.If = `{{ is auth.rest.user_jwt "secret" }}`
-	o := m.Proxy[0].Origins["https://example-project.supabase.co"]
-	o.Headers["Authorization"] = h
+	o := &m.Proxy[0].Action.Headers.Set
+	(*o)["Authorization"] = h
 	if e := m.Validate(); e == nil {
 		t.Fatal("secret equality accepted")
 	}
 	m = example(t, 2)
-	m.Proxy[0].Connection.Host = `{{config.password}}`
+	m.Proxy[0].Action.Connection.Host = `{{config.password}}`
 	if e := m.Validate(); e == nil {
 		t.Fatal("secret destination accepted")
 	}
@@ -191,8 +202,8 @@ func TestCyclesAndOrdering(t *testing.T) {
 func TestHTTPRouteReplacementAndRemoval(t *testing.T) {
 	m := example(t, 3)
 	c := Context{SelectedAuth: "oauth", Auth: map[string]map[string]any{"oauth": {"access_token": "token"}}}
-	p := m.Proxy[0]
-	recipe, e := p.HTTPRecipe("PUT", "https://files.collaboration.example.com/signed-upload/file")
+	p := m.Proxy
+	recipe, e := p.HTTPRecipe("PUT", "https://files.collaboration.example.com/signed-upload/file", nil)
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -201,17 +212,9 @@ func TestHTTPRouteReplacementAndRemoval(t *testing.T) {
 		t.Fatalf("override failed %#v %v", h, e)
 	}
 	for _, u := range []string{"https://evil.example.com/private/x", "https://files.collaboration.example.com/no-route", "https://files.collaboration.example.com/private/%2e%2e/x", "https://files.collaboration.example.com/private/a%2fb"} {
-		if _, e := p.HTTPRecipe("GET", u); e == nil {
+		if _, e := p.HTTPRecipe("GET", u, nil); e == nil {
 			t.Fatalf("allowed unsafe URL %s", u)
 		}
-	}
-	for _, pair := range [][2]string{{"/a/{id}", "/a/x"}, {"/a/*", "/a/{id}"}, {"/a/*", "/a/"}} {
-		if !PatternsOverlap(pair[0], pair[1]) {
-			t.Fatalf("missed overlap %v", pair)
-		}
-	}
-	if PathMatches("/a/*", "/a") {
-		t.Fatal("wildcard matched parent")
 	}
 }
 func TestGeneratedSchemaCurrent(t *testing.T) {
@@ -230,16 +233,16 @@ func TestGeneratedSchemaCurrent(t *testing.T) {
 func TestPublisherRecipientAndFallbackSinks(t *testing.T) {
 	m := example(t, 2)
 	m.Publisher = map[string]Field{"password": {Type: "secret", Label: "Publisher password", Required: true}}
-	m.Proxy[0].Connection.Password = `{{publisher.password || config.password}}`
+	m.Proxy[0].Action.Connection.Password = `{{publisher.password || config.password}}`
 	if e := m.Validate(); e == nil {
 		t.Fatal("publisher secret accepted at connection-controlled target")
 	}
-	m.Proxy[0].Connection.Host = "db.example.com"
-	m.Proxy[0].Connection.Port = 5432
+	m.Proxy[0].Action.Connection.Host = "db.example.com"
+	m.Proxy[0].Action.Connection.Port = 5432
 	if e := m.Validate(); e != nil {
 		t.Fatal(e)
 	}
-	m.Proxy[0].Connection.Password = `{{config.username || publisher.password}}`
+	m.Proxy[0].Action.Connection.Password = `{{config.username || publisher.password}}`
 	if e := m.Validate(); e == nil {
 		t.Fatal("ordinary string declassified through fallback")
 	}
@@ -284,5 +287,31 @@ func TestAmbiguousAndMissingProxy(t *testing.T) {
 	m.Proxy = m.Proxy[1:]
 	if _, e := m.Resolve(nil, nil, map[string]any{"api_key": "test"}, "rest"); e == nil {
 		t.Fatal("zero proxy matches accepted")
+	}
+}
+
+func TestDatabaseUsesFirstEnabledRule(t *testing.T) {
+	m := example(t, 2)
+	m.Config["optional_password"] = Field{Type: "secret", Label: "Optional password"}
+	later := m.Proxy[0]
+	connection := *later.Action.Connection
+	connection.Password = "{{config.optional_password}}"
+	later.Action.Connection = &connection
+	m.Proxy = append(m.Proxy, later)
+	if err := m.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	config := map[string]any{"host": "db.example.com", "database": "demo", "username": "reader", "password": "first-secret"}
+	r, err := m.Resolve(nil, config, nil, "")
+	if err != nil || !reflect.DeepEqual(r.ProxyIndices, []int{0, 1}) {
+		t.Fatalf("first database rule was blocked by a later rule: %v", err)
+	}
+	db, err := m.Proxy[r.ProxyIndices[0]].ResolveDatabase(r.Context)
+	if err != nil || db.Password != "first-secret" {
+		t.Fatalf("first database action not selected: %v", err)
+	}
+	m.Proxy[0], m.Proxy[1] = m.Proxy[1], m.Proxy[0]
+	if _, err := m.Resolve(nil, config, nil, ""); err == nil {
+		t.Fatal("failed first database action fell through to later credentials")
 	}
 }

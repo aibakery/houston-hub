@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -26,7 +27,7 @@ func (m *Manifest) validateHeaders(headers map[string]HeaderValue, used map[stri
 	seen := map[string]bool{}
 	for k, h := range headers {
 		n := strings.ToLower(k)
-		if !headerRE.MatchString(k) || ownedHeaders[n] || strings.HasPrefix(n, "x-houston-") || seen[n] {
+		if !mutableHeader(k) || seen[n] {
 			return fmt.Errorf("invalid, reserved or duplicate header %s", k)
 		}
 		seen[n] = true
@@ -95,6 +96,10 @@ func NormalizeOrigin(s string) (string, error) {
 
 // Origin patterns allow one leading wildcard label; request origins stay literal.
 func normalizeOriginPattern(s string) (string, error) {
+	if strings.Contains(s, "://") {
+		return "", fmt.Errorf("host pattern must not contain a scheme")
+	}
+	s = "https://" + s
 	const prefix = "https://*."
 	if !strings.HasPrefix(s, prefix) {
 		return NormalizeOrigin(s)
@@ -130,21 +135,6 @@ func ValidatePathPattern(s string) error {
 	return nil
 }
 func placeholder(s string) bool { return strings.HasPrefix(s, "{") && strings.HasSuffix(s, "}") }
-func PatternsOverlap(a, b string) bool {
-	aa, bb := strings.Split(a, "/"), strings.Split(b, "/")
-	for i := 0; i < len(aa) && i < len(bb); i++ {
-		if aa[i] == "*" || bb[i] == "*" {
-			return true
-		}
-		if aa[i] != bb[i] && !placeholder(aa[i]) && !placeholder(bb[i]) {
-			return false
-		}
-		if aa[i] == "" && placeholder(bb[i]) || bb[i] == "" && placeholder(aa[i]) {
-			return false
-		}
-	}
-	return len(aa) == len(bb)
-}
 func PathMatches(pattern, p string) bool {
 	a, b := strings.Split(pattern, "/"), strings.Split(p, "/")
 	for i := 0; i < len(a) && i < len(b); i++ {
@@ -180,86 +170,70 @@ func RequestPath(u *url.URL) (string, error) {
 	return p, nil
 }
 func (m *Manifest) validateProxy(p Proxy, used map[string]bool) error {
-	switch p.Protocol {
+	switch p.Match.Protocol {
 	case "http":
-		if len(p.Origins) == 0 || p.Connection != nil {
-			return fmt.Errorf("HTTP requires origins and forbids connection")
+		if len(p.Match.Host) == 0 || p.Action.Connection != nil {
+			return fmt.Errorf("HTTP requires match.host and forbids action.connection")
 		}
 		seen := map[string]bool{}
-		for key, o := range p.Origins {
-			origin, e := normalizeOriginPattern(key)
-			if e != nil {
-				return e
+		for _, host := range p.Match.Host {
+			normalized, err := normalizeOriginPattern(host)
+			if err != nil {
+				return err
 			}
-			if seen[origin] {
-				return fmt.Errorf("duplicate normalized origin")
+			if seen[normalized] {
+				return fmt.Errorf("duplicate normalized host")
 			}
-			seen[origin] = true
-			if e := m.validateRecipe(o.Headers, o.BasicAuth, used); e != nil {
-				return e
+			seen[normalized] = true
+		}
+		for field, values := range map[string][]string{"method": p.Match.Method, "path": p.Match.Path} {
+			if values != nil && len(values) == 0 {
+				return fmt.Errorf("match.%s must be nonempty", field)
 			}
-			if o.Allowlist != nil && len(o.Allowlist) == 0 {
-				return fmt.Errorf("allowlist must be nonempty")
+			seen := map[string]bool{}
+			for _, value := range values {
+				if seen[value] {
+					return fmt.Errorf("duplicate match.%s", field)
+				}
+				seen[value] = true
+				if field == "method" && !methods[value] {
+					return fmt.Errorf("invalid HTTP method")
+				}
+				if field == "path" {
+					if err := ValidatePathPattern(value); err != nil {
+						return err
+					}
+				}
 			}
-			for i, r := range o.Allowlist {
-				if len(r.Methods) == 0 || len(r.Paths) == 0 {
-					return fmt.Errorf("allowlist requires methods and paths")
-				}
-				seen := map[string]bool{}
-				for _, method := range r.Methods {
-					if !methods[method] || seen[method] {
-						return fmt.Errorf("invalid or duplicate HTTP method")
-					}
-					seen[method] = true
-				}
-				for j, pattern := range r.Paths {
-					if e := ValidatePathPattern(pattern); e != nil {
-						return e
-					}
-					for _, other := range r.Paths[:j] {
-						if PatternsOverlap(pattern, other) {
-							return fmt.Errorf("overlapping route patterns")
-						}
-					}
-				}
-				h, b := r.Headers, r.BasicAuth
-				if h == nil {
-					h = o.Headers
-				}
-				if b == nil {
-					b = o.BasicAuth
-				}
-				if e := m.validateRecipe(h, b, used); e != nil {
-					return e
-				}
-				for _, prev := range o.Allowlist[:i] {
-					common := false
-					for _, a := range prev.Methods {
-						for _, b := range r.Methods {
-							common = common || a == b
-						}
-					}
-					if common {
-						for _, a := range prev.Paths {
-							for _, b := range r.Paths {
-								if PatternsOverlap(a, b) {
-									return fmt.Errorf("overlapping allowlist entries")
-								}
-							}
-						}
-					}
-				}
+		}
+		if err := validateHeaderFilters(p.Match.Header); err != nil {
+			return err
+		}
+		if err := m.validateRecipe(p.Action.Headers.Set, p.Action.BasicAuth, used); err != nil {
+			return err
+		}
+		seen = map[string]bool{}
+		for _, name := range p.Action.Headers.Remove {
+			key := strings.ToLower(name)
+			if !mutableHeader(name) || seen[key] {
+				return fmt.Errorf("invalid, reserved or duplicate removed header %s", name)
+			}
+			seen[key] = true
+		}
+		if r := p.Action.Rewrite; r != nil {
+			if err := validateStripPrefix(r.StripPrefix); err != nil {
+				return err
 			}
 		}
 	case "postgres", "mysql", "clickhouse":
-		c := p.Connection
-		if c == nil || p.Origins != nil {
-			return fmt.Errorf("database requires connection and forbids origins")
+		c := p.Action.Connection
+		if c == nil || p.Match.Host != nil || p.Match.Method != nil || p.Match.Path != nil || p.Match.Header != nil || p.Action.Headers.Set != nil || p.Action.Headers.Remove != nil || p.Action.BasicAuth != nil || p.Action.Rewrite != nil {
+			return fmt.Errorf("database requires action.connection and forbids HTTP filters/actions")
 		}
 		if c.TLS != nil && c.TLS.Mode != "verify-full" {
 			return fmt.Errorf("TLS must verify-full")
 		}
-		if c.Transport != "" && p.Protocol != "clickhouse" {
+		if c.Transport != "" && p.Match.Protocol != "clickhouse" {
 			return fmt.Errorf("transport only valid for ClickHouse")
 		}
 		for _, s := range []string{c.Host, c.Database, c.User} {
@@ -320,12 +294,20 @@ func (m *Manifest) validateProxy(p Proxy, used map[string]bool) error {
 	return nil
 }
 
-// HTTPRecipe contains server-private templates selected by a validated request.
-// ControlledHeaders is the origin-wide union that must be stripped from callers.
+// HTTPRecipe is the single selected action, including its rewritten URL.
 type HTTPRecipe struct {
-	Headers           map[string]HeaderValue
-	BasicAuth         *BasicAuth
-	ControlledHeaders []string
+	URL           string
+	Headers       map[string]HeaderValue
+	BasicAuth     *BasicAuth
+	RemoveHeaders []string
+}
+
+func (rules ProxyRules) Select(indices []int) ProxyRules {
+	selected := make(ProxyRules, 0, len(indices))
+	for _, i := range indices {
+		selected = append(selected, rules[i])
+	}
+	return selected
 }
 
 // OriginDeniedError contains only the normalized origin, never a path or query.
@@ -333,89 +315,160 @@ type OriginDeniedError struct{ Origin string }
 
 func (e *OriginDeniedError) Error() string { return "origin denied: " + e.Origin }
 
-func (p Proxy) HTTPRecipe(method, rawURL string) (HTTPRecipe, error) {
+// HTTPRecipe matches active rules in manifest order against the original request.
+// A selected action's failure never falls through to another rule.
+func (rules ProxyRules) HTTPRecipe(method, rawURL string, caller http.Header) (HTTPRecipe, error) {
 	var out HTTPRecipe
-	if p.Protocol != "http" || !methods[method] {
+	if !methods[method] {
 		return out, fmt.Errorf("HTTP operation unavailable")
 	}
-	u, e := url.Parse(rawURL)
-	if e != nil || u.User != nil || u.Fragment != "" {
+	u, err := url.Parse(rawURL)
+	if err != nil || u.User != nil || u.Fragment != "" {
 		return out, fmt.Errorf("invalid request URL")
 	}
-	origin, e := NormalizeOrigin(u.Scheme + "://" + u.Host)
-	if e != nil {
-		return out, e
+	origin, err := NormalizeOrigin(u.Scheme + "://" + u.Host)
+	if err != nil {
+		return out, err
 	}
-	var o HTTPOrigin
-	found := false
-	best := 0
-	for k, v := range p.Origins {
-		n, err := normalizeOriginPattern(k)
-		if err != nil {
+	path, err := RequestPath(u)
+	if err != nil {
+		return out, err
+	}
+	originFound := false
+	for _, rule := range rules {
+		if rule.Match.Protocol != "http" {
 			continue
 		}
-		if n == origin {
-			o = v
-			found = true
-			break
+		found := false
+		for _, host := range rule.Match.Host {
+			pattern, err := normalizeOriginPattern(host)
+			if err == nil && originMatches(pattern, origin) {
+				found = true
+				break
+			}
 		}
-		if suffix, wildcard := strings.CutPrefix(n, "https://*"); wildcard &&
-			strings.HasSuffix(strings.TrimPrefix(origin, "https://"), suffix) && len(n) > best {
-			o, found, best = v, true, len(n)
+		if !found {
+			continue
 		}
+		originFound = true
+		if !rule.Match.matchesRequest(method, path, caller) {
+			continue
+		}
+		out = HTTPRecipe{URL: rawURL, Headers: rule.Action.Headers.Set, BasicAuth: rule.Action.BasicAuth, RemoveHeaders: rule.Action.Headers.Remove}
+		if rewrite := rule.Action.Rewrite; rewrite != nil {
+			if err := validateStripPrefix(rewrite.StripPrefix); err != nil {
+				return HTTPRecipe{}, err
+			}
+			prefix := rewrite.StripPrefix
+			if path != prefix && !strings.HasPrefix(path, prefix+"/") {
+				return HTTPRecipe{}, fmt.Errorf("rewrite prefix does not match request path")
+			}
+			// Encoded separators are already forbidden. Slice whole escaped segments
+			// so stripping a prefix never changes the remaining path's escaping.
+			escaped := strings.Split(u.EscapedPath(), "/")
+			u.RawPath = "/" + strings.Join(escaped[strings.Count(prefix, "/")+1:], "/")
+			u.Path = strings.TrimPrefix(path, prefix)
+			if u.Path == "" {
+				u.Path = "/"
+			}
+			if _, err := RequestPath(u); err != nil {
+				return HTTPRecipe{}, err
+			}
+			out.URL = u.String()
+		}
+		return out, nil
 	}
-	if !found {
+	if !originFound {
 		return out, &OriginDeniedError{Origin: origin}
 	}
-	path, e := RequestPath(u)
-	if e != nil {
-		return out, e
+	return out, fmt.Errorf("request denied by proxy rules")
+}
+func originMatches(pattern, origin string) bool {
+	if pattern == origin {
+		return true
 	}
-	out.Headers = o.Headers
-	out.BasicAuth = o.BasicAuth
-	reserved := map[string]bool{}
-	add := func(h map[string]HeaderValue, b *BasicAuth) {
-		for k := range h {
-			reserved[http.CanonicalHeaderKey(k)] = true
+	suffix, wildcard := strings.CutPrefix(pattern, "https://*")
+	return wildcard && strings.HasSuffix(strings.TrimPrefix(origin, "https://"), suffix)
+}
+func (m ProxyMatch) matchesRequest(method, path string, caller http.Header) bool {
+	if m.Method != nil && !slices.Contains(m.Method, method) {
+		return false
+	}
+	if m.Path != nil {
+		found := false
+		for _, pattern := range m.Path {
+			if PathMatches(pattern, path) {
+				found = true
+				break
+			}
 		}
-		if b.Enabled() {
-			reserved["Authorization"] = true
+		if !found {
+			return false
 		}
 	}
-	add(o.Headers, o.BasicAuth)
-	matched := o.Allowlist == nil
-	for _, r := range o.Allowlist {
-		add(r.Headers, r.BasicAuth)
-		methodOK := false
-		for _, m := range r.Methods {
-			methodOK = methodOK || m == method
-		}
-		if !methodOK {
-			continue
-		}
-		for _, p := range r.Paths {
-			if PathMatches(p, path) {
-				if matched {
-					return out, fmt.Errorf("ambiguous route")
-				}
-				matched = true
-				if r.Headers != nil {
-					out.Headers = r.Headers
-				}
-				if r.BasicAuth != nil {
-					out.BasicAuth = r.BasicAuth
+	for name, filter := range m.Header {
+		found := false
+		for key, values := range caller {
+			if !strings.EqualFold(key, name) {
+				continue
+			}
+			for _, value := range values {
+				if filter == true || filter == value {
+					found = true
+					break
 				}
 			}
 		}
+		if !found {
+			return false
+		}
 	}
-	if !matched {
-		return out, fmt.Errorf("route denied")
-	}
-	for k := range reserved {
-		out.ControlledHeaders = append(out.ControlledHeaders, k)
-	}
-	return out, nil
+	return true
 }
+func validateHeaderFilters(filters map[string]any) error {
+	seen := map[string]bool{}
+	for name, value := range filters {
+		key := strings.ToLower(name)
+		if !headerRE.MatchString(name) || seen[key] {
+			return fmt.Errorf("invalid or duplicate header filter %s", name)
+		}
+		seen[key] = true
+		switch v := value.(type) {
+		case string:
+			if !ValidHeaderValue(v) {
+				return fmt.Errorf("invalid header filter value")
+			}
+		case bool:
+			if !v {
+				return fmt.Errorf("header presence filter must be true")
+			}
+		default:
+			return fmt.Errorf("header filter must be a string or true")
+		}
+	}
+	return nil
+}
+func validateStripPrefix(prefix string) error {
+	if err := ValidatePathPattern(prefix); err != nil {
+		return fmt.Errorf("invalid rewrite prefix")
+	}
+	if prefix == "/" || strings.HasSuffix(prefix, "/") || strings.ContainsAny(prefix, "*{}") {
+		return fmt.Errorf("invalid rewrite prefix")
+	}
+	return nil
+}
+func mutableHeader(name string) bool {
+	lower := strings.ToLower(name)
+	return headerRE.MatchString(name) && !ownedHeaders[lower] && !strings.HasPrefix(lower, "x-houston-")
+}
+func removeHeader(headers http.Header, name string) {
+	for key := range headers {
+		if strings.EqualFold(key, name) {
+			delete(headers, key)
+		}
+	}
+}
+
 func (r HTTPRecipe) Prepare(c Context, caller http.Header) (http.Header, error) {
 	h := caller.Clone()
 	if h == nil {
@@ -423,11 +476,11 @@ func (r HTTPRecipe) Prepare(c Context, caller http.Header) (http.Header, error) 
 	}
 	for name := range h {
 		if ownedHeaders[strings.ToLower(name)] || strings.HasPrefix(strings.ToLower(name), "x-houston-") {
-			h.Del(name)
+			delete(h, name)
 		}
 	}
-	for _, k := range r.ControlledHeaders {
-		h.Del(k)
+	for _, k := range r.RemoveHeaders {
+		removeHeader(h, k)
 	}
 	for k, v := range r.Headers {
 		yes, e := EvaluatePredicate(v.If, c)
@@ -444,6 +497,7 @@ func (r HTTPRecipe) Prepare(c Context, caller http.Header) (http.Header, error) 
 		if !ValidHeaderValue(value) {
 			return nil, fmt.Errorf("invalid resolved header")
 		}
+		removeHeader(h, k)
 		h.Set(k, value)
 	}
 	if r.BasicAuth.Enabled() {
@@ -458,6 +512,7 @@ func (r HTTPRecipe) Prepare(c Context, caller http.Header) (http.Header, error) 
 		if strings.Contains(username, ":") {
 			return nil, fmt.Errorf("invalid Basic username")
 		}
+		removeHeader(h, "Authorization")
 		req := http.Request{Header: h}
 		req.SetBasicAuth(username, password)
 	}
@@ -471,9 +526,9 @@ type ResolvedDatabase struct {
 }
 
 func (p Proxy) ResolveDatabase(c Context) (ResolvedDatabase, error) {
-	out := ResolvedDatabase{Protocol: p.Protocol, TLSMode: "verify-full"}
-	v := p.Connection
-	if v == nil || p.Protocol == "http" {
+	out := ResolvedDatabase{Protocol: p.Match.Protocol, TLSMode: "verify-full"}
+	v := p.Action.Connection
+	if v == nil || p.Match.Protocol == "http" {
 		return out, fmt.Errorf("database unavailable")
 	}
 	var e error
@@ -495,7 +550,7 @@ func (p Proxy) ResolveDatabase(c Context) (ResolvedDatabase, error) {
 	if out.Password, e = RenderString(v.Password, c); e != nil {
 		return out, e
 	}
-	switch p.Protocol {
+	switch p.Match.Protocol {
 	case "postgres":
 		out.Port = 5432
 	case "mysql":

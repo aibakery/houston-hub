@@ -30,12 +30,7 @@ func Schema() ([]byte, error) {
 		case reflect.Slice:
 			return map[string]any{"type": "array", "items": schemaType(t.Elem())}
 		case reflect.Map:
-			if t == reflect.TypeOf(HTTPOrigins{}) {
-				return map[string]any{"oneOf": []any{
-					map[string]any{"type": "object", "minProperties": 1, "additionalProperties": schemaType(t.Elem())},
-					map[string]any{"type": "array", "minItems": 1, "items": schemaType(reflect.TypeOf(HTTPOriginGroup{}))},
-				}}
-			}
+
 			return map[string]any{"type": "object", "additionalProperties": schemaType(t.Elem())}
 		case reflect.Struct:
 			name := t.Name()
@@ -71,14 +66,14 @@ func Schema() ([]byte, error) {
 	enum("AuthMethod", "pkce", "S256", "none")
 	enum("OAuthAccount", "method", "GET", "POST")
 	enum("ResponseCheck", "op", "exists", "equals")
-	enum("Proxy", "protocol", "http", "postgres", "mysql", "clickhouse")
+	enum("ProxyMatch", "protocol", "http", "postgres", "mysql", "clickhouse")
 	enum("TLS", "mode", "verify-full")
 	enum("Manifest", "icon", "icon.svg", "icon.png")
 	props("Manifest")["schema_version"] = map[string]any{"const": 1}
-	for _, nk := range [][2]string{{"Manifest", "files"}, {"Manifest", "proxy"}, {"Field", "options"}, {"ScopeGroup", "values"}, {"AllowedRequest", "methods"}, {"AllowedRequest", "paths"}, {"HTTPOrigin", "allowlist"}} {
+	for _, nk := range [][2]string{{"Manifest", "files"}, {"Manifest", "proxy"}, {"Field", "options"}, {"ScopeGroup", "values"}, {"ProxyMatch", "host"}, {"ProxyMatch", "method"}, {"ProxyMatch", "path"}} {
 		props(nk[0])[nk[1]].(map[string]any)["minItems"] = 1
 	}
-	for _, nk := range [][2]string{{"Manifest", "files"}, {"Manifest", "implements"}, {"ScopeGroup", "values"}, {"AllowedRequest", "methods"}, {"AllowedRequest", "paths"}} {
+	for _, nk := range [][2]string{{"Manifest", "files"}, {"Manifest", "implements"}, {"ScopeGroup", "values"}, {"ProxyMatch", "host"}, {"ProxyMatch", "method"}, {"ProxyMatch", "path"}, {"HeaderActions", "remove"}} {
 		props(nk[0])[nk[1]].(map[string]any)["uniqueItems"] = true
 	}
 	for _, nk := range [][2]string{{"Manifest", "name"}, {"Manifest", "description"}, {"Manifest", "verification_key"}, {"Field", "label"}, {"Option", "value"}, {"Option", "label"}, {"AuthMethod", "label"}, {"AuthMethod", "scope_separator"}, {"AuthMethod", "scope_parameter"}} {
@@ -92,11 +87,12 @@ func Schema() ([]byte, error) {
 	}
 	props("Field")["min_length"].(map[string]any)["minimum"] = 0
 	props("Field")["max_length"].(map[string]any)["minimum"] = 0
-	props("AllowedRequest")["methods"].(map[string]any)["items"] = map[string]any{"enum": []string{"GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"}}
+
+	props("ProxyMatch")["method"].(map[string]any)["items"] = map[string]any{"type": "string", "enum": []string{"GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"}}
+	props("ProxyMatch")["header"].(map[string]any)["additionalProperties"] = map[string]any{"oneOf": []any{map[string]any{"type": "string"}, map[string]any{"const": true}}}
+	props("ProxyMatch")["host"].(map[string]any)["description"] = "Hostnames with optional ports; HTTPS only. Leading *. matches subdomains, not the base host."
 	props("Manifest")["implements"].(map[string]any)["items"] = map[string]any{"type": "string", "pattern": interfaceRE.String()}
-	props("HTTPOriginGroup")["match"].(map[string]any)["minItems"] = 1
-	props("HTTPOriginGroup")["match"].(map[string]any)["uniqueItems"] = true
-	props("Proxy")["origins"].(map[string]any)["description"] = "HTTPS origin recipes, as an origin map or groups of match patterns sharing one config. One leading *. hostname label matches subdomains only. Exact origins win, then the longest wildcard suffix; entries never merge or fall back. Ports must match; 443 is the default."
+
 	props("AuthMethod")["config"].(map[string]any)["minProperties"] = 1
 	// Conditional requirements mirror discriminated unions without adding aliases.
 	condition := func(key string, value any) map[string]any {
@@ -109,7 +105,18 @@ func Schema() ([]byte, error) {
 		}
 		return map[string]any{"properties": p}
 	}
-	def("Proxy")["allOf"] = []any{map[string]any{"if": condition("protocol", "http"), "then": map[string]any{"required": []string{"origins"}, "properties": map[string]any{"connection": false}}, "else": map[string]any{"required": []string{"connection"}, "properties": map[string]any{"origins": false}}}, map[string]any{"if": map[string]any{"not": condition("protocol", "clickhouse")}, "then": map[string]any{"properties": map[string]any{"connection": map[string]any{"properties": map[string]any{"transport": false}}}}}}
+	def("Proxy")["allOf"] = []any{
+		map[string]any{
+			"if":   map[string]any{"properties": map[string]any{"match": condition("protocol", "http")}},
+			"then": map[string]any{"properties": map[string]any{"match": map[string]any{"required": []string{"host"}}, "action": forbid("connection")}},
+			"else": map[string]any{"properties": map[string]any{"match": forbid("host", "method", "path", "header"), "action": map[string]any{"required": []string{"connection"}, "properties": map[string]any{"headers": false, "rewrite": false, "basic_auth": false}}}},
+		},
+		map[string]any{
+			"if":   map[string]any{"properties": map[string]any{"match": map[string]any{"not": condition("protocol", "clickhouse")}}},
+			"then": map[string]any{"properties": map[string]any{"action": map[string]any{"properties": map[string]any{"connection": forbid("transport")}}}},
+		},
+	}
+
 	manualKeys := []string{"authorize_url", "token_url", "client_id", "client_secret", "client_auth", "pkce", "scopes", "scope_parameter", "scope_separator", "authorize_params", "token_params", "refresh_params", "token_response", "refresh_response", "require_refresh", "account"}
 	manual := forbid(manualKeys...)
 	manual["required"] = []string{"config"}
@@ -119,5 +126,6 @@ func Schema() ([]byte, error) {
 	def("BasicAuth")["oneOf"] = []any{map[string]any{"maxProperties": 0}, map[string]any{"required": []string{"username", "password"}}}
 	def("ResponseCheck")["allOf"] = []any{map[string]any{"if": condition("op", "equals"), "then": map[string]any{"required": []string{"value"}}, "else": forbid("value")}}
 	def("Field")["allOf"] = []any{map[string]any{"if": condition("type", "secret"), "then": forbid("default", "display", "options")}, map[string]any{"if": map[string]any{"properties": map[string]any{"type": map[string]any{"enum": []string{"string", "secret"}}}}, "then": forbid("minimum", "maximum"), "else": forbid("placeholder", "min_length", "max_length", "options", "display")}, map[string]any{"if": map[string]any{"required": []string{"options"}}, "then": forbid("display")}}
+	defs["HeaderValue"] = map[string]any{"oneOf": []any{map[string]any{"type": "string"}, def("HeaderValue")}}
 	return json.MarshalIndent(map[string]any{"$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "https://ok-houston.com/schemas/connector-manifest-v1.json", "title": "Houston connector manifest v1", "$ref": "#/$defs/Manifest", "$defs": defs}, "", "  ")
 }

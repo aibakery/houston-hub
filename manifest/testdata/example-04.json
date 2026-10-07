@@ -27,25 +27,24 @@
   },
   "proxy": [
     {
-      "protocol": "http",
-      "origins": {
-        "https://warehouse.example.com": {
-          "basic_auth": {
-            "username": "{{auth.basic.username}}",
-            "password": "{{auth.basic.password}}"
-          },
-          "allowlist": [
-            {
-              "methods": [
-                "GET"
-              ],
-              "paths": [
-                "/items",
-                "/items/{id}"
-              ]
-            }
-          ]
+      "action": {
+        "basic_auth": {
+          "password": "{{auth.basic.password}}",
+          "username": "{{auth.basic.username}}"
         }
+      },
+      "match": {
+        "host": [
+          "warehouse.example.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/items",
+          "/items/{id}"
+        ],
+        "protocol": "http"
       }
     }
   ]

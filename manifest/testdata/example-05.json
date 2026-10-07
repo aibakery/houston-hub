@@ -21,15 +21,19 @@
   },
   "proxy": [
     {
-      "protocol": "mysql",
-      "connection": {
-        "host": "inventory-db.example.com",
-        "database": "inventory",
-        "user": "{{config.username}}",
-        "password": "{{config.password}}",
-        "tls": {
-          "mode": "verify-full"
+      "action": {
+        "connection": {
+          "database": "inventory",
+          "host": "inventory-db.example.com",
+          "password": "{{config.password}}",
+          "tls": {
+            "mode": "verify-full"
+          },
+          "user": "{{config.username}}"
         }
+      },
+      "match": {
+        "protocol": "mysql"
       }
     }
   ]

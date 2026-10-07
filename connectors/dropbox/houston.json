@@ -45,48 +45,51 @@
   "name": "Dropbox",
   "proxy": [
     {
-      "origins": {
-        "https://api.dropboxapi.com": {
-          "allowlist": [
-            {
-              "methods": [
-                "POST"
-              ],
-              "paths": [
-                "/2/users/get_current_account",
-                "/2/files/search/continue_v2",
-                "/2/files/list_folder/continue",
-                "/2/files/search_v2",
-                "/2/files/list_folder",
-                "/2/files/get_metadata"
-              ]
-            }
-          ],
-          "headers": {
-            "Authorization": {
-              "value": "Bearer {{auth.oauth.access_token}}"
-            }
-          }
-        },
-        "https://content.dropboxapi.com": {
-          "allowlist": [
-            {
-              "methods": [
-                "POST"
-              ],
-              "paths": [
-                "/2/files/download"
-              ]
-            }
-          ],
-          "headers": {
-            "Authorization": {
-              "value": "Bearer {{auth.oauth.access_token}}"
-            }
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
           }
         }
       },
-      "protocol": "http"
+      "match": {
+        "host": [
+          "api.dropboxapi.com"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/2/users/get_current_account",
+          "/2/files/search/continue_v2",
+          "/2/files/list_folder/continue",
+          "/2/files/search_v2",
+          "/2/files/list_folder",
+          "/2/files/get_metadata"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      },
+      "match": {
+        "host": [
+          "content.dropboxapi.com"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/2/files/download"
+        ],
+        "protocol": "http"
+      }
     }
   ],
   "publisher": {
