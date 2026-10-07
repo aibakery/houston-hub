@@ -30,7 +30,7 @@
       "type": "string"
     }
   },
-  "description": "Read mail and attachments with a JMAP API token. Optionally send messages and move mail to trash.",
+  "description": "Read Fastmail mail with a JMAP API token: folders, messages, threads, search, and attachment download. listMessages filters include from, to, subject, text, after, before, folder, and alias (From, To, Cc, or Bcc). listAliases lists sending identities and Fastmail masked addresses. With read-write access: sendMessage (choose a From alias and attach session files), replyMessage (reply or reply-all, including from another alias), createFolder, moveMessages, archiveMessages, and deleteMessage, which moves mail to Trash. destroyMessage permanently deletes. Enable Email on the token; sending also needs Email submission, and masked addresses need Masked Email.",
   "files": [
     "connector.lua"
   ],
@@ -61,6 +61,14 @@
                 "/jmap/api",
                 "/jmap/api/"
               ]
+            },
+            {
+              "methods": [
+                "POST"
+              ],
+              "paths": [
+                "/jmap/upload/*"
+              ]
             }
           ],
           "headers": {
@@ -87,6 +95,14 @@
               "paths": [
                 "/jmap/api",
                 "/jmap/api/"
+              ]
+            },
+            {
+              "methods": [
+                "POST"
+              ],
+              "paths": [
+                "/jmap/upload/*"
               ]
             }
           ],
@@ -118,6 +134,6 @@
     }
   ],
   "schema_version": 1,
-  "setup": "In Fastmail Settings → Privacy \u0026 Security → Manage API tokens, select the JMAP protocol and enable Email access. MCP and Dynamic DNS tokens are not supported. Choose Read-only access for reading, or Read-write access to send or trash mail; sending also requires Email submission. API tokens require a plan above Basic. Your token stays on this server.",
+  "setup": "In Fastmail Settings → Privacy & Security → Manage API tokens, select the JMAP protocol and enable Email, Email submission, and Masked Email. MCP and Dynamic DNS tokens are not supported. Choose Read-only access for reading, or Read-write access to send, reply, move, archive, or delete mail. API tokens require a plan above Basic. Your token stays on this server.",
   "verification_key": "bb713b2b43b9d518171d0ad2908658f8a0013a496b155bca12d6c8ddadb2b8e5"
 }
