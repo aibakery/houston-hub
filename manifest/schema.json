@@ -464,6 +464,27 @@
       "required": [],
       "type": "object"
     },
+    "HTTPOriginGroup": {
+      "additionalProperties": false,
+      "properties": {
+        "config": {
+          "$ref": "#/$defs/HTTPOrigin"
+        },
+        "match": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "match",
+        "config"
+      ],
+      "type": "object"
+    },
     "HeaderValue": {
       "additionalProperties": false,
       "properties": {
@@ -691,12 +712,23 @@
           "type": "string"
         },
         "origins": {
-          "additionalProperties": {
-            "$ref": "#/$defs/HTTPOrigin"
-          },
-          "description": "HTTPS origin recipes. One leading *. hostname label matches subdomains only. Exact origins win, then the longest wildcard suffix; entries never merge or fall back. Ports must match; 443 is the default.",
-          "minProperties": 1,
-          "type": "object"
+          "description": "HTTPS origin recipes, as an origin map or groups of match patterns sharing one config. One leading *. hostname label matches subdomains only. Exact origins win, then the longest wildcard suffix; entries never merge or fall back. Ports must match; 443 is the default.",
+          "oneOf": [
+            {
+              "additionalProperties": {
+                "$ref": "#/$defs/HTTPOrigin"
+              },
+              "minProperties": 1,
+              "type": "object"
+            },
+            {
+              "items": {
+                "$ref": "#/$defs/HTTPOriginGroup"
+              },
+              "minItems": 1,
+              "type": "array"
+            }
+          ]
         },
         "protocol": {
           "enum": [

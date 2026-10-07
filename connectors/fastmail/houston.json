@@ -41,116 +41,77 @@
   "name": "Fastmail",
   "proxy": [
     {
-      "origins": {
-        "https://api.fastmail.com": {
-          "allowlist": [
-            {
-              "methods": [
-                "GET"
-              ],
-              "paths": [
-                "/jmap/session",
-                "/jmap/download/*"
-              ]
-            },
-            {
-              "methods": [
-                "POST"
-              ],
-              "paths": [
-                "/jmap/api",
-                "/jmap/api/"
-              ]
-            },
-            {
-              "methods": [
-                "POST"
-              ],
-              "paths": [
-                "/jmap/upload/*"
-              ]
+      "origins": [
+        {
+          "config": {
+            "allowlist": [
+              {
+                "methods": [
+                  "GET"
+                ],
+                "paths": [
+                  "/jmap/session",
+                  "/jmap/download/*"
+                ]
+              },
+              {
+                "methods": [
+                  "POST"
+                ],
+                "paths": [
+                  "/jmap/api",
+                  "/jmap/api/"
+                ]
+              },
+              {
+                "methods": [
+                  "POST"
+                ],
+                "paths": [
+                  "/jmap/upload/*"
+                ]
+              }
+            ],
+            "headers": {
+              "Authorization": {
+                "value": "Bearer {{auth.token.token}}"
+              }
             }
-          ],
-          "headers": {
-            "Authorization": {
-              "value": "Bearer {{auth.token.token}}"
-            }
-          }
+          },
+          "match": [
+            "https://api.fastmail.com",
+            "https://*.api.fastmail.com",
+            "https://jmap.fastmail.com"
+          ]
         },
-        "https://*.api.fastmail.com": {
-          "allowlist": [
-            {
-              "methods": [
-                "GET"
-              ],
-              "paths": [
-                "/jmap/session",
-                "/jmap/download/*"
-              ]
-            },
-            {
-              "methods": [
-                "POST"
-              ],
-              "paths": [
-                "/jmap/api",
-                "/jmap/api/"
-              ]
-            },
-            {
-              "methods": [
-                "POST"
-              ],
-              "paths": [
-                "/jmap/upload/*"
-              ]
+        {
+          "config": {
+            "allowlist": [
+              {
+                "methods": [
+                  "GET"
+                ],
+                "paths": [
+                  "/jmap/download/*"
+                ]
+              }
+            ],
+            "headers": {
+              "Authorization": {
+                "value": "Bearer {{auth.token.token}}"
+              }
             }
-          ],
-          "headers": {
-            "Authorization": {
-              "value": "Bearer {{auth.token.token}}"
-            }
-          }
-        },
-        "https://*.fastmailusercontent.com": {
-          "allowlist": [
-            {
-              "methods": [
-                "GET"
-              ],
-              "paths": [
-                "/jmap/download/*"
-              ]
-            }
-          ],
-          "headers": {
-            "Authorization": {
-              "value": "Bearer {{auth.token.token}}"
-            }
-          }
-        },
-        "https://fastmailusercontent.com": {
-          "allowlist": [
-            {
-              "methods": [
-                "GET"
-              ],
-              "paths": [
-                "/jmap/download/*"
-              ]
-            }
-          ],
-          "headers": {
-            "Authorization": {
-              "value": "Bearer {{auth.token.token}}"
-            }
-          }
+          },
+          "match": [
+            "https://fastmailusercontent.com",
+            "https://*.fastmailusercontent.com"
+          ]
         }
-      },
+      ],
       "protocol": "http"
     }
   ],
   "schema_version": 1,
-  "setup": "In Fastmail Settings → Privacy & Security → Manage API tokens, select the JMAP protocol and enable Email, Email submission, and Masked Email. MCP and Dynamic DNS tokens are not supported. Choose Read-only access for reading, or Read-write access to send, reply, move, archive, or delete mail. API tokens require a plan above Basic. Your token stays on this server.",
+  "setup": "In Fastmail Settings → Privacy \u0026 Security → Manage API tokens, select the JMAP protocol and enable Email, Email submission, and Masked Email. MCP and Dynamic DNS tokens are not supported. Choose Read-only access for reading, or Read-write access to send, reply, move, archive, or delete mail. API tokens require a plan above Basic. Your token stays on this server.",
   "verification_key": "bb713b2b43b9d518171d0ad2908658f8a0013a496b155bca12d6c8ddadb2b8e5"
 }

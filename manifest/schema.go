@@ -30,6 +30,12 @@ func Schema() ([]byte, error) {
 		case reflect.Slice:
 			return map[string]any{"type": "array", "items": schemaType(t.Elem())}
 		case reflect.Map:
+			if t == reflect.TypeOf(HTTPOrigins{}) {
+				return map[string]any{"oneOf": []any{
+					map[string]any{"type": "object", "minProperties": 1, "additionalProperties": schemaType(t.Elem())},
+					map[string]any{"type": "array", "minItems": 1, "items": schemaType(reflect.TypeOf(HTTPOriginGroup{}))},
+				}}
+			}
 			return map[string]any{"type": "object", "additionalProperties": schemaType(t.Elem())}
 		case reflect.Struct:
 			name := t.Name()
@@ -88,8 +94,9 @@ func Schema() ([]byte, error) {
 	props("Field")["max_length"].(map[string]any)["minimum"] = 0
 	props("AllowedRequest")["methods"].(map[string]any)["items"] = map[string]any{"enum": []string{"GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"}}
 	props("Manifest")["implements"].(map[string]any)["items"] = map[string]any{"type": "string", "pattern": interfaceRE.String()}
-	props("Proxy")["origins"].(map[string]any)["minProperties"] = 1
-	props("Proxy")["origins"].(map[string]any)["description"] = "HTTPS origin recipes. One leading *. hostname label matches subdomains only. Exact origins win, then the longest wildcard suffix; entries never merge or fall back. Ports must match; 443 is the default."
+	props("HTTPOriginGroup")["match"].(map[string]any)["minItems"] = 1
+	props("HTTPOriginGroup")["match"].(map[string]any)["uniqueItems"] = true
+	props("Proxy")["origins"].(map[string]any)["description"] = "HTTPS origin recipes, as an origin map or groups of match patterns sharing one config. One leading *. hostname label matches subdomains only. Exact origins win, then the longest wildcard suffix; entries never merge or fall back. Ports must match; 443 is the default."
 	props("AuthMethod")["config"].(map[string]any)["minProperties"] = 1
 	// Conditional requirements mirror discriminated unions without adding aliases.
 	condition := func(key string, value any) map[string]any {

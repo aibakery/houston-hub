@@ -99,19 +99,38 @@ it activates; failures never reuse another method's credentials.
 ## Transport and exports
 
 `proxy` is a nonempty array of complete variants. Exactly one must match. HTTP
-origins are HTTPS origins without interpolation. One leading `*.` hostname label
-matches any depth of subdomains, excluding the base hostname; declare the base
-separately. Other wildcard positions and wildcard IPs are invalid. Ports must
-match, with implicit and explicit 443 equivalent. Exact entries win; otherwise
+`origins` accepts the origin-to-config map or a nonempty array of groups. Each
+group has a nonempty `match` array and one required `config` object containing
+the shared headers, Basic authentication and allowlist:
+
+```json
+"origins": [
+  {
+    "match": ["https://api.example.com", "https://*.api.example.com"],
+    "config": {
+      "headers": {"Authorization": {"value": "Bearer {{auth.token.token}}"}},
+      "allowlist": [{"methods": ["GET"], "paths": ["/records/*"]}]
+    }
+  }
+]
+```
+
+Groups expand into the existing map at parsing; runtime and pinned snapshots use
+that map. Duplicate normalized patterns within or across groups are invalid;
+group order does not affect matching. All origins are HTTPS without interpolation.
+One leading `*.` hostname label matches any depth of subdomains, excluding the
+base hostname; declare the base as another pattern (in the same group if desired).
+Other wildcard positions and wildcard IPs are invalid. Ports must match, with
+implicit and explicit 443 equivalent. Exact entries win; otherwise
 the longest matching wildcard suffix wins. Entries never merge or fall back when
-the selected entry denies a route. Independent
-origin recipes inject object-shaped headers and optional object-shaped Basic
+the selected entry denies a route. Independent origin recipes inject object-shaped
+headers and optional object-shaped Basic
 credentials. An allowlist entry may replace the whole header map or disable Basic.
 Unlisted requests fail, and redirects are not followed automatically. A new
 provider endpoint must match a declared origin or wildcard in the pinned release.
 Origin-denial errors include the requested origin, never its path or query.
-Fastmail permits `api.fastmail.com` and its subdomains for JMAP, plus
-`fastmailusercontent.com` and its subdomains only for JMAP downloads.
+Fastmail groups `api.fastmail.com`, its subdomains and `jmap.fastmail.com` for JMAP,
+plus `fastmailusercontent.com` and its subdomains only for JMAP downloads.
 
 Database variants declare host, integer port, database, user, password and verified
 TLS; ClickHouse also selects `https` or `native`. Credentials and targets cannot be

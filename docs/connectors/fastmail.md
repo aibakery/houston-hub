@@ -4,9 +4,10 @@ Provider-specific exported operations retain the documented request and paginati
 
 Use an instance from houston.connectors(). API tokens stay on the server.
 Fastmail supplies API, upload, and download URLs in its JMAP session response.
-The manifest owns destination checks: `api.fastmail.com` and its subdomains allow
-the declared JMAP routes; `fastmailusercontent.com` and its subdomains allow only
-GET `/jmap/download/*`. Fastmail's current [security documentation](https://www.fastmail.help/hc/en-us/articles/1500000280221-How-Fastmail-provides-a-secure-service)
+The manifest owns destination checks: `api.fastmail.com`, its subdomains and
+`jmap.fastmail.com` allow the declared JMAP routes; `fastmailusercontent.com` and
+its subdomains allow only GET `/jmap/download/*`. Each set shares one group configuration, avoiding
+duplicate headers and allowlists. Fastmail's current [security documentation](https://www.fastmail.help/hc/en-us/articles/1500000280221-How-Fastmail-provides-a-secure-service)
 and [technical controls](https://www.fastmail.com/policies/dpa/annex2/) document
 the separate attachment domain. Unexpected origins fail with the requested origin
 in the error; URL paths and queries are omitted.

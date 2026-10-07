@@ -93,10 +93,10 @@ type OAuthAccount struct {
 	Bindings map[string]string      `json:"bindings,omitempty"`
 }
 type Proxy struct {
-	If         string                `json:"if,omitempty"`
-	Protocol   string                `json:"protocol"`
-	Origins    map[string]HTTPOrigin `json:"origins,omitempty"`
-	Connection *DatabaseConnection   `json:"connection,omitempty"`
+	If         string              `json:"if,omitempty"`
+	Protocol   string              `json:"protocol"`
+	Origins    HTTPOrigins         `json:"origins,omitempty"`
+	Connection *DatabaseConnection `json:"connection,omitempty"`
 }
 type HTTPOrigin struct {
 	Headers   map[string]HeaderValue `json:"headers,omitempty"`

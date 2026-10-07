@@ -704,17 +704,28 @@ func checkPresence(data []byte) error {
 					}
 				}
 			}
-			if origins, ok := p["origins"].(map[string]any); ok {
-				for _, v := range origins {
-					if e := recipe(v); e != nil {
-						return e
+			var origins []any
+			switch declared := p["origins"].(type) {
+			case map[string]any:
+				for _, config := range declared {
+					origins = append(origins, config)
+				}
+			case []any:
+				for _, group := range declared {
+					if g, ok := group.(map[string]any); ok {
+						origins = append(origins, g["config"])
 					}
-					if o, ok := v.(map[string]any); ok {
-						if routes, ok := o["allowlist"].([]any); ok {
-							for _, r := range routes {
-								if e := recipe(r); e != nil {
-									return e
-								}
+				}
+			}
+			for _, v := range origins {
+				if e := recipe(v); e != nil {
+					return e
+				}
+				if o, ok := v.(map[string]any); ok {
+					if routes, ok := o["allowlist"].([]any); ok {
+						for _, r := range routes {
+							if e := recipe(r); e != nil {
+								return e
 							}
 						}
 					}
