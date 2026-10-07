@@ -15,7 +15,7 @@ return {scenario={["auth_config"]={["token"]="fixture-private-password !@#"},["a
         function session()
             return {username="me@example.com",primaryAccounts={[MAIL]="u1"},accounts={u1={name="Me"}},
                 capabilities={[MAIL]={},[SUB]={}},apiUrl="https://api.fastmail.com/jmap/api/",
-                downloadUrl="https://www.fastmailusercontent.com/jmap/download/{accountId}/{blobId}/{name}?type={type}"}
+                downloadUrl="https://phl-www.fastmailusercontent.com/jmap/download/{accountId}/{blobId}/{name}?type={type}"}
         end
         function result(name, args) return {methodResponses={{name,args,"0"}}} end
         folders={{id="in",role="inbox",name="Inbox"},{id="tr",role="trash"},{id="sp",role="junk"},
@@ -43,7 +43,7 @@ end, run=function(fastmail)
         local downloaded=fastmail.getAttachment("m1","b1","mail/a.txt")
         assert(downloaded.size==123 and downloaded.url=="https://houston.test/mail/a.txt")
         assert(requests[4].dest=="mail/a.txt")
-        assert(requests[4].url=="https://www.fastmailusercontent.com/jmap/download/u1/b1/file%20%2B.txt?type=text%2Fplain")
+        assert(requests[4].url=="https://phl-www.fastmailusercontent.com/jmap/download/u1/b1/file%20%2B.txt?type=text%2Fplain")
         local ids={}
         for i=1,51 do ids[i]="m"..i end
         assert(not pcall(fastmail.getMessages,ids))

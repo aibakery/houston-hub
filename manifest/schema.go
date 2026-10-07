@@ -89,6 +89,7 @@ func Schema() ([]byte, error) {
 	props("AllowedRequest")["methods"].(map[string]any)["items"] = map[string]any{"enum": []string{"GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"}}
 	props("Manifest")["implements"].(map[string]any)["items"] = map[string]any{"type": "string", "pattern": interfaceRE.String()}
 	props("Proxy")["origins"].(map[string]any)["minProperties"] = 1
+	props("Proxy")["origins"].(map[string]any)["description"] = "HTTPS origin recipes. One leading *. hostname label matches subdomains only. Exact origins win, then the longest wildcard suffix; entries never merge or fall back. Ports must match; 443 is the default."
 	props("AuthMethod")["config"].(map[string]any)["minProperties"] = 1
 	// Conditional requirements mirror discriminated unions without adding aliases.
 	condition := func(key string, value any) map[string]any {

@@ -77,7 +77,7 @@
             }
           }
         },
-        "https://jmap.fastmail.com": {
+        "https://*.api.fastmail.com": {
           "allowlist": [
             {
               "methods": [
@@ -112,7 +112,24 @@
             }
           }
         },
-        "https://www.fastmailusercontent.com": {
+        "https://*.fastmailusercontent.com": {
+          "allowlist": [
+            {
+              "methods": [
+                "GET"
+              ],
+              "paths": [
+                "/jmap/download/*"
+              ]
+            }
+          ],
+          "headers": {
+            "Authorization": {
+              "value": "Bearer {{auth.token.token}}"
+            }
+          }
+        },
+        "https://fastmailusercontent.com": {
           "allowlist": [
             {
               "methods": [

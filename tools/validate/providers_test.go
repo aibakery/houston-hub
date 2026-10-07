@@ -132,3 +132,51 @@ func TestEveryProviderAuthenticationAndTransport(t *testing.T) {
 	}
 }
 func stringValue(v any) string { s, _ := v.(string); return s }
+
+func TestFastmailDiscoveredOrigins(t *testing.T) {
+	raw, err := os.ReadFile("../../connectors/fastmail/houston.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, err := manifest.Parse(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r, err := m.Resolve(nil, nil, map[string]any{"token": "fixture-token"}, "token")
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := m.Proxy[r.ProxyIndex]
+	for _, host := range []string{"api.fastmail.com", "phl.api.fastmail.com", "ams.api.fastmail.com"} {
+		for _, route := range [][2]string{{"GET", "/jmap/session"}, {"POST", "/jmap/api/"}, {"POST", "/jmap/upload/u1/"}, {"GET", "/jmap/download/u1/blob/file"}} {
+			recipe, err := p.HTTPRecipe(route[0], "https://"+host+route[1])
+			if err != nil {
+				t.Fatal(err)
+			}
+			h, err := recipe.Prepare(r.Context, nil)
+			if err != nil || h.Get("Authorization") != "Bearer fixture-token" {
+				t.Fatalf("%s: %v %v", host, h, err)
+			}
+		}
+	}
+	for _, host := range []string{"fastmailusercontent.com", "www.fastmailusercontent.com", "phl-www.fastmailusercontent.com"} {
+		recipe, err := p.HTTPRecipe("GET", "https://"+host+"/jmap/download/u1/blob/file?type=text%2Fplain")
+		if err != nil {
+			t.Fatal(err)
+		}
+		h, err := recipe.Prepare(r.Context, nil)
+		if err != nil || h.Get("Authorization") != "Bearer fixture-token" {
+			t.Fatalf("%s: %v %v", host, h, err)
+		}
+		for _, route := range [][2]string{{"POST", "/jmap/api/"}, {"POST", "/jmap/upload/u1/"}, {"GET", "/other"}} {
+			if _, err := p.HTTPRecipe(route[0], "https://"+host+route[1]); err == nil {
+				t.Fatalf("download host accepted %v", route)
+			}
+		}
+	}
+	for _, host := range []string{"fastmail.com", "jmap.fastmail.com", "app.fastmail.com", "evilapi.fastmail.com", "api.fastmail.com.evil.test", "www.fastmailusercontent.com.evil.test"} {
+		if _, err := p.HTTPRecipe("GET", "https://"+host+"/jmap/download/u1/blob/file"); err == nil {
+			t.Fatalf("accepted %s", host)
+		}
+	}
+}

@@ -99,12 +99,19 @@ it activates; failures never reuse another method's credentials.
 ## Transport and exports
 
 `proxy` is a nonempty array of complete variants. Exactly one must match. HTTP
-origins are literal HTTPS origins, without wildcards or interpolation. Independent
+origins are HTTPS origins without interpolation. One leading `*.` hostname label
+matches any depth of subdomains, excluding the base hostname; declare the base
+separately. Other wildcard positions and wildcard IPs are invalid. Ports must
+match, with implicit and explicit 443 equivalent. Exact entries win; otherwise
+the longest matching wildcard suffix wins. Entries never merge or fall back when
+the selected entry denies a route. Independent
 origin recipes inject object-shaped headers and optional object-shaped Basic
 credentials. An allowlist entry may replace the whole header map or disable Basic.
 Unlisted requests fail, and redirects are not followed automatically. A new
-provider endpoint requires an explicitly reviewed literal origin in a new release.
-Fastmail's documented session/API and download origins are covered by its bundle.
+provider endpoint must match a declared origin or wildcard in the pinned release.
+Origin-denial errors include the requested origin, never its path or query.
+Fastmail permits `api.fastmail.com` and its subdomains for JMAP, plus
+`fastmailusercontent.com` and its subdomains only for JMAP downloads.
 
 Database variants declare host, integer port, database, user, password and verified
 TLS; ClickHouse also selects `https` or `native`. Credentials and targets cannot be

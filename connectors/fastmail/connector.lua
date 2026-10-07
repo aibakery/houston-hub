@@ -52,13 +52,6 @@ local function request(method: any, url: any, operation: any, body: any)
 	return decoded
 end
 
-local function allowed_jmap(url: any)
-	if type(url) ~= "string" then return false end
-	local host, path = string.match(url, "^https://([A-Za-z0-9%.%-]+)(/[^%?#]*)$")
-	if host ~= "api.fastmail.com" and host ~= "jmap.fastmail.com" then return false end
-	return path == "/jmap/api" or path == "/jmap/api/"
-end
-
 local function session(): any
 	if not state.session then
 		local s = request("GET", "https://api.fastmail.com/jmap/session", "getProfile")
@@ -76,9 +69,6 @@ end
 local function call(name: any, args: any, operation: any)
 	operation = operation or name
 	local s = session()
-	if not allowed_jmap(s.apiUrl) then
-		fail(operation, "Fastmail session API URL is not an allowlisted JMAP endpoint")
-	end
 	args = table.clone(args or {})
 	if args.accountId == nil then args.accountId = state.accountId end
 	local using = { CORE, MAIL }
@@ -524,10 +514,6 @@ local function upload_blob(path: any, mime: any, operation: any)
 	end
 	if type(state.accountId) ~= "string" then fail(operation, "Fastmail session has no mail account") end
 	local url = string.gsub(template, "{accountId}", encode(state.accountId))
-	local host = string.match(url, "^https://([A-Za-z0-9%.%-]+)/")
-	if host ~= "api.fastmail.com" and host ~= "jmap.fastmail.com" then
-		fail(operation, "Fastmail upload URL is not on an allowlisted host")
-	end
 	local stat = fs.stat(path)
 	if not stat.isFile then error("fastmail: attachment path must be a file") end
 	local response = http.request({

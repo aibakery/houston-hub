@@ -20,8 +20,8 @@ return {scenario={["auth_config"]={["token"]="fixture-private-password !@#"},["a
         function session()
             return {username="me@example.com", primaryAccounts={[MAIL]="u1", [MASKED]="m1"},
                 accounts={u1={name="Me"}}, capabilities={[CORE]={}, [MAIL]={}, [SUB]={}, [MASKED]={}},
-                apiUrl="https://api.fastmail.com/jmap/api/",
-                uploadUrl="https://api.fastmail.com/jmap/upload/{accountId}/",
+                apiUrl="https://phl.api.fastmail.com/jmap/api/",
+                uploadUrl="https://phl.api.fastmail.com/jmap/upload/{accountId}/",
                 downloadUrl="https://www.fastmailusercontent.com/jmap/download/{accountId}/{blobId}/{name}?type={type}"}
         end
         function result(name, args) return {methodResponses={{name, args, "0"}}} end
@@ -171,7 +171,7 @@ end, run=function(fastmail)
         calls = jmapSince(mark)
         assert(calls[1].name == "Identity/get" and calls[2].name == "Mailbox/get" and calls[3].upload)
         local upload = calls[3].upload
-        assert(upload.method == "POST" and upload.url == "https://api.fastmail.com/jmap/upload/u1/" and upload.src == "files/brief.pdf")
+        assert(upload.method == "POST" and upload.url == "https://phl.api.fastmail.com/jmap/upload/u1/" and upload.src == "files/brief.pdf")
         assert(upload.body == nil and upload.headers["Content-Type"] == "application/pdf")
         draft = calls[4].args.create.draft
         assert(draft.from[1].email == "support@example.com" and draft.attachments[1].blobId == "blob1")

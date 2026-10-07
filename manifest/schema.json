@@ -694,6 +694,7 @@
           "additionalProperties": {
             "$ref": "#/$defs/HTTPOrigin"
           },
+          "description": "HTTPS origin recipes. One leading *. hostname label matches subdomains only. Exact origins win, then the longest wildcard suffix; entries never merge or fall back. Ports must match; 443 is the default.",
           "minProperties": 1,
           "type": "object"
         },

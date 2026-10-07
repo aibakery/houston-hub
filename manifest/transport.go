@@ -73,6 +73,9 @@ func NormalizeOrigin(s string) (string, error) {
 		return "", fmt.Errorf("origin must not have a path")
 	}
 	host := strings.ToLower(u.Hostname())
+	if !ValidHost(host) {
+		return "", fmt.Errorf("invalid origin hostname")
+	}
 	port := u.Port()
 	if port != "" {
 		n, e := strconv.Atoi(port)
@@ -88,6 +91,23 @@ func NormalizeOrigin(s string) (string, error) {
 		host = strings.ToLower(host)
 	}
 	return "https://" + host, nil
+}
+
+// Origin patterns allow one leading wildcard label; request origins stay literal.
+func normalizeOriginPattern(s string) (string, error) {
+	const prefix = "https://*."
+	if !strings.HasPrefix(s, prefix) {
+		return NormalizeOrigin(s)
+	}
+	origin, err := NormalizeOrigin("https://" + strings.TrimPrefix(s, prefix))
+	if err != nil {
+		return "", err
+	}
+	u, _ := url.Parse(origin)
+	if net.ParseIP(u.Hostname()) != nil {
+		return "", fmt.Errorf("origin wildcard requires a DNS hostname")
+	}
+	return prefix + strings.TrimPrefix(origin, "https://"), nil
 }
 func ValidatePathPattern(s string) error {
 	if !strings.HasPrefix(s, "/") || strings.ContainsAny(s, "?#\\%\x00") || strings.Contains(s, "//") {
@@ -167,7 +187,7 @@ func (m *Manifest) validateProxy(p Proxy, used map[string]bool) error {
 		}
 		seen := map[string]bool{}
 		for key, o := range p.Origins {
-			origin, e := NormalizeOrigin(key)
+			origin, e := normalizeOriginPattern(key)
 			if e != nil {
 				return e
 			}
@@ -308,6 +328,11 @@ type HTTPRecipe struct {
 	ControlledHeaders []string
 }
 
+// OriginDeniedError contains only the normalized origin, never a path or query.
+type OriginDeniedError struct{ Origin string }
+
+func (e *OriginDeniedError) Error() string { return "origin denied: " + e.Origin }
+
 func (p Proxy) HTTPRecipe(method, rawURL string) (HTTPRecipe, error) {
 	var out HTTPRecipe
 	if p.Protocol != "http" || !methods[method] {
@@ -323,16 +348,24 @@ func (p Proxy) HTTPRecipe(method, rawURL string) (HTTPRecipe, error) {
 	}
 	var o HTTPOrigin
 	found := false
+	best := 0
 	for k, v := range p.Origins {
-		n, _ := NormalizeOrigin(k)
+		n, err := normalizeOriginPattern(k)
+		if err != nil {
+			continue
+		}
 		if n == origin {
 			o = v
 			found = true
 			break
 		}
+		if suffix, wildcard := strings.CutPrefix(n, "https://*"); wildcard &&
+			strings.HasSuffix(strings.TrimPrefix(origin, "https://"), suffix) && len(n) > best {
+			o, found, best = v, true, len(n)
+		}
 	}
 	if !found {
-		return out, fmt.Errorf("origin denied")
+		return out, &OriginDeniedError{Origin: origin}
 	}
 	path, e := RequestPath(u)
 	if e != nil {
