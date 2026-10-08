@@ -1,7 +1,6 @@
 package main
 
 import (
-	"github.com/aibakery/houston-hub/interfaces"
 	"github.com/aibakery/houston-hub/manifest"
 	"net/http"
 	"os"
@@ -31,9 +30,6 @@ func TestEveryProviderAuthenticationAndTransport(t *testing.T) {
 		}
 		m, err := manifest.Parse(raw)
 		if err != nil {
-			t.Fatal(err)
-		}
-		if _, err := interfaces.Resolve(m.Implements); err != nil {
 			t.Fatal(err)
 		}
 		keys := m.MethodKeys()

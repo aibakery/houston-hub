@@ -1,0 +1,7 @@
+{
+  "downloadFile": "read",
+  "getCurrentAccount": "read",
+  "getFile": "read",
+  "listFiles": "read",
+  "statFile": "read"
+}

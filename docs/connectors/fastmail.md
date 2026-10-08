@@ -21,7 +21,7 @@ submission nor Masked Email is enabled, `listAliases` fails and names both scope
 getProfile() returns emailAddress, accountId, name, capabilities, and canSend.
 listFolders() returns folders with id, name, role, parentId, totalEmails, and
 unreadEmails. Use an id or a role such as INBOX as a folder filter.
-listMailFolders() is the shared `mail.folders@1` shape: `{id, name}` sorted by id.
+listMailFolders() returns Fastmail folder metadata as `{id, name}` rows sorted by id.
 
 listMessages(opts?) returns messages (`{id}[]`) and nextPageToken. listThreads(opts?)
 returns threads (`{id}[]`) with the same pagination. Loop until nextPageToken is nil;

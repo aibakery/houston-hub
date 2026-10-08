@@ -691,7 +691,8 @@ if config.access == "read-write" then
     for name, fn in (writes :: {[string]: any}) do (functions :: {[string]: any})[name] = fn end
 end
 
-function functions.listMailFolders(): {{id: string, name: string}}
+function functions.listMailFolders(...: any): {{id: string, name: string}}
+    if select("#", ...) ~= 0 then error("listMailFolders takes no arguments") end
     local folders = functions.listFolders().folders
     if type(folders) ~= "table" then error("mail provider returned invalid folders") end
     local out: {{id: string, name: string}} = json.decode("[]")

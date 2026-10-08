@@ -335,7 +335,8 @@ function functions.downloadFile(id: any,path: any,opts: any)
 	}
 end
 
-function functions.statFile(id: string): {id: string, name: string, isFolder: boolean, size: number?}
+function functions.statFile(id: string, ...: any): {id: string, name: string, isFolder: boolean, size: number?}
+    if select("#", ...) ~= 0 then error("statFile takes one argument") end
     if type(id) ~= "string" or id == "" then error("statFile requires a nonempty file ID") end
     local file = functions.getFile(id)
     if type(file) ~= "table" or type(file.id) ~= "string" or file.id == "" or type(file.name) ~= "string" then
@@ -345,7 +346,7 @@ function functions.statFile(id: string): {id: string, name: string, isFolder: bo
     local result: {id: string, name: string, isFolder: boolean, size: number?} = {id = file.id, name = file.name, isFolder = folder}
     if not folder and file.size ~= nil then
         local size = tonumber(file.size)
-        if not size or size < 0 or size % 1 ~= 0 then error("storage provider returned invalid size") end
+        if not size or size < 0 or size > 9007199254740991 or size % 1 ~= 0 then error("storage provider returned invalid size") end
         result.size = size
     end
     return result

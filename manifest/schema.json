@@ -456,7 +456,6 @@
           "type": "object"
         },
         "description": {
-          "minLength": 1,
           "type": "string"
         },
         "files": {
@@ -473,14 +472,6 @@
             "icon.png"
           ],
           "type": "string"
-        },
-        "implements": {
-          "items": {
-            "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*@[1-9][0-9]*$",
-            "type": "string"
-          },
-          "type": "array",
-          "uniqueItems": true
         },
         "name": {
           "minLength": 1,
@@ -516,7 +507,6 @@
       "required": [
         "schema_version",
         "name",
-        "description",
         "files",
         "proxy"
       ],

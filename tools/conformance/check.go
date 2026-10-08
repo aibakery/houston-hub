@@ -13,7 +13,6 @@ import (
 	"sort"
 	"time"
 
-	"github.com/aibakery/houston-hub/interfaces"
 	"github.com/aibakery/houston-hub/manifest"
 )
 
@@ -61,8 +60,8 @@ func call(ctx context.Context, binary, mode string, input any, output any) error
 	return nil
 }
 
-// Check requires runnable behavioral evidence for each method, variant and interface.
-func Check(ctx context.Context, binary string, m manifest.Manifest, modules, fixtures map[string]string) error {
+// Check requires runnable behavioral evidence for each method and variant, with classified exports.
+func Check(ctx context.Context, binary string, m manifest.Manifest, modules, fixtures map[string]string, operations manifest.Operations) error {
 	if binary == "" {
 		binary = os.Getenv("HOUSTON_CLI")
 	}
@@ -72,10 +71,6 @@ func Check(ctx context.Context, binary string, m manifest.Manifest, modules, fix
 	if len(fixtures) == 0 {
 		return fmt.Errorf("bundle requires conformance fixtures")
 	}
-	definitions, err := interfaces.Resolve(m.Implements)
-	if err != nil {
-		return err
-	}
 	names := make([]string, 0, len(fixtures))
 	for name := range fixtures {
 		names = append(names, name)
@@ -83,7 +78,6 @@ func Check(ctx context.Context, binary string, m manifest.Manifest, modules, fix
 	sort.Strings(names)
 	methods := map[string]bool{}
 	proxies := map[int]bool{}
-	contracts := map[string]map[string]bool{}
 	for _, name := range names {
 		source := fixtures[name]
 		var meta metadata
@@ -106,11 +100,6 @@ func Check(ctx context.Context, binary string, m manifest.Manifest, modules, fix
 			Type    string   `json:"type"`
 			Exports []string `json:"exports"`
 			Returns []any    `json:"returns"`
-			Calls   []struct {
-				Operation string `json:"operation"`
-				Args      []any  `json:"args"`
-				Returns   []any  `json:"returns"`
-			} `json:"calls"`
 		}
 		var discovery struct {
 			Type    string   `json:"type"`
@@ -129,28 +118,14 @@ func Check(ctx context.Context, binary string, m manifest.Manifest, modules, fix
 		if !reflect.DeepEqual(discovery.Exports, output.Exports) {
 			return fmt.Errorf("fixture %s changed configured exports", name)
 		}
-		active, err := interfaces.Configured(definitions, output.Exports)
-		if err != nil {
-			return fmt.Errorf("fixture %s: %w", name, err)
+		for _, export := range output.Exports {
+			if _, err := operations.Write(export); err != nil {
+				return fmt.Errorf("fixture %s: %w", name, err)
+			}
 		}
 		methods[scenario.AuthMethod] = true
 		for _, index := range resolved.ProxyIndices {
 			proxies[index] = true
-		}
-		for _, definition := range active {
-			if contracts[definition.Reference] == nil {
-				contracts[definition.Reference] = map[string]bool{}
-			}
-			for _, call := range output.Calls {
-				operation, exists := definition.Operations[call.Operation]
-				if !exists {
-					continue
-				}
-				if interfaces.ValidateArguments(operation, call.Args) != nil || len(call.Returns) != 1 || interfaces.ValidateResult(operation, call.Returns[0]) != nil {
-					return fmt.Errorf("fixture %s: %s violates %s", name, call.Operation, definition.Reference)
-				}
-				contracts[definition.Reference][call.Operation] = true
-			}
 		}
 	}
 	for method := range m.Auth {
@@ -161,13 +136,6 @@ func Check(ctx context.Context, binary string, m manifest.Manifest, modules, fix
 	for i := range m.Proxy {
 		if !proxies[i] {
 			return fmt.Errorf("proxy rule %d has no conformance fixture", i)
-		}
-	}
-	for _, definition := range definitions {
-		for operation := range definition.Operations {
-			if !contracts[definition.Reference][operation] {
-				return fmt.Errorf("interface %s operation %s has no successful behavioral fixture", definition.Reference, operation)
-			}
 		}
 	}
 	return nil

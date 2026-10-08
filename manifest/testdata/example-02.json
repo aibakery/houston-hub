@@ -7,10 +7,6 @@
     "query.luau",
     "execute.luau"
   ],
-  "implements": [
-    "postgres.query@1",
-    "postgres.execute@1"
-  ],
   "config": {
     "host": {
       "type": "string",

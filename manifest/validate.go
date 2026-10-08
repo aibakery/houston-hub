@@ -142,14 +142,12 @@ func BundlePath(s string) bool {
 	return s != "" && !strings.ContainsAny(s, "\\:\x00") && !strings.HasPrefix(s, "/") && path.Clean(s) == s && s != "." && s != ".." && !strings.HasPrefix(s, "../") && (strings.HasSuffix(s, ".lua") || strings.HasSuffix(s, ".luau"))
 }
 
-var interfaceRE = regexp.MustCompile(`^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)*@[1-9][0-9]*$`)
-
 func (m *Manifest) Validate() error {
 	if m.SchemaVersion != 1 {
 		return fmt.Errorf("schema_version must be 1")
 	}
-	if m.Name == "" || m.Description == "" {
-		return fmt.Errorf("name and description are required")
+	if m.Name == "" {
+		return fmt.Errorf("name is required")
 	}
 	if m.Icon != "" && m.Icon != "icon.svg" && m.Icon != "icon.png" {
 		return fmt.Errorf("invalid icon")
@@ -163,13 +161,6 @@ func (m *Manifest) Validate() error {
 			return fmt.Errorf("invalid or duplicate entrypoint %q", f)
 		}
 		seen[f] = true
-	}
-	seen = map[string]bool{}
-	for _, s := range m.Implements {
-		if !interfaceRE.MatchString(s) || seen[s] {
-			return fmt.Errorf("invalid or duplicate interface %q", s)
-		}
-		seen[s] = true
 	}
 	used := map[string]bool{}
 	for source, fields := range map[string]map[string]Field{"publisher": m.Publisher, "config": m.Config} {

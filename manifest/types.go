@@ -13,12 +13,11 @@ import (
 type Manifest struct {
 	SchemaVersion   int                   `json:"schema_version"`
 	Name            string                `json:"name"`
-	Description     string                `json:"description"`
+	Description     string                `json:"description,omitempty"`
 	Setup           string                `json:"setup,omitempty"`
 	Icon            string                `json:"icon,omitempty"`
 	VerificationKey string                `json:"verification_key,omitempty"`
 	Files           []string              `json:"files"`
-	Implements      []string              `json:"implements,omitempty"`
 	Config          map[string]Field      `json:"config,omitempty"`
 	Publisher       map[string]Field      `json:"publisher,omitempty"`
 	Auth            map[string]AuthMethod `json:"auth,omitempty"`

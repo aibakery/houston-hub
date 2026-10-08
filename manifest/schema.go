@@ -73,10 +73,10 @@ func Schema() ([]byte, error) {
 	for _, nk := range [][2]string{{"Manifest", "files"}, {"Manifest", "proxy"}, {"Field", "options"}, {"ScopeGroup", "values"}, {"ProxyMatch", "host"}, {"ProxyMatch", "method"}, {"ProxyMatch", "path"}} {
 		props(nk[0])[nk[1]].(map[string]any)["minItems"] = 1
 	}
-	for _, nk := range [][2]string{{"Manifest", "files"}, {"Manifest", "implements"}, {"ScopeGroup", "values"}, {"ProxyMatch", "host"}, {"ProxyMatch", "method"}, {"ProxyMatch", "path"}, {"HeaderActions", "remove"}} {
+	for _, nk := range [][2]string{{"Manifest", "files"}, {"ScopeGroup", "values"}, {"ProxyMatch", "host"}, {"ProxyMatch", "method"}, {"ProxyMatch", "path"}, {"HeaderActions", "remove"}} {
 		props(nk[0])[nk[1]].(map[string]any)["uniqueItems"] = true
 	}
-	for _, nk := range [][2]string{{"Manifest", "name"}, {"Manifest", "description"}, {"Manifest", "verification_key"}, {"Field", "label"}, {"Option", "value"}, {"Option", "label"}, {"AuthMethod", "label"}, {"AuthMethod", "scope_separator"}, {"AuthMethod", "scope_parameter"}} {
+	for _, nk := range [][2]string{{"Manifest", "name"}, {"Manifest", "verification_key"}, {"Field", "label"}, {"Option", "value"}, {"Option", "label"}, {"AuthMethod", "label"}, {"AuthMethod", "scope_separator"}, {"AuthMethod", "scope_parameter"}} {
 		props(nk[0])[nk[1]].(map[string]any)["minLength"] = 1
 	}
 	for _, nk := range [][2]string{{"Manifest", "config"}, {"Manifest", "publisher"}, {"Manifest", "auth"}, {"AuthMethod", "config"}} {
@@ -91,7 +91,6 @@ func Schema() ([]byte, error) {
 	props("ProxyMatch")["method"].(map[string]any)["items"] = map[string]any{"type": "string", "enum": []string{"GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"}}
 	props("ProxyMatch")["header"].(map[string]any)["additionalProperties"] = map[string]any{"oneOf": []any{map[string]any{"type": "string"}, map[string]any{"const": true}}}
 	props("ProxyMatch")["host"].(map[string]any)["description"] = "Hostnames with optional ports; HTTPS only. Leading *. matches subdomains, not the base host."
-	props("Manifest")["implements"].(map[string]any)["items"] = map[string]any{"type": "string", "pattern": interfaceRE.String()}
 
 	props("AuthMethod")["config"].(map[string]any)["minProperties"] = 1
 	// Conditional requirements mirror discriminated unions without adding aliases.

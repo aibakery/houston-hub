@@ -1,0 +1,9 @@
+{
+  "createFile": "write",
+  "deleteFile": "write",
+  "downloadFile": "read",
+  "getFile": "read",
+  "listFiles": "read",
+  "statFile": "read",
+  "uploadFile": "write"
+}

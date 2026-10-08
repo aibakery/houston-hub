@@ -1,0 +1,6 @@
+{
+  "getNote": "read",
+  "getTranscript": "read",
+  "listFolders": "read",
+  "listNotes": "read"
+}

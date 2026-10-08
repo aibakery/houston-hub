@@ -11,6 +11,9 @@ handles, credentials, or connector source authority.
 ```
 connectors/example/
   houston.json
+  operations.json
+  README.md
+  SETUP.md
   connector.lua
   icon.svg
   tests/behavior.lua
@@ -203,7 +206,7 @@ Initialize JSON arrays with `json.decode("[]")`, including arrays that may be
 empty. A plain empty Luau table encodes as a JSON object. For example,
 `local folders: {{id: string, name: string}} = json.decode("[]")` preserves the
 array shape when an account has no folders. Behavioral fixtures must cover both
-empty and populated results for array-valued interface operations.
+empty and populated results for array-valued operations.
 
 Read-only configuration is ordinary public config. A bundle can omit writes:
 
@@ -217,25 +220,32 @@ Export selection must be deterministic. Routes do not infer write permissions,
 and arbitrary SQL text is not a domain interface. Existing caller access controls
 and provider/database grants remain part of authorization.
 
-## Typed domain contracts
+## Operation access and provider validation
 
-Each trusted interface has one authoritative JSON definition in [interfaces](../interfaces/).
-The Go registry embeds those files directly; types, guards and help all use the
-same definition. Beside each JSON file, a typed `.lua` reference implementation
-and `.test.lua` fixture demonstrate the contract with mocked native HTTP.
-`go test ./interfaces` typechecks and executes these examples through the same
-publication checks used for provider bundles. It verifies real arguments/results
-and domain behavior, including empty results, normalization and provider errors.
+Each release includes an adjacent `operations.json`, a reviewed map from exact
+export names to `read` or `write`, for example `{"listItems":"read"}`. Review
+classification alongside the code, including all transport calls and delegated
+helpers. Never infer privileges from names, HTTP verbs, categories, or a classifier.
+Houston pins this metadata in the content digest and checks the caller's current
+grant before dispatch and again on every transport request. Unclassified exports
+fail closed. Read-write config enables exports; it does not grant a caller writes.
 
-- [`mail.folders@1`](../interfaces/mail.folders@1.json): `listMailFolders()` lists normalized, ID-sorted folder/label
-  metadata. Gmail and Fastmail implement it.
-- [`files.metadata@1`](../interfaces/files.metadata@1.json): `statFile(id)` returns normalized file/folder metadata,
-  including byte size when known. Drive and Dropbox implement it.
+Provider functions validate their arguments and upstream responses. Keep plain-data
+boundaries, nonempty IDs, finite safe integer sizes, explicit empty arrays, unique
+folder IDs, provider errors and deterministic sorting covered by fixtures.
+General Luau typechecking and native transport restrictions still apply.
+Standardized cross-provider interfaces are deferred until actual portability needs
+justify them. Connectors do not declare `implements`.
 
-These deliberately scoped capabilities do not promise portability for provider
-extras. An interface is advertised only if all its operations are present; none
-means inactive and a partial implementation fails. Publication also runs provider
-behavioral fixtures. Arbitrary signature strings are not interface definitions.
+## Documentation and recommended manifest layout
+
+Official examples should order root fields as `schema_version`, `name`,
+`verification_key`, `files`, `icon`, `config`, `auth`, optional `publisher`, then
+`proxy`. Omit unused optional sections. This is a readability convention; every
+legal JSON property order validates. Formatting should preserve the source order.
+Use adjacent `README.md` (optionally with `description` frontmatter for a card
+summary) and `SETUP.md` for full documentation and setup. Inline `description` and
+`setup` remain supported fallbacks, but need not duplicate those files.
 
 ## Tests and publication
 
@@ -253,11 +263,9 @@ projecting only active nonsecret root values into the fixture VM. Include every
 declared auth method, enabled proxy rule, and intended enabled/disabled surface.
 Eligibility coverage does not establish which rule wins; matcher tests separately
 cover rule order, request filters, and action behavior.
-Each claimed interface must be fully enabled and every operation successfully
-called in fixtures. The host records actual calls through immutable export
-wrappers; publication validates their arguments and returned values against the
-trusted interface schema. Merely exporting names or writing a no-op fixture is
-insufficient. Initialization is also checked without fixture transport mocks.
+Fixtures assert actual provider arguments, responses and behavior. Publication
+checks deterministic configured exports and requires each to have reviewed access
+metadata. Initialization is also checked without fixture transport mocks.
 `configure` supplies synthetic
 native responses before the real bundle initializes; it is a test-only environment.
 Test actual helpers and exports, not replacement helper implementations.

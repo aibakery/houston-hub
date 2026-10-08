@@ -1,13 +1,11 @@
 // Package typecheck typechecks bundled Luau against trusted native primitives and
-// the same interface definitions used by runtime guards. Analysis is a publication
-// check, never a grant of transport authority or a proof of provider behavior.
+// public configuration types. Analysis is a publication check, never a grant of
+// transport authority or a proof of provider behavior.
 package typecheck
 
 import (
 	"context"
 	"fmt"
-	"github.com/aibakery/houston-hub/interfaces"
-	"github.com/aibakery/houston-hub/manifest"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -15,6 +13,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/aibakery/houston-hub/manifest"
 )
 
 const hosts = `--!strict
@@ -30,19 +30,11 @@ func Check(ctx context.Context, binary string, m manifest.Manifest, modules map[
 	if binary == "" {
 		binary = "luau-analyze"
 	}
-	definitions, err := interfaces.Resolve(m.Implements)
-	if err != nil {
-		return err
-	}
 	directory, err := os.MkdirTemp("", "houston-analysis-")
 	if err != nil {
 		return err
 	}
 	defer os.RemoveAll(directory)
-	entrypoints := map[string]bool{}
-	for _, file := range m.Files {
-		entrypoints[file] = true
-	}
 	names := make([]string, 0, len(modules))
 	for name := range modules {
 		names = append(names, name)
@@ -63,23 +55,6 @@ func Check(ctx context.Context, binary string, m manifest.Manifest, modules map[
 		generated.WriteString("\nlocal exported = (function()\n")
 		generated.WriteString(source)
 		generated.WriteString("\nend)()\n")
-		if entrypoints[name] {
-			for _, definition := range definitions {
-				keys := make([]string, 0, len(definition.Operations))
-				for key := range definition.Operations {
-					keys = append(keys, key)
-				}
-				sort.Strings(keys)
-				for _, key := range keys {
-					operation := definition.Operations[key]
-					args := make([]string, len(operation.Arguments))
-					for i, arg := range operation.Arguments {
-						args[i] = typeName(arg)
-					}
-					fmt.Fprintf(&generated, "if exported.%s ~= nil then local _contract: (%s) -> %s = exported.%s end\n", key, strings.Join(args, ","), typeName(operation.Result), key)
-				}
-			}
-		}
 		generated.WriteString("return exported\n")
 		path := filepath.Join(directory, fmt.Sprintf("module-%d.luau", index))
 		if err := os.WriteFile(path, []byte(generated.String()), 0600); err != nil {
@@ -124,32 +99,6 @@ func configType(fields map[string]manifest.Field) string {
 		parts = append(parts, "["+strconv.Quote(key)+"]:"+kind)
 	}
 	return "local config: {" + strings.Join(parts, ",") + "} = nil :: any\n"
-}
-func typeName(t interfaces.Type) string {
-	var value string
-	switch t.Kind {
-	case "integer":
-		value = "number"
-	case "array":
-		value = "{" + typeName(*t.Element) + "}"
-	case "object":
-		keys := make([]string, 0, len(t.Fields))
-		for key := range t.Fields {
-			keys = append(keys, key)
-		}
-		sort.Strings(keys)
-		parts := make([]string, 0, len(keys))
-		for _, key := range keys {
-			parts = append(parts, "["+strconv.Quote(key)+"]:"+typeName(t.Fields[key]))
-		}
-		value = "{" + strings.Join(parts, ",") + "}"
-	default:
-		value = t.Kind
-	}
-	if t.Optional {
-		value += "?"
-	}
-	return value
 }
 
 type boundedOutput struct{ data []byte }

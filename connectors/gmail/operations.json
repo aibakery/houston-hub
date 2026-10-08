@@ -1,0 +1,15 @@
+{
+  "getAttachment": "read",
+  "getAttachments": "read",
+  "getMessage": "read",
+  "getMessages": "read",
+  "getProfile": "read",
+  "getThread": "read",
+  "listAttachments": "read",
+  "listFolders": "read",
+  "listMailFolders": "read",
+  "listMessages": "read",
+  "listThreads": "read",
+  "sendMessage": "write",
+  "trashMessage": "write"
+}

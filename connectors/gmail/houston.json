@@ -64,9 +64,6 @@
     "connector.lua"
   ],
   "icon": "icon.svg",
-  "implements": [
-    "mail.folders@1"
-  ],
   "name": "Gmail",
   "proxy": [
     {

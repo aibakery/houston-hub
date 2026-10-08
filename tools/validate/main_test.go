@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"testing"
@@ -26,7 +27,7 @@ func TestStandaloneBundleAndPrivateFiles(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "tests", "behavior.lua"), []byte(`return {scenario={},run=function(c) assert(c.answer()==42) end}`), 0644); err != nil {
 		t.Fatal(err)
 	}
-	for name, body := range map[string]string{"houston.json": `{"description":"Example","files":["main.luau"],"name":"Example","proxy":[{"action":{},"match":{"host":["api.example.com"],"protocol":"http"}}],"schema_version":1}`, "main.luau": `local helper = require("lib/helper.lua"); return {answer = helper.answer}`, "lib/helper.lua": `return {answer = function() return 42 end}`} {
+	for name, body := range map[string]string{"operations.json": `{"answer":"read"}`, "houston.json": `{"description":"Example","files":["main.luau"],"name":"Example","proxy":[{"action":{},"match":{"host":["api.example.com"],"protocol":"http"}}],"schema_version":1}`, "main.luau": `local helper = require("lib/helper.lua"); return {answer = helper.answer}`, "lib/helper.lua": `return {answer = function() return 42 end}`} {
 		if err := os.WriteFile(filepath.Join(dir, name), []byte(body), 0644); err != nil {
 			t.Fatal(err)
 		}
@@ -34,6 +35,25 @@ func TestStandaloneBundleAndPrivateFiles(t *testing.T) {
 	n, err := validate(dir)
 	if err != nil || n != 1 {
 		t.Fatalf("%d %v", n, err)
+	}
+	// File-backed documentation can replace inline text without changing source
+	// publication. Keep the preceding inline-only case as compatibility coverage.
+	manifestPath := filepath.Join(dir, "houston.json")
+	raw, err := os.ReadFile(manifestPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw = bytes.Replace(raw, []byte(`"description":"Example",`), nil, 1)
+	if err := os.WriteFile(manifestPath, raw, 0644); err != nil {
+		t.Fatal(err)
+	}
+	for name, source := range map[string]string{"README.md": "---\ndescription: Example card\n---\n# Example\n\nRead example records.", "SETUP.md": "Create and enter an API token."} {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(source), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := validate(dir); err != nil {
+		t.Fatal(err)
 	}
 	outside := filepath.Join(t.TempDir(), "secret.lua")
 	os.WriteFile(outside, []byte("private"), 0644)

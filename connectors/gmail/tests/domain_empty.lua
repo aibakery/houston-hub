@@ -7,6 +7,7 @@ return {
         end}
     end,
     run = function(exports)
+        assert(not pcall(exports.listMailFolders, "unexpected"))
         local folders = exports.listMailFolders()
         assert(#folders == 0)
         assert(json.encode(folders) == "[]", "empty folders must remain a JSON array")

@@ -8,6 +8,10 @@ return {scenario={["auth_config"]={},["auth_method"]="oauth",["config"]={},["pub
         return {status=200,body=json.encode(response)}
     end}
 end,run=function(c)
+assert(not pcall(c.statFile, ""))
+assert(not pcall(c.statFile, 42))
+assert(not pcall(c.statFile, "file", "extra"))
+assert(#requests == 0, "bad arguments reached provider")
 responses={{id="f1",name="Report",mimeType="text/plain",size="42"},{id="dir",name="Folder",mimeType="application/vnd.google-apps.folder"},{files={{id="f2",name="Next"}},nextPageToken="next+1"}}
 local file=c.statFile("f1")
 assert(file.id=="f1" and file.name=="Report" and file.size==42 and not file.isFolder)
@@ -17,4 +21,8 @@ assert(page.nextPageToken=="next+1")
 assert(string.find(requests[3].url,"pageToken=start%2B1",1,true))
 responses={{status=404,body="not found"}}
 assert(not pcall(c.statFile,"missing"))
+for _, size in {-1, 0.5, 9007199254740992} do
+    responses={{id="bad",name="Bad size",size=size}}
+    assert(not pcall(c.statFile, "bad"))
+end
 end}

@@ -1,17 +1,11 @@
 {
-  "auth": {
-    "token": {
-      "config": {
-        "token": {
-          "label": "JMAP API token",
-          "required": true,
-          "type": "secret"
-        }
-      },
-      "label": "JMAP API token",
-      "type": "manual"
-    }
-  },
+  "schema_version": 1,
+  "name": "Fastmail",
+  "verification_key": "bb713b2b43b9d518171d0ad2908658f8a0013a496b155bca12d6c8ddadb2b8e5",
+  "files": [
+    "connector.lua"
+  ],
+  "icon": "icon.svg",
   "config": {
     "access": {
       "default": "read-only",
@@ -30,15 +24,19 @@
       "type": "string"
     }
   },
-  "description": "Give agents access to Fastmail to find conversations, organize your inbox, and send replies.",
-  "files": [
-    "connector.lua"
-  ],
-  "icon": "icon.svg",
-  "implements": [
-    "mail.folders@1"
-  ],
-  "name": "Fastmail",
+  "auth": {
+    "token": {
+      "config": {
+        "token": {
+          "label": "JMAP API token",
+          "required": true,
+          "type": "secret"
+        }
+      },
+      "label": "JMAP API token",
+      "type": "manual"
+    }
+  },
   "proxy": [
     {
       "action": {
@@ -111,8 +109,5 @@
         "protocol": "http"
       }
     }
-  ],
-  "schema_version": 1,
-  "setup": "In Fastmail Settings → Privacy \u0026 Security → Manage API tokens, select the JMAP protocol and enable Email, Email submission, and Masked Email. MCP and Dynamic DNS tokens are not supported. Choose Read-only access for reading, or Read-write access to send, reply, move, archive, or delete mail. API tokens require a plan above Basic. Your token stays on this server.",
-  "verification_key": "bb713b2b43b9d518171d0ad2908658f8a0013a496b155bca12d6c8ddadb2b8e5"
+  ]
 }

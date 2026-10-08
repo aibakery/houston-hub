@@ -6,10 +6,6 @@
   "files": [
     "connector.luau"
   ],
-  "implements": [
-    "files.read@1",
-    "files.write@1"
-  ],
   "config": {
     "access": {
       "type": "string",

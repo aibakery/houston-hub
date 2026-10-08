@@ -1,10 +1,10 @@
 # Houston Hub
 
 This repository contains twelve connector bundles, the authoritative manifest v1
-contract and trusted domain interfaces. Registrations in Houston define the live
+contract and reviewed operation access metadata. Registrations in Houston define the live
 catalog; repository files are not published automatically.
 
-A bundle contains `houston.json`, declared Luau entrypoints, private helpers and
+A bundle contains `houston.json`, `operations.json`, declared Luau entrypoints, private helpers and
 behavioral fixtures. Houston executes its exported operations on the server with
 one privately bound native transport. Credentials never enter connector code.
 
@@ -17,14 +17,12 @@ Set `HOUSTON_CLI` to a freshly built Houston runner and put the pinned
 `luau-analyze` on `PATH`; the Go validator runs every resolved behavior fixture.
 From the Houston checkout, `go -C tools/runtime run . test-connectors` builds the
 runner and invokes this validator. See the
-[authoring guide](docs/authoring.md), [interface definitions and Lua examples](interfaces/)
-and [provider bundles](connectors/). Register a copied bundle or an edited local
+[authoring guide](docs/authoring.md) and [provider bundles](connectors/). Register a copied bundle or an edited local
 source through Hub; each registration owns its publisher settings independently.
 
 ## Repository layout
 
 - [connectors/](connectors/): provider manifests, Lua implementations, icons and tests.
-- [interfaces/](interfaces/): one JSON contract per interface, beside its Lua reference implementation and mock fixture.
 - [docs/](docs/authoring.md): authoring instructions and [provider operation reference](docs/connectors/).
 - [tools/](tools/): the public validator and its reusable typecheck/conformance packages.
 - [manifest/](manifest/): shared manifest parser and generated schema used by Houston.

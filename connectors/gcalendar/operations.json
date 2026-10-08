@@ -1,0 +1,7 @@
+{
+  "deleteEvent": "write",
+  "getEvent": "read",
+  "insertEvent": "write",
+  "listCalendars": "read",
+  "listEvents": "read"
+}

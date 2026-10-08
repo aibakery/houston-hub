@@ -23,3 +23,15 @@ When you grant permission to send and organize mail, agents can also:
 
 You choose whether agents can only read your mail or also make changes.
 Your messages stay in Fastmail.
+
+## Folder metadata for agents
+
+`listMailFolders()` takes no arguments and returns every available folder as
+`{id: string, name: string}[]`, sorted by ID. IDs are nonempty, unique within this
+connection, and opaque; names are display text and may repeat. An empty mailbox
+returns an empty array. Provider failures raise an error. `listFolders()` also
+remains available for Fastmail-specific folder details.
+
+Call the configured connection's help and inspect its available functions before
+using provider-specific operations. Read-write settings expose mail-changing
+functions, but each caller still needs an appropriate grant.

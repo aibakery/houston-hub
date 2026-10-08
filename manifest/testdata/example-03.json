@@ -6,9 +6,6 @@
     "files.luau",
     "folders.luau"
   ],
-  "implements": [
-    "files.read@1"
-  ],
   "config": {
     "workspace": {
       "type": "string",

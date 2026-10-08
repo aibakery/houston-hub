@@ -64,9 +64,6 @@
     "connector.lua"
   ],
   "icon": "icon.svg",
-  "implements": [
-    "files.metadata@1"
-  ],
   "name": "Google Drive",
   "proxy": [
     {
