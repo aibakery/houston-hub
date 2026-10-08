@@ -1,10 +1,10 @@
 ---
-description: Find the conversations you need, keep your inbox organized, and reply to emails from Houston.
+description: Give agents access to Fastmail to find conversations, organize your inbox, and send replies.
 ---
 # Fastmail
 
-Bring your Fastmail inbox into Houston to find important conversations, catch up
-on messages, and get through email with less switching between apps.
+Connect agents to your Fastmail inbox so they can find important conversations,
+read messages, and help you stay on top of email.
 
 ## Find what matters
 
@@ -14,12 +14,12 @@ on messages, and get through email with less switching between apps.
 
 ## Keep your inbox moving
 
-When you allow Houston to send and organize mail, you can also:
+When you grant permission to send and organize mail, agents can also:
 
 - Send emails or reply to a person or an entire conversation.
 - Choose which email address to send from and include attachments.
 - Create folders, move messages, archive finished conversations, and clear out
   mail you no longer need.
 
-You choose whether Houston can only read your mail or also make changes.
+You choose whether agents can only read your mail or also make changes.
 Your messages stay in Fastmail.

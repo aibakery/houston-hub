@@ -30,7 +30,7 @@
       "type": "string"
     }
   },
-  "description": "Find the conversations you need, keep your inbox organized, and reply to emails from Houston.",
+  "description": "Give agents access to Fastmail to find conversations, organize your inbox, and send replies.",
   "files": [
     "connector.lua"
   ],
