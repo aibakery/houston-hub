@@ -10,3 +10,6 @@
 
 API tokens require a Fastmail plan above Basic. Your token stays on the Houston
 server.
+
+With **Read and write** access, `deleteMessage` moves messages to Trash;
+`destroyMessage` permanently deletes them.

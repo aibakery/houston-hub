@@ -30,7 +30,7 @@
       "type": "string"
     }
   },
-  "description": "Read Fastmail mail with a JMAP API token: folders, messages, threads, search, and attachment download. listMessages filters include from, to, subject, text, after, before, folder, and alias (From, To, Cc, or Bcc). listAliases lists sending identities and Fastmail masked addresses. With read-write access: sendMessage (choose a From alias and attach session files), replyMessage (reply or reply-all, including from another alias), createFolder, moveMessages, archiveMessages, and deleteMessage, which moves mail to Trash. destroyMessage permanently deletes. Enable Email on the token; sending also needs Email submission, and masked addresses need Masked Email.",
+  "description": "Find the conversations you need, keep your inbox organized, and reply to emails from Houston.",
   "files": [
     "connector.lua"
   ],
