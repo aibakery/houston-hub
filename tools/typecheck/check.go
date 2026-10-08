@@ -81,6 +81,9 @@ func configType(fields map[string]manifest.Field) string {
 	}
 	sort.Strings(keys)
 	parts := make([]string, 0, len(keys))
+	if _, ok := fields["access"]; !ok {
+		parts = append(parts, `["access"]:("read-only" | "read-write")`)
+	}
 	for _, key := range keys {
 		field := fields[key]
 		kind := field.Type
@@ -94,7 +97,7 @@ func configType(fields map[string]manifest.Field) string {
 			}
 			kind = "(" + strings.Join(options, " | ") + ")"
 		}
-		if field.If != "" || !field.Required && field.Default == nil {
+		if key != "access" && (field.If != "" || !field.Required && field.Default == nil) {
 			kind += "?"
 		}
 		parts = append(parts, "["+strconv.Quote(key)+"]:"+kind)

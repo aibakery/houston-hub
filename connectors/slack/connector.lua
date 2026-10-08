@@ -237,4 +237,59 @@ if config.access == "read-write" then
     for name, fn in (writes :: {[string]: any}) do (functions :: {[string]: any})[name] = fn end
 end
 
+local operationHelp: {[string]: string} = {
+	addReaction = [==[- addReaction/removeReaction(channel, ts, name): emoji name without colons.]==],
+	deleteMessage = [==[- updateMessage(channel, ts, text, opts?), deleteMessage(channel, ts): your messages.]==],
+	downloadFile = [==[- downloadFile(id, path): stream a file into a session path; returns
+  {path, url, bytes} with a Houston signed GET URL. Never inline attachment bytes.]==],
+	getChannel = [==[- getChannel(channel): channel details.]==],
+	getFile = [==[- getFile(id): attachment metadata. Message files arrays contain these IDs.]==],
+	getPermalink = [==[- getUser(user): profile. getPermalink(channel, ts): message link.]==],
+	getProfile = [==[- getProfile(): authenticated user_id, team_id, team, and user.]==],
+	getThread = [==[- getThread(channel, ts, opts?): parent and replies, has_more, nextCursor; same
+  options as listMessages. One page per call, default 15. Loop with cursor =
+  result.nextCursor in the same run until absent. History can also use latest
+  set to the last message ts if has_more is true without a cursor.]==],
+	getUser = [==[- getUser(user): profile. getPermalink(channel, ts): message link.]==],
+	listChannels = [==[- listChannels(opts?): your channels and DMs via users.conversations. Options:
+  types (comma-separated public_channel,private_channel,im,mpim), exclude_archived,
+  limit, cursor. Returns channels and nextCursor.]==],
+	listMembers = [==[- listMembers(channel, opts?), listUsers(opts?): cursor pagination.]==],
+	listMentions = [==[- listMentions(opts?): search results for mentions of your authenticated Slack
+  user, including replies. Same search options plus query to narrow the search.]==],
+	listMessages = [==[- listMessages(channel, opts?): messages, has_more, nextCursor. Options: limit,
+  cursor, oldest, latest, inclusive. Default limit 15.]==],
+	listUsers = [==[- listMembers(channel, opts?), listUsers(opts?): cursor pagination.]==],
+	openConversation = [==[- openConversation(users): user ID, comma-separated IDs, or an array of IDs;
+  returns a DM/group channel to pass to postMessage.]==],
+	postMessage = [==[- postMessage(channel, text, opts?): send as yourself. Options include thread_ts,
+  blocks, attachments (Slack message attachment objects), unfurl_links,
+  unfurl_media, reply_broadcast, and client_msg_id. Returns ts and message.]==],
+	removeReaction = [==[- addReaction/removeReaction(channel, ts, name): emoji name without colons.]==],
+	reply = [==[- reply(channel, ts, text, opts?): send into a thread.]==],
+	searchMessages = [==[- searchMessages(query, opts?): matches, total, paging, nextPage. Slack search
+  syntax: in:general, from:me, after:2026-01-01. Options: count, page, sort,
+  sort_dir. Loop with page = result.nextPage until absent.]==],
+	updateMessage = [==[- updateMessage(channel, ts, text, opts?), deleteMessage(channel, ts): your messages.]==],
+	uploadFile = [==[- uploadFile(path, opts?): stream a session file with Slack's external upload
+  flow. Options: filename, title, alt_text, channel, thread_ts, text (initial
+  comment). Set channel to share the file; omit to keep it private in Slack.
+  Use fs.signedPutUrl to receive large files first. Returns files metadata.]==],
+}
+
+function functions.help(): string
+	local names: {string} = {}
+	for name in (functions :: {[string]: any}) do
+		if name ~= "help" then names[#names + 1] = name end
+	end
+	table.sort(names)
+	local sections = {"slack: configured connection help. Credentials stay on Houston. Use only the functions listed below. Provider scopes are enforced by real calls; help makes no network requests."}
+	for _, name in names do
+		local text = operationHelp[name]
+		assert(text, "missing help for configured function " .. name)
+		sections[#sections + 1] = text
+	end
+	return table.concat(sections, "\n\n")
+end
+
 return functions

@@ -369,4 +369,71 @@ function functions.statFile(id: string, ...: any): {id: string, name: string, is
     return result
 end
 
+local operationHelp: {[string]: string} = {
+	createFile = [==[## createFile(meta?)
+
+Drive `files.create`. `meta` is the File resource metadata (for example
+`{ name = "notes.md", mimeType = "text/markdown" }`).]==],
+	deleteFile = [==[## deleteFile(id)
+
+Drive `files.delete`. `id` may be a string or a table with `id`.]==],
+	downloadFile = [==[## downloadFile(id, path, opts?)
+
+Downloads file bytes onto the session path (streams past the proxy buffer)
+and returns `{ path, url, bytes }` where `url` is a Houston signed GET URL.
+Optional `opts.mimeType` uses Drive `files.export` for Google-native types.
+Do not return the file bytes from `run`; give the caller the signed URL.
+
+Write functions are bound only when this instance is read-write.]==],
+	getFile = [==[## getFile(id, opts?)
+
+One file. `id` may be a string or a table with `id`. Same shared fields as
+`listFiles`, plus `webViewLink`, `webContentLink`, and `exportLinks` when
+Drive provides them. Use those vendor links when you do not need to
+process bytes — they do not include a Google access token.
+
+`getFile("abc")` and `getFile({ id = "abc" })` are the same call.
+This does not download file bytes into Houston.]==],
+	listFiles = [==[## listFiles(opts?)
+
+Search and list files. Rows already have `id`, `name`, `mime`, `size`,
+`modified`, and `folder` (boolean) — do not `getFile` every row. Optional
+filters on `opts`:
+
+- `folder` (Drive folder id)
+- `name`, `mime`, `text` (string, or array of strings)
+- `after`, `before` (YYYY-MM-DD)
+- `pageSize` or `maxResults` (number)
+- `pageToken` (string)
+- `orderBy` (string)
+- `q` (raw Drive search string; escape hatch, compiled with the filters)
+
+Filters are compiled to Drive `q` inside this module (`name contains`,
+`mimeType =`, `'id' in parents`, `modifiedTime`, `fullText contains`).
+Pass `q` only when you need a vendor clause the filters do not cover.
+
+Returns `files` and `nextPageToken`. Loop pages in the same `run`.]==],
+	statFile = [==[statFile(id: string) -> {id:string,name:string,isFolder:boolean,size?:number}. Requires one nonempty file ID. Folder results omit size; known file sizes are nonnegative safe integers. Provider failures raise errors.]==],
+	uploadFile = [==[## uploadFile(path, meta?)
+
+Uploads a session file (PUT bytes there first with `fs.signedPutUrl` when
+the caller is sending a file). `meta` may include `name`, `mimeType`, and
+`parents`. Streams the file through Houston; does not inline bytes in MCP.]==],
+}
+
+function functions.help(): string
+	local names: {string} = {}
+	for name in (functions :: {[string]: any}) do
+		if name ~= "help" then names[#names + 1] = name end
+	end
+	table.sort(names)
+	local sections = {"gdrive: configured connection help. Credentials stay on Houston. Use only the functions listed below. Provider scopes are enforced by real calls; help makes no network requests."}
+	for _, name in names do
+		local text = operationHelp[name]
+		assert(text, "missing help for configured function " .. name)
+		sections[#sections + 1] = text
+	end
+	return table.concat(sections, "\n\n")
+end
+
 return functions

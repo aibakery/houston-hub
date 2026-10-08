@@ -11,7 +11,6 @@ handles, credentials, or connector source authority.
 ```
 connectors/example/
   houston.json
-  operations.json
   README.md
   SETUP.md
   connector.lua
@@ -240,15 +239,23 @@ Export selection must be deterministic. Routes do not infer write permissions,
 and arbitrary SQL text is not a domain interface. Existing caller access controls
 and provider/database grants remain part of authorization.
 
-## Operation access and provider validation
+## Configured exports, help, and provider validation
 
-Each release includes an adjacent `operations.json`, a reviewed map from exact
-export names to `read` or `write`, for example `{"listItems":"read"}`. Review
-classification alongside the code, including all transport calls and delegated
-helpers. Never infer privileges from names, HTTP verbs, categories, or a classifier.
-Houston pins this metadata in the content digest and checks the caller's current
-grant before dispatch and again on every transport request. Unclassified exports
-fail closed. Read-write config enables exports; it does not grant a caller writes.
+The connector Lua is the sole authority for configured functions and their help.
+Return only functions enabled by the effective public configuration. Houston
+clamps `config.access` to `read-only` for callers without a current write grant,
+then uses the same configured Lua for discovery and execution. Native dispatch
+rechecks current connection access and the effective configuration before each
+transport request. Do not infer permission from function names or HTTP verbs.
+Provider and database grants remain authoritative.
+
+Export a pure `help()` function returning a nonempty string for precisely those
+configured functions. Build the text from the same export table, including their
+arguments, return shapes, pagination, and meaningful provider caveats. Houston
+evaluates help with native transports disabled and excludes it from the callable
+operation list. Help must be deterministic and must never probe credentials or
+call a provider. Keep README documentation for humans; agent help comes from Lua.
+There is no operation classification sidecar or exported metadata registry.
 
 Provider functions validate their arguments and upstream responses. Keep plain-data
 boundaries, nonempty IDs, finite safe integer sizes, explicit empty arrays, unique
@@ -312,3 +319,9 @@ verification challenge is optional evidence of source control, not permission to
 borrow credentials. Fresh catalogs are empty until explicitly registered. Local
 source registration uses Houston's development-only source adapter and the same
 validation/release pipeline; see the main repository's local-development guide.
+
+`config.access` is a reserved public field. When declared it must be an
+unconditional string field accepting `read-only`; defaults and options use only
+`read-only` and `read-write`. When undeclared, Houston supplies `read-only`.
+The publication type checker exposes this reserved field even if the manifest
+does not declare a configurable Access setting.

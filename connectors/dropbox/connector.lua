@@ -352,4 +352,56 @@ function functions.statFile(id: string, ...: any): {id: string, name: string, is
     return result
 end
 
+local operationHelp: {[string]: string} = {
+	downloadFile = [==[## downloadFile(id, path, opts?)
+
+Downloads file bytes onto the session path (streams past the proxy buffer)
+and returns `{ path, url, bytes }` where `url` is a Houston signed GET URL.
+Do not return the file bytes from `run`; give the caller the signed URL.]==],
+	getCurrentAccount = [==[## getCurrentAccount()
+
+Dropbox account profile (`account_id`, `email`, `name`). Extra to this
+provider; not part of the storage/drive contract.]==],
+	getFile = [==[## getFile(id, opts?)
+
+One file. `id` may be a string or a table with `id` (Dropbox path or
+`id:...`). Same shared fields as `listFiles`.
+
+`getFile("id:abc")` and `getFile({ id = "id:abc" })` are the same call.
+This does not download file bytes into Houston.]==],
+	listFiles = [==[## listFiles(opts?)
+
+Search and list files. Rows already have `id`, `name`, `mime`, `size`,
+`modified`, and `folder` (boolean) — do not `getFile` every row. `mime` is
+best-effort from the name (folders match Drive's folder mime). Optional
+filters on `opts`:
+
+- `folder` (Dropbox path or `id:...`; default the connected root)
+- `name`, `text` (search; `name` is filename-only)
+- `mime`, `after`, `before` (best-effort local filter; YYYY-MM-DD)
+- `pageSize` or `maxResults` (number)
+- `pageToken` (string)
+
+`folder` maps to a list-folder path. `name` / `text` use Dropbox search.
+Do not call `/files/list_folder` yourself.
+
+Returns `files` and `nextPageToken`. Loop pages in the same `run`.]==],
+	statFile = [==[statFile(id: string) -> {id:string,name:string,isFolder:boolean,size?:number}. Requires one nonempty file ID. Folder results omit size; known file sizes are nonnegative safe integers. Provider failures raise errors.]==],
+}
+
+function functions.help(): string
+	local names: {string} = {}
+	for name in (functions :: {[string]: any}) do
+		if name ~= "help" then names[#names + 1] = name end
+	end
+	table.sort(names)
+	local sections = {"dropbox: configured connection help. Credentials stay on Houston. Use only the functions listed below. Provider scopes are enforced by real calls; help makes no network requests."}
+	for _, name in names do
+		local text = operationHelp[name]
+		assert(text, "missing help for configured function " .. name)
+		sections[#sections + 1] = text
+	end
+	return table.concat(sections, "\n\n")
+end
+
 return functions

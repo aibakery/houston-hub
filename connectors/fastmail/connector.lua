@@ -836,4 +836,47 @@ function functions.listMailFolders(...: any): {{id: string, name: string}}
 	return out
 end
 
+local operationHelp: {[string]: string} = {
+	archiveMessage = [==[archiveMessage(ids) -> {ids,folderId}. Moves to Archive; fails if Archive is absent. Accepts strings or {id} rows, individually or in a list. Alias of archiveMessages; batches may partially complete.]==],
+	archiveMessages = [==[archiveMessages(ids) -> {ids,folderId}. Moves to Archive; fails if Archive is absent. Accepts one ID or a list, strings or {id}; batches of 50 may partially complete. No automatic replay.]==],
+	createFolder = [==[createFolder(name,parent?) -> {id,name}. parent is a folder ID or role; omitted creates a top-level folder.]==],
+	deleteMessage = [==[deleteMessage(ids) -> {ids,folderId}. Moves to Trash; does not permanently destroy. Accepts one ID or list of strings/{id}; batches may partially complete.]==],
+	deleteMessages = [==[deleteMessages(ids) -> {ids,folderId}. Moves to Trash; does not permanently destroy. Accepts one ID or list of strings/{id}; batches of 50 may partially complete. No automatic replay.]==],
+	destroyMessage = [==[destroyMessage(ids) -> {ids}. Permanently destroys messages. Accepts one ID or list of strings/{id}; batches may partially complete. This differs from moving messages to Trash.]==],
+	destroyMessages = [==[destroyMessages(ids) -> {ids}. Permanently destroys messages in batches of 50. Accepts one ID or list of strings/{id}. Partial completion is possible; never automatically replay.]==],
+	getAttachment = [==[getAttachment(messageId,attachmentId,path?) -> {path,url,size}. Streams to private session files; url is a signed Houston download. Default path: attachments/<encoded-message-id>/<encoded-attachment-id>. Links expire; files remain scoped to caller and execution workspace.]==],
+	getAttachments = [==[getAttachments(messageId,items) -> ordered {path,url,size}[]. items={{id,path?},...}; destination paths must be distinct. Streams to session files; never returns inline attachment bytes.]==],
+	getMessage = [==[getMessage(id,opts?) -> message envelope,body,headers,received,attachments. IDs accept strings or {id}. Envelope includes from,to,cc,bcc,replyTo,subject,date,messageId. Body parts default 64 KiB; bodyTruncated flags truncation. opts.maxBodyValueBytes changes the cap (0 disables it). Request smaller bodies when a proxy response is too large.]==],
+	getMessages = [==[getMessages(ids,opts?) -> messages in requested order. Accepts 1–50 IDs or {ids={...}}; IDs may be strings or {id}. Same fields and maxBodyValueBytes option as getMessage; request fewer messages when responses are too large.]==],
+	getProfile = [==[getProfile() -> {emailAddress, accountId, name, capabilities, canSend}. Reads the connected account profile; does not infer unknown token scopes during discovery.]==],
+	getThread = [==[getThread(id,opts?) -> {id,messages} in conversation order, fetching in batches. Same message-body options as getMessage.]==],
+	listAliases = [==[listAliases() -> {aliases,notes}. Each alias has email,canSend,masked. Sending identities add identityId,name; masked addresses add maskedId,state,description,forDomain. Combines addresses shared by both lists. Missing Email submission or Masked Email scope is explained in notes; fails if neither scope is available.]==],
+	listAttachments = [==[listAttachments(messageId) -> attachment metadata {id,filename,mimeType,size,inline,contentId}[]. Attachment bytes are never returned inline.]==],
+	listFolders = [==[listFolders() -> {folders={{id,name,role,parentId,totalEmails,unreadEmails}}}. Folder filters accept opaque IDs or roles such as INBOX.]==],
+	listIdentities = [==[listIdentities() -> {identities}, raw JMAP sending identities. Requires the provider Email submission scope, which may be unknown before the first real call.]==],
+	listMailFolders = [==[listMailFolders() -> {id:string,name:string}[]. No arguments. Includes every available folder, sorted by nonempty unique ID; names may repeat. Empty mailboxes return an empty array; provider failures raise errors.]==],
+	listMessages = [==[listMessages(opts?) -> {messages={{id}},nextPageToken?}. Newest first; loop using nextPageToken until nil, including a possibly empty last page. opts: from,to,subject,text,after,before (date or UTC timestamp),folder/folders,alias/aliases,includeSpamTrash,maxResults (1–500, default 100),pageToken. Alias searches From/To/Cc/Bcc. Array filters combine with AND; spam/trash excluded unless explicitly selected. No Gmail q syntax.]==],
+	listThreads = [==[listThreads(opts?) -> {threads={{id}},nextPageToken?}. Uses the same filters and opaque pagination as listMessages; loop until nextPageToken is nil, even if a page is empty.]==],
+	moveMessage = [==[moveMessage(id,folder) -> {ids,folderId}. Replaces message mailboxes with one destination. folder accepts ID or role; id accepts a string or {id}.]==],
+	moveMessages = [==[moveMessages(ids,folder) -> {ids,folderId}. Accepts one ID or a list; IDs may be strings or {id}. Replaces mailboxes with one destination, in batches of 50. Partial completion is possible; never automatically replay.]==],
+	replyMessage = [==[replyMessage(id,{text=...,all?,subject?,identityId?,from?,cc?,bcc?,replyTo?,attachments?}) -> {id,submissionId}. text required. Replies to Reply-To, otherwise From; preserves thread message IDs/references. all defaults false. Default sender is receiving identity (To then Cc), then primary identity. all=true adds original To/Cc excluding your identities and reply recipient; cc explicitly replaces that list. Subject derives a Re: prefix unless supplied. Attachments use private session paths as in sendMessage. Email submission scope required. Never automatically replay a partial send.]==],
+	sendMessage = [==[sendMessage({to={{email=...}},text=...,subject?,identityId?,from?,cc?,bcc?,replyTo?,attachments?}) -> {id,submissionId}. text and nonempty to required; subject defaults empty. Address arrays use {email,name?}. identityId takes precedence over from. Without either, selects identity matching account username or sole identity; ambiguous sender fails. attachments={{path,filename?,mimeType?}} uploads private session files, never inline base64; MIME defaults application/octet-stream, filename defaults path basename. Moves from Drafts to Sent. Email submission scope required. On timeout inspect Drafts and Sent before retrying: delivery may have succeeded.]==],
+	trashMessage = [==[trashMessage(id) -> {id}. Moves a single message to Trash; does not permanently destroy. ID accepts a string or {id}.]==],
+}
+
+function functions.help(): string
+	local names: {string} = {}
+	for name in (functions :: {[string]: any}) do
+		if name ~= "help" then names[#names + 1] = name end
+	end
+	table.sort(names)
+	local sections = {"fastmail: configured connection help. Credentials stay on Houston. Use only the functions listed below. Provider scopes are enforced by real calls; help makes no network requests."}
+	for _, name in names do
+		local text = operationHelp[name]
+		assert(text, "missing help for configured function " .. name)
+		sections[#sections + 1] = text
+	end
+	return table.concat(sections, "\n\n")
+end
+
 return functions

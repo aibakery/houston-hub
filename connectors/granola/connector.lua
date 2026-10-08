@@ -149,4 +149,66 @@ function functions.getTranscript(id: any,opts: any)
 	return request("GET", "/notes/" .. encode(id) .. "/transcript", page_params(opts), "getTranscript")
 end
 
+local operationHelp: {[string]: string} = {
+	getNote = [==[## getNote(id, opts?)
+
+Granola `GET /v1/notes/{note_id}`. `id` may be a string or a table with
+`id`. Optional fields on `opts` (or on the table):
+
+- `include`: `"transcript"` to inline the transcript when it fits
+- `includeTranscript` (boolean) — same as `include = "transcript"`
+
+If the transcript is too large, Granola returns `TRANSCRIPT_TOO_LARGE`;
+use `getTranscript` and loop pages in one `run`.]==],
+	getTranscript = [==[## getTranscript(id, opts?)
+
+Granola `GET /v1/notes/{note_id}/transcript`. `id` may be a string or a
+table with `id`. Optional fields on `opts`:
+
+- `cursor` (string)
+- `page_size` (number, max 100)
+
+Returns `transcript` (items with `speaker` and `text`), `hasMore`, and
+`cursor`. Loop while `hasMore` in the same `run`.]==],
+	listFolders = [==[## listFolders(opts?)
+
+Granola `GET /v1/folders`. Optional fields on `opts`:
+
+- `cursor` (string)
+- `page_size` (number, max 30)
+
+Returns `folders` (`{ id, name, parent_folder_id, … }[]`), `hasMore`,
+and `cursor`.]==],
+	listNotes = [==[## listNotes(opts?)
+
+Granola `GET /v1/notes`. Date filters are **calendar dates**
+(`YYYY-MM-DD`). RFC3339 datetimes (e.g. `2026-08-22T00:00:00-07:00`)
+are coerced to `YYYY-MM-DD` before the request; a plain `YYYY-MM-DD`
+is forwarded unchanged. Optional fields on `opts`:
+
+- `created_after` (string, ISO 8601 date `YYYY-MM-DD`)
+- `created_before` (string, ISO 8601 date `YYYY-MM-DD`)
+- `updated_after` (string, ISO 8601 date `YYYY-MM-DD`)
+- `folder_id` (string, `fol_…`)
+- `cursor` (string)
+- `page_size` (number, max 30)
+
+Returns `notes` (`{ id, title, … }[]`), `hasMore`, and `cursor`.]==],
+}
+
+function functions.help(): string
+	local names: {string} = {}
+	for name in (functions :: {[string]: any}) do
+		if name ~= "help" then names[#names + 1] = name end
+	end
+	table.sort(names)
+	local sections = {"granola: configured connection help. Credentials stay on Houston. Use only the functions listed below. Provider scopes are enforced by real calls; help makes no network requests."}
+	for _, name in names do
+		local text = operationHelp[name]
+		assert(text, "missing help for configured function " .. name)
+		sections[#sections + 1] = text
+	end
+	return table.concat(sections, "\n\n")
+end
+
 return functions

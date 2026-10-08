@@ -62,14 +62,6 @@ func validateBundle(dir string) error {
 	if err != nil {
 		return err
 	}
-	raw, err = bundleFile(dir, "operations.json")
-	if err != nil {
-		return err
-	}
-	operations, err := manifest.ParseOperations(raw)
-	if err != nil {
-		return err
-	}
 	modules := map[string]string{}
 	fixtures := map[string]string{}
 	for _, file := range m.Files {
@@ -104,7 +96,7 @@ func validateBundle(dir string) error {
 	if err := typecheck.Check(context.Background(), "", *m, modules); err != nil {
 		return err
 	}
-	if err := conformance.Check(context.Background(), "", *m, modules, fixtures, operations); err != nil {
+	if err := conformance.Check(context.Background(), "", *m, modules, fixtures); err != nil {
 		return err
 	}
 	if m.Icon != "" {

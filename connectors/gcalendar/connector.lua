@@ -188,4 +188,68 @@ if config.access == "read-write" then
     for name, fn in (writes :: {[string]: any}) do (functions :: {[string]: any})[name] = fn end
 end
 
+local operationHelp: {[string]: string} = {
+	deleteEvent = [==[## deleteEvent(calendarId, eventId)
+
+Calendar `events.delete`. `calendarId` and `eventId` may be strings, or a
+table with those fields.]==],
+	getEvent = [==[## getEvent(calendarId, eventId, opts?)
+
+Calendar `events.get`. `calendarId` and `eventId` may be strings, or a
+table with those fields. Optional `timeZone` on `opts`.
+
+Returns the Event resource. Use only when `listEvents` is missing a
+field you need.
+
+Write functions are bound only when this instance is read-write.]==],
+	insertEvent = [==[## insertEvent(calendarId, event)
+
+Calendar `events.insert`. `calendarId` may be a string (e.g. `"primary"`)
+or a table with `calendarId` and `event`. `event` is the Event resource.]==],
+	listCalendars = [==[## listCalendars(opts?)
+
+Calendar `calendarList.list`. Optional fields on `opts`:
+
+- `maxResults` (number)
+- `pageToken` (string)
+- `minAccessRole` (string)
+- `showDeleted` (boolean)
+- `showHidden` (boolean)
+
+Returns `items` (`{ id, summary, ... }[]`) and `nextPageToken`.]==],
+	listEvents = [==[## listEvents(calendarId, opts?)
+
+Calendar `events.list`. `calendarId` may be a string (e.g. `"primary"`)
+or a table with `calendarId`. Optional fields on `opts`:
+
+- `timeMin` / `timeMax` (RFC3339 strings)
+- `maxResults` (number)
+- `pageToken` (string)
+- `q` (string)
+- `singleEvents` (boolean)
+- `orderBy` (string)
+- `timeZone` (string)
+
+Returns `items` (`{ id, summary, start, end, ... }[]`) and
+`nextPageToken`. `listEvents` already has `id`, `summary`, `start`,
+and `end`. Do not `getEvent` every row unless you need extra fields
+(attendees, description, conference data). Loop pagination in one
+`run`.]==],
+}
+
+function functions.help(): string
+	local names: {string} = {}
+	for name in (functions :: {[string]: any}) do
+		if name ~= "help" then names[#names + 1] = name end
+	end
+	table.sort(names)
+	local sections = {"gcalendar: configured connection help. Credentials stay on Houston. Use only the functions listed below. Provider scopes are enforced by real calls; help makes no network requests."}
+	for _, name in names do
+		local text = operationHelp[name]
+		assert(text, "missing help for configured function " .. name)
+		sections[#sections + 1] = text
+	end
+	return table.concat(sections, "\n\n")
+end
+
 return functions

@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"reflect"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/aibakery/houston-hub/manifest"
@@ -61,8 +62,8 @@ func call(ctx context.Context, binary, mode string, input any, output any) error
 	return nil
 }
 
-// Check requires runnable behavioral evidence for each method and variant, with classified exports.
-func Check(ctx context.Context, binary string, m manifest.Manifest, modules, fixtures map[string]string, operations manifest.Operations) error {
+// Check requires runnable behavioral evidence for each method and variant, with configured Lua help.
+func Check(ctx context.Context, binary string, m manifest.Manifest, modules, fixtures map[string]string) error {
 	if binary == "" {
 		binary = os.Getenv("HOUSTON_CLI")
 	}
@@ -96,16 +97,21 @@ func Check(ctx context.Context, binary string, m manifest.Manifest, modules, fix
 		if err != nil {
 			return fmt.Errorf("fixture %s settings: %w", name, err)
 		}
+		if _, ok := resolved.PublicConfig["access"]; !ok {
+			resolved.PublicConfig["access"] = "read-only"
+		}
 		input := map[string]any{"files": m.Files, "modules": modules, "config": resolved.PublicConfig, "protocol": m.Proxy[resolved.ProxyIndices[0]].Match.Protocol, "args": []any{}}
 		input["auth"] = m.DiscoveryAuth(scenario.AuthMethod, scenario.GrantedScopes)
 		var output struct {
 			Type    string   `json:"type"`
 			Exports []string `json:"exports"`
+			Help    string   `json:"help"`
 			Returns []any    `json:"returns"`
 		}
 		var discovery struct {
 			Type    string   `json:"type"`
 			Exports []string `json:"exports"`
+			Help    string   `json:"help"`
 			Returns []any    `json:"returns"`
 		}
 		if err := call(ctx, binary, "connector-host", input, &discovery); err != nil || discovery.Type != "result" {
@@ -120,10 +126,11 @@ func Check(ctx context.Context, binary string, m manifest.Manifest, modules, fix
 		if !reflect.DeepEqual(discovery.Exports, output.Exports) {
 			return fmt.Errorf("fixture %s changed configured exports", name)
 		}
-		for _, export := range output.Exports {
-			if _, err := operations.Write(export); err != nil {
-				return fmt.Errorf("fixture %s: %w", name, err)
-			}
+		if strings.TrimSpace(discovery.Help) == "" {
+			return fmt.Errorf("fixture %s requires connector Lua help", name)
+		}
+		if discovery.Help != output.Help {
+			return fmt.Errorf("fixture %s changed configured help", name)
 		}
 		methods[scenario.AuthMethod] = true
 		for _, index := range resolved.ProxyIndices {

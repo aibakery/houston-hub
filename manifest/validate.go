@@ -163,6 +163,22 @@ func (m *Manifest) Validate() error {
 		seen[f] = true
 	}
 	used := map[string]bool{}
+	if access, ok := m.Config["access"]; ok {
+		if access.Type != "string" || access.If != "" {
+			return fmt.Errorf("config.access must be an unconditional string field")
+		}
+		if access.Default != nil && access.Default != "read-only" && access.Default != "read-write" {
+			return fmt.Errorf("config.access default must be read-only or read-write")
+		}
+		for _, option := range access.Options {
+			if option.Value != "read-only" && option.Value != "read-write" {
+				return fmt.Errorf("config.access options must be read-only or read-write")
+			}
+		}
+		if err := ValidateValue(access, "read-only"); err != nil {
+			return fmt.Errorf("config.access must accept read-only: %w", err)
+		}
+	}
 	for source, fields := range map[string]map[string]Field{"publisher": m.Publisher, "config": m.Config} {
 		for n, f := range fields {
 			if !nameRE.MatchString(n) {

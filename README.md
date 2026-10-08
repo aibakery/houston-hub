@@ -4,7 +4,7 @@ This repository contains twelve connector bundles, the authoritative manifest v1
 contract and reviewed operation access metadata. Registrations in Houston define the live
 catalog; repository files are not published automatically.
 
-A bundle contains `houston.json`, `operations.json`, declared Luau entrypoints, private helpers and
+A bundle contains `houston.json`, declared Luau entrypoints, private helpers and
 behavioral fixtures. Houston executes its exported operations on the server with
 one privately bound native transport. Credentials never enter connector code.
 
