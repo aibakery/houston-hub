@@ -1,4 +1,4 @@
-name: Connector bundle tests
+name: Manifest tests
 on:
   pull_request:
   push:
@@ -11,23 +11,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/checkout@v4
-        with:
-          repository: aibakery/houston
-          ref: ${{ vars.HOUSTON_RUNTIME_REVISION || 'main' }}
-          path: .runtime
-          submodules: false
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
           cache: false
-      - name: Build source-matched runtime and pinned analyzer
-        run: |
-          go -C .runtime/tools/runtime run . build --locked --bin houston
-          go -C .runtime/tools/runtime run . build-analyzer "$RUNNER_TEMP/houston-bin/luau-analyze"
-          echo "$RUNNER_TEMP/houston-bin" >> "$GITHUB_PATH"
-          echo "HOUSTON_CLI=$GITHUB_WORKSPACE/.runtime/cli/target/debug/houston" >> "$GITHUB_ENV"
-      - name: Check contract, static types and every resolved fixture
-        run: |
-          go test ./...
-          go run ./tools/validate
+      - name: Check the manifest contract
+        run: go test ./manifest
