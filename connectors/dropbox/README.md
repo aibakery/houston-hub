@@ -1,13 +1,12 @@
+---
+description: Browse your Dropbox folders and bring the files you need into your work.
+---
 # Dropbox
 
-Read-only access to Dropbox files and account info.
+Give agents access to useful files in your Dropbox.
 
-## Metadata operations
+- Browse files and folders to find the material you need.
+- Check file details, including names and sizes.
+- Download files to read and work with alongside other documents.
 
-`statFile(id)` takes exactly one nonempty provider ID scoped to this connection.
-It returns `{id: string, name: string, isFolder: boolean, size?: integer}`.
-Names are display text. Size is nonnegative bytes when known for a file; folders
-and cloud-native documents may omit it. Missing or inaccessible IDs and provider
-failures raise errors. Extra provider fields are excluded.
-
-Use configured functions and provider-specific help for the other operations.
+This connector provides read-only access. It cannot edit or delete your files.

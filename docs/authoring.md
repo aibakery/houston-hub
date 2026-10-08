@@ -104,13 +104,13 @@ during initialization. Unknown upstream restrictions must produce clear errors
 when an operation is invoked. Publication fixtures can set synthetic
 `scenario.granted_scopes` to test known OAuth restrictions.
 
-Houston filters discovered exports using the release's reviewed operation
-classification and current caller grants. Discovery is recomputed from the
+Houston restricts effective config using current caller grants; Lua selects the
+exports from that config. Discovery is recomputed from the
 current connection release, settings and authentication facts on each request;
 existing client instances must be rediscovered to refresh their function list.
 Invocation still checks current configuration and grants before dispatch.
-Document signatures, defaults, results and mutation behavior in the bundle's
-README.md, which is served as `instance.help()`. Teach callers to read help, never
+Document signatures, defaults, results and mutation behavior in the connector's
+Lua `help()` function, exposed as `instance.help()`. Teach callers to read help, never
 to learn signatures by issuing live send/delete probes.
 
 Authentication methods are a map with stable keys, ordered by `order`, then key.
@@ -271,7 +271,11 @@ Official examples should order root fields as `schema_version`, `name`,
 `proxy`. Omit unused optional sections. This is a readability convention; every
 legal JSON property order validates. Formatting should preserve the source order.
 Use adjacent `README.md` (optionally with `description` frontmatter for a card
-summary) and `SETUP.md` for full documentation and setup. Inline `description` and
+summary) for a short, appealing overview of what people can do with the connector.
+Describe useful capabilities and access choices in plain language. Put account
+setup instructions in `SETUP.md`; keep function signatures, return shapes,
+pagination rules, and agent examples in Lua `help()`. The Hub renders the README
+as the public description, not as agent runtime documentation. Inline `description` and
 `setup` remain supported fallbacks, but need not duplicate those files.
 
 ## Tests and publication

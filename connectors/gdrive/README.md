@@ -1,13 +1,12 @@
+---
+description: Find files in Google Drive and bring useful documents into your work.
+---
 # Google Drive
 
-Read-only access to Google Drive.
+Help agents find the files and documents you need without hunting through folders.
 
-## Metadata operations
+- Browse and find files in your Drive.
+- Check file details before choosing what to use.
+- Download files and export Google documents for further work.
 
-`statFile(id)` takes exactly one nonempty provider ID scoped to this connection.
-It returns `{id: string, name: string, isFolder: boolean, size?: integer}`.
-Names are display text. Size is nonnegative bytes when known for a file; folders
-and cloud-native documents may omit it. Missing or inaccessible IDs and provider
-failures raise errors. Extra provider fields are excluded.
-
-Use configured functions and provider-specific help for the other operations.
+This connector provides read-only access. It cannot edit or delete your files.

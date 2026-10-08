@@ -1,13 +1,12 @@
+---
+description: Find conversations, catch up on email, and work with Gmail attachments.
+---
 # Gmail
 
-Read-only access to Gmail.
+Give agents the context they need from your Gmail inbox.
 
-## Metadata operations
+- Find messages by person, topic, date, or label.
+- Read conversations to catch up before a meeting or follow-up.
+- Download attachments to work with alongside your other files.
 
-`listMailFolders()` takes no arguments and returns every available mail label as
-`{id: string, name: string}[]`, sorted by ID. IDs are nonempty, unique within this
-connection, and opaque. Names are display text and may repeat. Empty results are
-arrays. Provider failures raise errors. `listFolders()` also remains available
-for Gmail-specific label details.
-
-Use configured functions and provider-specific help for the other operations.
+This connector provides read-only access. It cannot send mail or change your inbox.
