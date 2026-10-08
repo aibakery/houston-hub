@@ -322,6 +322,9 @@ validation/release pipeline; see the main repository's local-development guide.
 
 `config.access` is a reserved public field. When declared it must be an
 unconditional string field accepting `read-only`; defaults and options use only
-`read-only` and `read-write`. When undeclared, Houston supplies `read-only`.
+`read-only` and `read-write`. An optional field without an explicit default
+defaults to `read-only` before conditional fields, OAuth scopes, and proxies are
+resolved. Required fields still require a value, and explicit null inputs are
+invalid. When undeclared, Houston supplies `read-only`.
 The publication type checker exposes this reserved field even if the manifest
 does not declare a configurable Access setting.
