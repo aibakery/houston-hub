@@ -94,6 +94,26 @@ these locations remain server-only. Only active nonsecret root settings appear i
 the immutable Luau `config` table. `display: "masked"` on a normal string affects
 presentation only; it is not secret storage.
 
+The immutable `auth` table contains the selected method key (`auth.method`) and,
+when known, `auth.scopes`: granted OAuth scopes intersected with the selected
+method's release-declared scope vocabulary. Undeclared upstream values and
+credentials never enter this table. Nil scopes mean unknown (including manual
+API tokens); an empty list means none of the declared scopes were granted.
+Derive exports directly from `config` and these facts, without a second export
+list. Do not infer manual token permissions from the token or probe operations
+during initialization. Unknown upstream restrictions must produce clear errors
+when an operation is invoked. Publication fixtures can set synthetic
+`scenario.granted_scopes` to test known OAuth restrictions.
+
+Houston filters discovered exports using the release's reviewed operation
+classification and current caller grants. Discovery is recomputed from the
+current connection release, settings and authentication facts on each request;
+existing client instances must be rediscovered to refresh their function list.
+Invocation still checks current configuration and grants before dispatch.
+Document signatures, defaults, results and mutation behavior in the bundle's
+README.md, which is served as `instance.help()`. Teach callers to read help, never
+to learn signatures by issuing live send/delete probes.
+
 Authentication methods are a map with stable keys, ordered by `order`, then key.
 Manual methods declare their own inputs. OAuth methods declare endpoints and
 reference publisher string `client_id` and secret `client_secret` fields. Enter

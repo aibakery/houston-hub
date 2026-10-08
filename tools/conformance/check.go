@@ -17,10 +17,11 @@ import (
 )
 
 type Scenario struct {
-	Publisher  map[string]any `json:"publisher"`
-	Config     map[string]any `json:"config"`
-	AuthMethod string         `json:"auth_method"`
-	AuthConfig map[string]any `json:"auth_config"`
+	Publisher     map[string]any `json:"publisher"`
+	Config        map[string]any `json:"config"`
+	AuthMethod    string         `json:"auth_method"`
+	AuthConfig    map[string]any `json:"auth_config"`
+	GrantedScopes []string       `json:"granted_scopes"`
 }
 type metadata struct {
 	Scenario Scenario       `json:"scenario"`
@@ -96,6 +97,7 @@ func Check(ctx context.Context, binary string, m manifest.Manifest, modules, fix
 			return fmt.Errorf("fixture %s settings: %w", name, err)
 		}
 		input := map[string]any{"files": m.Files, "modules": modules, "config": resolved.PublicConfig, "protocol": m.Proxy[resolved.ProxyIndices[0]].Match.Protocol, "args": []any{}}
+		input["auth"] = m.DiscoveryAuth(scenario.AuthMethod, scenario.GrantedScopes)
 		var output struct {
 			Type    string   `json:"type"`
 			Exports []string `json:"exports"`

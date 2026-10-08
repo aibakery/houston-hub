@@ -54,6 +54,22 @@ func TestPublicationRequiresBehaviorFixtures(t *testing.T) {
 	}
 }
 
+func TestPublicationProjectsKnownAuthRestrictions(t *testing.T) {
+	m, err := manifest.Parse([]byte(`{"files":["main.lua"],"name":"OAuth fixture","publisher":{"client_id":{"type":"string","label":"Client","default":"public-id"}},"auth":{"oauth":{"type":"oauth2","label":"OAuth","authorize_url":"https://example.com/auth","token_url":"https://example.com/token","client_id":"{{publisher.client_id}}","client_auth":"none","pkce":"S256","scopes":[{"values":["read","write"]}]}},"proxy":[{"action":{},"match":{"host":["example.com"],"protocol":"http"}}],"schema_version":1}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	modules := map[string]string{"main.lua": `assert(auth.method=="oauth"); local c={read=function() return auth.scopes end}; if auth.scopes and table.find(auth.scopes,"write") then c.write=function() end end; return c`}
+	fixtures := map[string]string{
+		"read.lua":    `return {scenario={auth_method="oauth",granted_scopes={"read","private-upstream-value"}},run=function(c) assert(c.write==nil); local scopes=c.read(); assert(#scopes==1 and scopes[1]=="read") end}`,
+		"write.lua":   `return {scenario={auth_method="oauth",granted_scopes={"read","write"}},run=function(c) assert(type(c.write)=="function") end}`,
+		"unknown.lua": `return {scenario={auth_method="oauth"},run=function(c) assert(c.read()==nil) end}`,
+	}
+	if err := Check(context.Background(), fixtureHost(t), *m, modules, fixtures, manifest.Operations{"read": "read", "write": "write"}); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestPublicationRejectsUnclassifiedExports(t *testing.T) {
 	m, err := manifest.Parse([]byte(`{"files":["main.lua"],"name":"Fixture","proxy":[{"action":{},"match":{"host":["mail.example.com"],"protocol":"http"}}],"schema_version":1}`))
 	if err != nil {

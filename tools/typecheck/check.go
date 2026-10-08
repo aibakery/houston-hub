@@ -18,6 +18,7 @@ import (
 )
 
 const hosts = `--!strict
+local auth: {method:string,scopes:{string}?} = nil :: any
 local http: {request: ({url:string,method:string?,headers:{[string]:string}?,body:string?,src:string?,dest:string?}) -> {status:number,headers:{[string]:string},body:string,bytes:number?}} = nil :: any
 local db: {query: ({query:string,params:{any}?,max_rows:number?,read_only:boolean?}) -> any} = nil :: any
 local fs: {read:(string)->string,write:(string,string)->(),stat:(string)->{size:number,isFile:boolean},signedGetUrl:(string,number?)->string} = nil :: any
