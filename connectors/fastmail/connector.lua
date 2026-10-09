@@ -153,9 +153,10 @@ local function session(): Session
 		return fail("getProfile", "Fastmail session has no primary mail account; check the token's Email scope")
 	end
 	local maskedAccount = s.primaryAccounts[MASKED]
+	local primaryAccount = (s.accounts :: {[string]: any})[account]
 	local discovered: Session = {
-		accountId = account, apiUrl = s.apiUrl, username = s.username, name = s.accounts[account].name,
-		capabilities = if type(s.capabilities) == "table" then s.capabilities else {},
+		accountId = account, apiUrl = s.apiUrl, username = s.username, name = primaryAccount.name,
+		capabilities = if type(s.capabilities) == "table" then (s.capabilities :: {[string]: any}) else {},
 		maskedAccountId = if type(maskedAccount) == "string" and maskedAccount ~= "" then maskedAccount else nil,
 		downloadUrl = s.downloadUrl, uploadUrl = s.uploadUrl,
 	}
@@ -463,7 +464,7 @@ end
 
 function functions.listAttachments(input: Id | Message): {Attachment}
 	local id: any = input
-	if type(id) == "table" and id.attachments then return id.attachments end
+	if type(id) == "table" and id.attachments then return id.attachments :: {Attachment} end
 	local requested = id_of(id)
 	local data = call("Email/get", {ids = {requested}, properties = {"id", "attachments"}}, "listAttachments")
 	local msg = data.list and data.list[1]
