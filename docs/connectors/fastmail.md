@@ -2,7 +2,8 @@
 
 Call your configured connection's `help()` for its available operations, argument
 types, defaults, and mutation behavior. The [connector source](../../connectors/fastmail/connector.lua)
-declares the public Luau input and result types alongside its function prototypes.
+uses local Luau annotations to check the implementation. Callers pass ordinary
+tables with named keys; no type imports are needed.
 Write operations are available only when the connection allows changes.
 
 Each operation completes before returning its result. The connector's native

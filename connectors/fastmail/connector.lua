@@ -1,74 +1,46 @@
 -- Named options are the preferred interface; positional forms remain compatible.
-export type Id = string | {id: string}
-export type IdList = {string} | {{id: string}} | {Id}
-export type Ids = Id | IdList
-export type BodyOptions = {maxBodyValueBytes: number?}
-export type MessageOptions = BodyOptions & {id: string}
-export type MessagesOptions = BodyOptions & {ids: IdList}
-export type SearchOptions = {
+type Id = string | {id: string}
+type IdList = {string} | {{id: string}} | {Id}
+type Ids = Id | IdList
+type BodyOptions = {maxBodyValueBytes: number?}
+type MessageOptions = BodyOptions & {id: string}
+type MessagesOptions = BodyOptions & {ids: IdList}
+type SearchOptions = {
 	from: (string | {string})?, to: (string | {string})?, subject: (string | {string})?, text: (string | {string})?,
 	alias: (string | {string})?, aliases: {string}?, folder: (string | {string})?, folders: {string}?,
 	after: string?, before: string?, includeSpamTrash: boolean?, maxResults: number?, pageToken: string?,
 }
-export type Address = {email: string, name: string?}
-export type Upload = string | {path: string, filename: string?, mimeType: string?}
-export type SendOptions = {
+type Address = {email: string, name: string?}
+type Upload = string | {path: string, filename: string?, mimeType: string?}
+type SendOptions = {
 	to: {Address}, text: string, subject: string?, identityId: string?, from: string?,
 	cc: {Address}?, bcc: {Address}?, replyTo: {Address}?, attachments: {Upload}?,
 }
-export type ReplyOptions = {
+type ReplyOptions = {
 	id: string?, messageId: string?, text: string, all: boolean?, subject: string?, identityId: string?, from: string?,
 	cc: {Address}?, bcc: {Address}?, replyTo: {Address}?, attachments: {Upload}?,
 }
-export type Attachment = {id: string, filename: string?, mimeType: string?, size: number?, inline: boolean, contentId: string?}
-export type Download = {path: string, url: string, size: number?}
-export type DownloadItem = string | {id: string, path: string?}
-export type DownloadOptions = {messageId: string, attachmentId: string?, id: string?, path: string?}
-export type DownloadsOptions = {messageId: string, items: {DownloadItem}}
-export type MoveOptions = {ids: Ids?, id: string?, folder: string}
-export type FolderOptions = {name: string, parent: Id?, parentId: string?}
-export type Message = {
+type Attachment = {id: string, filename: string?, mimeType: string?, size: number?, inline: boolean, contentId: string?}
+type Download = {path: string, url: string, size: number?}
+type DownloadItem = string | {id: string, path: string?}
+type DownloadOptions = {messageId: string, attachmentId: string?, id: string?, path: string?}
+type DownloadsOptions = {messageId: string, items: {DownloadItem}}
+type MoveOptions = {ids: Ids?, id: string?, folder: string}
+type FolderOptions = {name: string, parent: Id?, parentId: string?}
+type Message = {
 	id: string, threadId: string, from: string, to: string, cc: string, bcc: string, replyTo: string,
 	subject: string?, date: string?, messageId: string?, body: string, bodyTruncated: boolean?,
 	attachments: {Attachment}, received: {string}, headers: {{name: string, value: string}}?,
 	mailboxIds: {[string]: boolean}?, keywords: {[string]: boolean}?, preview: string?,
 }
-export type Folder = {id: string, name: string, role: string?, parentId: string?, totalEmails: number?, unreadEmails: number?}
-export type Identity = {id: string, email: string, name: string?}
-export type Alias = {
+type Folder = {id: string, name: string, role: string?, parentId: string?, totalEmails: number?, unreadEmails: number?}
+type Identity = {id: string, email: string, name: string?}
+type Alias = {
 	email: string, canSend: boolean, masked: boolean, identityId: string?, name: string?,
 	maskedId: string?, state: string?, description: string?, forDomain: string?,
 }
-export type MoveResult = {ids: {string}, folderId: string}
-export type SendResult = {id: string, submissionId: string}
-
--- Checked against the implementation below. Write operations are exposed only
--- when the connection is configured with read-write access.
-export type ReadAPI = {
-	read getProfile: () -> {emailAddress: string, accountId: string, name: string, capabilities: {string}, canSend: boolean},
-	read listFolders: () -> {folders: {Folder}}, read listMailFolders: () -> {{id: string, name: string}},
-	read listMessages: (options: SearchOptions?) -> {messages: {{id: string}}, nextPageToken: string?},
-	read listThreads: (options: SearchOptions?) -> {threads: {{id: string}}, nextPageToken: string?},
-	read getMessage: (id: Id | MessageOptions, options: BodyOptions?) -> Message,
-	read getMessages: (ids: IdList | MessagesOptions, options: BodyOptions?) -> {Message},
-	read getThread: (id: Id | MessageOptions, options: BodyOptions?) -> {id: string, messages: {Message}},
-	read listAttachments: (message: Id | Message) -> {Attachment},
-	read getAttachment: (message: Id | DownloadOptions, attachment: DownloadItem?, path: string?) -> Download,
-	read getAttachments: (message: Id | DownloadsOptions, items: {DownloadItem}?) -> {Download},
-	read listAliases: () -> {aliases: {Alias}, notes: {string}},
-	read listIdentities: () -> {identities: {Identity}}, read help: () -> string,
-}
-export type WriteAPI = {
-	read trashMessage: (id: Id) -> {id: string},
-	read deleteMessage: (ids: Ids) -> MoveResult, read deleteMessages: (ids: Ids) -> MoveResult,
-	read destroyMessage: (ids: Ids) -> {ids: {string}}, read destroyMessages: (ids: Ids) -> {ids: {string}},
-	read archiveMessage: (ids: Ids) -> MoveResult, read archiveMessages: (ids: Ids) -> MoveResult,
-	read moveMessage: (ids: Ids | MoveOptions, folder: string?) -> MoveResult,
-	read moveMessages: (ids: Ids | MoveOptions, folder: string?) -> MoveResult,
-	read createFolder: (name: string | FolderOptions, parent: Id?) -> {id: string, name: string},
-	read sendMessage: (options: SendOptions) -> SendResult,
-	read replyMessage: (id: Id | ReplyOptions, options: ReplyOptions?) -> SendResult,
-}
+type MoveResult = {ids: {string}, folderId: string}
+type SendResult = {id: string, submissionId: string}
 
 -- Fastmail's JMAP transport uses the shared Houston HTTP/error/file plumbing.
 local SESSION_URL = "https://api.fastmail.com/jmap/session"
@@ -253,7 +225,7 @@ function functions.getProfile()
 	}
 end
 
-function functions.listFolders()
+function functions.listFolders(): {folders: {Folder}}
 	local data = call("Mailbox/get", { properties = FOLDER_PROPERTIES })
 	return { folders = as_list(data.list) }
 end
@@ -523,7 +495,7 @@ local function has_cap(s: any, cap: string)
 	return type(s.capabilities) == "table" and s.capabilities[cap] ~= nil
 end
 
-function functions.listAliases()
+function functions.listAliases(): {aliases: {Alias}, notes: {string}}
 	local s = session()
 	if not has_cap(s, SUBMISSION) and not has_cap(s, MASKED) then
 		fail("listAliases", "Fastmail token needs Email submission and/or Masked Email scope")
@@ -573,7 +545,7 @@ function functions.listAliases()
 	return { aliases = order, notes = notes }
 end
 
-function functions.listIdentities()
+function functions.listIdentities(): {identities: {Identity}}
 	return { identities = as_list(call("Identity/get", nil, "listIdentities").list) }
 end
 
@@ -995,11 +967,8 @@ function functions.help(): string
 	return table.concat(sections, "\n\n")
 end
 
--- These assignments check every public prototype without bypassing analysis.
-local readAPI: ReadAPI = functions
-local writeAPI: WriteAPI = writes
 if config.access == "read-write" then
-	for name, fn in (writeAPI :: {[string]: any}) do (readAPI :: {[string]: any})[name] = fn end
+	for name, fn in (writes :: {[string]: any}) do (functions :: {[string]: any})[name] = fn end
 end
 
-return readAPI
+return functions

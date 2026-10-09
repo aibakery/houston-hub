@@ -8,21 +8,18 @@ different structure when it makes their connector easier to understand. The
 
 ## Start with the interface
 
-Keep the public operations easy to find. Named argument and result types, followed
-by a function-map type, give reviewers a compact list of prototypes. Annotate the
-implementation too, so the type checker checks the relationship. Avoid casting a
-whole implementation to `any` just to make its declared interface pass.
+Keep the public operations easy to find, with clear function signatures and
+examples in `help()`. Callers pass ordinary tables with meaningful keys; they do
+not need to import types. Local Luau types can check parameter and result shapes
+inside the implementation without adding exported types or a separate interface
+declaration that duplicates the functions. Use annotations where they clarify the
+code, and avoid casting whole implementations to `any` to silence the checker.
 
 Use a simple ID argument for a simple lookup. Prefer a typed options table when a
 call has several related choices: named fields explain what each value means and
 leave room for optional additions without positional placeholders.
 
 ```lua
-type MessageOptions = {
-    id: string,
-    maxBodyValueBytes: number?,
-}
-
 -- A caller can see what both values mean.
 local message = mail.getMessage({
     id = "message-123",
