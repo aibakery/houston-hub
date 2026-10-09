@@ -6,6 +6,9 @@ plain tables of public functions, which Houston executes on the server. Caller
 scripts invoke those functions with JSON data; they never receive transport
 handles, credentials, or connector source authority.
 
+The optional [Luau practices](luau-practices.md) suggest ways to keep interfaces,
+state and allocations simple. They do not add publication or style requirements.
+
 ## Bundle
 
 ```
@@ -77,6 +80,31 @@ return {
 `http.request` directly and handle the provider's status and response format in
 the connector. No HTTP module import or generated helper copy is needed. The
 request completes within the invocation, including uploads and downloads.
+
+## Execution and waiting
+
+Each exported operation runs in a fresh connector VM and returns completed plain
+data. `http.request` blocks until the transport finishes; there is no explicit
+wait step or async handle in the connector environment. The caller-script APIs
+`http.sendAsync` and `http.wait` are separate and are not available inside a
+connector. A local session cache therefore lasts only for that operation, and
+no background work continues through another connector invocation.
+
+Use sequential bounded batches as the baseline. The current runner limits each
+invocation to 256 native calls, including file operations, 64 MiB of Lua memory,
+and 8 MiB per JSON transport frame. Server deadlines and transport limits also
+apply. Paging and smaller requested fields/body values avoid exhausting these
+budgets; batching alone does not bound a result that accumulates every page.
+These are execution limits, not limits on total process memory or attachment
+file size. Transfer files with `http.request({..., src = path})` or
+`http.request({..., dest = path})` so their bytes do not become Lua strings.
+
+Neither an error nor a timeout rolls back changes the provider has already
+accepted. Do not automatically replay partial batches or ambiguous writes;
+document how callers can inspect the outcome. Introducing connector concurrency
+would need a concrete workload and a bounded design covering authorization,
+cancellation, result ordering, and partial failure. No connector async or batch
+transport primitive is currently provided.
 
 ## Settings and authentication
 

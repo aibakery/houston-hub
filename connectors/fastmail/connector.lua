@@ -1,29 +1,122 @@
-local state: {session: any, accountId: string?} = {}
+-- Named options are the preferred interface; positional forms remain compatible.
+export type Id = string | {id: string}
+export type IdList = {string} | {{id: string}} | {Id}
+export type Ids = Id | IdList
+export type BodyOptions = {maxBodyValueBytes: number?}
+export type MessageOptions = BodyOptions & {id: string}
+export type MessagesOptions = BodyOptions & {ids: IdList}
+export type SearchOptions = {
+	from: (string | {string})?, to: (string | {string})?, subject: (string | {string})?, text: (string | {string})?,
+	alias: (string | {string})?, aliases: {string}?, folder: (string | {string})?, folders: {string}?,
+	after: string?, before: string?, includeSpamTrash: boolean?, maxResults: number?, pageToken: string?,
+}
+export type Address = {email: string, name: string?}
+export type Upload = string | {path: string, filename: string?, mimeType: string?}
+export type SendOptions = {
+	to: {Address}, text: string, subject: string?, identityId: string?, from: string?,
+	cc: {Address}?, bcc: {Address}?, replyTo: {Address}?, attachments: {Upload}?,
+}
+export type ReplyOptions = {
+	id: string?, messageId: string?, text: string, all: boolean?, subject: string?, identityId: string?, from: string?,
+	cc: {Address}?, bcc: {Address}?, replyTo: {Address}?, attachments: {Upload}?,
+}
+export type Attachment = {id: string, filename: string?, mimeType: string?, size: number?, inline: boolean, contentId: string?}
+export type Download = {path: string, url: string, size: number?}
+export type DownloadItem = string | {id: string, path: string?}
+export type DownloadOptions = {messageId: string, attachmentId: string?, id: string?, path: string?}
+export type DownloadsOptions = {messageId: string, items: {DownloadItem}}
+export type MoveOptions = {ids: Ids?, id: string?, folder: string}
+export type FolderOptions = {name: string, parent: Id?, parentId: string?}
+export type Message = {
+	id: string, threadId: string, from: string, to: string, cc: string, bcc: string, replyTo: string,
+	subject: string?, date: string?, messageId: string?, body: string, bodyTruncated: boolean?,
+	attachments: {Attachment}, received: {string}, headers: {{name: string, value: string}}?,
+	mailboxIds: {[string]: boolean}?, keywords: {[string]: boolean}?, preview: string?,
+}
+export type Folder = {id: string, name: string, role: string?, parentId: string?, totalEmails: number?, unreadEmails: number?}
+export type Identity = {id: string, email: string, name: string?}
+export type Alias = {
+	email: string, canSend: boolean, masked: boolean, identityId: string?, name: string?,
+	maskedId: string?, state: string?, description: string?, forDomain: string?,
+}
+export type MoveResult = {ids: {string}, folderId: string}
+export type SendResult = {id: string, submissionId: string}
+
+-- Checked against the implementation below. Write operations are exposed only
+-- when the connection is configured with read-write access.
+export type ReadAPI = {
+	read getProfile: () -> {emailAddress: string, accountId: string, name: string, capabilities: {string}, canSend: boolean},
+	read listFolders: () -> {folders: {Folder}}, read listMailFolders: () -> {{id: string, name: string}},
+	read listMessages: (options: SearchOptions?) -> {messages: {{id: string}}, nextPageToken: string?},
+	read listThreads: (options: SearchOptions?) -> {threads: {{id: string}}, nextPageToken: string?},
+	read getMessage: (id: Id | MessageOptions, options: BodyOptions?) -> Message,
+	read getMessages: (ids: IdList | MessagesOptions, options: BodyOptions?) -> {Message},
+	read getThread: (id: Id | MessageOptions, options: BodyOptions?) -> {id: string, messages: {Message}},
+	read listAttachments: (message: Id | Message) -> {Attachment},
+	read getAttachment: (message: Id | DownloadOptions, attachment: DownloadItem?, path: string?) -> Download,
+	read getAttachments: (message: Id | DownloadsOptions, items: {DownloadItem}?) -> {Download},
+	read listAliases: () -> {aliases: {Alias}, notes: {string}},
+	read listIdentities: () -> {identities: {Identity}}, read help: () -> string,
+}
+export type WriteAPI = {
+	read trashMessage: (id: Id) -> {id: string},
+	read deleteMessage: (ids: Ids) -> MoveResult, read deleteMessages: (ids: Ids) -> MoveResult,
+	read destroyMessage: (ids: Ids) -> {ids: {string}}, read destroyMessages: (ids: Ids) -> {ids: {string}},
+	read archiveMessage: (ids: Ids) -> MoveResult, read archiveMessages: (ids: Ids) -> MoveResult,
+	read moveMessage: (ids: Ids | MoveOptions, folder: string?) -> MoveResult,
+	read moveMessages: (ids: Ids | MoveOptions, folder: string?) -> MoveResult,
+	read createFolder: (name: string | FolderOptions, parent: Id?) -> {id: string, name: string},
+	read sendMessage: (options: SendOptions) -> SendResult,
+	read replyMessage: (id: Id | ReplyOptions, options: ReplyOptions?) -> SendResult,
+}
+
 -- Fastmail's JMAP transport uses the shared Houston HTTP/error/file plumbing.
+local SESSION_URL = "https://api.fastmail.com/jmap/session"
+local BATCH_SIZE = 50
+local DEFAULT_BODY_BYTES = 65536
+local DEFAULT_PAGE_SIZE = 100
+local MAX_PAGE_SIZE = 500
+local ERROR_SNIPPET_BYTES = 300
 local CORE = "urn:ietf:params:jmap:core"
 local MAIL = "urn:ietf:params:jmap:mail"
 local SUBMISSION = "urn:ietf:params:jmap:submission"
 local MASKED = "https://www.fastmail.com/dev/maskedemail"
 local REQUIRED: {[string]: string} = { ["Identity/get"] = SUBMISSION, ["EmailSubmission/set"] = SUBMISSION, ["MaskedEmail/get"] = MASKED }
+local SET_ERROR_FIELDS = { "notCreated", "notUpdated", "notDestroyed" }
+local SEARCH_FIELDS = { "from", "to", "subject", "text" }
+local ADDRESS_FIELDS = { "from", "to", "cc", "bcc", "replyTo" }
+local MESSAGE_PROPERTIES = { "id", "threadId", "mailboxIds", "keywords", "from", "to", "cc", "bcc", "replyTo", "subject", "sentAt", "receivedAt", "messageId", "headers", "preview", "textBody", "htmlBody", "attachments", "bodyValues" }
+local FOLDER_PROPERTIES = { "id", "name", "role", "parentId", "totalEmails", "unreadEmails" }
 
-local function encode(value: any)
+type Session = {
+	accountId: string, apiUrl: string, username: string, name: string,
+	capabilities: {[string]: any}, maskedAccountId: string?, downloadUrl: string?, uploadUrl: string?,
+}
+-- Execution-local discovery cache: keep only fields used by this connector.
+local cachedSession: Session? = nil
+
+type RequestOptions = {method: string, url: string, operation: string, body: string?}
+type IdentityOptions = {identityId: string?, from: string?}
+type UploadOptions = {path: string, mimeType: string, operation: string}
+type SubmitOptions = {operation: string, identity: Identity, fields: any}
+
+local function encode(value: string): string
 	return (string.gsub(tostring(value), "[^A-Za-z0-9%-_%.~]", function(c: any)
 		return string.format("%%%02X", string.byte(c))
 	end))
 end
 
-local function fail(operation: any, message: any): never
+local function fail(operation: string, message: string): never
 	error(json.encode({ connector = "fastmail", operation = operation, layer = "upstream", message = message, retryable = false }))
 end
 
 local function snippet(body: any)
 	if type(body) ~= "string" or body == "" then return "" end
-	body = string.gsub(body, "%s+", " ")
-	if #body > 300 then body = string.sub(body, 1, 300) end
-	return body
+	-- Bound the copy before normalizing a potentially large error response.
+	return (string.gsub(string.sub(body, 1, ERROR_SNIPPET_BYTES), "%s+", " "))
 end
 
-local function upstream(operation: any, response: any)
+local function upstream(operation: string, response: any)
 	local status = response and response.status
 	houston.fail({
 		operation = operation, layer = "upstream", upstream_status = status,
@@ -32,45 +125,49 @@ local function upstream(operation: any, response: any)
 	})
 end
 
-local function request(method: any, url: any, operation: any, body: any)
+local function request(options: RequestOptions): any
 	local response = http.request({
-		method = method,
-		url = url,
-		body = body,
+		method = options.method,
+		url = options.url,
+		body = options.body,
 		headers = { ["Content-Type"] = "application/json" },
 	})
 	if not response or type(response.status) ~= "number" or response.status < 200 or response.status >= 300 then
-		upstream(operation, response)
+		upstream(options.operation, response)
 	end
 	local ok, decoded = pcall(json.decode, response.body)
 	if not ok then
 		houston.fail({
-			operation = operation, layer = "upstream", upstream_status = response.status, retryable = false,
+			operation = options.operation, layer = "upstream", upstream_status = response.status, retryable = false,
 			message = "upstream returned invalid JSON: " .. snippet(response.body),
 		})
 	end
 	return decoded
 end
 
-local function session(): any
-	if not state.session then
-		local s = request("GET", "https://api.fastmail.com/jmap/session", "getProfile")
-		local account = s and type(s.primaryAccounts) == "table" and (s.primaryAccounts :: {[string]: string})[MAIL]
-		if not account or not s.apiUrl or type(s.accounts) ~= "table" or not (s.accounts :: {[string]: any})[account] then
-			fail("getProfile", "Fastmail session has no primary mail account; check the token's Email scope")
-		end
-		assert(type(account) == "string", "Fastmail primary account ID must be a string")
-		state.session = s
-		state.accountId = account
+local function session(): Session
+	if cachedSession then return cachedSession end
+	local s = request({method = "GET", url = SESSION_URL, operation = "getProfile"})
+	local account = type(s) == "table" and type(s.primaryAccounts) == "table" and (s.primaryAccounts :: {[string]: string})[MAIL]
+	if type(account) ~= "string" or account == "" or type(s.apiUrl) ~= "string" or type(s.accounts) ~= "table" or type((s.accounts :: {[string]: any})[account]) ~= "table" then
+		return fail("getProfile", "Fastmail session has no primary mail account; check the token's Email scope")
 	end
-	return state.session
+	local maskedAccount = s.primaryAccounts[MASKED]
+	local discovered: Session = {
+		accountId = account, apiUrl = s.apiUrl, username = s.username, name = s.accounts[account].name,
+		capabilities = if type(s.capabilities) == "table" then s.capabilities else {},
+		maskedAccountId = if type(maskedAccount) == "string" and maskedAccount ~= "" then maskedAccount else nil,
+		downloadUrl = s.downloadUrl, uploadUrl = s.uploadUrl,
+	}
+	cachedSession = discovered
+	return discovered
 end
 
-local function call(name: any, args: any, operation: any)
+local function call(name: string, args: {[string]: any}?, operation: string?): any
 	operation = operation or name
 	local s = session()
 	args = table.clone(args or {})
-	if args.accountId == nil then args.accountId = state.accountId end
+	if args.accountId == nil then args.accountId = s.accountId end
 	local using = { CORE, MAIL }
 	local cap = REQUIRED[name]
 	if cap then
@@ -80,21 +177,25 @@ local function call(name: any, args: any, operation: any)
 		end
 		using[#using + 1] = cap
 	end
-	local response = request("POST", s.apiUrl, operation, json.encode({
+	local response = request({method = "POST", url = s.apiUrl, operation = operation, body = json.encode({
 		using = using, methodCalls = { { name, args, "0" } },
-	}))
-	local result = response and type(response.methodResponses) == "table" and (response.methodResponses :: {any})[1]
-	if not result or result[3] ~= "0" then fail(operation, "Invalid JMAP response") end
+	})})
+	local result = type(response) == "table" and type(response.methodResponses) == "table" and (response.methodResponses :: {any})[1]
+	if type(result) ~= "table" or result[3] ~= "0" or type(result[2]) ~= "table" then fail(operation, "Invalid JMAP response") end
 	if result[1] == "error" then
 		fail(operation, tostring(result[2].type) .. ": " .. tostring(result[2].description or "JMAP request failed"))
 	end
 	if result[1] ~= name or type(result[2]) ~= "table" then fail(operation, "Unexpected JMAP method response") end
 	for _, invocation in response.methodResponses do
+		if type(invocation) ~= "table" or type(invocation[2]) ~= "table" then fail(operation, "Invalid JMAP response") end
 		local data = invocation[2]
 		if invocation[1] == "error" then fail(operation, tostring(data.type)) end
-		for _, field in { "notCreated", "notUpdated", "notDestroyed" } do
-			for id, problem in (type(data[field]) == "table" and data[field] or {}) do
-				fail(operation, tostring(id) .. ": " .. tostring(problem.type) .. ": " .. tostring(problem.description or "JMAP operation failed"))
+		for _, field in SET_ERROR_FIELDS do
+			if type(data[field]) == "table" then
+				for id, problem in data[field] do
+					if type(problem) ~= "table" then fail(operation, "Invalid JMAP set error") end
+					fail(operation, tostring(id) .. ": " .. tostring(problem.type) .. ": " .. tostring(problem.description or "JMAP operation failed"))
+				end
 			end
 		end
 		if type(data.notFound) == "table" and #data.notFound > 0 then fail(operation, "Not found: " .. table.concat(data.notFound, ", ")) end
@@ -102,13 +203,13 @@ local function call(name: any, args: any, operation: any)
 	return result[2]
 end
 
-local function id_of(value: any)
+local function id_of(value: any): string
 	if type(value) == "table" then value = value.id end
 	if type(value) ~= "string" or value == "" then error("fastmail requires a nonempty id") end
 	return value
 end
 
-local function id_list(value: any, operation: any)
+local function id_list(value: any, operation: string): {string}
 	if type(value) == "string" or (type(value) == "table" and type(value.id) == "string" and value[1] == nil) then
 		value = { value }
 	end
@@ -123,18 +224,15 @@ local function as_list(value: any)
 	return value
 end
 
-local function each_chunk(ids: any, size: number)
-	local groups = {}
-	local batch = {}
-	for _, id in ids do
-		batch[#batch + 1] = id
-		if #batch == size then
-			groups[#groups + 1] = batch
-			batch = {}
-		end
+local function each_chunk(ids: {string}): () -> {string}?
+	local position = 1
+	return function(): {string}?
+		if position > #ids then return nil end
+		local last = math.min(position + BATCH_SIZE - 1, #ids)
+		local batch = table.move(ids, position, last, 1, {})
+		position = last + 1
+		return batch
 	end
-	if #batch > 0 then groups[#groups + 1] = batch end
-	return groups
 end
 
 local functions = {}
@@ -149,13 +247,13 @@ function functions.getProfile()
 	end
 	table.sort(caps)
 	return {
-		emailAddress = s.username, accountId = state.accountId, name = s.accounts[state.accountId].name,
+		emailAddress = s.username, accountId = s.accountId, name = s.name,
 		capabilities = caps, canSend = type(s.capabilities) == "table" and s.capabilities[SUBMISSION] ~= nil,
 	}
 end
 
 function functions.listFolders()
-	local data = call("Mailbox/get", { properties = { "id", "name", "role", "parentId", "totalEmails", "unreadEmails" } })
+	local data = call("Mailbox/get", { properties = FOLDER_PROPERTIES })
 	return { folders = as_list(data.list) }
 end
 
@@ -176,11 +274,11 @@ local function date(value: any)
 	return value
 end
 
-local function query(opts: any, threads: any)
-	opts = opts or {}
-	local limit = opts.maxResults or 100
+local function query(options: SearchOptions?, threads: boolean): ({string}, string?)
+	local opts: SearchOptions = options or {}
+	local limit = opts.maxResults or DEFAULT_PAGE_SIZE
 	local position = tonumber(opts.pageToken or "0")
-	if type(limit) ~= "number" or limit < 1 or limit > 500 or limit % 1 ~= 0 then error("fastmail.maxResults must be 1–500") end
+	if type(limit) ~= "number" or limit < 1 or limit > MAX_PAGE_SIZE or limit % 1 ~= 0 then error("fastmail.maxResults must be 1–500") end
 	if not position or position < 0 or position % 1 ~= 0 then error("fastmail.pageToken must be a nonnegative integer") end
 	local filters = {}
 	local function add(key: any, value: any)
@@ -191,7 +289,7 @@ local function query(opts: any, threads: any)
 			filters[#filters + 1] = { [key] = value }
 		end
 	end
-	for _, key in { "from", "to", "subject", "text" } do add(key, opts[key]) end
+	for _, key in SEARCH_FIELDS do add(key, (opts :: any)[key]) end
 	local function add_alias(value: any)
 		if type(value) == "table" then
 			for _, item in value do add_alias(item) end
@@ -205,7 +303,8 @@ local function query(opts: any, threads: any)
 	add_alias(opts.aliases)
 	if opts.after then add("after", date(opts.after)) end
 	if opts.before then add("before", date(opts.before)) end
-	local folders = functions.listFolders().folders
+	local needsFolders = opts.folder ~= nil or opts.folders ~= nil or not opts.includeSpamTrash
+	local folders = if needsFolders then functions.listFolders().folders else {}
 	local function add_folder(value: any)
 		if type(value) == "table" then
 			for _, item in value do add_folder(item) end
@@ -234,14 +333,12 @@ local function query(opts: any, threads: any)
 	return data.ids or {}, nextPage
 end
 
-function functions.listMessages(opts: any)
+function functions.listMessages(opts: SearchOptions?)
 	local ids, nextPage = query(opts, false)
-	local rows = {}
+	local rows: {{id: string}} = json.decode("[]")
 	for _, id in ids do rows[#rows + 1] = { id = id } end
 	return { messages = rows, nextPageToken = nextPage }
 end
-
-local PROPERTIES = { "id", "threadId", "mailboxIds", "keywords", "from", "to", "cc", "bcc", "replyTo", "subject", "sentAt", "receivedAt", "messageId", "headers", "preview", "textBody", "htmlBody", "attachments", "bodyValues" }
 
 local function addresses(values: any)
 	local out = {}
@@ -264,12 +361,23 @@ local function remove_nulls(value: any)
 	end
 end
 
-local function decorate(msg: any)
+local function attachment_metadata(parts: any): {Attachment}
+	local attachments: {Attachment} = json.decode("[]")
+	for _, part in parts or {} do
+		attachments[#attachments + 1] = {
+			id = part.blobId, filename = part.name, mimeType = part.type, size = part.size,
+			inline = part.disposition == "inline" or (part.disposition ~= "attachment" and part.cid ~= nil), contentId = part.cid,
+		}
+	end
+	return attachments
+end
+
+local function decorate(msg: any): Message
 	remove_nulls(msg)
-	for _, key in { "from", "to", "cc", "bcc", "replyTo" } do msg[key] = addresses(msg[key]) end
+	for _, key in ADDRESS_FIELDS do msg[key] = addresses(msg[key]) end
 	msg.date = msg.sentAt or msg.receivedAt
 	msg.messageId = msg.messageId and msg.messageId[1]
-	msg.received = {}
+	msg.received = json.decode("[]")
 	for _, header in msg.headers or {} do
 		if string.lower(header.name) == "received" then msg.received[#msg.received + 1] = header.value end
 	end
@@ -287,30 +395,24 @@ local function decorate(msg: any)
 	msg.body = body(msg.textBody)
 	if msg.body == "" then msg.body = body(msg.htmlBody) end
 	if msg.body == "" then msg.body = msg.preview or "" end
-	local attachments = {}
-	for _, part in msg.attachments or {} do
-		attachments[#attachments + 1] = {
-			id = part.blobId, filename = part.name, mimeType = part.type, size = part.size,
-			inline = part.disposition == "inline" or (part.disposition ~= "attachment" and part.cid ~= nil), contentId = part.cid,
-		}
-	end
-	msg.attachments = attachments
+	msg.attachments = attachment_metadata(msg.attachments)
 	msg.bodyValues, msg.textBody, msg.htmlBody = nil, nil, nil
 	return msg
 end
 
-function functions.getMessages(ids: any, opts: any)
+function functions.getMessages(input: IdList | MessagesOptions, options: BodyOptions?): {Message}
+	local ids: any = input
+	local opts: BodyOptions = options or {}
 	if type(ids) == "table" and ids.ids then opts, ids = ids, ids.ids end
-	if type(ids) ~= "table" or #ids < 1 or #ids > 50 then error("fastmail.getMessages requires 1–50 ids") end
-	opts = opts or {}
-	local maxBytes = opts.maxBodyValueBytes or 65536
+	if type(ids) ~= "table" or #ids < 1 or #ids > BATCH_SIZE then error("fastmail.getMessages requires 1–50 ids") end
+	local maxBytes = opts.maxBodyValueBytes or DEFAULT_BODY_BYTES
 	if type(maxBytes) ~= "number" or maxBytes < 0 or maxBytes % 1 ~= 0 then
 		error("fastmail.maxBodyValueBytes must be a nonnegative integer")
 	end
 	local requested = {}
 	for _, id in ids do requested[#requested + 1] = id_of(id) end
 	local data = call("Email/get", {
-		ids = requested, properties = PROPERTIES, fetchTextBodyValues = true, fetchHTMLBodyValues = true,
+		ids = requested, properties = MESSAGE_PROPERTIES, fetchTextBodyValues = true, fetchHTMLBodyValues = true,
 		maxBodyValueBytes = maxBytes,
 	})
 	local byId, out = {}, {}
@@ -322,14 +424,18 @@ function functions.getMessages(ids: any, opts: any)
 	return out
 end
 
-function functions.getMessage(id: any, opts: any)
-	if type(id) == "table" then opts = opts or id end
-	return functions.getMessages({ id_of(id) }, opts)[1]
+local function body_options(value: any, options: BodyOptions?): BodyOptions
+	return options or (if type(value) == "table" then value else {})
 end
 
-function functions.listThreads(opts: any)
+function functions.getMessage(id: Id | MessageOptions, opts: BodyOptions?): Message
+	local options = body_options(id, opts)
+	return functions.getMessages({ id_of(id) }, options)[1]
+end
+
+function functions.listThreads(opts: SearchOptions?)
 	local ids, nextPage = query(opts, true)
-	local threads = {}
+	local threads: {{id: string}} = json.decode("[]")
 	if #ids > 0 then
 		local data = call("Email/get", { ids = ids, properties = { "id", "threadId" } })
 		local byId = {}
@@ -342,35 +448,40 @@ function functions.listThreads(opts: any)
 	return { threads = threads, nextPageToken = nextPage }
 end
 
-function functions.getThread(id: any, opts: any)
-	if type(id) == "table" then opts = opts or id end
-	id = id_of(id)
+function functions.getThread(input: Id | MessageOptions, opts: BodyOptions?): {id: string, messages: {Message}}
+	local options = body_options(input, opts)
+	local id = id_of(input)
 	local data = call("Thread/get", { ids = { id } })
 	local thread = data.list and data.list[1]
 	if not thread then fail("getThread", "Missing thread " .. id) end
-	local messages, batch = {}, {}
-	for i, emailId in thread.emailIds do
-		batch[#batch + 1] = emailId
-		if #batch == 50 or i == #thread.emailIds then
-			for _, msg in functions.getMessages(batch, opts) do messages[#messages + 1] = msg end
-			batch = {}
-		end
+	local messages: {Message} = json.decode("[]")
+	for batch in each_chunk(thread.emailIds) do
+		for _, msg in functions.getMessages(batch, options) do messages[#messages + 1] = msg end
 	end
 	return { id = id, messages = messages }
 end
 
-function functions.listAttachments(id: any)
+function functions.listAttachments(input: Id | Message): {Attachment}
+	local id: any = input
 	if type(id) == "table" and id.attachments then return id.attachments end
-	return functions.getMessage(id).attachments
+	local requested = id_of(id)
+	local data = call("Email/get", {ids = {requested}, properties = {"id", "attachments"}}, "listAttachments")
+	local msg = data.list and data.list[1]
+	if type(msg) ~= "table" or msg.id ~= requested then fail("listAttachments", "Missing message " .. requested) end
+	remove_nulls(msg)
+	return attachment_metadata(msg.attachments)
 end
 
-function functions.getAttachments(messageId: any, items: any): {any}
-	if type(messageId) == "table" and items == nil then items, messageId = messageId, messageId.messageId end
+function functions.getAttachments(input: Id | DownloadsOptions, requested: {DownloadItem}?): {Download}
+	local messageId: any = input
+	local items: any = requested
+	if type(messageId) == "table" and items == nil then items, messageId = messageId.items or messageId, messageId.messageId end
 	messageId = id_of(messageId)
 	if type(items) ~= "table" then error("fastmail.getAttachments requires attachment items") end
-	if #items == 0 then return {} end
+	if #items == 0 then return json.decode("[]") end
 	local s = session()
-	if type(s.downloadUrl) ~= "string" then fail("getAttachments", "Missing download URL") end
+	local template = s.downloadUrl
+	if type(template) ~= "string" then return fail("getAttachments", "Missing download URL") end
 	local byId = {}
 	for _, item in functions.listAttachments(messageId) do byId[item.id] = item end
 	local jobs, paths = {}, {}
@@ -382,8 +493,8 @@ function functions.getAttachments(messageId: any, items: any): {any}
 		path = path or ("attachments/" .. encode(messageId) .. "/" .. encode(id))
 		if paths[path] then error("fastmail: attachment paths must be distinct") end
 		paths[path] = true
-		local values = { accountId = state.accountId, blobId = id, name = attachment.filename or "attachment", type = attachment.mimeType or "application/octet-stream" }
-		local url = string.gsub(s.downloadUrl, "{(%w+)}", function(key: any) return encode(values[key] or "") end)
+		local values = { accountId = s.accountId, blobId = id, name = attachment.filename or "attachment", type = attachment.mimeType or "application/octet-stream" }
+		local url = string.gsub(template, "{(%w+)}", function(key: any) return encode(values[key] or "") end)
 		jobs[#jobs + 1] = { path = path, size = attachment.size, url = url }
 	end
 	local out = {}
@@ -395,7 +506,10 @@ function functions.getAttachments(messageId: any, items: any): {any}
 	return out
 end
 
-function functions.getAttachment(messageId: any, attachmentId: any, path: any)
+function functions.getAttachment(input: Id | DownloadOptions, attachment: DownloadItem?, destination: string?): Download
+	local messageId: any = input
+	local attachmentId: any = attachment
+	local path = destination
 	if type(messageId) == "table" and attachmentId == nil then
 		path, attachmentId, messageId = messageId.path, messageId.attachmentId or messageId.id, messageId.messageId
 	elseif type(attachmentId) == "table" then
@@ -439,10 +553,7 @@ function functions.listAliases()
 		notes[#notes + 1] = "Email submission scope is off, so sending identities were not listed"
 	end
 	if has_cap(s, MASKED) then
-		local account = state.accountId
-		if type(s.primaryAccounts) == "table" and type(s.primaryAccounts[MASKED]) == "string" and s.primaryAccounts[MASKED] ~= "" then
-			account = s.primaryAccounts[MASKED]
-		end
+		local account = s.maskedAccountId or s.accountId
 		for _, item in as_list(call("MaskedEmail/get", { accountId = account }, "listAliases").list) do
 			if type(item) == "table" then remove_nulls(item) end
 			if type(item.email) == "string" and item.email ~= "" then
@@ -470,7 +581,8 @@ local function lower_email(value: any): string?
 	return string.lower(value)
 end
 
-local function pick_identity(identities: any, identityId: any, fromEmail: any)
+local function pick_identity(identities: {Identity}, options: IdentityOptions): Identity?
+	local identityId, fromEmail = options.identityId, options.from
 	if identityId ~= nil and type(identityId) ~= "string" then error("fastmail identityId must be a string") end
 	if fromEmail ~= nil and type(fromEmail) ~= "string" then error("fastmail from must be an email address") end
 	if identityId then
@@ -494,8 +606,9 @@ local function pick_identity(identities: any, identityId: any, fromEmail: any)
 	return nil
 end
 
-local function require_identity(identities: any, identityId: any, fromEmail: any)
-	local identity = pick_identity(identities, identityId, fromEmail)
+local function require_identity(identities: {Identity}, options: IdentityOptions): Identity
+	local identityId, fromEmail = options.identityId, options.from
+	local identity = pick_identity(identities, options)
 	if identity then return identity end
 	if type(fromEmail) == "string" then
 		error("fastmail: no sending identity for " .. fromEmail .. "; list aliases with listAliases()")
@@ -506,14 +619,14 @@ local function require_identity(identities: any, identityId: any, fromEmail: any
 	error("fastmail: specify a valid identityId from listIdentities()")
 end
 
-local function upload_blob(path: any, mime: any, operation: any)
+local function upload_blob(options: UploadOptions): any
+	local path, mime, operation = options.path, options.mimeType, options.operation
 	local s = session()
 	local template = s.uploadUrl
 	if type(template) ~= "string" or string.find(template, "{accountId}", 1, true) == nil then
-		fail(operation, "Fastmail session has no upload URL")
+		return fail(operation, "Fastmail session has no upload URL")
 	end
-	if type(state.accountId) ~= "string" then fail(operation, "Fastmail session has no mail account") end
-	local url = string.gsub(template, "{accountId}", encode(state.accountId))
+	local url = string.gsub(template, "{accountId}", encode(s.accountId))
 	local stat = fs.stat(path)
 	if not stat.isFile then error("fastmail: attachment path must be a file") end
 	local response = http.request({
@@ -546,7 +659,7 @@ local function attachment_parts(items: any, operation: any): any
 		if mime ~= nil and (type(mime) ~= "string" or mime == "") then error("fastmail attachment mimeType must be a string") end
 		if filename == nil or filename == "" then filename = string.match(path, "([^/]+)$") or "attachment" end
 		mime = mime or "application/octet-stream"
-		local blob = upload_blob(path, mime, operation)
+		local blob = upload_blob({path = path, mimeType = mime, operation = operation})
 		local partType = if type(blob.type) == "string" and blob.type ~= "" then blob.type else mime
 		out[#out + 1] = { blobId = blob.blobId, name = filename, type = partType, disposition = "attachment" }
 	end
@@ -554,7 +667,8 @@ local function attachment_parts(items: any, operation: any): any
 	return out
 end
 
-local function submit(operation: any, identity: any, fields: any)
+local function submit(options: SubmitOptions): SendResult
+	local operation, identity, fields = options.operation, options.identity, options.fields
 	local folders = functions.listFolders().folders
 	local drafts, sent = folder_id(folders, "drafts"), folder_id(folders, "sent")
 	local parts = attachment_parts(fields.attachments, operation)
@@ -567,14 +681,15 @@ local function submit(operation: any, identity: any, fields: any)
 	}
 	local created = call("Email/set", { create = { draft = draft } }, operation)
 	local made = created.created and created.created.draft
-	if not made or not made.id then fail(operation, "Missing draft creation confirmation") end
+	if type(made) ~= "table" or type(made.id) ~= "string" or made.id == "" then fail(operation, "Missing draft creation confirmation") end
 	-- No automatic retries: a failed/ambiguous submission may leave this draft.
 	local submitted = call("EmailSubmission/set", {
 		create = { send = { identityId = identity.id, emailId = made.id } },
 		onSuccessUpdateEmail = { ["#send"] = { mailboxIds = { [sent] = true }, keywords = { ["$seen"] = true } } },
 	}, operation)
-	if not submitted.created or not submitted.created.send then fail(operation, "Missing submission confirmation; draft " .. made.id) end
-	return { id = made.id, submissionId = submitted.created.send.id }
+	local submission = submitted.created and submitted.created.send
+	if type(submission) ~= "table" or type(submission.id) ~= "string" or submission.id == "" then fail(operation, "Missing submission confirmation; draft " .. made.id) end
+	return { id = made.id, submissionId = submission.id }
 end
 
 local function address_objects(values: any)
@@ -609,10 +724,9 @@ local function reply_subject(subject: any)
 	return "Re: " .. subject
 end
 
-local function move_to(ids: any, folder: any, operation: any)
-	local dest = folder_id(functions.listFolders().folders, folder)
+local function move_to(ids: {string}, dest: string, operation: string): MoveResult
 	local moved: {string} = json.decode("[]") :: {string}
-	for _, batch in each_chunk(ids, 50) do
+	for batch in each_chunk(ids) do
 		local update = {}
 		for _, id in batch do update[id] = { mailboxIds = { [dest] = true } } end
 		local data = call("Email/set", { update = update }, operation)
@@ -629,7 +743,7 @@ end
 local function destroy_ids(ids: any, operation: any)
 	local list = id_list(ids, operation)
 	local gone: {string} = json.decode("[]") :: {string}
-	for _, batch in each_chunk(list, 50) do
+	for batch in each_chunk(list) do
 		local data = call("Email/set", { destroy = batch }, operation)
 		local found: {[string]: boolean} = {}
 		if type(data.destroyed) == "table" then
@@ -645,54 +759,56 @@ end
 
 local writes = {}
 
-function writes.trashMessage(id: any)
-	local moved = move_to({ id_of(id) }, "trash", "trashMessage")
+function writes.trashMessage(id: Id)
+	local moved = move_to({ id_of(id) }, folder_id(functions.listFolders().folders, "trash"), "trashMessage")
 	return { id = moved.ids[1] }
 end
 
-function writes.deleteMessage(ids: any)
-	return move_to(id_list(ids, "deleteMessage"), "trash", "deleteMessage")
+function writes.deleteMessage(ids: Ids)
+	return move_to(id_list(ids, "deleteMessage"), folder_id(functions.listFolders().folders, "trash"), "deleteMessage")
 end
 
-function writes.deleteMessages(ids: any)
+function writes.deleteMessages(ids: Ids)
 	return writes.deleteMessage(ids)
 end
 
-function writes.destroyMessage(ids: any)
+function writes.destroyMessage(ids: Ids)
 	return destroy_ids(ids, "destroyMessage")
 end
 
-function writes.destroyMessages(ids: any)
+function writes.destroyMessages(ids: Ids)
 	return writes.destroyMessage(ids)
 end
 
-function writes.archiveMessages(ids: any)
+function writes.archiveMessages(ids: Ids): MoveResult
 	local archive = nil
 	for _, folder in functions.listFolders().folders do
 		if folder.role == "archive" then archive = folder.id; break end
 	end
-	if type(archive) ~= "string" or archive == "" then fail("archiveMessages", "Fastmail has no Archive mailbox") end
+	if type(archive) ~= "string" or archive == "" then return fail("archiveMessages", "Fastmail has no Archive mailbox") end
 	return move_to(id_list(ids, "archiveMessages"), archive, "archiveMessages")
 end
 
-function writes.archiveMessage(ids: any)
+function writes.archiveMessage(ids: Ids)
 	return writes.archiveMessages(ids)
 end
 
-function writes.moveMessages(ids: any, folder: any)
+function writes.moveMessages(input: Ids | MoveOptions, folder: string?)
+	local ids: any = input
 	if type(ids) == "table" and folder == nil and type(ids.folder) == "string" then
 		folder = ids.folder
 		ids = ids.ids or ids.id
 	end
 	if type(folder) ~= "string" or folder == "" then error("fastmail.moveMessages requires a folder id or role") end
-	return move_to(id_list(ids, "moveMessages"), folder, "moveMessages")
+	return move_to(id_list(ids, "moveMessages"), folder_id(functions.listFolders().folders, folder), "moveMessages")
 end
 
-function writes.moveMessage(id: any, folder: any)
+function writes.moveMessage(id: Ids | MoveOptions, folder: string?)
 	return writes.moveMessages(id, folder)
 end
 
-function writes.createFolder(name: any, parent: any)
+function writes.createFolder(input: string | FolderOptions, parent: Id?)
+	local name: any = input
 	if type(name) == "table" and parent == nil then
 		parent = name.parent or name.parentId
 		name = name.name
@@ -710,18 +826,20 @@ function writes.createFolder(name: any, parent: any)
 end
 
 -- A structured message avoids adding a second MIME/base64 implementation.
-function writes.sendMessage(body: any)
+function writes.sendMessage(body: SendOptions): SendResult
 	if type(body) ~= "table" or type(body.to) ~= "table" or #body.to == 0 then error("fastmail.sendMessage requires to = { { email = ... } }") end
 	if type(body.text) ~= "string" then error("fastmail.sendMessage requires text") end
 	local identities = as_list(call("Identity/get", nil, "sendMessage").list)
-	local identity = require_identity(identities, body.identityId, body.from)
-	return submit("sendMessage", identity, {
+	local identity = require_identity(identities, body)
+	return submit({operation = "sendMessage", identity = identity, fields = {
 		to = body.to, cc = body.cc, bcc = body.bcc, replyTo = body.replyTo,
 		subject = body.subject or "", text = body.text, attachments = body.attachments,
-	})
+	}})
 end
 
-function writes.replyMessage(id: any, body: any)
+function writes.replyMessage(input: Id | ReplyOptions, options: ReplyOptions?): SendResult
+	local id: any = input
+	local body: any = options
 	if type(id) == "table" and body == nil then
 		body = id
 		id = id.id or id.messageId
@@ -745,7 +863,7 @@ function writes.replyMessage(id: any, body: any)
 	end
 	local identity = nil
 	if body.identityId ~= nil or body.from ~= nil then
-		identity = require_identity(identities, body.identityId, body.from)
+		identity = require_identity(identities, body)
 	else
 		local byEmail: {[string]: any} = {}
 		for _, item in identities do
@@ -762,7 +880,7 @@ function writes.replyMessage(id: any, body: any)
 			end
 			if identity then break end
 		end
-		if not identity then identity = require_identity(identities, nil, nil) end
+		if not identity then identity = require_identity(identities, {}) end
 	end
 	local cc = body.cc
 	if body.all and cc == nil then
@@ -809,14 +927,11 @@ function writes.replyMessage(id: any, body: any)
 	end
 	local subject = body.subject
 	if type(subject) ~= "string" then subject = reply_subject(msg.subject) end
-	return submit("replyMessage", identity, {
+	assert(identity, "reply identity was not resolved")
+	return submit({operation = "replyMessage", identity = identity, fields = {
 		to = to, cc = cc, bcc = body.bcc, replyTo = body.replyTo, subject = subject, text = body.text,
 		attachments = body.attachments, inReplyTo = inReplyTo, references = references,
-	})
-end
-
-if config.access == "read-write" then
-	for name, fn in (writes :: {[string]: any}) do (functions :: {[string]: any})[name] = fn end
+	}})
 end
 
 function functions.listMailFolders(...: any): {{id: string, name: string}}
@@ -839,17 +954,17 @@ end
 local operationHelp: {[string]: string} = {
 	archiveMessage = [==[archiveMessage(ids) -> {ids,folderId}. Moves to Archive; fails if Archive is absent. Accepts strings or {id} rows, individually or in a list. Alias of archiveMessages; batches may partially complete.]==],
 	archiveMessages = [==[archiveMessages(ids) -> {ids,folderId}. Moves to Archive; fails if Archive is absent. Accepts one ID or a list, strings or {id}; batches of 50 may partially complete. No automatic replay.]==],
-	createFolder = [==[createFolder(name,parent?) -> {id,name}. parent is a folder ID or role; omitted creates a top-level folder.]==],
+	createFolder = [==[createFolder({name:string,parentId:string?}) -> {id,name}. parentId is a folder ID or role; parent is also accepted. Omit both for a top-level folder. Positional createFolder(name,parent?) remains supported.]==],
 	deleteMessage = [==[deleteMessage(ids) -> {ids,folderId}. Moves to Trash; does not permanently destroy. Accepts one ID or list of strings/{id}; batches may partially complete.]==],
 	deleteMessages = [==[deleteMessages(ids) -> {ids,folderId}. Moves to Trash; does not permanently destroy. Accepts one ID or list of strings/{id}; batches of 50 may partially complete. No automatic replay.]==],
 	destroyMessage = [==[destroyMessage(ids) -> {ids}. Permanently destroys messages. Accepts one ID or list of strings/{id}; batches may partially complete. This differs from moving messages to Trash.]==],
 	destroyMessages = [==[destroyMessages(ids) -> {ids}. Permanently destroys messages in batches of 50. Accepts one ID or list of strings/{id}. Partial completion is possible; never automatically replay.]==],
-	getAttachment = [==[getAttachment(messageId,attachmentId,path?) -> {path,url,size}. Streams to private session files; url is a signed Houston download. Default path: attachments/<encoded-message-id>/<encoded-attachment-id>. Links expire; files remain scoped to caller and execution workspace.]==],
-	getAttachments = [==[getAttachments(messageId,items) -> ordered {path,url,size}[]. items={{id,path?},...}; destination paths must be distinct. Streams to session files; never returns inline attachment bytes.]==],
-	getMessage = [==[getMessage(id,opts?) -> message envelope,body,headers,received,attachments. IDs accept strings or {id}. Envelope includes from,to,cc,bcc,replyTo,subject,date,messageId. Body parts default 64 KiB; bodyTruncated flags truncation. opts.maxBodyValueBytes changes the cap (0 disables it). Request smaller bodies when a proxy response is too large.]==],
-	getMessages = [==[getMessages(ids,opts?) -> messages in requested order. Accepts 1–50 IDs or {ids={...}}; IDs may be strings or {id}. Same fields and maxBodyValueBytes option as getMessage; request fewer messages when responses are too large.]==],
+	getAttachment = [==[getAttachment({messageId:string,attachmentId:string,path:string?}) -> {path,url,size}. id is also accepted in place of attachmentId. Positional getAttachment(messageId,attachmentId,path?) remains supported. Streams to private session files; url is a signed Houston download. Default path: attachments/<encoded-message-id>/<encoded-attachment-id>. Links expire; files remain scoped to caller and execution workspace.]==],
+	getAttachments = [==[getAttachments({messageId:string,items={{id:string,path:string?},...}}) -> ordered {path,url,size}[]. Items also accept ID strings; destination paths must be distinct. Positional getAttachments(messageId,items) remains supported. Streams to session files; never returns inline attachment bytes.]==],
+	getMessage = [==[getMessage({id:string,maxBodyValueBytes:number?}) -> message envelope,body,headers,received,attachments. Positional getMessage(id,opts?) remains supported; IDs accept strings or {id}. Envelope includes from,to,cc,bcc,replyTo,subject,date,messageId. Body parts default 64 KiB; bodyTruncated flags truncation. maxBodyValueBytes changes the cap (0 disables it). Request smaller bodies when a proxy response is too large.]==],
+	getMessages = [==[getMessages({ids={...},maxBodyValueBytes:number?}) -> messages in requested order. Requires 1–50 IDs, each a string or {id}. Positional getMessages(ids,opts?) remains supported. Same fields and maxBodyValueBytes option as getMessage; request fewer messages when responses are too large.]==],
 	getProfile = [==[getProfile() -> {emailAddress, accountId, name, capabilities, canSend}. Reads the connected account profile; does not infer unknown token scopes during discovery.]==],
-	getThread = [==[getThread(id,opts?) -> {id,messages} in conversation order, fetching in batches. Same message-body options as getMessage.]==],
+	getThread = [==[getThread({id:string,maxBodyValueBytes:number?}) -> {id,messages} in conversation order, fetching in batches. Positional getThread(id,opts?) remains supported. Same message-body options as getMessage.]==],
 	listAliases = [==[listAliases() -> {aliases,notes}. Each alias has email,canSend,masked. Sending identities add identityId,name; masked addresses add maskedId,state,description,forDomain. Combines addresses shared by both lists. Missing Email submission or Masked Email scope is explained in notes; fails if neither scope is available.]==],
 	listAttachments = [==[listAttachments(messageId) -> attachment metadata {id,filename,mimeType,size,inline,contentId}[]. Attachment bytes are never returned inline.]==],
 	listFolders = [==[listFolders() -> {folders={{id,name,role,parentId,totalEmails,unreadEmails}}}. Folder filters accept opaque IDs or roles such as INBOX.]==],
@@ -857,9 +972,9 @@ local operationHelp: {[string]: string} = {
 	listMailFolders = [==[listMailFolders() -> {id:string,name:string}[]. No arguments. Includes every available folder, sorted by nonempty unique ID; names may repeat. Empty mailboxes return an empty array; provider failures raise errors.]==],
 	listMessages = [==[listMessages(opts?) -> {messages={{id}},nextPageToken?}. Newest first; loop using nextPageToken until nil, including a possibly empty last page. opts: from,to,subject,text,after,before (date or UTC timestamp),folder/folders,alias/aliases,includeSpamTrash,maxResults (1–500, default 100),pageToken. Alias searches From/To/Cc/Bcc. Array filters combine with AND; spam/trash excluded unless explicitly selected. No Gmail q syntax.]==],
 	listThreads = [==[listThreads(opts?) -> {threads={{id}},nextPageToken?}. Uses the same filters and opaque pagination as listMessages; loop until nextPageToken is nil, even if a page is empty.]==],
-	moveMessage = [==[moveMessage(id,folder) -> {ids,folderId}. Replaces message mailboxes with one destination. folder accepts ID or role; id accepts a string or {id}.]==],
-	moveMessages = [==[moveMessages(ids,folder) -> {ids,folderId}. Accepts one ID or a list; IDs may be strings or {id}. Replaces mailboxes with one destination, in batches of 50. Partial completion is possible; never automatically replay.]==],
-	replyMessage = [==[replyMessage(id,{text=...,all?,subject?,identityId?,from?,cc?,bcc?,replyTo?,attachments?}) -> {id,submissionId}. text required. Replies to Reply-To, otherwise From; preserves thread message IDs/references. all defaults false. Default sender is receiving identity (To then Cc), then primary identity. all=true adds original To/Cc excluding your identities and reply recipient; cc explicitly replaces that list. Subject derives a Re: prefix unless supplied. Attachments use private session paths as in sendMessage. Email submission scope required. Never automatically replay a partial send.]==],
+	moveMessage = [==[moveMessage({id:string,folder:string}) -> {ids,folderId}. Replaces message mailboxes with one destination. folder accepts ID or role. Positional moveMessage(id,folder) remains supported; id accepts a string or {id}.]==],
+	moveMessages = [==[moveMessages({ids={...},folder:string}) -> {ids,folderId}. ids accepts one ID or a list; IDs may be strings or {id}. id is also accepted instead of ids for a single message. folder accepts ID or role. Positional moveMessages(ids,folder) remains supported. Replaces mailboxes with one destination, in batches of 50. Partial completion is possible; never automatically replay.]==],
+	replyMessage = [==[replyMessage({id:string,text:string,all:boolean?,subject:string?,identityId:string?,from:string?,cc?,bcc?,replyTo?,attachments?}) -> {id,submissionId}. messageId is also accepted instead of id. Positional replyMessage(id,options) remains supported. Replies to Reply-To, otherwise From; preserves thread message IDs/references. all defaults false. Default sender is receiving identity (To then Cc), then primary identity. all=true adds original To/Cc excluding your identities and reply recipient; cc explicitly replaces that list. Subject derives a Re: prefix unless supplied. Attachments use private session paths as in sendMessage. Email submission scope required. Never automatically replay a partial send.]==],
 	sendMessage = [==[sendMessage({to={{email=...}},text=...,subject?,identityId?,from?,cc?,bcc?,replyTo?,attachments?}) -> {id,submissionId}. text and nonempty to required; subject defaults empty. Address arrays use {email,name?}. identityId takes precedence over from. Without either, selects identity matching account username or sole identity; ambiguous sender fails. attachments={{path,filename?,mimeType?}} uploads private session files, never inline base64; MIME defaults application/octet-stream, filename defaults path basename. Moves from Drafts to Sent. Email submission scope required. On timeout inspect Drafts and Sent before retrying: delivery may have succeeded.]==],
 	trashMessage = [==[trashMessage(id) -> {id}. Moves a single message to Trash; does not permanently destroy. ID accepts a string or {id}.]==],
 }
@@ -870,7 +985,7 @@ function functions.help(): string
 		if name ~= "help" then names[#names + 1] = name end
 	end
 	table.sort(names)
-	local sections = {"fastmail: configured connection help. Credentials stay on Houston. Use only the functions listed below. Provider scopes are enforced by real calls; help makes no network requests."}
+	local sections = {"fastmail: configured connection help. Operations are synchronous: they return completed results or raise errors; no wait call is needed. Credentials stay on Houston. Use only the functions listed below. Provider scopes are enforced by real calls; help makes no network requests."}
 	for _, name in names do
 		local text = operationHelp[name]
 		assert(text, "missing help for configured function " .. name)
@@ -879,4 +994,11 @@ function functions.help(): string
 	return table.concat(sections, "\n\n")
 end
 
-return functions
+-- These assignments check every public prototype without bypassing analysis.
+local readAPI: ReadAPI = functions
+local writeAPI: WriteAPI = writes
+if config.access == "read-write" then
+	for name, fn in (writeAPI :: {[string]: any}) do (readAPI :: {[string]: any})[name] = fn end
+end
+
+return readAPI

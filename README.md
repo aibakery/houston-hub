@@ -30,6 +30,9 @@ runner and invokes this validator. See the
 [authoring guide](docs/authoring.md) and [provider bundles](connectors/). Register a copied bundle or an edited local
 source through Hub; each registration owns its publisher settings independently.
 
+For implementation ideas, see the optional [Luau practices](docs/luau-practices.md).
+These are recommendations, not additional contribution requirements.
+
 ## Repository layout
 
 - [connectors/](connectors/): provider manifests, Lua implementations, icons and tests.

@@ -66,7 +66,7 @@ end, run=function(fastmail)
             result("Email/get", {list={original()}}), result("Identity/get", identities),
             result("Mailbox/get", {list=folders}), result("Mailbox/set", {created={folder={id="f1", name="Projects"}}}),
             result("Mailbox/get", {list=folders}), result("Email/set", json.decode([[{"updated":{"a":null,"b":null}}]])),
-            result("Mailbox/get", {list=folders}), result("Mailbox/get", {list=folders}), result("Email/set", json.decode([[{"updated":{"c":null}}]])),
+            result("Mailbox/get", {list=folders}), result("Email/set", json.decode([[{"updated":{"c":null}}]])),
             result("Mailbox/get", {list=folders}), result("Email/set", json.decode([[{"updated":{"a":null,"b":null}}]])),
             result("Email/set", {destroyed={"a"}}),
             result("Identity/get", identities), result("Mailbox/get", {list=folders}),
@@ -112,7 +112,7 @@ end, run=function(fastmail)
         assert(calls[5].args.create.send.identityId == "i-sup")
 
         mark = #requests
-        sent = fastmail.replyMessage("m2", {text="Again", from="me@example.com"})
+        sent = fastmail.replyMessage({id="m2", text="Again", from="me@example.com"})
         assert(sent.id == "d2")
         calls = jmapSince(mark)
         draft = calls[4].args.create.draft
@@ -150,7 +150,7 @@ end, run=function(fastmail)
         local archived = fastmail.archiveMessages("c")
         assert(archived.folderId == "ar" and archived.ids[1] == "c")
         calls = jmapSince(mark)
-        assert(#calls == 3 and calls[3].args.update.c.mailboxIds.ar)
+        assert(#calls == 2 and calls[2].args.update.c.mailboxIds.ar)
 
         mark = #requests
         local deleted = fastmail.deleteMessages({"a", "b"})

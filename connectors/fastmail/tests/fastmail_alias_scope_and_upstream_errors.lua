@@ -6,7 +6,7 @@ return {scenario={["auth_config"]={["token"]="fixture-private-password !@#"},["a
             assert(#responses > 0, "unexpected request: " .. tostring(req.url))
             local response = table.remove(responses, 1)
             if type(response) == "string" then return {status=200, body=response} end
-            if response.status then return {status=response.status, body=response.body or ""} end
+            if type(response) == "table" and response.status then return {status=response.status, body=response.body or ""} end
             return {status=200, body=json.encode(response)}
         end}
         local MAIL="urn:ietf:params:jmap:mail"
@@ -35,5 +35,21 @@ end, run=function(fastmail)
         ok, err = pcall(fastmail.archiveMessages, "m")
         assert(not ok and string.find(tostring(err), "no Archive mailbox", 1, true))
         assert(#responses == 0)
+
+        -- Provider protocol errors must stay structured, including malformed
+        -- error payloads and automatic follow-up method responses.
+        for _, malformed in {
+            true,
+            17,
+            {methodResponses={{"error", "not an object", "0"}}},
+            {methodResponses={{"Mailbox/get", {list={}}, "0"}, {"Email/set", false, "0"}}},
+        } do
+            responses={malformed}
+            ok, err = pcall(fastmail.listFolders)
+            assert(not ok)
+            text = tostring(err)
+            assert(string.find(text, '"layer":"upstream"', 1, true), "malformed JMAP responses need upstream context: " .. text)
+            assert(#responses == 0)
+        end
 
 end}
