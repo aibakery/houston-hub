@@ -1,3 +1,7 @@
+---
+description: Search public tweets, browse profiles, and follow conversations on X.
+---
+
 # X
 
 Search and browse public tweets, profiles, user timelines, and mentions through
