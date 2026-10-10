@@ -1,9 +1,10 @@
 1. Create a Redis user for Houston with only the commands agents need. For
-   read-only access, allow read commands and `COMMAND INFO`, which Houston uses
-   to confirm that a command is read-only:
+   read-only access, allow read commands, `COMMAND INFO`, which Houston uses to
+   confirm that a command is read-only, and `SELECT`, which opens a database
+   number other than 0:
 
    ```
-   ACL SETUSER houston on >choose-a-strong-password ~* +@read +command|info
+   ACL SETUSER houston on >choose-a-strong-password ~* +@read +command|info +select
    ```
 
    Redis servers without users can use the `default` username and the server
