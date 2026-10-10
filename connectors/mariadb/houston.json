@@ -1,0 +1,77 @@
+{
+  "schema_version": 1,
+  "name": "MariaDB",
+  "files": [
+    "connector.lua"
+  ],
+  "icon": "icon.svg",
+  "config": {
+    "access": {
+      "default": "read-only",
+      "label": "Access",
+      "options": [
+        {
+          "label": "Read-only",
+          "value": "read-only"
+        },
+        {
+          "label": "Read and write",
+          "value": "read-write"
+        }
+      ],
+      "order": 1,
+      "type": "string"
+    },
+    "host": {
+      "label": "Host",
+      "order": 2,
+      "required": true,
+      "type": "string"
+    },
+    "port": {
+      "default": 3306,
+      "label": "Port",
+      "maximum": 65535,
+      "minimum": 1,
+      "order": 3,
+      "type": "integer"
+    },
+    "database": {
+      "label": "Database",
+      "order": 4,
+      "required": true,
+      "type": "string"
+    },
+    "username": {
+      "label": "Username",
+      "order": 5,
+      "required": true,
+      "type": "string"
+    },
+    "password": {
+      "label": "Password",
+      "order": 6,
+      "required": true,
+      "type": "secret"
+    }
+  },
+  "proxy": [
+    {
+      "match": {
+        "protocol": "mysql"
+      },
+      "action": {
+        "connection": {
+          "host": "{{config.host}}",
+          "port": "{{config.port}}",
+          "database": "{{config.database}}",
+          "user": "{{config.username}}",
+          "password": "{{config.password}}",
+          "tls": {
+            "mode": "verify-full"
+          }
+        }
+      }
+    }
+  ]
+}
