@@ -8,11 +8,11 @@ A bundle contains `houston.json`, declared Luau entrypoints, private helpers and
 behavioral fixtures. Houston executes its exported operations on the server with
 one privately bound native transport. Credentials never enter connector code.
 
-Public CI runs the self-contained manifest contract tests, with no private
+Public CI runs the manifest and image contract tests, with no private
 repository access or Houston runtime required:
 
 ```sh
-go test ./manifest
+go test ./manifest ./assets
 ```
 
 The full suite runs in Houston's Dagger checks, where the runtime is built from

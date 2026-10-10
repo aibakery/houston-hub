@@ -668,6 +668,15 @@ account to that registered connector. Callable signatures and examples belong in
 Lua `help()`. Keep publisher instructions in this root guide, even when they are
 provider-specific. Use the provider's official icon, and record attribution here.
 
+The shared `assets` package validates icons in both the bundle checker and Houston.
+SVGs may contain embedded stylesheets (including dark-mode media queries), inline
+styles, and local fragment references. Scripts, event handlers, external resources
+and stylesheet imports remain forbidden. CSS escapes and resource-producing CSS
+functions are conservatively rejected. Serve accepted images with the package's
+content security policy so inline CSS works while directly opened SVGs stay
+sandboxed. This support requires a Houston deployment using the shared validator;
+older deployments still reject style elements.
+
 A publisher adds the GitHub source to the Hub, producing a `HubPublicationID`
 (`hub_publication_id` in APIs and the database). An admin adds instances of that
 publication to an organization or personal account, producing separate

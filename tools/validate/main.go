@@ -5,10 +5,10 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/aibakery/houston-hub/assets"
 	"github.com/aibakery/houston-hub/manifest"
 	"github.com/aibakery/houston-hub/tools/conformance"
 	"github.com/aibakery/houston-hub/tools/typecheck"
-	"image/png"
 	"os"
 	"path/filepath"
 	"strings"
@@ -111,13 +111,8 @@ func validateBundle(dir string) error {
 		if err != nil {
 			return err
 		}
-		if m.Icon == "icon.png" {
-			image, err := png.DecodeConfig(bytes.NewReader(raw))
-			if err != nil || image.Width != 1024 || image.Height != 1024 {
-				return fmt.Errorf("icon must be a 1024x1024 PNG")
-			}
-		} else if !bytes.Contains(bytes.ToLower(raw), []byte("<svg")) {
-			return fmt.Errorf("icon must be an SVG document")
+		if err := assets.ValidateIcon(m.Icon, raw); err != nil {
+			return err
 		}
 	}
 	return nil

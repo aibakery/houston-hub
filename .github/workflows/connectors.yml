@@ -1,4 +1,4 @@
-name: Manifest tests
+name: Manifest and asset tests
 on:
   pull_request:
   push:
@@ -15,5 +15,5 @@ jobs:
         with:
           go-version-file: go.mod
           cache: false
-      - name: Check the manifest contract
-        run: go test ./manifest
+      - name: Check the manifest and image contracts
+        run: go test ./manifest ./assets
