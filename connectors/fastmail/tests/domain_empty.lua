@@ -5,9 +5,9 @@ return {
         http = {request = function(_request)
             requests += 1
             if requests == 1 then
-                return {status = 200, body = json.encode({username = "mail@example.test", primaryAccounts = {["urn:ietf:params:jmap:mail"] = "account"}, accounts = {account = {name = "Account"}}, apiUrl = "https://api.fastmail.com/jmap/api/"})}
+                return fixture.operation({statusCode=200, headers={}, body=fixture.reader(json.encode({username = "mail@example.test", primaryAccounts = {["urn:ietf:params:jmap:mail"] = "account"}, accounts = {account = {name = "Account"}}, apiUrl = "https://api.fastmail.com/jmap/api/"}))})
             end
-            return {status = 200, body = '{"methodResponses":[["Mailbox/get",{"list":[]},"0"]]}'}
+            return fixture.operation({statusCode=200, headers={}, body=fixture.reader('{"methodResponses":[["Mailbox/get",{"list":[]},"0"]]}')})
         end}
     end,
     run = function(exports)

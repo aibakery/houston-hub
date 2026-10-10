@@ -3,9 +3,9 @@ return {scenario={["auth_config"]={["token"]="fixture-private-password !@#"},["a
     http={request=function(req)
         calls+=1
         if calls==1 then
-            return {status=200,body=json.encode({username="mail@example.com",primaryAccounts={["urn:ietf:params:jmap:mail"]="account"},accounts={account={name="Account"}},apiUrl="https://api.fastmail.com/jmap/api/"})}
+            return fixture.operation({statusCode=200, headers={}, body=fixture.reader(json.encode({username="mail@example.com",primaryAccounts={["urn:ietf:params:jmap:mail"]="account"},accounts={account={name="Account"}},apiUrl="https://api.fastmail.com/jmap/api/"}))})
         end
-        return {status=200,body=json.encode({methodResponses={{"Mailbox/get",{list={{id="z",name="Archive",role="archive"},{id="a",name="Inbox",role="inbox"}}},"0"}}})}
+        return fixture.operation({statusCode=200, headers={}, body=fixture.reader(json.encode({methodResponses={{"Mailbox/get",{list={{id="z",name="Archive",role="archive"},{id="a",name="Inbox",role="inbox"}}},"0"}}}))})
     end}
 end,run=function(c)
     local folders=c.listMailFolders()

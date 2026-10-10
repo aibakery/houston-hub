@@ -46,10 +46,11 @@ func call(ctx context.Context, binary, mode string, input any, output any) error
 	command := exec.CommandContext(ctx, binary, mode)
 	command.Env = []string{"LANG=C"}
 	command.Stdin = bytes.NewReader(append(raw, '\n'))
-	var out boundedOutput
+	var out, diagnostic boundedOutput
 	command.Stdout = &out
-	if command.Run() != nil {
-		return fmt.Errorf("fixture execution failed")
+	command.Stderr = &diagnostic
+	if err := command.Run(); err != nil {
+		return fmt.Errorf("fixture execution failed: %w: %s", err, strings.TrimSpace(diagnostic.String()))
 	}
 	decoder := json.NewDecoder(&out)
 	decoder.DisallowUnknownFields()

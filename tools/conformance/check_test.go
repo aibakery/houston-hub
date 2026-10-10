@@ -54,6 +54,50 @@ func TestPublicationRequiresBehaviorFixtures(t *testing.T) {
 	}
 }
 
+func TestPublicationFixturesUseNativeIOOperations(t *testing.T) {
+	m, err := manifest.Parse([]byte(`{"files":["main.lua"],"name":"I/O fixture","proxy":[{"action":{},"match":{"host":["example.com"],"protocol":"http"}}],"schema_version":1}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	modules := map[string]string{"main.lua": `return {
+        help=function() return "copy() downloads binary fixture bytes to a session file" end,
+        copy=function()
+            local request=http.request({method="GET",url="https://example.com/data",headers={accept={"application/octet-stream"}}})
+            local response=await(request)
+            assert(response.statusCode==200 and await(request).body==response.body)
+            local output=fs.open("binary.dat","w")
+            assert(await(output)==output)
+            output:write(response.body)
+            local closing=output:close()
+            assert(output:close()==closing)
+            await(closing)
+            local input=fs.open("binary.dat","r")
+            local content=await(input:readAll())
+            await(input:close())
+            return #content, string.byte(content,1), string.byte(content,2)
+        end,
+    }`}
+	fixtures := map[string]string{"io.lua": `return {
+        scenario={},
+        configure=function()
+            fs=fixture.files()
+            http={request=function(options)
+                assert(options.headers.accept[1]=="application/octet-stream")
+                return fixture.operation({statusCode=200,headers={},body=fixture.reader(string.char(0,255))})
+            end}
+        end,
+        run=function(c)
+            local length,first,second=c.copy()
+            assert(length==2 and first==0 and second==255)
+            local ok,err=pcall(function() await({}) end)
+            assert(not ok and err.code=="invalid_argument")
+        end,
+    }`}
+	if err := Check(context.Background(), fixtureHost(t), *m, modules, fixtures); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestPublicationProjectsKnownAuthRestrictions(t *testing.T) {
 	m, err := manifest.Parse([]byte(`{"files":["main.lua"],"name":"OAuth fixture","publisher":{"client_id":{"type":"string","label":"Client","default":"public-id"}},"auth":{"oauth":{"type":"oauth2","label":"OAuth","authorize_url":"https://example.com/auth","token_url":"https://example.com/token","client_id":"{{publisher.client_id}}","client_auth":"none","pkce":"S256","scopes":[{"values":["read","write"]}]}},"proxy":[{"action":{},"match":{"host":["example.com"],"protocol":"http"}}],"schema_version":1}`))
 	if err != nil {

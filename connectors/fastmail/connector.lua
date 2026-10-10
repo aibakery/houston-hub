@@ -88,30 +88,33 @@ local function snippet(body: any)
 	return (string.gsub(string.sub(body, 1, ERROR_SNIPPET_BYTES), "%s+", " "))
 end
 
-local function upstream(operation: string, response: any)
-	local status = response and response.status
+local function upstream(operation: string, response: HttpResponse)
+	local status = response.statusCode
+	local chunk = await(response.body:read(ERROR_SNIPPET_BYTES))
+	response.body:close()
 	houston.fail({
 		operation = operation, layer = "upstream", upstream_status = status,
 		retryable = status == 429 or status == 502 or status == 503 or status == 504,
-		message = "upstream HTTP " .. tostring(status) .. " " .. snippet(response and response.body),
+		message = "upstream HTTP " .. tostring(status) .. " " .. snippet(if chunk.done then "" else chunk.data),
 	})
 end
 
 local function request(options: RequestOptions): any
-	local response = http.request({
+	local response = await(http.request({
 		method = options.method,
 		url = options.url,
 		body = options.body,
-		headers = { ["Content-Type"] = "application/json" },
-	})
-	if not response or type(response.status) ~= "number" or response.status < 200 or response.status >= 300 then
+		headers = { ["Content-Type"] = { "application/json" } },
+	}))
+	if response.statusCode < 200 or response.statusCode >= 300 then
 		upstream(options.operation, response)
 	end
-	local ok, decoded = pcall(json.decode, response.body)
+	local body = await(response.body:readAll())
+	local ok, decoded = pcall(json.decode, body)
 	if not ok then
 		houston.fail({
-			operation = options.operation, layer = "upstream", upstream_status = response.status, retryable = false,
-			message = "upstream returned invalid JSON: " .. snippet(response.body),
+			operation = options.operation, layer = "upstream", upstream_status = response.statusCode, retryable = false,
+			message = "upstream returned invalid JSON: " .. snippet(body),
 		})
 	end
 	return decoded
@@ -136,10 +139,10 @@ local function session(): Session
 	return discovered
 end
 
-local function call(name: string, args: {[string]: any}?, operation: string?): any
-	operation = operation or name
+local function call(name: string, arguments: {[string]: any}?, operationName: string?): any
+	local operation = operationName or name
 	local s = session()
-	args = table.clone(args or {})
+	local args = table.clone(arguments or {})
 	if args.accountId == nil then args.accountId = s.accountId end
 	local using = { CORE, MAIL }
 	local cap = REQUIRED[name]
@@ -150,8 +153,9 @@ local function call(name: string, args: {[string]: any}?, operation: string?): a
 		end
 		using[#using + 1] = cap
 	end
+	local methodCall: {any} = { name, args, "0" }
 	local response = request({method = "POST", url = s.apiUrl, operation = operation, body = json.encode({
-		using = using, methodCalls = { { name, args, "0" } },
+		using = using, methodCalls = { methodCall },
 	})})
 	local result = type(response) == "table" and type(response.methodResponses) == "table" and (response.methodResponses :: {any})[1]
 	if type(result) ~= "table" or result[3] ~= "0" or type(result[2]) ~= "table" then fail(operation, "Invalid JMAP response") end
@@ -270,7 +274,8 @@ local function query(options: SearchOptions?, threads: boolean): ({string}, stri
 		end
 		if value == nil then return end
 		if type(value) ~= "string" or value == "" then error("fastmail.alias must be an email address") end
-		filters[#filters + 1] = { operator = "OR", conditions = { { to = value }, { cc = value }, { bcc = value }, { from = value } } }
+		local conditions: {{[string]: string}} = { { to = value }, { cc = value }, { bcc = value }, { from = value } }
+		filters[#filters + 1] = { operator = "OR", conditions = conditions }
 	end
 	add_alias(opts.alias)
 	add_alias(opts.aliases)
@@ -472,9 +477,15 @@ function functions.getAttachments(input: Id | DownloadsOptions, requested: {Down
 	end
 	local out = {}
 	for _, job in jobs do
-		local res = http.request({ method = "GET", url = job.url, dest = job.path })
-		if not res or type(res.status) ~= "number" or res.status < 200 or res.status >= 300 then fail("getAttachment", "Download failed") end
-		out[#out + 1] = { path = job.path, url = fs.signedGetUrl(job.path), size = job.size }
+		local res = await(http.request({ method = "GET", url = job.url }))
+		if res.statusCode < 200 or res.statusCode >= 300 then
+			res.body:close()
+			fail("getAttachment", "Download failed")
+		end
+		local output = fs.open(job.path, "w")
+		output:write(res.body)
+		await(output:close())
+		out[#out + 1] = { path = job.path, url = await(fs.signedGetUrl(job.path)), size = job.size }
 	end
 	return out
 end
@@ -600,17 +611,18 @@ local function upload_blob(options: UploadOptions): any
 		return fail(operation, "Fastmail session has no upload URL")
 	end
 	local url = string.gsub(template, "{accountId}", encode(s.accountId))
-	local stat = fs.stat(path)
+	local stat = await(fs.stat(path))
 	if not stat.isFile then error("fastmail: attachment path must be a file") end
-	local response = http.request({
-		method = "POST", url = url, src = path, headers = { ["Content-Type"] = mime },
-	})
-	if not response or type(response.status) ~= "number" or response.status < 200 or response.status >= 300 then
+	local response = await(http.request({
+		method = "POST", url = url, body = fs.open(path, "r"), headers = { ["Content-Type"] = { mime } },
+	}))
+	if response.statusCode < 200 or response.statusCode >= 300 then
 		upstream(operation, response)
 	end
-	local ok, decoded = pcall(json.decode, response.body)
+	local body = await(response.body:readAll())
+	local ok, decoded = pcall(json.decode, body)
 	if not ok or type(decoded) ~= "table" or type(decoded.blobId) ~= "string" or decoded.blobId == "" then
-		fail(operation, "Fastmail upload did not return a blobId: " .. snippet(response and response.body))
+		fail(operation, "Fastmail upload did not return a blobId: " .. snippet(body))
 	end
 	return decoded
 end

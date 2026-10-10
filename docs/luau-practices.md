@@ -79,13 +79,16 @@ retains all its results. Expose pagination where appropriate, and let callers
 choose smaller pages and bodies. A provider's per-body limit does not bound the
 entire response.
 
-Use `http.request` with `src` or `dest` for attachment transfers. Return session
-paths and signed URLs, avoiding an extra in-memory representation of file bytes.
+Use `body = fs.open(path, "r")` for uploads and `output:write(response.body)`
+followed by `await(output:close())` for downloads. Return session paths and
+awaited signed URLs, avoiding an extra in-memory representation of file bytes.
 Do not read a file into a Lua string just to upload it, or add a second base64/MIME
 implementation when the provider already accepts structured messages.
 
-Connector `http.request` completes before returning; it does not produce a handle
-for `http.wait`. Sequential batches keep in-flight work predictable. Account for
+`await(http.request(...))` returns final headers and a body Reader. Read JSON
+explicitly with `await(response.body:readAll())`; inspect `statusCode` and close
+unneeded bodies. Request and response headers contain arrays of strings.
+Sequential batches keep in-flight work predictable. Account for
 the invocation's native-call, memory, frame-size and execution budgets, including
 file operations; see [execution and waiting](authoring.md#execution-and-waiting).
 An interrupted operation cannot roll back a write already accepted upstream.

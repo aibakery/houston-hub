@@ -5,7 +5,7 @@ return {scenario={["auth_config"]={["token"]="fixture-private-password !@#"},["a
             requests[#requests + 1] = req
             assert(#responses > 0, "unexpected request: " .. tostring(req.url))
             local response = table.remove(responses, 1)
-            return {status=200, body=json.encode(response)}
+            return fixture.operation({statusCode=200, headers={}, body=fixture.reader(json.encode(response))})
         end}
         local MAIL="urn:ietf:params:jmap:mail"
         local SUB="urn:ietf:params:jmap:submission"

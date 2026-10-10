@@ -7,7 +7,7 @@ return {
             requests[#requests + 1] = request
             local response = table.remove(responses, 1)
             assert(response, "unexpected request: " .. request.url)
-            return {status = 200, body = json.encode(response)}
+            return fixture.operation({statusCode=200, headers={}, body=fixture.reader(json.encode(response))})
         end}
         function result(name, data) return {methodResponses = {{name, data, "0"}}} end
         function args(index) return json.decode(requests[index].body).methodCalls[1][2] end

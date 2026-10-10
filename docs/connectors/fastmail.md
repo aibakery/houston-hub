@@ -6,10 +6,12 @@ uses local Luau annotations to check the implementation. Callers pass ordinary
 tables with named keys; no type imports are needed.
 Write operations are available only when the connection allows changes.
 
-Each operation completes before returning its result. The connector's native
-`http.request` is synchronous; callers do not receive a handle to pass to
-`http.wait`. Message batches and attachment transfers run sequentially, keeping
-in-flight requests bounded and returning results in the requested order.
+Each connector operation completes before returning plain data to its caller.
+Internally, `http.request` starts an operation and `await` obtains final headers
+and a body Reader. JSON is explicitly read within the runtime's bounded
+allocation limit; attachments stream between Readers and session files.
+Message batches and attachment transfers run sequentially, keeping in-flight
+requests bounded and returning results in the requested order.
 
 Prefer named fields when an operation needs more than a single ID. For example,
 with a configured connection named `mail`:

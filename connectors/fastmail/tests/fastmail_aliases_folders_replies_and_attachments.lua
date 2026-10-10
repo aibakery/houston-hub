@@ -3,16 +3,20 @@ return {scenario={["auth_config"]={["token"]="fixture-private-password !@#"},["a
         requests, responses = {}, {}
         http = {request = function(req)
             requests[#requests + 1] = req
+            if req.body ~= nil and type(req.body) ~= "string" then
+                assert(await(req.body:readAll()) == string.char(0,255) .. "payload!")
+                await(req.body:close())
+            end
             assert(#responses > 0, "unexpected request: " .. tostring(req.url))
             local response = table.remove(responses, 1)
-            if type(response) == "string" then return {status=200, body=response} end
-            if response.status then return {status=response.status, body=response.body or ""} end
-            return {status=200, body=json.encode(response)}
+            if type(response) == "string" then return fixture.operation({statusCode=200, headers={}, body=fixture.reader(response)}) end
+            if response.statusCode then return fixture.operation({statusCode=response.statusCode, headers={}, body=fixture.reader(response.body or "")}) end
+            return fixture.operation({statusCode=200, headers={}, body=fixture.reader(json.encode(response))})
         end}
-        fs = {
-            signedGetUrl=function(path) return "https://houston.test/" .. path end,
-            stat=function() return {size=10, isFile=true} end,
-        }
+        fs = fixture.files()
+        local input = fs.open("files/brief.pdf", "w")
+        input:write(string.char(0,255) .. "payload!")
+        await(input:close())
         local MAIL="urn:ietf:params:jmap:mail"
         local SUB="urn:ietf:params:jmap:submission"
         local MASKED="https://www.fastmail.com/dev/maskedemail"
@@ -44,7 +48,7 @@ return {scenario={["auth_config"]={["token"]="fixture-private-password !@#"},["a
             local out = {}
             for i = start + 1, #requests do
                 local req = requests[i]
-                if req.src then
+                if req.body ~= nil and type(req.body) ~= "string" then
                     out[#out + 1] = {upload=req}
                 elseif type(req.body) == "string" then
                     local decoded = json.decode(req.body)
@@ -171,8 +175,8 @@ end, run=function(fastmail)
         calls = jmapSince(mark)
         assert(calls[1].name == "Identity/get" and calls[2].name == "Mailbox/get" and calls[3].upload)
         local upload = calls[3].upload
-        assert(upload.method == "POST" and upload.url == "https://phl.api.fastmail.com/jmap/upload/u1/" and upload.src == "files/brief.pdf")
-        assert(upload.body == nil and upload.headers["Content-Type"] == "application/pdf")
+        assert(upload.method == "POST" and upload.url == "https://phl.api.fastmail.com/jmap/upload/u1/" )
+        assert(upload.body ~= nil and upload.headers["Content-Type"][1] == "application/pdf")
         draft = calls[4].args.create.draft
         assert(draft.from[1].email == "support@example.com" and draft.attachments[1].blobId == "blob1")
         assert(draft.attachments[1].name == "brief.pdf" and draft.attachments[1].disposition == "attachment")

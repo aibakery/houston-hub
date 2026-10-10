@@ -19,9 +19,42 @@ import (
 
 const hosts = `--!strict
 local auth: {method:string,scopes:{string}?} = nil :: any
-local http: {request: ({url:string,method:string?,headers:{[string]:string}?,body:string?,src:string?,dest:string?}) -> {status:number,headers:{[string]:string},body:string,bytes:number?}} = nil :: any
+-- _result is a type-only witness for generic result inference, not a Lua field.
+type Operation<T> = { cancel: (Operation<T>) -> (), _result: T }
+type ReadResult = {done: false, data: string} | {done: true}
+type Readable = {
+    read: (Readable, number) -> Operation<ReadResult>,
+    readAll: (Readable, number?) -> Operation<string>,
+}
+type StreamReader = Readable & {close: (Readable) -> ()}
+type Reader = StreamReader | File
+type ByteSource = string | Reader
+type Writer = {write: (Writer, ByteSource) -> Operation<number>}
+type File = Operation<File> & Readable & Writer & {
+    seek: (File, number, "start" | "current" | "end") -> Operation<number>,
+    close: (File) -> Operation<nil>,
+}
+type HttpHeaders = {[string]: {string}}
+type HttpRequest = {url:string,method:string,headers:HttpHeaders?,body:ByteSource?,timeoutMs:number?}
+type HttpResponse = {statusCode:number,headers:HttpHeaders,body:StreamReader}
+type FileStat = {size:number,isFile:boolean}
+type GrepResult = {matches:{{path:string,line:number,text:string}},truncated:boolean}
+type PackedResults<T> = {[number]: T, n: number}
+local await: <T>(Operation<T>, number?) -> T = nil :: any
+-- Groups may mix result types; every input must still be an Operation.
+local awaitAll: ({Operation<any>}, number?) -> PackedResults<any> = nil :: any
+local http: {request: (HttpRequest) -> Operation<HttpResponse>} = nil :: any
+local compression: {gzip:(Reader)->StreamReader,gunzip:(Reader)->StreamReader} = nil :: any
 local db: {query: ({query:string,params:{any}?,max_rows:number?,read_only:boolean?}) -> any} = nil :: any
-local fs: {read:(string)->string,write:(string,string)->(),stat:(string)->{size:number,isFile:boolean},signedGetUrl:(string,number?)->string} = nil :: any
+local fs: {
+    open:(string,"r" | "w")->File,
+    stat:(string)->Operation<FileStat>,
+    exists:(string)->Operation<boolean>,
+    list:(string?)->Operation<{string}>,
+    grep:(string,string?)->Operation<GrepResult>,
+    signedGetUrl:(string,number?)->Operation<string>,
+    signedPutUrl:(string,number?)->Operation<string>,
+} = nil :: any
 local json: {encode:(any)->string,decode:(string)->any,jq:(any,string)->any} = nil :: any
 local houston: {fail:(any)->never} = nil :: any
 local require: (string)->any = nil :: any
@@ -61,7 +94,10 @@ func Check(ctx context.Context, binary string, m manifest.Manifest, modules map[
 		if err := os.WriteFile(path, []byte(generated.String()), 0600); err != nil {
 			return err
 		}
-		cmd := exec.CommandContext(ctx, binary, path)
+		// The pinned 0.728 new solver accepts string values inside optional
+		// HttpHeaders arguments. The old solver checks that boundary correctly.
+		// TestRuntimeIOContracts guards this until the analyzer can be upgraded.
+		cmd := exec.CommandContext(ctx, binary, "--solver=old", path)
 		cmd.Env = []string{"PATH=" + os.Getenv("PATH"), "LANG=C", "HOME=" + directory}
 		output := &boundedOutput{}
 		cmd.Stdout = output

@@ -3,13 +3,12 @@ return {scenario={["auth_config"]={["token"]="fixture-private-password !@#"},["a
         requests, responses = {}, {}
         http = {request = function(req)
             requests[#requests + 1] = req
-            if req.dest and #responses == 0 then return {status=200, body="", bytes=123} end
+            if string.find(req.url, "/jmap/download/", 1, true) then return fixture.operation({statusCode=200, headers={}, body=fixture.reader(string.rep("x", 123))}) end
             assert(#responses > 0, "unexpected request: " .. req.url)
             local response = table.remove(responses, 1)
-            if req.dest then return {status=200,body="",bytes=response.bytes} end
-            return {status=200,body=if type(response)=="string" then response else json.encode(response)}
+            return fixture.operation({statusCode=200, headers={}, body=fixture.reader(if type(response)=="string" then response else json.encode(response))})
         end}
-        fs = {signedGetUrl=function(path) return "https://houston.test/"..path end}
+        fs = fixture.files()
         local MAIL="urn:ietf:params:jmap:mail"
         local SUB="urn:ietf:params:jmap:submission"
         function session()

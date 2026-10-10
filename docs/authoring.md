@@ -69,9 +69,12 @@ Duplicate export names fail publication. Initialization cannot make network call
 ```lua
 return {
     listItems = function()
-        local response = http.request({method = "GET", url = "https://api.example.com/items"})
-        assert(response.status == 200, "Example service request failed")
-        return json.decode(response.body)
+        local response = await(http.request({method = "GET", url = "https://api.example.com/items"}))
+        if response.statusCode ~= 200 then
+            response.body:close()
+            error("Example service request failed")
+        end
+        return json.decode(await(response.body:readAll()))
     end,
 }
 ```
@@ -84,11 +87,11 @@ request completes within the invocation, including uploads and downloads.
 ## Execution and waiting
 
 Each exported operation runs in a fresh connector VM and returns completed plain
-data. `http.request` blocks until the transport finishes; there is no explicit
-wait step or async handle in the connector environment. The caller-script APIs
-`http.sendAsync` and `http.wait` are separate and are not available inside a
-connector. A local session cache therefore lasts only for that operation, and
-no background work continues through another connector invocation.
+data. Connectors and caller scripts share `http.request`, `fs`, `compression`,
+`await`, and `awaitAll`. A request starts immediately and its operation settles
+when final headers and a body Reader are available. `await` retrieves the result;
+it does not start or rerun work. A local session cache lasts only for that
+invocation. No background work continues through another invocation.
 
 Use sequential bounded batches as the baseline. The current runner limits each
 invocation to 256 native calls, including file operations, 64 MiB of Lua memory,
@@ -96,15 +99,43 @@ and 8 MiB per JSON transport frame. Server deadlines and transport limits also
 apply. Paging and smaller requested fields/body values avoid exhausting these
 budgets; batching alone does not bound a result that accumulates every page.
 These are execution limits, not limits on total process memory or attachment
-file size. Transfer files with `http.request({..., src = path})` or
-`http.request({..., dest = path})` so their bytes do not become Lua strings.
+file size. Upload with `body = fs.open(path, "r")`; download by writing the
+response Reader to `fs.open(path, "w")` and awaiting the file's final close.
+Reader pipelines use bounded native buffers. `readAll(maxBytes?)` explicitly
+allocates a string, defaults to 8 MiB, and fails and closes its source on overflow.
 
 Neither an error nor a timeout rolls back changes the provider has already
 accepted. Do not automatically replay partial batches or ambiguous writes;
-document how callers can inspect the outcome. Introducing connector concurrency
-would need a concrete workload and a bounded design covering authorization,
-cancellation, result ordering, and partial failure. No connector async or batch
-transport primitive is currently provided.
+document how callers can inspect the outcome. Use `awaitAll` for bounded groups
+of independent operations. Results are packed in input order with an `n` field,
+including nil results; iterate from 1 to `results.n`. An ordinary rejection does
+not cancel siblings. Both await helpers accept an optional timeout in milliseconds;
+expiry cancels unfinished work before raising a structured `timeout` error.
+Cancellation is not rollback. Completed results remain unchanged.
+
+HTTP `timeoutMs` ends when final headers are available. Body reads can have their
+own timed awaits. Responses use `statusCode` and a canonical header map whose
+values are arrays of strings, including single values. Response names are
+lowercase. Non-2xx statuses are ordinary responses. Consume or close every body.
+The runtime supports gzip `Content-Encoding`, including nested gzip layers,
+and advertises only gzip. Unsupported or malformed coding chains fail explicitly.
+Decoding is lazy; received headers still describe the encoded response.
+File media types and filenames never trigger decoding.
+
+Files open asynchronously: `local fd = fs.open(path, "w")` returns a File that
+accepts ordered work before opening finishes, and `await(fd) == fd`. Queue writes
+and seek operations, then `await(fd:close())` to finish work and release the file.
+Repeated close returns the same operation. Wrong-mode, closed-handle, argument,
+and admission errors raise at the call; later I/O errors raise at await or final
+close. Catch the completion boundary, not only the scheduling call. Files remain
+open at EOF and support `seek(offset, "start" | "current" | "end")`.
+
+An unfinished file operation's cancellation stops its queue. Close still releases
+the handle and reports its first failure; writes may have partially changed the
+destination. Discarding a method operation does not discard accepted queue work.
+Keep the File alive until closing or transferring it to a consumer. GC cleanup
+is abortive; explicit close is graceful. Invocation exit releases all resources
+and rejects unobserved asynchronous failures or unfinished accepted work.
 
 ## Settings and authentication
 
@@ -242,9 +273,12 @@ wins. Credentials and targets cannot be overridden by Luau query arguments.
 Database URLs are not accepted. Publisher credentials may be sent only to literal
 or publisher-owned database targets.
 
-`http.request({url, method, headers, body, src?, dest?})` returns a response with
-`status`, `headers`, and `body`; file transfers use invocation-scoped session files.
-`fs.read`, `fs.write`, `fs.stat`, and `fs.signedGetUrl` operate within that session.
+`http.request({url, method, headers?, body?, timeoutMs?})` returns an operation
+whose result has `statusCode`, `headers`, and a body Reader. All headers use
+`{[string]: {string}}`; plain strings are invalid. `body` accepts bytes or a Reader.
+`fs.open`, `stat`, `exists`, `list`, `grep`, `signedGetUrl`, and `signedPutUrl`
+operate on invocation-scoped session files and return operations. `list` returns
+all sorted child names or a limit error; `grep` returns `{matches, truncated}`.
 `db.query({query, params?, max_rows?, read_only?})` uses the selected database.
 Postgres parameters use `$1`; MySQL uses `?`; ClickHouse follows its native driver
 parameter syntax. These are protocol primitives, not a portable SQL interface.
@@ -328,6 +362,11 @@ metadata. Initialization is also checked without fixture transport mocks.
 `configure` supplies synthetic
 native responses before the real bundle initializes; it is a test-only environment.
 Test actual helpers and exports, not replacement helper implementations.
+`fixture.operation(value)` and `fixture.reader(bytes)` construct real native
+completed operations and Readers for synthetic provider responses;
+`fixture.files()` provides isolated file storage with the production File API.
+These helpers exist only in publication fixtures. Keep `await` and the stream
+methods native so fixtures exercise the same completion and ownership boundaries.
 
 ```lua
 return {
@@ -335,7 +374,8 @@ return {
     configure = function()
         http = {request = function(req)
             assert(req.url == "https://api.example.com/items")
-            return {status = 200, body = json.encode({items = {{id = "one"}}})}
+            return fixture.operation({statusCode = 200, headers = {},
+                body = fixture.reader(json.encode({items = {{id = "one"}}}))})
         end}
     end,
     run = function(exports)

@@ -5,9 +5,9 @@ return {scenario={["auth_config"]={["token"]="fixture-private-password !@#"},["a
             requests[#requests + 1] = req
             assert(#responses > 0, "unexpected request: " .. tostring(req.url))
             local response = table.remove(responses, 1)
-            if type(response) == "string" then return {status=200, body=response} end
-            if type(response) == "table" and response.status then return {status=response.status, body=response.body or ""} end
-            return {status=200, body=json.encode(response)}
+            if type(response) == "string" then return fixture.operation({statusCode=200, headers={}, body=fixture.reader(response)}) end
+            if type(response) == "table" and response.statusCode then return fixture.operation({statusCode=response.statusCode, headers={}, body=fixture.reader(response.body or "")}) end
+            return fixture.operation({statusCode=200, headers={}, body=fixture.reader(json.encode(response))})
         end}
         local MAIL="urn:ietf:params:jmap:mail"
         function session()
@@ -17,7 +17,7 @@ return {scenario={["auth_config"]={["token"]="fixture-private-password !@#"},["a
         function result(name, args) return {methodResponses={{name, args, "0"}}} end
 
 end, run=function(fastmail)
-        responses={session(), {status=401, body="No Authorization header"}, {status=200, body="not-json"},
+        responses={session(), {statusCode=401, body="No Authorization header"}, {statusCode=200, body="not-json"},
             result("Mailbox/get", {list={{id="in", role="inbox", name="Inbox"}, {id="tr", role="trash", name="Trash"}}})}
         local ok, err = pcall(fastmail.listAliases)
         assert(not ok)

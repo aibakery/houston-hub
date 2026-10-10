@@ -7,9 +7,9 @@ return {
             requests[#requests + 1] = request
             local response = table.remove(responses, 1)
             assert(response, "unexpected request: " .. request.url)
-            return {status = 200, body = json.encode(response)}
+            return fixture.operation({statusCode=200, headers={}, body=fixture.reader(if type(response)=="string" then response else json.encode(response))})
         end}
-        fs = {signedGetUrl = function(path) return "https://houston.test/" .. path end}
+        fs = fixture.files()
         function result(name, data) return {methodResponses = {{name, data, "0"}}} end
         function args(index) return json.decode(requests[index].body).methodCalls[1][2] end
         responses[1] = {
@@ -47,7 +47,7 @@ return {
         assert(args(6).maxBodyValueBytes == 12 and args(7).maxBodyValueBytes == 12)
 
         local attachment = {blobId = "blob", name = "a +.txt", type = "text/plain", size = 3}
-        responses = {result("Email/get", {list = {{id = "m1", attachments = {attachment}}}}), {}}
+        responses = {result("Email/get", {list = {{id = "m1", attachments = {attachment}}}}), string.char(0,255,120)}
         local files = fastmail.getAttachments({messageId = "m1", items = {{id = "blob", path = "mail/a.txt"}}})
         assert(#files == 1 and files[1].path == "mail/a.txt" and files[1].size == 3)
         assert(files[1].url == "https://houston.test/mail/a.txt")
@@ -56,7 +56,9 @@ return {
         local properties = {}
         for _, name in metadata.properties do properties[name] = true end
         assert(properties.attachments and not properties.bodyValues and not properties.textBody and not properties.htmlBody)
-        assert(requests[9].dest == "mail/a.txt")
+        local downloaded = fs.open("mail/a.txt", "r")
+        assert(await(downloaded:readAll()) == string.char(0,255,120))
+        await(downloaded:close())
         assert(requests[9].url == "https://www.fastmailusercontent.com/jmap/download/u1/blob/a%20%2B.txt?type=text%2Fplain")
 
         local before = #requests
