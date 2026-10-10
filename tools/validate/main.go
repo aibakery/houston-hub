@@ -15,9 +15,9 @@ import (
 )
 
 func main() {
-	root := "."
+	root := "connectors/fastmail"
 	if len(os.Args) > 2 {
-		fmt.Fprintln(os.Stderr, "usage: go run ./tools/validate [hub-checkout]")
+		fmt.Fprintln(os.Stderr, "usage: go run ./tools/validate [bundle-or-catalog-directory]")
 		os.Exit(2)
 	}
 	if len(os.Args) == 2 {

@@ -344,8 +344,13 @@ as the public description, not as agent runtime documentation. Inline `descripti
 
 ```sh
 go test ./...
-go run ./tools/validate
+go run ./tools/validate connectors/fastmail
 ```
+
+Replace `connectors/fastmail` with the bundle you are authoring. The no-argument
+validator currently selects Fastmail; other providers will enter routine runtime
+validation as they are migrated. An explicit catalog directory validates all its
+bundles.
 
 Set `HOUSTON_CLI` to a newly built Houston runner and put the pinned
 `luau-analyze` on `PATH`. A fixture returns a table with `scenario`, optional

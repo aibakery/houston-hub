@@ -24,7 +24,9 @@ go run ./tools/validate
 ```
 
 Set `HOUSTON_CLI` to a freshly built Houston runner and put the pinned
-`luau-analyze` on `PATH`; the Go validator runs every resolved behavior fixture.
+`luau-analyze` on `PATH`; the Go validator runs every resolved behavior fixture
+in the selected bundle. Fastmail is currently the supported connector for
+runtime validation; other provider bundles remain available for future migration.
 From the Houston checkout, `go -C tools/runtime run . test-connectors` builds the
 runner and invokes this validator. See the
 [authoring guide](docs/authoring.md) and [provider bundles](connectors/). Register a copied bundle or an edited local
@@ -40,6 +42,8 @@ These are recommendations, not additional contribution requirements.
 - [tools/](tools/): the public validator and its reusable typecheck/conformance packages.
 - [manifest/](manifest/): shared manifest parser and generated schema used by Houston.
 
-Use `go run ./tools/validate [bundle-directory]` for a single bundle, or omit the
-path to validate the catalog. This one command performs manifest validation,
-Luau type checking and mocked behavior verification.
+Use `go run ./tools/validate [bundle-directory]` for a selected bundle, or omit
+the path to validate Fastmail. Use `go run ./tools/validate .` to explicitly
+validate every bundle, including providers that have not yet migrated to the
+current runtime. This command performs manifest validation, Luau type checking
+and mocked behavior verification.
