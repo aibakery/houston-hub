@@ -394,6 +394,18 @@ pagination rules, and agent examples in Lua `help()`. The Hub renders the README
 as the public description, not as agent runtime documentation. Inline `description` and
 `setup` remain supported fallbacks, but need not duplicate those files.
 
+Keep the common setup steps first. A heading named `Advanced` (or starting with
+`Advanced ` or `Advanced:`) becomes a collapsed expandable section in Houston,
+ending at the next heading of the same or a higher level. Use subheadings for
+optional configuration and troubleshooting inside it. Markdown formatting,
+links, and bundled images still work; raw HTML stays disabled.
+
+OAuth connectors show a reserved callback URL as soon as account setup opens,
+before client credentials are entered. Put copying that URL into the provider's
+app settings before entering the client ID and secret in your instructions.
+Unfinished reservations expire after 24 hours or are discarded on cancellation.
+Completed connections keep their callback URL when reauthorized.
+
 ## Tests and publication
 
 ```sh
