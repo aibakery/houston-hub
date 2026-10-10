@@ -309,10 +309,11 @@ its subdomains, as documented in Fastmail's
 
 Database rules contain only the protocol in `match` and native settings in
 `action.connection`: host, integer port, database, user, password, and verified
-TLS; ClickHouse also selects `https` or `native`. The first enabled database rule
-wins. Credentials and targets cannot be overridden by Luau query arguments.
-Database URLs are not accepted. Publisher credentials may be sent only to literal
-or publisher-owned database targets.
+TLS. The protocols are `postgres`, `mysql`, `clickhouse` (its HTTPS interface)
+and `redis`, whose database is a numeric index. The first
+enabled database rule wins. Credentials and targets cannot be overridden by Luau
+query arguments. Database URLs are not accepted. Publisher credentials may be
+sent only to literal or publisher-owned database targets.
 
 `http.request({url, method, headers?, body?, timeoutMs?})` returns an operation
 whose result has `statusCode`, `headers`, and a body Reader. All headers use
@@ -328,9 +329,23 @@ in total. File contents stream without a size limit or temporary staging file.
 `fs.open`, `stat`, `exists`, `list`, `grep`, `signedGetUrl`, and `signedPutUrl`
 operate on invocation-scoped session files and return operations. `list` returns
 all sorted child names or a limit error; `grep` returns `{matches, truncated}`.
-`db.query({query, params?, max_rows?, read_only?})` uses the selected database.
-Postgres parameters use `$1`; MySQL uses `?`; ClickHouse follows its native driver
-parameter syntax. These are protocol primitives, not a portable SQL interface.
+SQL protocols provide `db.query({sql, params?, maxRows?, readOnly?})`, an
+operation for one statement on its own connection. Postgres parameters use `$1`
+and MySQL `?`, with `params` as an array; ClickHouse binds named placeholders
+such as `{day:Date}` on the server, with `params` as a map like `{day = ...}`.
+Parameters are strings, numbers, booleans or JSON null. Statements are read-only
+unless `readOnly = false`, which needs write access. Read-only mode is the
+database's own: a Postgres read-only transaction, a MySQL read-only session
+that accepts only reading statements, or ClickHouse `readonly=1`. The result is
+`{columns, rows, truncated, affectedRows?, lastInsertId?}`: rows are objects
+keyed by column, NULL columns are absent, and `truncated` reports that `maxRows`
+(default 1,000, at most 10,000) or the 4 MiB result budget stopped reading.
+Postgres, MySQL and Redis return binary values, and text that is not valid
+UTF-8, as `\x`-prefixed hex; ClickHouse queries select `hex(column)` instead.
+Redis provides `db.command({args, readOnly?})` for one command, such as
+`{"HGET", key, field}`; a read-only command must carry Redis's `readonly` flag,
+and a missing value is nil. Database errors raise `database_error` with the
+server's message. These are protocol primitives, not a portable SQL interface.
 
 Initialize JSON arrays with `json.decode("[]")`, including arrays that may be
 empty. A plain empty Luau table encodes as a JSON object. For example,
@@ -414,8 +429,8 @@ go run ./tools/validate connectors/fastmail
 ```
 
 Replace `connectors/fastmail` with the bundle you are authoring. The no-argument
-validator currently selects Fastmail and Notion; other providers will enter routine runtime
-validation as they are migrated. An explicit catalog directory validates all its
+validator selects the bundles migrated to the current runtime: Fastmail, Notion
+and the database connectors. Other providers will join as they are migrated. An explicit catalog directory validates all its
 bundles.
 
 Set `HOUSTON_CLI` to a newly built Houston runner and put the pinned
@@ -621,15 +636,16 @@ cancel unfinished work but cannot undo completed provider changes.
 
 A database connector uses its selected native protocol instead of HTTP. Bind its
 host, credentials and verified TLS in the manifest. Here is a Postgres example;
-MySQL and ClickHouse use their own parameter syntax:
+MySQL uses `?` and ClickHouse named placeholders such as `{id:String}`:
 
 ```lua
 local function findProject(id: string)
     assert(id ~= "", "id must be nonempty")
-    return db.query({
-        query = "SELECT id, name FROM projects WHERE id = $1",
-        params = {id}, max_rows = 1, read_only = true,
-    })
+    local result = await(db.query({
+        sql = "SELECT id, name FROM projects WHERE id = $1",
+        params = {id}, maxRows = 1,
+    }))
+    return result.rows[1]
 end
 ```
 

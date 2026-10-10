@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "name": "ClickHouse",
-  "description": "Query a ClickHouse database over HTTPS or native TLS.",
+  "description": "Query a ClickHouse database over HTTPS.",
   "files": [
     "connector.luau"
   ],
@@ -11,22 +11,6 @@
       "label": "Host",
       "required": true,
       "order": 1
-    },
-    "transport": {
-      "type": "string",
-      "label": "Transport",
-      "default": "https",
-      "options": [
-        {
-          "value": "https",
-          "label": "HTTPS"
-        },
-        {
-          "value": "native",
-          "label": "Native TLS"
-        }
-      ],
-      "order": 2
     },
     "database": {
       "type": "string",
@@ -46,6 +30,14 @@
       "label": "Password",
       "required": true,
       "order": 5
+    },
+    "port": {
+      "type": "integer",
+      "label": "Port",
+      "default": 8443,
+      "minimum": 1,
+      "maximum": 65535,
+      "order": 2
     }
   },
   "proxy": [
@@ -58,8 +50,8 @@
           "tls": {
             "mode": "verify-full"
           },
-          "transport": "{{config.transport}}",
-          "user": "{{config.username}}"
+          "user": "{{config.username}}",
+          "port": "{{config.port}}"
         }
       },
       "match": {

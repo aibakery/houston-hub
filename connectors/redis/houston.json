@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "name": "ClickHouse",
+  "name": "Redis",
   "files": [
     "connector.lua"
   ],
@@ -29,23 +29,24 @@
       "type": "string"
     },
     "port": {
-      "default": 8443,
-      "label": "HTTPS port",
+      "default": 6379,
+      "label": "Port",
       "maximum": 65535,
       "minimum": 1,
       "order": 3,
       "type": "integer"
     },
     "database": {
-      "default": "default",
-      "label": "Database",
+      "default": 0,
+      "label": "Database number",
+      "minimum": 0,
       "order": 4,
-      "type": "string"
+      "type": "integer"
     },
     "username": {
+      "default": "default",
       "label": "Username",
       "order": 5,
-      "required": true,
       "type": "string"
     },
     "password": {
@@ -58,7 +59,7 @@
   "proxy": [
     {
       "match": {
-        "protocol": "clickhouse"
+        "protocol": "redis"
       },
       "action": {
         "connection": {

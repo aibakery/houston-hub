@@ -1,4 +1,10 @@
 {
+  "schema_version": 1,
+  "name": "PostgreSQL",
+  "files": [
+    "connector.lua"
+  ],
+  "icon": "icon.svg",
   "config": {
     "access": {
       "default": "read-only",
@@ -16,23 +22,11 @@
       "order": 1,
       "type": "string"
     },
-    "database": {
-      "label": "Database",
-      "order": 3,
-      "required": true,
-      "type": "string"
-    },
     "host": {
       "label": "Host",
       "order": 2,
       "required": true,
       "type": "string"
-    },
-    "password": {
-      "label": "Password",
-      "order": 5,
-      "required": true,
-      "type": "secret"
     },
     "port": {
       "default": 5432,
@@ -42,38 +36,42 @@
       "order": 3,
       "type": "integer"
     },
-    "username": {
-      "label": "Username",
+    "database": {
+      "label": "Database",
       "order": 4,
       "required": true,
       "type": "string"
+    },
+    "username": {
+      "label": "Username",
+      "order": 5,
+      "required": true,
+      "type": "string"
+    },
+    "password": {
+      "label": "Password",
+      "order": 6,
+      "required": true,
+      "type": "secret"
     }
   },
-  "description": "SQL access to a Postgres database.",
-  "files": [
-    "connector.lua"
-  ],
-  "icon": "icon.svg",
-  "name": "Postgres",
   "proxy": [
     {
-      "action": {
-        "connection": {
-          "database": "{{config.database}}",
-          "host": "{{config.host}}",
-          "password": "{{config.password}}",
-          "port": "{{config.port}}",
-          "tls": {
-            "mode": "verify-full"
-          },
-          "user": "{{config.username}}"
-        }
-      },
       "match": {
         "protocol": "postgres"
+      },
+      "action": {
+        "connection": {
+          "host": "{{config.host}}",
+          "port": "{{config.port}}",
+          "database": "{{config.database}}",
+          "user": "{{config.username}}",
+          "password": "{{config.password}}",
+          "tls": {
+            "mode": "verify-full"
+          }
+        }
       }
     }
-  ],
-  "schema_version": 1,
-  "setup": "Enter the database host, database name, username and password separately. TLS verifies the server certificate and hostname. Use a database role limited to the operations you want to share. Query uses the database read-only transaction support; execute is available when Access is Read and write."
+  ]
 }

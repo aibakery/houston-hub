@@ -1,9 +1,25 @@
 {
+  "schema_version": 1,
+  "name": "MySQL",
+  "files": [
+    "connector.lua"
+  ],
+  "icon": "icon.svg",
   "config": {
-    "database": {
-      "label": "Database",
-      "order": 3,
-      "required": true,
+    "access": {
+      "default": "read-only",
+      "label": "Access",
+      "options": [
+        {
+          "label": "Read-only",
+          "value": "read-only"
+        },
+        {
+          "label": "Read and write",
+          "value": "read-write"
+        }
+      ],
+      "order": 1,
       "type": "string"
     },
     "host": {
@@ -11,12 +27,6 @@
       "order": 2,
       "required": true,
       "type": "string"
-    },
-    "password": {
-      "label": "Password",
-      "order": 5,
-      "required": true,
-      "type": "secret"
     },
     "port": {
       "default": 3306,
@@ -26,38 +36,42 @@
       "order": 3,
       "type": "integer"
     },
-    "username": {
-      "label": "Username",
+    "database": {
+      "label": "Database",
       "order": 4,
       "required": true,
       "type": "string"
+    },
+    "username": {
+      "label": "Username",
+      "order": 5,
+      "required": true,
+      "type": "string"
+    },
+    "password": {
+      "label": "Password",
+      "order": 6,
+      "required": true,
+      "type": "secret"
     }
   },
-  "description": "Read-only SQL over a MySQL connection URL.",
-  "files": [
-    "connector.lua"
-  ],
-  "icon": "icon.svg",
-  "name": "MySQL",
   "proxy": [
     {
-      "action": {
-        "connection": {
-          "database": "{{config.database}}",
-          "host": "{{config.host}}",
-          "password": "{{config.password}}",
-          "port": "{{config.port}}",
-          "tls": {
-            "mode": "verify-full"
-          },
-          "user": "{{config.username}}"
-        }
-      },
       "match": {
         "protocol": "mysql"
+      },
+      "action": {
+        "connection": {
+          "host": "{{config.host}}",
+          "port": "{{config.port}}",
+          "database": "{{config.database}}",
+          "user": "{{config.username}}",
+          "password": "{{config.password}}",
+          "tls": {
+            "mode": "verify-full"
+          }
+        }
       }
     }
-  ],
-  "schema_version": 1,
-  "setup": "Enter the database host, database name, username and password separately. TLS verifies the server certificate and hostname. Use a database role limited to the operations you want to share. Query uses the database read-only transaction support; execute is available when Access is Read and write."
+  ]
 }

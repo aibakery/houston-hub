@@ -161,13 +161,12 @@ func (b BasicAuth) MarshalJSON() ([]byte, error) {
 }
 
 type DatabaseConnection struct {
-	Host      string `json:"host"`
-	Port      any    `json:"port,omitempty"`
-	Database  string `json:"database"`
-	User      string `json:"user"`
-	Password  string `json:"password"`
-	TLS       *TLS   `json:"tls,omitempty"`
-	Transport string `json:"transport,omitempty"`
+	Host     string `json:"host"`
+	Port     any    `json:"port,omitempty"`
+	Database string `json:"database"`
+	User     string `json:"user"`
+	Password string `json:"password"`
+	TLS      *TLS   `json:"tls,omitempty"`
 }
 type TLS struct {
 	Mode string `json:"mode"`
@@ -317,9 +316,6 @@ func (m *Manifest) defaults() {
 		if c != nil {
 			if c.TLS == nil {
 				c.TLS = &TLS{Mode: "verify-full"}
-			}
-			if m.Proxy[i].Match.Protocol == "clickhouse" && c.Transport == "" {
-				c.Transport = "https"
 			}
 		}
 	}

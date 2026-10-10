@@ -253,7 +253,7 @@ func (m *Manifest) validateProxy(p Proxy, used map[string]bool) error {
 				return err
 			}
 		}
-	case "postgres", "mysql", "clickhouse":
+	case "postgres", "mysql", "clickhouse", "redis":
 		c := p.Action.Connection
 		if c == nil || p.Match.Host != nil || p.Match.Method != nil || p.Match.Path != nil || p.Match.OpaquePathParameters != nil || p.Match.Header != nil || p.Action.Headers.Set != nil || p.Action.Headers.Remove != nil || p.Action.BasicAuth != nil || p.Action.Rewrite != nil {
 			return fmt.Errorf("database requires action.connection and forbids HTTP filters/actions")
@@ -261,15 +261,12 @@ func (m *Manifest) validateProxy(p Proxy, used map[string]bool) error {
 		if c.TLS != nil && c.TLS.Mode != "verify-full" {
 			return fmt.Errorf("TLS must verify-full")
 		}
-		if c.Transport != "" && p.Match.Protocol != "clickhouse" {
-			return fmt.Errorf("transport only valid for ClickHouse")
-		}
 		for _, s := range []string{c.Host, c.Database, c.User} {
 			if s == "" {
 				return fmt.Errorf("database host/database/user required")
 			}
 		}
-		for mode, ss := range map[string][]string{"destination": {c.Host, c.Database, c.Transport}, "user": {c.User}, "password": {c.Password}} {
+		for mode, ss := range map[string][]string{"destination": {c.Host, c.Database}, "user": {c.User}, "password": {c.Password}} {
 			for _, s := range ss {
 				if e := m.template(s, mode, used); e != nil {
 					return e
@@ -279,8 +276,8 @@ func (m *Manifest) validateProxy(p Proxy, used map[string]bool) error {
 		if !strings.Contains(c.Host, "{{") && !ValidHost(c.Host) {
 			return fmt.Errorf("invalid database host")
 		}
-		if c.Transport != "" && !strings.Contains(c.Transport, "{{") && c.Transport != "https" && c.Transport != "native" {
-			return fmt.Errorf("invalid ClickHouse transport")
+		if p.Match.Protocol == "redis" && !strings.Contains(c.Database, "{{") && !redisDatabase(c.Database) {
+			return fmt.Errorf("invalid Redis database index")
 		}
 		if c.Port != nil {
 			if s, ok := c.Port.(string); ok {
@@ -565,9 +562,9 @@ func (r HTTPRecipe) Prepare(c Context, caller http.Header) (http.Header, error) 
 }
 
 type ResolvedDatabase struct {
-	Protocol, Host, Database, User, Password, Transport string
-	Port                                                int
-	TLSMode                                             string
+	Protocol, Host, Database, User, Password string
+	Port                                     int
+	TLSMode                                  string
 }
 
 func (p Proxy) ResolveDatabase(c Context) (ResolvedDatabase, error) {
@@ -601,20 +598,11 @@ func (p Proxy) ResolveDatabase(c Context) (ResolvedDatabase, error) {
 	case "mysql":
 		out.Port = 3306
 	case "clickhouse":
-		out.Transport = v.Transport
-		if out.Transport == "" {
-			out.Transport = "https"
-		}
-		if out.Transport, e = RenderString(out.Transport, c); e != nil {
-			return out, e
-		}
-		switch out.Transport {
-		case "https":
-			out.Port = 8443
-		case "native":
-			out.Port = 9440
-		default:
-			return out, fmt.Errorf("invalid ClickHouse transport")
+		out.Port = 8443
+	case "redis":
+		out.Port = 6379
+		if !redisDatabase(out.Database) {
+			return out, fmt.Errorf("invalid Redis database index")
 		}
 	default:
 		return out, fmt.Errorf("unknown database protocol")
@@ -634,4 +622,10 @@ func (p Proxy) ResolveDatabase(c Context) (ResolvedDatabase, error) {
 		out.Port = int(n)
 	}
 	return out, nil
+}
+
+// redisDatabase accepts a logical database index such as "0" without signs or spaces.
+func redisDatabase(s string) bool {
+	n, err := strconv.Atoi(s)
+	return err == nil && n >= 0 && strconv.Itoa(n) == s
 }

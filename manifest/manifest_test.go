@@ -261,17 +261,14 @@ func TestRequiredPrerequisitesAndScopeIsolation(t *testing.T) {
 		t.Fatalf("unselected OAuth scope blocked manual: %v", e)
 	}
 }
-func TestDatabaseTransportDefaults(t *testing.T) {
+func TestClickHouseDefaultsToHTTPS(t *testing.T) {
 	m := example(t, 6)
-	for tr, port := range map[string]int{"https": 8443, "native": 9440} {
-		r, e := m.Resolve(nil, map[string]any{"host": "db.example.com", "transport": tr, "username": "reader", "password": "test"}, nil, "")
-		if e != nil {
-			t.Fatal(e)
-		}
-		db, e := m.Proxy[0].ResolveDatabase(r.Context)
-		if e != nil || db.Port != port {
-			t.Fatalf("%s port = %d (%v)", tr, db.Port, e)
-		}
+	r, e := m.Resolve(nil, map[string]any{"host": "db.example.com", "username": "reader", "password": "test"}, nil, "")
+	if e != nil {
+		t.Fatal(e)
+	}
+	if db, e := m.Proxy[0].ResolveDatabase(r.Context); e != nil || db.Port != 8443 {
+		t.Fatalf("port = %d (%v)", db.Port, e)
 	}
 }
 func TestAmbiguousAndMissingProxy(t *testing.T) {
@@ -310,5 +307,28 @@ func TestDatabaseUsesFirstEnabledRule(t *testing.T) {
 	m.Proxy[0], m.Proxy[1] = m.Proxy[1], m.Proxy[0]
 	if _, err := m.Resolve(nil, config, nil, ""); err == nil {
 		t.Fatal("failed first database action fell through to later credentials")
+	}
+}
+
+func TestRedisDatabaseIndex(t *testing.T) {
+	raw := func(database string) []byte {
+		return []byte(`{"schema_version":1,"name":"Redis","files":["connector.lua"],
+			"config":{"host":{"type":"string","label":"Host","required":true},"database":{"type":"integer","label":"Database","default":0,"minimum":0},"password":{"type":"secret","label":"Password","required":true}},
+			"proxy":[{"match":{"protocol":"redis"},"action":{"connection":{"host":"{{config.host}}","database":"` + database + `","user":"default","password":"{{config.password}}"}}}]}`)
+	}
+	if _, err := Parse(raw("cache")); err == nil {
+		t.Fatal("accepted a non-numeric Redis database")
+	}
+	m, err := Parse(raw("{{config.database}}"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	r, err := m.Resolve(nil, map[string]any{"host": "cache.example.com", "password": "secret", "database": 3}, nil, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	db, err := m.Proxy[0].ResolveDatabase(r.Context)
+	if err != nil || db.Port != 6379 || db.Database != "3" || db.TLSMode != "verify-full" {
+		t.Fatalf("Redis resolution: %#v %v", db, err)
 	}
 }

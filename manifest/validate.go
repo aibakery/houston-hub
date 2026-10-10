@@ -683,9 +683,6 @@ func checkPresence(data []byte) error {
 				if _, exists := c["password"]; !exists {
 					return fmt.Errorf("database password required")
 				}
-				if v, exists := c["transport"]; exists && (match["protocol"] != "clickhouse" || v == "") {
-					return fmt.Errorf("transport requires clickhouse")
-				}
 			}
 		}
 	}

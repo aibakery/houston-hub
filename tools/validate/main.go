@@ -14,8 +14,11 @@ import (
 	"strings"
 )
 
+// Bundles migrated to the current runtime. Pass a directory to validate another.
+var migrated = []string{"connectors/fastmail", "connectors/notion", "connectors/clickhouse", "connectors/mysql", "connectors/postgres", "connectors/redis", "connectors/supabase"}
+
 func main() {
-	roots := []string{"connectors/fastmail", "connectors/notion"}
+	roots := migrated
 	if len(os.Args) > 2 {
 		fmt.Fprintln(os.Stderr, "usage: go run ./tools/validate [bundle-or-catalog-directory]")
 		os.Exit(2)
@@ -27,7 +30,7 @@ func main() {
 	for _, root := range roots {
 		n, err := validate(root)
 		if err != nil {
-			fmt.Fprintln(os.Stderr, err)
+			fmt.Fprintf(os.Stderr, "%s: %v\n", root, err)
 			os.Exit(1)
 		}
 		count += n

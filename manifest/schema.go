@@ -67,7 +67,7 @@ func Schema() ([]byte, error) {
 	enum("AuthMethod", "pkce", "S256", "none")
 	enum("OAuthAccount", "method", "GET", "POST")
 	enum("ResponseCheck", "op", "exists", "equals")
-	enum("ProxyMatch", "protocol", "http", "postgres", "mysql", "clickhouse")
+	enum("ProxyMatch", "protocol", "http", "postgres", "mysql", "clickhouse", "redis")
 	enum("TLS", "mode", "verify-full")
 	enum("Manifest", "icon", "icon.svg", "icon.png")
 	props("ProxyMatch")["opaque_path_parameters"].(map[string]any)["minItems"] = 1
@@ -113,10 +113,6 @@ func Schema() ([]byte, error) {
 			"if":   map[string]any{"properties": map[string]any{"match": condition("protocol", "http")}},
 			"then": map[string]any{"properties": map[string]any{"match": map[string]any{"required": []string{"host"}}, "action": forbid("connection")}},
 			"else": map[string]any{"properties": map[string]any{"match": forbid("host", "method", "path", "opaque_path_parameters", "header"), "action": map[string]any{"required": []string{"connection"}, "properties": map[string]any{"headers": false, "rewrite": false, "basic_auth": false}}}},
-		},
-		map[string]any{
-			"if":   map[string]any{"properties": map[string]any{"match": map[string]any{"not": condition("protocol", "clickhouse")}}},
-			"then": map[string]any{"properties": map[string]any{"action": map[string]any{"properties": map[string]any{"connection": forbid("transport")}}}},
 		},
 	}
 
