@@ -255,7 +255,7 @@ func TestRequiredPrerequisitesAndScopeIsolation(t *testing.T) {
 	}
 	m = example(t, 1)
 	a := m.Auth["oauth"]
-	a.Scopes[0].If = `{{ isDefined publisher.client_id }}`
+	a.Scopes[0].If = `{{ isDefined config.client_id }}`
 	m.Auth["oauth"] = a
 	if _, e := m.Resolve(nil, nil, map[string]any{"token": "test"}, "api_key"); e != nil {
 		t.Fatalf("unselected OAuth scope blocked manual: %v", e)

@@ -1,4 +1,4 @@
-return {scenario={["auth_config"]={},["auth_method"]="oauth",["config"]={["workspace_id"]="T_FIXTURE"},["publisher"]={["client_id"]="fixture-value",["client_secret"]="fixture-private-password !@#"}},config = {access = "read-only"}, run = function(exports)
+return {scenario={["auth_config"]={},["auth_method"]="oauth",["config"]={["workspace_id"]="T_FIXTURE",["client_id"]="fixture-value",["client_secret"]="fixture-private-password !@#"}},config = {access = "read-only"}, run = function(exports)
     assert(exports.postMessage == nil, "read-only configuration must omit write exports")
     local count = 0
     for name, fn in exports do

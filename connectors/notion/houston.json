@@ -1,27 +1,4 @@
 {
-  "schema_version": 1,
-  "name": "Notion",
-  "files": [
-    "connector.lua"
-  ],
-  "icon": "icon.svg",
-  "config": {
-    "access": {
-      "default": "read-only",
-      "label": "Access",
-      "options": [
-        {
-          "label": "Read-only",
-          "value": "read-only"
-        },
-        {
-          "label": "Read and write",
-          "value": "read-write"
-        }
-      ],
-      "type": "string"
-    }
-  },
   "auth": {
     "admin": {
       "config": {
@@ -54,9 +31,9 @@
       },
       "authorize_url": "https://api.notion.com/v1/oauth/authorize",
       "client_auth": "basic",
-      "client_id": "{{publisher.client_id}}",
-      "client_secret": "{{publisher.client_secret}}",
-      "if": "{{ isDefined publisher.client_id }}",
+      "client_id": "{{config.client_id}}",
+      "client_secret": "{{config.client_secret}}",
+      "if": "{{ isDefined config.client_id }}",
       "label": "Connect with Notion",
       "order": 2,
       "pkce": "none",
@@ -80,18 +57,37 @@
       "type": "manual"
     }
   },
-  "publisher": {
+  "config": {
+    "access": {
+      "default": "read-only",
+      "label": "Access",
+      "options": [
+        {
+          "label": "Read-only",
+          "value": "read-only"
+        },
+        {
+          "label": "Read and write",
+          "value": "read-write"
+        }
+      ],
+      "type": "string"
+    },
     "client_id": {
       "label": "OAuth client ID (optional)",
       "type": "string"
     },
     "client_secret": {
-      "if": "{{ isDefined publisher.client_id }}",
+      "if": "{{ isDefined config.client_id }}",
       "label": "OAuth client secret",
-      "required": true,
       "type": "secret"
     }
   },
+  "files": [
+    "connector.lua"
+  ],
+  "icon": "icon.svg",
+  "name": "Notion",
   "proxy": [
     {
       "action": {
@@ -104,10 +100,18 @@
       },
       "if": "{{ isDefined auth.token }}",
       "match": {
-        "host": ["api.notion.com"],
-        "method": ["GET"],
-        "path": ["/v1/pages/{page_id}/properties/{property_id}"],
-        "opaque_path_parameters": ["property_id"],
+        "host": [
+          "api.notion.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "opaque_path_parameters": [
+          "property_id"
+        ],
+        "path": [
+          "/v1/pages/{page_id}/properties/{property_id}"
+        ],
         "protocol": "http"
       }
     },
@@ -122,10 +126,18 @@
       },
       "if": "{{ isDefined auth.oauth }}",
       "match": {
-        "host": ["api.notion.com"],
-        "method": ["GET"],
-        "path": ["/v1/pages/{page_id}/properties/{property_id}"],
-        "opaque_path_parameters": ["property_id"],
+        "host": [
+          "api.notion.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "opaque_path_parameters": [
+          "property_id"
+        ],
+        "path": [
+          "/v1/pages/{page_id}/properties/{property_id}"
+        ],
         "protocol": "http"
       }
     },
@@ -636,12 +648,14 @@
         "method": [
           "GET"
         ],
+        "opaque_path_parameters": [
+          "*"
+        ],
         "path": [
           "/secure.notion-static.com/*",
           "/public.notion-static.com/*",
           "/notion-temporary-files/*"
         ],
-        "opaque_path_parameters": ["*"],
         "protocol": "http"
       }
     },
@@ -667,13 +681,18 @@
           "file.notion.so",
           "file.notion.com"
         ],
-        "path": ["/*"],
-        "opaque_path_parameters": ["*"],
         "method": [
           "GET"
+        ],
+        "opaque_path_parameters": [
+          "*"
+        ],
+        "path": [
+          "/*"
         ],
         "protocol": "http"
       }
     }
-  ]
+  ],
+  "schema_version": 1
 }

@@ -1,92 +1,28 @@
 {
-  "schema_version": 1,
-  "name": "Example Files",
-  "description": "Read files and optionally upload or change them.",
-  "setup": "Choose an API key or authorize your Example Files account.",
-  "files": [
-    "connector.luau"
-  ],
-  "config": {
-    "access": {
-      "type": "string",
-      "label": "Access",
-      "default": "read-only",
-      "options": [
-        {
-          "value": "read-only",
-          "label": "Read only"
-        },
-        {
-          "value": "read-write",
-          "label": "Read and write"
-        }
-      ],
-      "order": 1
-    },
-    "page_size": {
-      "type": "integer",
-      "label": "Page size",
-      "default": 50,
-      "minimum": 1,
-      "maximum": 100,
-      "order": 3
-    }
-  },
-  "publisher": {
-    "region": {
-      "type": "string",
-      "label": "Service region",
-      "default": "us",
-      "options": [
-        {
-          "value": "us",
-          "label": "United States"
-        },
-        {
-          "value": "eu",
-          "label": "Europe"
-        }
-      ],
-      "order": 0
-    },
-    "client_id": {
-      "type": "string",
-      "label": "OAuth client ID",
-      "required": true,
-      "order": 1
-    },
-    "client_secret": {
-      "type": "secret",
-      "label": "OAuth client secret",
-      "required": true,
-      "order": 2
-    }
-  },
   "auth": {
     "api_key": {
-      "type": "manual",
-      "label": "API key",
-      "order": 1,
       "config": {
         "token": {
-          "type": "secret",
           "label": "API key",
+          "order": 2,
           "placeholder": "Paste your API key",
           "required": true,
-          "order": 2
+          "type": "secret"
         }
-      }
+      },
+      "label": "API key",
+      "order": 1,
+      "type": "manual"
     },
     "oauth": {
-      "type": "oauth2",
+      "authorize_url": "https://accounts.files.example.com/oauth/authorize",
+      "client_auth": "basic",
+      "client_id": "{{config.client_id}}",
+      "client_secret": "{{config.client_secret}}",
       "label": "Sign in with Example",
       "order": 2,
-      "client_id": "{{publisher.client_id}}",
-      "client_secret": "{{publisher.client_secret}}",
-      "authorize_url": "https://accounts.files.example.com/oauth/authorize",
-      "token_url": "https://accounts.files.example.com/oauth/token",
-      "client_auth": "basic",
       "pkce": "S256",
+      "require_refresh": true,
       "scopes": [
         {
           "values": [
@@ -100,9 +36,51 @@
           ]
         }
       ],
-      "require_refresh": true
+      "token_url": "https://accounts.files.example.com/oauth/token",
+      "type": "oauth2"
     }
   },
+  "config": {
+    "access": {
+      "default": "read-only",
+      "label": "Access",
+      "options": [
+        {
+          "label": "Read only",
+          "value": "read-only"
+        },
+        {
+          "label": "Read and write",
+          "value": "read-write"
+        }
+      ],
+      "order": 1,
+      "type": "string"
+    },
+    "client_id": {
+      "label": "OAuth client ID",
+      "order": 1,
+      "type": "string"
+    },
+    "client_secret": {
+      "label": "OAuth client secret",
+      "order": 2,
+      "type": "secret"
+    },
+    "page_size": {
+      "default": 50,
+      "label": "Page size",
+      "maximum": 100,
+      "minimum": 1,
+      "order": 3,
+      "type": "integer"
+    }
+  },
+  "description": "Read files and optionally upload or change them.",
+  "files": [
+    "connector.luau"
+  ],
+  "name": "Example Files",
   "proxy": [
     {
       "action": {
@@ -256,5 +234,25 @@
         "protocol": "http"
       }
     }
-  ]
+  ],
+  "publisher": {
+    "region": {
+      "default": "us",
+      "label": "Service region",
+      "options": [
+        {
+          "label": "United States",
+          "value": "us"
+        },
+        {
+          "label": "Europe",
+          "value": "eu"
+        }
+      ],
+      "order": 0,
+      "type": "string"
+    }
+  },
+  "schema_version": 1,
+  "setup": "Choose an API key or authorize your Example Files account."
 }

@@ -1,4 +1,4 @@
-return {scenario={["auth_config"]={},["auth_method"]="oauth",["config"]={},["publisher"]={["client_id"]="fixture-value",["client_secret"]="fixture-private-password !@#"}},configure=function()
+return {scenario={["auth_config"]={},["auth_method"]="oauth",["config"]={["client_id"]="fixture-value",["client_secret"]="fixture-private-password !@#"}},configure=function()
     requests, responses = {}, {}
     http={request=function(req)
         requests[#requests+1]=req

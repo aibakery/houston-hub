@@ -3,7 +3,7 @@ package main
 import (
 	"net/http"
 	"os"
-	"reflect"
+
 	"testing"
 
 	"github.com/aibakery/houston-hub/manifest"
@@ -24,13 +24,14 @@ func notionManifest(t *testing.T) *manifest.Manifest {
 
 func notionConnection(t *testing.T, m *manifest.Manifest, method, access string) *manifest.Resolved {
 	t.Helper()
-	var publisher, input map[string]any
+	config := map[string]any{"access": access}
+	var input map[string]any
 	if method == "oauth" {
-		publisher = map[string]any{"client_id": "notion-client", "client_secret": "notion-publisher-secret"}
+		config = map[string]any{"access": access, "client_id": "notion-client", "client_secret": "notion-publisher-secret"}
 	} else {
 		input = map[string]any{"token": method + "-secret"}
 	}
-	r, err := m.Resolve(publisher, map[string]any{"access": access}, input, method)
+	r, err := m.Resolve(nil, config, input, method)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -43,7 +44,7 @@ func notionConnection(t *testing.T, m *manifest.Manifest, method, access string)
 	if err := m.RequireCredentials(r.Context); err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(r.PublicConfig, map[string]any{"access": access}) {
+	if r.PublicConfig["access"] != access || r.PublicConfig["client_secret"] != nil {
 		t.Fatalf("unexpected public settings: %#v", r.PublicConfig)
 	}
 	return r
@@ -52,7 +53,7 @@ func notionConnection(t *testing.T, m *manifest.Manifest, method, access string)
 func TestNotionRegistrationAndAuthenticationSelection(t *testing.T) {
 	m := notionManifest(t)
 	for _, publisher := range []map[string]any{nil, {"client_id": "client"}, {"client_secret": "secret"}, {"client_id": "client", "client_secret": "secret"}} {
-		draft, err := m.ResolveDraft(publisher, nil, nil, "")
+		draft, err := m.ResolveDraft(nil, publisher, nil, "")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -64,23 +65,23 @@ func TestNotionRegistrationAndAuthenticationSelection(t *testing.T) {
 			}
 		}
 		if len(publisher) != 2 {
-			if _, err := m.Resolve(publisher, nil, nil, "oauth"); err == nil {
+			if _, err := m.Resolve(nil, publisher, nil, "oauth"); err == nil {
 				t.Fatal("OAuth activated without complete publisher settings")
 			}
 		}
 		secretField := false
-		for _, field := range draft.PublisherFields {
+		for _, field := range draft.ConfigFields {
 			if field.Name == "client_secret" {
 				secretField = true
-				if !field.Field.Required || field.Field.Type != "secret" {
-					t.Fatal("active OAuth secret form field must be required and secret")
+				if field.Field.Type != "secret" {
+					t.Fatal("active OAuth secret form field must be secret")
 				}
 			}
 		}
 		if secretField != (publisher["client_id"] != nil) {
 			t.Fatal("OAuth client secret form did not follow client ID activation")
 		}
-		manual, err := m.Resolve(publisher, nil, map[string]any{"token": "manual-token"}, "token")
+		manual, err := m.Resolve(nil, publisher, map[string]any{"token": "manual-token"}, "token")
 		if err != nil || m.RequireCredentials(manual.Context) != nil {
 			t.Fatalf("manual connection depends on optional OAuth setup: %v", err)
 		}
@@ -94,7 +95,7 @@ func TestNotionRegistrationAndAuthenticationSelection(t *testing.T) {
 		}
 	}
 	publisher := map[string]any{"client_id": "client", "client_secret": "secret"}
-	if _, err := m.Resolve(publisher, nil, map[string]any{"access_token": "caller-token"}, "oauth"); err == nil {
+	if _, err := m.Resolve(nil, publisher, map[string]any{"access_token": "caller-token"}, "oauth"); err == nil {
 		t.Fatal("caller supplied a managed OAuth credential")
 	}
 }

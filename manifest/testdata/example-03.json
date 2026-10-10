@@ -1,43 +1,52 @@
 {
-  "schema_version": 1,
-  "name": "Collaboration Files",
-  "description": "Read files as an authorized user in one collaboration workspace.",
-  "files": [
-    "files.luau",
-    "folders.luau"
-  ],
-  "config": {
-    "workspace": {
-      "type": "string",
-      "label": "Workspace ID",
-      "required": true,
-      "order": 1
-    }
-  },
-  "publisher": {
-    "client_id": {
-      "type": "string",
-      "label": "OAuth client ID",
-      "required": true,
-      "order": 1
-    },
-    "client_secret": {
-      "type": "secret",
-      "label": "OAuth client secret",
-      "required": true,
-      "order": 2
-    }
-  },
   "auth": {
     "oauth": {
-      "type": "oauth2",
-      "label": "Connect your workspace account",
-      "client_id": "{{publisher.client_id}}",
-      "client_secret": "{{publisher.client_secret}}",
+      "account": {
+        "bindings": {
+          "workspace": "/workspace/id"
+        },
+        "checks": [
+          {
+            "op": "equals",
+            "path": "/ok",
+            "value": true
+          }
+        ],
+        "headers": {
+          "Authorization": {
+            "value": "Bearer {{auth.oauth.access_token}}"
+          }
+        },
+        "label": "/workspace/name",
+        "method": "GET",
+        "url": "https://api.collaboration.example.com/identity"
+      },
+      "authorize_params": {
+        "access_type": "offline",
+        "workspace": "{{config.workspace}}"
+      },
       "authorize_url": "https://accounts.collaboration.example.com/authorize",
-      "token_url": "https://accounts.collaboration.example.com/token",
       "client_auth": "body",
+      "client_id": "{{config.client_id}}",
+      "client_secret": "{{config.client_secret}}",
+      "label": "Connect your workspace account",
       "pkce": "S256",
+      "refresh_response": {
+        "access_token": "/access_token",
+        "checks": [
+          {
+            "op": "equals",
+            "path": "/ok",
+            "value": true
+          }
+        ],
+        "expires_in": "/expires_in",
+        "refresh_token": "/refresh_token",
+        "scopes": "/scope"
+      },
+      "require_refresh": true,
+      "scope_parameter": "user_scope",
+      "scope_separator": ",",
       "scopes": [
         {
           "values": [
@@ -46,70 +55,58 @@
           ]
         }
       ],
-      "scope_parameter": "user_scope",
-      "scope_separator": ",",
-      "authorize_params": {
-        "workspace": "{{config.workspace}}",
-        "access_type": "offline"
-      },
       "token_response": {
         "access_token": "/user/access_token",
-        "refresh_token": "/user/refresh_token",
-        "expires_in": "/user/expires_in",
-        "scopes": "/user/scope",
         "checks": [
           {
-            "path": "/ok",
             "op": "equals",
+            "path": "/ok",
             "value": true
           },
           {
-            "path": "/user/token_type",
             "op": "equals",
+            "path": "/user/token_type",
             "value": "user"
           },
           {
-            "path": "/user/id",
-            "op": "exists"
-          }
-        ]
-      },
-      "refresh_response": {
-        "access_token": "/access_token",
-        "refresh_token": "/refresh_token",
-        "expires_in": "/expires_in",
-        "scopes": "/scope",
-        "checks": [
-          {
-            "path": "/ok",
-            "op": "equals",
-            "value": true
-          }
-        ]
-      },
-      "require_refresh": true,
-      "account": {
-        "url": "https://api.collaboration.example.com/identity",
-        "method": "GET",
-        "headers": {
-          "Authorization": {
-            "value": "Bearer {{auth.oauth.access_token}}"
-          }
-        },
-        "label": "/workspace/name",
-        "checks": [
-          {
-            "path": "/ok",
-            "op": "equals",
-            "value": true
+            "op": "exists",
+            "path": "/user/id"
           }
         ],
-        "bindings": {
-          "workspace": "/workspace/id"
-        }
-      }
+        "expires_in": "/user/expires_in",
+        "refresh_token": "/user/refresh_token",
+        "scopes": "/user/scope"
+      },
+      "token_url": "https://accounts.collaboration.example.com/token",
+      "type": "oauth2"
     }
   },
+  "config": {
+    "client_id": {
+      "label": "OAuth client ID",
+      "order": 1,
+      "required": true,
+      "type": "string"
+    },
+    "client_secret": {
+      "label": "OAuth client secret",
+      "order": 2,
+      "required": true,
+      "type": "secret"
+    },
+    "workspace": {
+      "label": "Workspace ID",
+      "order": 1,
+      "required": true,
+      "type": "string"
+    }
+  },
+  "description": "Read files as an authorized user in one collaboration workspace.",
+  "files": [
+    "files.luau",
+    "folders.luau"
+  ],
+  "name": "Collaboration Files",
   "proxy": [
     {
       "action": {
@@ -176,5 +173,6 @@
         "protocol": "http"
       }
     }
-  ]
+  ],
+  "schema_version": 1
 }

@@ -271,8 +271,8 @@ func (m *Manifest) template(s, mode string, used map[string]bool) error {
 		return fmt.Errorf("password requires a secret reference or explicit empty literal")
 	}
 	if mode == "client_id" || mode == "client_secret" {
-		if len(parts) != 1 || len(refs) != 1 || len(parts[0].refs) != 1 || !strings.HasPrefix(refs[0], "publisher.") {
-			return fmt.Errorf("OAuth client requires exact publisher reference")
+		if len(parts) != 1 || len(refs) != 1 || len(parts[0].refs) != 1 || !strings.HasPrefix(refs[0], "config.") {
+			return fmt.Errorf("OAuth client requires an exact connection config reference")
 		}
 	}
 	if mode == "port" && (len(parts) != 1 || len(parts[0].refs) == 0) {
@@ -292,11 +292,11 @@ func (m *Manifest) template(s, mode string, used map[string]bool) error {
 		switch mode {
 		case "client_id":
 			if f.Type != "string" {
-				return fmt.Errorf("client_id requires publisher string")
+				return fmt.Errorf("client_id requires a string field")
 			}
 		case "client_secret":
 			if f.Type != "secret" {
-				return fmt.Errorf("client_secret requires publisher secret")
+				return fmt.Errorf("client_secret requires a secret field")
 			}
 		case "public":
 			if auth || f.Type == "secret" {

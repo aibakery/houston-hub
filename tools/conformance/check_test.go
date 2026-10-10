@@ -99,7 +99,7 @@ func TestPublicationFixturesUseNativeIOOperations(t *testing.T) {
 }
 
 func TestPublicationProjectsKnownAuthRestrictions(t *testing.T) {
-	m, err := manifest.Parse([]byte(`{"files":["main.lua"],"name":"OAuth fixture","publisher":{"client_id":{"type":"string","label":"Client","default":"public-id"}},"auth":{"oauth":{"type":"oauth2","label":"OAuth","authorize_url":"https://example.com/auth","token_url":"https://example.com/token","client_id":"{{publisher.client_id}}","client_auth":"none","pkce":"S256","scopes":[{"values":["read","write"]}]}},"proxy":[{"action":{},"match":{"host":["example.com"],"protocol":"http"}}],"schema_version":1}`))
+	m, err := manifest.Parse([]byte(`{"auth":{"oauth":{"authorize_url":"https://example.com/auth","client_auth":"none","client_id":"{{config.client_id}}","label":"OAuth","pkce":"S256","scopes":[{"values":["read","write"]}],"token_url":"https://example.com/token","type":"oauth2"}},"config":{"client_id":{"default":"public-id","label":"Client","type":"string"}},"files":["main.lua"],"name":"OAuth fixture","proxy":[{"action":{},"match":{"host":["example.com"],"protocol":"http"}}],"schema_version":1}`))
 	if err != nil {
 		t.Fatal(err)
 	}

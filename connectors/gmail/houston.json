@@ -18,8 +18,8 @@
       },
       "authorize_url": "https://accounts.google.com/o/oauth2/v2/auth",
       "client_auth": "body",
-      "client_id": "{{publisher.client_id}}",
-      "client_secret": "{{publisher.client_secret}}",
+      "client_id": "{{config.client_id}}",
+      "client_secret": "{{config.client_secret}}",
       "label": "Connect account",
       "pkce": "S256",
       "require_refresh": true,
@@ -57,6 +57,18 @@
         }
       ],
       "type": "string"
+    },
+    "client_id": {
+      "label": "OAuth client ID",
+      "order": 1,
+      "required": true,
+      "type": "string"
+    },
+    "client_secret": {
+      "label": "OAuth client secret",
+      "order": 2,
+      "required": true,
+      "type": "secret"
     }
   },
   "description": "Read-only access to Gmail.",
@@ -93,20 +105,6 @@
       }
     }
   ],
-  "publisher": {
-    "client_id": {
-      "label": "OAuth client ID",
-      "order": 1,
-      "required": true,
-      "type": "string"
-    },
-    "client_secret": {
-      "label": "OAuth client secret",
-      "order": 2,
-      "required": true,
-      "type": "secret"
-    }
-  },
   "schema_version": 1,
-  "setup": "Houston will ask Google for permission, then keep the token on this server. Your mail stays in Google."
+  "setup": "Create an OAuth application with your provider and enter its client ID and client secret in this connection's settings. Copy the OAuth callback URL shown here into that application's allowed redirect URLs before authorizing. Every Houston connection gets a different callback URL; reauthorizing the same connection keeps it. Houston will ask Google for permission, then keep the token on this server. Your mail stays in Google."
 }

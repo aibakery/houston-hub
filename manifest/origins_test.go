@@ -182,12 +182,12 @@ func TestRulesOptionalSecretAndFallback(t *testing.T) {
 }
 
 func TestRulesOAuthSelectionUsesMethodMarker(t *testing.T) {
-	data := `{"schema_version":1,"name":"OAuth rules","description":"Stable selection","files":["main.luau"],"publisher":{"client_id":{"type":"string","label":"Client","required":true}},"auth":{"oauth":{"type":"oauth2","label":"OAuth","authorize_url":"https://example.com/auth","token_url":"https://example.com/token","client_id":"{{publisher.client_id}}","client_auth":"none","pkce":"S256"}},"proxy":[{"if":"{{ isDefined auth.oauth }}","match":{"protocol":"http","host":["api.example.com"]},"action":{"headers":{"set":{"Authorization":"Bearer {{auth.oauth.access_token}}"}}}}]}`
+	data := `{"auth":{"oauth":{"authorize_url":"https://example.com/auth","client_auth":"none","client_id":"{{config.client_id}}","label":"OAuth","pkce":"S256","token_url":"https://example.com/token","type":"oauth2"}},"config":{"client_id":{"label":"Client","required":true,"type":"string"}},"description":"Stable selection","files":["main.luau"],"name":"OAuth rules","proxy":[{"action":{"headers":{"set":{"Authorization":"Bearer {{auth.oauth.access_token}}"}}},"if":"{{ isDefined auth.oauth }}","match":{"host":["api.example.com"],"protocol":"http"}}],"schema_version":1}`
 	m, err := Parse([]byte(data))
 	if err != nil {
 		t.Fatal(err)
 	}
-	r, err := m.Resolve(map[string]any{"client_id": "client"}, nil, nil, "oauth")
+	r, err := m.Resolve(nil, map[string]any{"client_id": "client"}, nil, "oauth")
 	if err != nil || !reflect.DeepEqual(r.ProxyIndices, []int{0}) {
 		t.Fatalf("OAuth rule unavailable before token acquisition: %v %v", r, err)
 	}

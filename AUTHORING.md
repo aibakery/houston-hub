@@ -19,12 +19,12 @@ surface sharing a small request layer.
    manifest injection rules, and derive both exports and help from effective access.
 4. Validate the real bundle with the Go validator and current Houston runtime.
 5. Commit and push the source, then register its repository, revision and manifest
-   path in Houston's Hub. Configure publisher credentials on that registration.
+   path in Houston's Hub. Connection admins configure account credentials when adding a connection.
 6. Connect a test account using the same flow account users see. Check discovery,
    read-only behavior, paging and a provider-confirmed write on disposable data.
 
 Use [runtime examples](#runtime-examples), [Luau practices](docs/luau-practices.md),
-[validation](#tests-and-publication), and [publication](#publish-and-configure-a-registration)
+[validation](#tests-and-publication), and [publication](#publish-a-hub-publication)
 as the detailed references for these steps.
 
 A connector release serves one service through one selected native protocol. The
@@ -173,7 +173,7 @@ bounds, `required`, and `order` drive validation and forms. The public JSON sche
 is generated from the authoritative Go `manifest` package. Unknown fields,
 duplicate keys, explicit null, and malformed references are errors.
 
-Publisher settings belong to a registration. Root settings belong to a connection.
+Publisher settings belong to a Hub publication. Root settings belong to a connection.
 Manual inputs belong to that connection and selected method. Secrets in any of
 these locations remain server-only. Only active nonsecret root settings appear in
 the immutable Luau `config` table. `display: "masked"` on a normal string affects
@@ -201,9 +201,10 @@ to learn signatures by issuing live send/delete probes.
 
 Authentication methods are a map with stable keys, ordered by `order`, then key.
 Manual methods declare their own inputs. OAuth methods declare endpoints and
-reference publisher string `client_id` and secret `client_secret` fields. Enter
-those values in the registration's declared publisher form. Use the exact callback
-URL displayed for that registration in the provider's development app. OAuth
+reference connection `config.client_id` (string) and `config.client_secret`
+(secret) fields. The connection admin enters these values in the connection form
+and registers its displayed callback in the provider application. Each connection
+has a distinct callback, including multiple instances in the same organization. OAuth
 scopes are ordered groups of `{values: [...]}` with optional `if` predicates.
 OAuth exchanges and refreshes default to form-encoded bodies. Providers such as
 Notion can select `token_encoding: "json"` and supply literal `token_headers`
@@ -386,7 +387,7 @@ Describe useful capabilities and access choices in plain language. Put account
 setup instructions in `SETUP.md`: choosing an available authentication method,
 obtaining an account token when needed, granting provider permissions, and adding
 the account in Houston. Both files address people using an already registered
-connector. Do not put repository registration, OAuth application/client setup,
+connector. Do not put repository publication,
 publisher settings, builds or deployment instructions in any connector folder.
 Keep function signatures, return shapes,
 pagination rules, and agent examples in Lua `help()`. The Hub renders the README
@@ -624,7 +625,7 @@ Parameterize values and keep transport credentials out of arguments. Do not infe
 write authorization from a SQL string or a function name. Gate mutation exports
 with effective `config.access` and let the database enforce its own permissions.
 
-## Publish and configure a registration
+## Publish a Hub publication
 
 A repository commit is source, not a live catalog entry. In Houston's Hub,
 register the repository URL, a revision and the path to its `houston.json`.
@@ -632,18 +633,24 @@ Publication resolves the bundle and private imports, validates the manifest,
 checks configured Lua exports/help, type-checks the implementation and runs its
 fixtures. Resolve those failures before making the connector available to users.
 A release pins its source; pushing a new commit does not automatically update
-existing registrations or connections.
+existing Hub publications or connections.
 
 Use `README.md` for the account user's overview and `SETUP.md` for connecting an
 account to that registered connector. Callable signatures and examples belong in
 Lua `help()`. Keep publisher instructions in this root guide, even when they are
 provider-specific. Use the provider's official icon, and record attribution here.
 
-For OAuth, create the provider's public application, configure its capabilities,
-and enter its client ID and secret in the registration's publisher settings. Use
-the exact callback URL shown by Houston in that provider application's redirect
-URI list. Each registration owns its publisher settings independently. Manual
-account tokens belong to users' connection forms, not publisher settings or Lua.
+A publisher adds the GitHub source to the Hub, producing a `HubPublicationID`
+(`hub_publication_id` in APIs and the database). An admin adds instances of that
+publication to an organization or personal account, producing separate
+`connection_id` values. Each instance owns its settings and credentials.
+
+For OAuth, declare client ID and secret as connection config fields and reference
+them from the authentication method. Houston reserves a callback before consent:
+`<Houston public URL>/oauth/connections/<callback-id>/callback`. The callback maps
+to one connection after authorization and remains stable on reconnect. Include
+provider application setup in account-user `SETUP.md`, since the connection admin
+now owns that setup. Publishing a bundle requires no OAuth client credentials.
 
 When a bundle needs a new runtime or manifest capability, merge and deploy the
 Houston change before registering a release that uses it. Keep the source release
@@ -654,12 +661,10 @@ and required runtime change linked in the PR so operators can apply them togethe
 Register repository `https://github.com/aibakery/houston-hub`, revision `main`,
 manifest path `connectors/notion/houston.json`. It requires a Houston deployment
 with JSON OAuth token encoding, opaque path parameters and native
-`http.multipart`. Token-only registrations need no OAuth publisher settings.
+`http.multipart`. OAuth client settings belong to each connection, not this publication.
 
-To offer **Connect with Notion**, create a public connection in
-[Notion's developer portal](https://www.notion.so/profile/integrations), set its
-capabilities, enter its OAuth client ID and secret in the Houston registration,
-and add Houston's displayed callback URL to Notion's redirect URI list. Notion
+The account-user [Notion setup guide](connectors/notion/SETUP.md) explains how
+to configure the connection's provider application and callback. Notion
 uses configured capabilities rather than OAuth scope strings. Houston exchanges
 and refreshes tokens privately; token introspection and revocation are provider
 application-administration tasks, not callable connector operations.

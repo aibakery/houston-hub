@@ -26,8 +26,8 @@
       },
       "authorize_url": "https://slack.com/oauth/v2/authorize",
       "client_auth": "body",
-      "client_id": "{{publisher.client_id}}",
-      "client_secret": "{{publisher.client_secret}}",
+      "client_id": "{{config.client_id}}",
+      "client_secret": "{{config.client_secret}}",
       "label": "Connect account",
       "pkce": "none",
       "refresh_response": {
@@ -133,6 +133,18 @@
       ],
       "order": 1,
       "type": "string"
+    },
+    "client_id": {
+      "label": "OAuth client ID",
+      "order": 1,
+      "required": true,
+      "type": "string"
+    },
+    "client_secret": {
+      "label": "OAuth client secret",
+      "order": 2,
+      "required": true,
+      "type": "secret"
     },
     "workspace_id": {
       "description": "Workspace ID beginning with T, available in your Slack workspace URL. Consent must return this workspace.",
@@ -252,20 +264,6 @@
       }
     }
   ],
-  "publisher": {
-    "client_id": {
-      "label": "OAuth client ID",
-      "order": 1,
-      "required": true,
-      "type": "string"
-    },
-    "client_secret": {
-      "label": "OAuth client secret",
-      "order": 2,
-      "required": true,
-      "type": "secret"
-    }
-  },
   "schema_version": 1,
-  "setup": "Houston needs authorization in each Slack workspace you connect. Depending on your Slack workspace’s app policy, a workspace admin may need to approve Houston before you can connect your account. Tokens stay on this server. Each connector connects one workspace. Add another connector for each additional workspace."
+  "setup": "Create an OAuth application with your provider and enter its client ID and client secret in this connection's settings. Copy the OAuth callback URL shown here into that application's allowed redirect URLs before authorizing. Every Houston connection gets a different callback URL; reauthorizing the same connection keeps it. Houston needs authorization in each Slack workspace you connect. Depending on your Slack workspace’s app policy, a workspace admin may need to approve Houston before you can connect your account. Tokens stay on this server. Each connector connects one workspace. Add another connector for each additional workspace."
 }

@@ -1,5 +1,5 @@
 return {
-    scenario = {publisher = {client_id = "fixture-client", client_secret = "fixture-private-secret"}, config = {}, auth_method = "oauth", auth_config = {}},
+    scenario = {config = {client_id = "fixture-client", client_secret = "fixture-private-secret"}, auth_method = "oauth", auth_config = {}},
     configure = function()
         http = {request = function(request)
             assert(string.find(request.url, "/labels", 1, true))

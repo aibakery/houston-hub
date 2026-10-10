@@ -43,13 +43,13 @@ func TestReservedAccessImplicitDefaultResolvesDependentPolicy(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			raw := fmt.Sprintf(`{
 				"schema_version":1,"name":"Access resolution","files":["main.lua"],
-				"publisher":{"client_id":{"type":"string","label":"Client","default":"fixture-client"}},
 				"config":{
+					"client_id":{"type":"string","label":"Client","default":"fixture-client"},
 					"access":{"type":"string","label":"Access"%s},
 					"a_read_route":{"type":"string","label":"Read route","default":"read","if":"{{ is config.access \"read-only\" }}"},
 					"a_write_route":{"type":"string","label":"Write route","default":"write","if":"{{ is config.access \"read-write\" }}"}
 				},
-				"auth":{"oauth":{"type":"oauth2","label":"OAuth","authorize_url":"https://example.com/auth","token_url":"https://example.com/token","client_id":"{{publisher.client_id}}","client_auth":"none","pkce":"S256","scopes":[
+				"auth":{"oauth":{"type":"oauth2","label":"OAuth","authorize_url":"https://example.com/auth","token_url":"https://example.com/token","client_id":"{{config.client_id}}","client_auth":"none","pkce":"S256","scopes":[
 					{"if":"{{ is config.access \"read-only\" }}","values":["read"]},
 					{"if":"{{ is config.access \"read-write\" }}","values":["write"]}
 				]}},
@@ -75,7 +75,7 @@ func TestReservedAccessImplicitDefaultResolvesDependentPolicy(t *testing.T) {
 				if tc.want == "read-write" {
 					mode, proxy = "write", 1
 				}
-				wantConfig := map[string]any{"access": tc.want, "a_" + mode + "_route": mode}
+				wantConfig := map[string]any{"client_id": "fixture-client", "access": tc.want, "a_" + mode + "_route": mode}
 				if !reflect.DeepEqual(r.PublicConfig, wantConfig) || !reflect.DeepEqual(r.Context.Config, wantConfig) || !reflect.DeepEqual(r.Scopes, []string{mode}) || !reflect.DeepEqual(r.ProxyIndices, []int{proxy}) {
 					t.Fatalf("draft=%v inconsistent policy: config=%v context=%v scopes=%v proxies=%v", draft, r.PublicConfig, r.Context.Config, r.Scopes, r.ProxyIndices)
 				}

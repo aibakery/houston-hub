@@ -1,4 +1,4 @@
-return {scenario={["auth_config"]={},["auth_method"]="oauth",["config"]={["workspace_id"]="T_FIXTURE"},["publisher"]={["client_id"]="fixture-value",["client_secret"]="fixture-private-password !@#"}},config={access="read-write"}, configure=function()
+return {scenario={["auth_config"]={},["auth_method"]="oauth",["config"]={["workspace_id"]="T_FIXTURE",["client_id"]="fixture-value",["client_secret"]="fixture-private-password !@#"}},config={access="read-write"}, configure=function()
 
         requests = {}
         responses = {}

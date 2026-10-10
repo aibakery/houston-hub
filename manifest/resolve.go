@@ -223,7 +223,7 @@ func (m *Manifest) resolve(publisher, config, auth map[string]any, selected stri
 					value, e := RenderString(s, *c)
 					if e != nil || value == "" {
 						status.Available = false
-						status.Error = "publisher OAuth client settings are incomplete"
+						status.Error = "OAuth client settings are incomplete"
 					}
 				}
 			}

@@ -46,7 +46,7 @@ func TestOAuthTokenEncodingAndHeaders(t *testing.T) {
 		{"X-Houston-Token": "x"}, {"bad header": "x"},
 		{"Notion-Version": "a", "notion-version": "b"},
 		{"Notion-Version": "2026\r\nx-injected: yes"},
-		{"Notion-Version": "{{publisher.client_secret}}"},
+		{"Notion-Version": "{{config.client_secret}}"},
 	} {
 		if err := ValidateTokenHeaders(headers); err == nil {
 			t.Errorf("accepted unsafe token headers: %v", headers)

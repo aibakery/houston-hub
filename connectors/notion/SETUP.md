@@ -1,14 +1,21 @@
 # Connect your Notion account
 
-In Houston, select the registered **Notion** connector and choose an available
+In Houston, add the **Notion** connector from the Hub and choose an available
 sign-in method. Choose **Read-only** to browse and query, or **Read and write** to
 let agents create and change content.
 
 ## Connect with Notion
 
-If **Connect with Notion** is available, select it and sign in to Notion. Choose
-the workspace and pages you want to share, then approve access and return to
-Houston. You do not need to create an OAuth application or enter client credentials.
+1. Create a public connection in [Notion's developer portal](https://www.notion.so/profile/integrations) and configure its capabilities.
+2. Enter its OAuth client ID and secret in this Houston connection's settings.
+3. Copy the **OAuth callback URL** shown by Houston and add it to the Notion
+   application's redirect URI list. Each Houston connection gets a different URL,
+   even when you add Notion multiple times to the same organization.
+4. Choose **Connect with Notion**, authorize the account, select the workspace
+   and pages to share, and return to Houston.
+
+Reauthorizing this connection keeps its callback URL. Client secrets and account
+tokens stay on the Houston server and are never available to agent scripts.
 
 Only the pages you authorize are accessible. You can change shared pages and
 revoke access from Notion's connection settings.
