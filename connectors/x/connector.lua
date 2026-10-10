@@ -143,7 +143,23 @@ end
 function functions.help(): string
 	local sections = {"X: public, read-only API v2 browsing with your app bearer token. Credentials stay on Houston. Each function takes one options object and makes one request, with no automatic pagination or retries. X bills your developer account; access depends on its permissions and credits. IDs must stay strings. Responses preserve data, includes, meta, errors and nulls. Inspect errors even when data is present. No private accounts, home feed, bookmarks, DMs or writes.",
 		"Field selectors use native X names: opts[\"post.fields\"], opts[\"user.fields\"], media.fields, place.fields, poll.fields and expansions. Pass comma-separated strings or arrays. Tweet calls include authors, dates, public metrics and note_post (long-form text) by default. Profile calls accept user.fields, post.fields and expansions.",
-		"Paged calls accept max_results (default 10), start_time/end_time (RFC3339), since_id/until_id (strings). Pass result.meta.next_token as next_token for search, or pagination_token for timelines. Stop when it is absent. Fetch only the pages you need; each request uses your provider quota. To browse replies, search query = \"conversation_id:<tweet-id>\" within the chosen search window."}
+		"Paged calls accept max_results (default 10), start_time/end_time (RFC3339), since_id/until_id (strings). Pass result.meta.next_token as next_token for search, or pagination_token for timelines. Stop when it is absent. Fetch only the pages you need; each request uses your provider quota. To browse replies, search query = \"conversation_id:<tweet-id>\" within the chosen search window.",
+		[[## Example
+
+Here x is the configured X connection. Read note_post.text when present for long-form posts.
+
+```lua
+local users = x.getUserByUsername({username = "XDevelopers"})
+local tweets = x.listUserTweets({id = users.data.id, max_results = 10})
+local matches = x.searchRecentTweets({query = "from:XDevelopers -is:retweet", max_results = 10})
+-- For the next search page, pass matches.meta.next_token as next_token.
+-- For timeline pages, pass tweets.meta.next_token as pagination_token.
+```
+
+References: https://docs.x.com/x-api/posts/search/introduction,
+https://docs.x.com/x-api/posts/lookup/quickstart,
+https://docs.x.com/x-api/posts/timelines/introduction,
+https://docs.x.com/x-api/users/lookup/introduction.]]}
 	local names: {string} = {}
 	for name in endpoints do table.insert(names, name) end
 	table.sort(names)

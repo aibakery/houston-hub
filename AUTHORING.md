@@ -405,16 +405,24 @@ Official examples should order root fields as `schema_version`, `name`,
 legal JSON property order validates. Formatting should preserve the source order.
 Use adjacent `README.md` (optionally with `description` frontmatter for a card
 summary) for a short, appealing overview of what people can do with the connector.
-Describe useful capabilities and access choices in plain language. Put account
-setup instructions in `SETUP.md`: choosing an available authentication method,
+Describe useful capabilities, access choices, limits, and costs in plain language.
+The public description must not mention Lua/Luau, `help()`, callable function names,
+request or response fields, pagination parameters, or code examples. This applies
+to the README body, its `description` frontmatter, and the manifest's inline
+`description`. Put all programming usage documentation in the connector's Lua
+`help()` function; moving it there must preserve useful examples and caveats.
+
+Put account setup instructions in `SETUP.md`: choosing an available authentication method,
 obtaining an account token when needed, granting provider permissions, and adding
-the account in Houston. Both files address people using an already registered
-connector. Do not put repository publication,
-publisher settings, builds or deployment instructions in any connector folder.
-Keep function signatures, return shapes,
-pagination rules, and agent examples in Lua `help()`. The Hub renders the README
-as the public description, not as agent runtime documentation. Inline `description` and
-`setup` remain supported fallbacks, but need not duplicate those files.
+the account in Houston. State prerequisites explicitly, including whether a
+provider developer app is required and whether users can select an existing app
+or must create one. Verify credential labels against the provider's current
+console and link its official instructions; do not assume an old tab name still
+exists. Both files address people using an already registered
+connector. Do not put repository publication, publisher settings, builds or
+deployment instructions in any connector folder. The Hub renders the README as
+the public description. Inline `description` and `setup` remain supported
+fallbacks, but need not duplicate those files.
 
 Keep the common setup steps first. A heading named `Advanced` (or starting with
 `Advanced ` or `Advanced:`) becomes a collapsed expandable section in Houston,

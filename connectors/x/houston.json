@@ -13,7 +13,7 @@
         "token": {
           "type": "secret",
           "label": "App bearer token",
-          "description": "From your X developer app’s Keys and tokens. X bills usage to your developer account.",
+          "description": "Create or select an app in the X Developer Console, then generate its app-only Bearer Token. X bills usage to your developer account.",
           "required": true
         }
       }
