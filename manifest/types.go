@@ -55,6 +55,8 @@ type AuthMethod struct {
 	ClientID        string            `json:"client_id,omitempty"`
 	ClientSecret    string            `json:"client_secret,omitempty"`
 	ClientAuth      string            `json:"client_auth,omitempty"`
+	TokenEncoding   string            `json:"token_encoding,omitempty"`
+	TokenHeaders    map[string]string `json:"token_headers,omitempty"`
 	PKCE            string            `json:"pkce,omitempty"`
 	Scopes          []ScopeGroup      `json:"scopes,omitempty"`
 	ScopeParameter  string            `json:"scope_parameter,omitempty"`
@@ -98,11 +100,12 @@ type Proxy struct {
 }
 type ProxyRules []Proxy
 type ProxyMatch struct {
-	Protocol string         `json:"protocol"`
-	Host     []string       `json:"host,omitempty"`
-	Method   []string       `json:"method,omitempty"`
-	Path     []string       `json:"path,omitempty"`
-	Header   map[string]any `json:"header,omitempty"`
+	Protocol             string         `json:"protocol"`
+	Host                 []string       `json:"host,omitempty"`
+	Method               []string       `json:"method,omitempty"`
+	Path                 []string       `json:"path,omitempty"`
+	OpaquePathParameters []string       `json:"opaque_path_parameters,omitempty"`
+	Header               map[string]any `json:"header,omitempty"`
 }
 type ProxyAction struct {
 	Rewrite    *Rewrite            `json:"rewrite,omitempty"`
@@ -288,6 +291,9 @@ func (m *Manifest) defaults() {
 		if a.Type == "oauth2" {
 			if a.ClientAuth == "" {
 				a.ClientAuth = "basic"
+			}
+			if a.TokenEncoding == "" {
+				a.TokenEncoding = "form"
 			}
 			if a.PKCE == "" {
 				a.PKCE = "S256"

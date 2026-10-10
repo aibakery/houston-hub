@@ -42,6 +42,8 @@ func TestRuntimeIOContracts(t *testing.T) {
 		{"awaitable file", `local fd=fs.open("file.txt","w"); local opened:File=await(fd); fd:write("foo"); fd:write("bar"); local position:number=await(fd:seek(0,"start")); local closed:nil=await(fd:close()); return opened==fd`, false},
 		{"download pipeline", `local res=await(http.request({method="GET",url="https://example.com"})); local fd=fs.open("export.gz","w"); fd:write(compression.gzip(res.body)); await(fd:close()); return await(fs.signedGetUrl("export.gz"))`, false},
 		{"file source", `local res=await(http.request({method="POST",url="https://example.com",body=compression.gzip(fs.open("input","r"))})); res.body:close(); return true`, false},
+		{"multipart source", `local body,contentType=http.multipart({{name="file",filename="x.pdf",contentType="application/pdf",body=fs.open("input","r")},{name="part_number",body="1"}}); local res=await(http.request({method="POST",url="https://example.com",headers={["content-type"]={contentType}},body=body})); res.body:close(); return true`, false},
+		{"invalid multipart source", `return http.multipart({{name="file",body=42}})`, true},
 		{"packed nil", `local fd=fs.open("out","w"); local results:PackedResults<nil> = awaitAll({fd:close()},100); local count:number=results.n; return count`, false},
 		{"mixed packed results", `local fd=fs.open("out","w"); local results=awaitAll({fd:write("x"),fd:close(),fs.exists("out")}); local count:number=results.n; return count`, false},
 		{"file helpers", `local exists:boolean=await(fs.exists("x")); local children:{string}=await(fs.list()); local result:GrepResult=await(fs.grep("text")); return exists`, false},

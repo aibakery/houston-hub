@@ -21,6 +21,7 @@ func TestEveryProviderAuthenticationAndTransport(t *testing.T) {
 		"gmail": {"GET", "https://gmail.googleapis.com/gmail/v1/users/me/profile"}, "gdrive": {"GET", "https://www.googleapis.com/drive/v3/files"},
 		"gcalendar": {"GET", "https://www.googleapis.com/calendar/v3/users/me/calendarList"}, "dropbox": {"POST", "https://api.dropboxapi.com/2/files/list_folder"},
 		"slack": {"GET", "https://slack.com/api/auth.test"}, "fastmail": {"GET", "https://api.fastmail.com/jmap/session"},
+		"notion": {"GET", "https://api.notion.com/v1/users/me"},
 	}
 	for _, path := range paths {
 		provider := filepath.Base(filepath.Dir(path))
@@ -71,7 +72,7 @@ func TestEveryProviderAuthenticationAndTransport(t *testing.T) {
 					if m.Auth[method].Type == "oauth2" {
 						credential = "synthetic-oauth-token"
 						r.Context.Auth[method]["access_token"] = credential
-						if len(r.Scopes) == 0 {
+						if len(m.Auth[method].Scopes) > 0 && len(r.Scopes) == 0 {
 							t.Fatal("OAuth scopes missing")
 						}
 					}
@@ -79,6 +80,9 @@ func TestEveryProviderAuthenticationAndTransport(t *testing.T) {
 						t.Fatal(err)
 					}
 					ep := endpoints[provider]
+					if provider == "notion" && method == "admin" {
+						ep = [2]string{"GET", "https://api.notion.com/admin/v1/legal_holds"}
+					}
 					recipe, err := m.Proxy.Select(r.ProxyIndices).HTTPRecipe(ep[0], ep[1], nil)
 					if err != nil {
 						t.Fatal(err)

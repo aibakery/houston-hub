@@ -37,13 +37,14 @@ type File = Operation<File> & Readable & Writer & {
 type HttpHeaders = {[string]: {string}}
 type HttpRequest = {url:string,method:string,headers:HttpHeaders?,body:ByteSource?,timeoutMs:number?}
 type HttpResponse = {statusCode:number,headers:HttpHeaders,body:StreamReader}
+type MultipartPart = {name:string,body:ByteSource,filename:string?,contentType:string?}
 type FileStat = {size:number,isFile:boolean}
 type GrepResult = {matches:{{path:string,line:number,text:string}},truncated:boolean}
 type PackedResults<T> = {[number]: T, n: number}
 local await: <T>(Operation<T>, number?) -> T = nil :: any
 -- Groups may mix result types; every input must still be an Operation.
 local awaitAll: ({Operation<any>}, number?) -> PackedResults<any> = nil :: any
-local http: {request: (HttpRequest) -> Operation<HttpResponse>} = nil :: any
+local http: {request: (HttpRequest) -> Operation<HttpResponse>,multipart: ({MultipartPart}) -> (StreamReader,string)} = nil :: any
 local compression: {gzip:(Reader)->StreamReader,gunzip:(Reader)->StreamReader} = nil :: any
 local db: {query: ({query:string,params:{any}?,max_rows:number?,read_only:boolean?}) -> any} = nil :: any
 local fs: {

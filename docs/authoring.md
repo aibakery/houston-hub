@@ -178,6 +178,10 @@ reference publisher string `client_id` and secret `client_secret` fields. Enter
 those values in the registration's declared publisher form. Use the exact callback
 URL displayed for that registration in the provider's development app. OAuth
 scopes are ordered groups of `{values: [...]}` with optional `if` predicates.
+OAuth exchanges and refreshes default to form-encoded bodies. Providers such as
+Notion can select `token_encoding: "json"` and supply literal `token_headers`
+such as `Notion-Version`. These headers cannot replace authentication or
+transport framing headers. Credentials still stay outside Luau.
 
 An omitted `auth` map permits root-secret injection without a synthetic method.
 Fields activate through the bounded `if` operations `is`, `isDefined`, and `and`.
@@ -235,6 +239,15 @@ All `header` entries must match. Header names are case-insensitive; string value
 match exactly and `true` means present, including an empty value. Filters are
 literal and inspect caller headers before action changes.
 
+An API with opaque IDs can explicitly declare `opaque_path_parameters: ["id"]`
+on a path such as `/records/{id}`. That parameter may contain encoded slash,
+backslash, or percent bytes. For signed file keys, `["*"]` applies to an explicit
+terminal wildcard, such as `/trusted-bucket/*`. Keep this on narrowly scoped
+rules: every name must appear in each path, rewriting is forbidden, and literal
+prefixes and other parameters remain strict. Matching preserves the original
+escaped URL; traversal and control bytes are rejected through up to 16 decoding
+passes. Other rules keep the default rejection of encoded separators and percent.
+
 `action.headers.remove` runs before `set`. A set replaces existing values; a name
 may appear in both collections. Set values are string templates only; objects
 and nested conditions are invalid. For conditional injection, put a complete
@@ -276,6 +289,14 @@ or publisher-owned database targets.
 `http.request({url, method, headers?, body?, timeoutMs?})` returns an operation
 whose result has `statusCode`, `headers`, and a body Reader. All headers use
 `{[string]: {string}}`; plain strings are invalid. `body` accepts bytes or a Reader.
+`http.multipart({{name, body, filename?, contentType?}, ...})` returns a streaming
+Reader and its `multipart/form-data` Content-Type (including a random boundary).
+Set that Content-Type header on the request and pass the Reader as its body.
+Part bodies accept strings, Readers, or readable Files. The helper takes ownership
+of every Reader/File; closing or consuming the multipart Reader closes its sources.
+Validation errors leave sources usable. Parts must form a nonempty dense array
+of at most 128 entries, with at most 64 KiB of headers and 8 MiB of string bodies
+in total. File contents stream without a size limit or temporary staging file.
 `fs.open`, `stat`, `exists`, `list`, `grep`, `signedGetUrl`, and `signedPutUrl`
 operate on invocation-scoped session files and return operations. `list` returns
 all sorted child names or a limit error; `grep` returns `{matches, truncated}`.
@@ -348,7 +369,7 @@ go run ./tools/validate connectors/fastmail
 ```
 
 Replace `connectors/fastmail` with the bundle you are authoring. The no-argument
-validator currently selects Fastmail; other providers will enter routine runtime
+validator currently selects Fastmail and Notion; other providers will enter routine runtime
 validation as they are migrated. An explicit catalog directory validates all its
 bundles.
 

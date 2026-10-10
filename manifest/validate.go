@@ -425,6 +425,12 @@ func (m *Manifest) validateOAuth(key string, a AuthMethod, used map[string]bool)
 	if a.PKCE != "S256" && a.PKCE != "none" {
 		return fmt.Errorf("invalid pkce")
 	}
+	if a.TokenEncoding != "" && a.TokenEncoding != "form" && a.TokenEncoding != "json" {
+		return fmt.Errorf("invalid token_encoding")
+	}
+	if err := ValidateTokenHeaders(a.TokenHeaders); err != nil {
+		return err
+	}
 	if !paramRE.MatchString(a.ScopeParameter) || reservedParams[a.ScopeParameter] {
 		return fmt.Errorf("invalid scope_parameter")
 	}
@@ -629,7 +635,7 @@ func checkPresence(data []byte) error {
 				if _, ok := a["config"]; ok {
 					return fmt.Errorf("OAuth forbids config")
 				}
-				for _, k := range []string{"client_auth", "pkce", "scope_parameter", "scope_separator"} {
+				for _, k := range []string{"client_auth", "token_encoding", "pkce", "scope_parameter", "scope_separator"} {
 					if v, ok := a[k]; ok && v == "" {
 						return fmt.Errorf("%s must be nonempty", k)
 					}
@@ -662,7 +668,7 @@ func checkPresence(data []byte) error {
 				return fmt.Errorf("proxy action required")
 			}
 			if match["protocol"] != "http" {
-				for _, key := range []string{"host", "method", "path", "header"} {
+				for _, key := range []string{"host", "method", "path", "opaque_path_parameters", "header"} {
 					if _, exists := match[key]; exists {
 						return fmt.Errorf("database forbids HTTP filters")
 					}

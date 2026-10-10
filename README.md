@@ -1,6 +1,6 @@
 # Houston Hub
 
-This repository contains twelve connector bundles, the authoritative manifest v1
+This repository contains thirteen connector bundles, the authoritative manifest v1
 contract and reviewed operation access metadata. Registrations in Houston define the live
 catalog; repository files are not published automatically.
 
@@ -25,7 +25,7 @@ go run ./tools/validate
 
 Set `HOUSTON_CLI` to a freshly built Houston runner and put the pinned
 `luau-analyze` on `PATH`; the Go validator runs every resolved behavior fixture
-in the selected bundle. Fastmail is currently the supported connector for
+in the selected bundle. Fastmail and Notion are the supported connectors for
 runtime validation; other provider bundles remain available for future migration.
 From the Houston checkout, `go -C tools/runtime run . test-connectors` builds the
 runner and invokes this validator. See the
@@ -43,7 +43,7 @@ These are recommendations, not additional contribution requirements.
 - [manifest/](manifest/): shared manifest parser and generated schema used by Houston.
 
 Use `go run ./tools/validate [bundle-directory]` for a selected bundle, or omit
-the path to validate Fastmail. Use `go run ./tools/validate .` to explicitly
+the path to validate Fastmail and Notion. Use `go run ./tools/validate .` to explicitly
 validate every bundle, including providers that have not yet migrated to the
 current runtime. This command performs manifest validation, Luau type checking
 and mocked behavior verification.

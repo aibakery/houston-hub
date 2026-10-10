@@ -7,13 +7,17 @@ import (
 	"testing"
 )
 
-func TestFastmailBundle(t *testing.T) {
-	count, err := validate("../../connectors/fastmail")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if count != 1 {
-		t.Fatalf("validated %d bundles, want 1", count)
+func TestSupportedBundles(t *testing.T) {
+	for _, name := range []string{"fastmail", "notion"} {
+		t.Run(name, func(t *testing.T) {
+			count, err := validate("../../connectors/" + name)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if count != 1 {
+				t.Fatalf("validated %d bundles, want 1", count)
+			}
+		})
 	}
 }
 func TestStandaloneBundleAndPrivateFiles(t *testing.T) {

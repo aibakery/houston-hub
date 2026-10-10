@@ -1,0 +1,679 @@
+{
+  "schema_version": 1,
+  "name": "Notion",
+  "files": [
+    "connector.lua"
+  ],
+  "icon": "icon.svg",
+  "config": {
+    "access": {
+      "default": "read-only",
+      "label": "Access",
+      "options": [
+        {
+          "label": "Read-only",
+          "value": "read-only"
+        },
+        {
+          "label": "Read and write",
+          "value": "read-write"
+        }
+      ],
+      "type": "string"
+    }
+  },
+  "auth": {
+    "admin": {
+      "config": {
+        "token": {
+          "label": "Token",
+          "required": true,
+          "type": "secret"
+        }
+      },
+      "label": "Enterprise organization bot (Admin API)",
+      "order": 3,
+      "type": "manual"
+    },
+    "oauth": {
+      "account": {
+        "headers": {
+          "Authorization": {
+            "value": "Bearer {{auth.oauth.access_token}}"
+          },
+          "Notion-Version": {
+            "value": "2026-03-11"
+          }
+        },
+        "label": "/id",
+        "method": "GET",
+        "url": "https://api.notion.com/v1/users/me"
+      },
+      "authorize_params": {
+        "owner": "user"
+      },
+      "authorize_url": "https://api.notion.com/v1/oauth/authorize",
+      "client_auth": "basic",
+      "client_id": "{{publisher.client_id}}",
+      "client_secret": "{{publisher.client_secret}}",
+      "if": "{{ isDefined publisher.client_id }}",
+      "label": "Connect with Notion",
+      "order": 2,
+      "pkce": "none",
+      "token_encoding": "json",
+      "token_headers": {
+        "Notion-Version": "2026-03-11"
+      },
+      "token_url": "https://api.notion.com/v1/oauth/token",
+      "type": "oauth2"
+    },
+    "token": {
+      "config": {
+        "token": {
+          "label": "Token",
+          "required": true,
+          "type": "secret"
+        }
+      },
+      "label": "Internal connection or personal access token",
+      "order": 1,
+      "type": "manual"
+    }
+  },
+  "publisher": {
+    "client_id": {
+      "label": "OAuth client ID (optional)",
+      "type": "string"
+    },
+    "client_secret": {
+      "if": "{{ isDefined publisher.client_id }}",
+      "label": "OAuth client secret",
+      "required": true,
+      "type": "secret"
+    }
+  },
+  "proxy": [
+    {
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.token.token}}",
+            "Notion-Version": "2026-03-11"
+          }
+        }
+      },
+      "if": "{{ isDefined auth.token }}",
+      "match": {
+        "host": ["api.notion.com"],
+        "method": ["GET"],
+        "path": ["/v1/pages/{page_id}/properties/{property_id}"],
+        "opaque_path_parameters": ["property_id"],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}",
+            "Notion-Version": "2026-03-11"
+          }
+        }
+      },
+      "if": "{{ isDefined auth.oauth }}",
+      "match": {
+        "host": ["api.notion.com"],
+        "method": ["GET"],
+        "path": ["/v1/pages/{page_id}/properties/{property_id}"],
+        "opaque_path_parameters": ["property_id"],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.token.token || auth.oauth.access_token}}",
+            "Notion-Version": "2026-03-11"
+          }
+        }
+      },
+      "if": "{{ isDefined auth.token }}",
+      "match": {
+        "host": [
+          "api.notion.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/v1/agents/{agent_id}",
+          "/v1/agents/{agent_id}/insights",
+          "/v1/ai/plugins",
+          "/v1/ai/plugins/{id}",
+          "/v1/ai/skills/{id}",
+          "/v1/async_tasks/{task_id}",
+          "/v1/blocks/{block_id}",
+          "/v1/blocks/{block_id}/children",
+          "/v1/comments",
+          "/v1/comments/{comment_id}",
+          "/v1/custom_emojis",
+          "/v1/data_sources/{data_source_id}",
+          "/v1/data_sources/{data_source_id}/templates",
+          "/v1/databases/{database_id}",
+          "/v1/file_uploads",
+          "/v1/file_uploads/{file_upload_id}",
+          "/v1/pages/{page_id}",
+          "/v1/pages/{page_id}/markdown",
+          "/v1/sessions/{session_id}",
+          "/v1/users",
+          "/v1/users/me",
+          "/v1/users/{user_id}",
+          "/v1/views",
+          "/v1/views/{view_id}",
+          "/v1/views/{view_id}/queries/{query_id}"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.token.token || auth.oauth.access_token}}",
+            "Notion-Version": "2026-03-11"
+          }
+        }
+      },
+      "if": "{{ isDefined auth.oauth }}",
+      "match": {
+        "host": [
+          "api.notion.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/v1/agents/{agent_id}",
+          "/v1/agents/{agent_id}/insights",
+          "/v1/ai/plugins",
+          "/v1/ai/plugins/{id}",
+          "/v1/ai/skills/{id}",
+          "/v1/async_tasks/{task_id}",
+          "/v1/blocks/{block_id}",
+          "/v1/blocks/{block_id}/children",
+          "/v1/comments",
+          "/v1/comments/{comment_id}",
+          "/v1/custom_emojis",
+          "/v1/data_sources/{data_source_id}",
+          "/v1/data_sources/{data_source_id}/templates",
+          "/v1/databases/{database_id}",
+          "/v1/file_uploads",
+          "/v1/file_uploads/{file_upload_id}",
+          "/v1/pages/{page_id}",
+          "/v1/pages/{page_id}/markdown",
+          "/v1/sessions/{session_id}",
+          "/v1/users",
+          "/v1/users/me",
+          "/v1/users/{user_id}",
+          "/v1/views",
+          "/v1/views/{view_id}",
+          "/v1/views/{view_id}/queries/{query_id}"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.token.token || auth.oauth.access_token}}",
+            "Notion-Version": "2026-03-11"
+          }
+        }
+      },
+      "if": "{{ isDefined auth.token }}",
+      "match": {
+        "host": [
+          "api.notion.com"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/v1/agents/query",
+          "/v1/blocks/meeting_notes/query",
+          "/v1/data_sources/{data_source_id}/query",
+          "/v1/search",
+          "/v1/sessions/query",
+          "/v1/sessions/{session_id}/events/query",
+          "/v1/views/{view_id}/queries"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.token.token || auth.oauth.access_token}}",
+            "Notion-Version": "2026-03-11"
+          }
+        }
+      },
+      "if": "{{ isDefined auth.oauth }}",
+      "match": {
+        "host": [
+          "api.notion.com"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/v1/agents/query",
+          "/v1/blocks/meeting_notes/query",
+          "/v1/data_sources/{data_source_id}/query",
+          "/v1/search",
+          "/v1/sessions/query",
+          "/v1/sessions/{session_id}/events/query",
+          "/v1/views/{view_id}/queries"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.token.token || auth.oauth.access_token}}",
+            "Notion-Version": "2026-03-11"
+          }
+        }
+      },
+      "if": "{{ and (isDefined auth.token) (is config.access \"read-write\") }}",
+      "match": {
+        "host": [
+          "api.notion.com"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/v1/agents/batch",
+          "/v1/blocks/meeting_notes",
+          "/v1/comments",
+          "/v1/data_sources",
+          "/v1/databases",
+          "/v1/file_uploads",
+          "/v1/file_uploads/{file_upload_id}/complete",
+          "/v1/file_uploads/{file_upload_id}/send",
+          "/v1/pages",
+          "/v1/pages/{page_id}/move",
+          "/v1/sessions",
+          "/v1/sessions/{session_id}/cancel",
+          "/v1/views"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.token.token || auth.oauth.access_token}}",
+            "Notion-Version": "2026-03-11"
+          }
+        }
+      },
+      "if": "{{ and (isDefined auth.oauth) (is config.access \"read-write\") }}",
+      "match": {
+        "host": [
+          "api.notion.com"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/v1/agents/batch",
+          "/v1/blocks/meeting_notes",
+          "/v1/comments",
+          "/v1/data_sources",
+          "/v1/databases",
+          "/v1/file_uploads",
+          "/v1/file_uploads/{file_upload_id}/complete",
+          "/v1/file_uploads/{file_upload_id}/send",
+          "/v1/pages",
+          "/v1/pages/{page_id}/move",
+          "/v1/sessions",
+          "/v1/sessions/{session_id}/cancel",
+          "/v1/views"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.token.token || auth.oauth.access_token}}",
+            "Notion-Version": "2026-03-11"
+          }
+        }
+      },
+      "if": "{{ and (isDefined auth.token) (is config.access \"read-write\") }}",
+      "match": {
+        "host": [
+          "api.notion.com"
+        ],
+        "method": [
+          "PATCH"
+        ],
+        "path": [
+          "/v1/agents/{agent_id}/credit_limit",
+          "/v1/agents/{agent_id}/status",
+          "/v1/blocks/{block_id}",
+          "/v1/blocks/{block_id}/children",
+          "/v1/comments/{comment_id}",
+          "/v1/data_sources/{data_source_id}",
+          "/v1/databases/{database_id}",
+          "/v1/pages/{page_id}",
+          "/v1/pages/{page_id}/markdown",
+          "/v1/views/{view_id}"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.token.token || auth.oauth.access_token}}",
+            "Notion-Version": "2026-03-11"
+          }
+        }
+      },
+      "if": "{{ and (isDefined auth.oauth) (is config.access \"read-write\") }}",
+      "match": {
+        "host": [
+          "api.notion.com"
+        ],
+        "method": [
+          "PATCH"
+        ],
+        "path": [
+          "/v1/agents/{agent_id}/credit_limit",
+          "/v1/agents/{agent_id}/status",
+          "/v1/blocks/{block_id}",
+          "/v1/blocks/{block_id}/children",
+          "/v1/comments/{comment_id}",
+          "/v1/data_sources/{data_source_id}",
+          "/v1/databases/{database_id}",
+          "/v1/pages/{page_id}",
+          "/v1/pages/{page_id}/markdown",
+          "/v1/views/{view_id}"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.token.token || auth.oauth.access_token}}",
+            "Notion-Version": "2026-03-11"
+          }
+        }
+      },
+      "if": "{{ and (isDefined auth.token) (is config.access \"read-write\") }}",
+      "match": {
+        "host": [
+          "api.notion.com"
+        ],
+        "method": [
+          "DELETE"
+        ],
+        "path": [
+          "/v1/agents/{agent_id}",
+          "/v1/blocks/{block_id}",
+          "/v1/comments/{comment_id}",
+          "/v1/views/{view_id}",
+          "/v1/views/{view_id}/queries/{query_id}"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.token.token || auth.oauth.access_token}}",
+            "Notion-Version": "2026-03-11"
+          }
+        }
+      },
+      "if": "{{ and (isDefined auth.oauth) (is config.access \"read-write\") }}",
+      "match": {
+        "host": [
+          "api.notion.com"
+        ],
+        "method": [
+          "DELETE"
+        ],
+        "path": [
+          "/v1/agents/{agent_id}",
+          "/v1/blocks/{block_id}",
+          "/v1/comments/{comment_id}",
+          "/v1/views/{view_id}",
+          "/v1/views/{view_id}/queries/{query_id}"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.admin.token}}",
+            "Notion-Version": "2026-06-01"
+          }
+        }
+      },
+      "if": "{{ isDefined auth.admin }}",
+      "match": {
+        "host": [
+          "api.notion.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/admin/v1/analytics/reports",
+          "/admin/v1/legal_holds",
+          "/admin/v1/legal_holds/{legal_hold_id}",
+          "/admin/v1/legal_holds/{legal_hold_id}/spaces/{space_id}/pages",
+          "/admin/v1/legal_holds/{legal_hold_id}/users",
+          "/admin/v1/legal_holds/{legal_hold_id}/workspaces",
+          "/admin/v1/mcp_client_connections",
+          "/admin/v1/spaces/{space_id}/agents",
+          "/admin/v1/spaces/{space_id}/agents/credit_usage",
+          "/admin/v1/spaces/{space_id}/agents/{agent_id}/credit_usage",
+          "/admin/v1/spaces/{space_id}/agents/{agent_id}/permissions",
+          "/admin/v1/spaces/{space_id}/exports/{export_job_id}",
+          "/admin/v1/spaces/{space_id}/groups",
+          "/admin/v1/spaces/{space_id}/groups/{group_id}",
+          "/admin/v1/spaces/{space_id}/groups/{group_id}/members",
+          "/admin/v1/spaces/{space_id}/personal_access_tokens",
+          "/admin/v1/spaces/{space_id}/users"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.admin.token}}",
+            "Notion-Version": "2026-06-01"
+          }
+        }
+      },
+      "if": "{{ and (isDefined auth.admin) (is config.access \"read-write\") }}",
+      "match": {
+        "host": [
+          "api.notion.com"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/admin/v1/legal_holds",
+          "/admin/v1/legal_holds/{legal_hold_id}/export",
+          "/admin/v1/legal_holds/{legal_hold_id}/release",
+          "/admin/v1/legal_holds/{legal_hold_id}/users",
+          "/admin/v1/managed_users/revoke_session",
+          "/admin/v1/mcp_client_connections/revoke",
+          "/admin/v1/spaces/{space_id}/exports",
+          "/admin/v1/spaces/{space_id}/groups",
+          "/admin/v1/spaces/{space_id}/groups/{group_id}/members"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.admin.token}}",
+            "Notion-Version": "2026-06-01"
+          }
+        }
+      },
+      "if": "{{ and (isDefined auth.admin) (is config.access \"read-write\") }}",
+      "match": {
+        "host": [
+          "api.notion.com"
+        ],
+        "method": [
+          "PATCH"
+        ],
+        "path": [
+          "/admin/v1/legal_holds/{legal_hold_id}",
+          "/admin/v1/spaces/{space_id}/agents/creation_policy",
+          "/admin/v1/spaces/{space_id}/agents/{agent_id}/permissions",
+          "/admin/v1/spaces/{space_id}/agents/{agent_id}/status",
+          "/admin/v1/spaces/{space_id}/credit_limit",
+          "/admin/v1/spaces/{space_id}/groups/{group_id}",
+          "/admin/v1/spaces/{space_id}/groups/{group_id}/members/users/{user_id}"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.admin.token}}",
+            "Notion-Version": "2026-06-01"
+          }
+        }
+      },
+      "if": "{{ and (isDefined auth.admin) (is config.access \"read-write\") }}",
+      "match": {
+        "host": [
+          "api.notion.com"
+        ],
+        "method": [
+          "PUT"
+        ],
+        "path": [
+          "/admin/v1/mcp_client_connections/enterprise_managed_access",
+          "/admin/v1/spaces/{space_id}/agents/{agent_id}/credit_limit"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.admin.token}}",
+            "Notion-Version": "2026-06-01"
+          }
+        }
+      },
+      "if": "{{ and (isDefined auth.admin) (is config.access \"read-write\") }}",
+      "match": {
+        "host": [
+          "api.notion.com"
+        ],
+        "method": [
+          "DELETE"
+        ],
+        "path": [
+          "/admin/v1/legal_holds/{legal_hold_id}/users/{user_id}",
+          "/admin/v1/spaces/{space_id}/agents/{agent_id}",
+          "/admin/v1/spaces/{space_id}/groups/{group_id}",
+          "/admin/v1/spaces/{space_id}/groups/{group_id}/members/users/{user_id}",
+          "/admin/v1/spaces/{space_id}/personal_access_tokens/{bot_id}"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "remove": [
+            "Authorization",
+            "Notion-Version"
+          ]
+        }
+      },
+      "match": {
+        "host": [
+          "s3.us-west-2.amazonaws.com",
+          "s3-us-west-2.amazonaws.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/secure.notion-static.com/*",
+          "/public.notion-static.com/*",
+          "/notion-temporary-files/*"
+        ],
+        "opaque_path_parameters": ["*"],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "remove": [
+            "Authorization",
+            "Notion-Version"
+          ]
+        }
+      },
+      "match": {
+        "host": [
+          "prod-files-secure.s3.us-west-2.amazonaws.com",
+          "prod-files-secure-euc1.s3.eu-central-1.amazonaws.com",
+          "prod-files-secure-apne1.s3.ap-northeast-1.amazonaws.com",
+          "prod-files-secure-apne2.s3.ap-northeast-2.amazonaws.com",
+          "prod-notion-temporary-files-euc1.s3.eu-central-1.amazonaws.com",
+          "prod-notion-temporary-files-apne1.s3.ap-northeast-1.amazonaws.com",
+          "prod-notion-temporary-files-apne2.s3.ap-northeast-2.amazonaws.com",
+          "notion-production-snapshots-2.s3.us-west-2.amazonaws.com",
+          "file.notion.so",
+          "file.notion.com"
+        ],
+        "path": ["/*"],
+        "opaque_path_parameters": ["*"],
+        "method": [
+          "GET"
+        ],
+        "protocol": "http"
+      }
+    }
+  ]
+}

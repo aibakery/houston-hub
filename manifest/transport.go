@@ -23,6 +23,23 @@ func ValidHeaderValue(s string) bool {
 	}
 	return true
 }
+
+// ValidateTokenHeaders accepts literal provider metadata for both OAuth token
+// exchanges and refreshes. Authentication and framing remain transport-owned.
+func ValidateTokenHeaders(headers map[string]string) error {
+	seen := map[string]bool{}
+	for name, value := range headers {
+		key := strings.ToLower(name)
+		if !mutableHeader(name) || key == "authorization" || key == "content-type" || seen[key] {
+			return fmt.Errorf("invalid, reserved or duplicate OAuth token header %s", name)
+		}
+		if !ValidHeaderValue(value) || strings.Contains(value, "{{") {
+			return fmt.Errorf("OAuth token headers require literal header values")
+		}
+		seen[key] = true
+	}
+	return nil
+}
 func (m *Manifest) validateHeaders(headers map[string]HeaderValue, used map[string]bool) error {
 	seen := map[string]bool{}
 	for k, h := range headers {
@@ -150,7 +167,10 @@ func PathMatches(pattern, p string) bool {
 
 // RequestPath rejects encoded separators and dot segments before route matching.
 func RequestPath(u *url.URL) (string, error) {
-	raw := u.EscapedPath()
+	return requestPath(u.EscapedPath())
+}
+
+func requestPath(raw string) (string, error) {
 	if raw == "" {
 		raw = "/"
 	}
@@ -159,8 +179,13 @@ func RequestPath(u *url.URL) (string, error) {
 		return "", fmt.Errorf("encoded path separator forbidden")
 	}
 	p, e := url.PathUnescape(raw)
-	if e != nil || !strings.HasPrefix(p, "/") || strings.ContainsAny(p, "\\\x00") || strings.Contains(p, "//") {
+	if e != nil || !strings.HasPrefix(p, "/") || strings.Contains(p, "\\") || strings.Contains(p, "//") {
 		return "", fmt.Errorf("invalid request path")
+	}
+	for _, b := range []byte(p) {
+		if b < 32 || b == 127 {
+			return "", fmt.Errorf("path control characters forbidden")
+		}
 	}
 	for _, s := range strings.Split(p, "/") {
 		if s == "." || s == ".." {
@@ -209,6 +234,9 @@ func (m *Manifest) validateProxy(p Proxy, used map[string]bool) error {
 		if err := validateHeaderFilters(p.Match.Header); err != nil {
 			return err
 		}
+		if err := p.validateOpaquePathParameters(); err != nil {
+			return err
+		}
 		if err := m.validateRecipe(p.Action.httpRecipe("").Headers, p.Action.BasicAuth, used); err != nil {
 			return err
 		}
@@ -227,7 +255,7 @@ func (m *Manifest) validateProxy(p Proxy, used map[string]bool) error {
 		}
 	case "postgres", "mysql", "clickhouse":
 		c := p.Action.Connection
-		if c == nil || p.Match.Host != nil || p.Match.Method != nil || p.Match.Path != nil || p.Match.Header != nil || p.Action.Headers.Set != nil || p.Action.Headers.Remove != nil || p.Action.BasicAuth != nil || p.Action.Rewrite != nil {
+		if c == nil || p.Match.Host != nil || p.Match.Method != nil || p.Match.Path != nil || p.Match.OpaquePathParameters != nil || p.Match.Header != nil || p.Action.Headers.Set != nil || p.Action.Headers.Remove != nil || p.Action.BasicAuth != nil || p.Action.Rewrite != nil {
 			return fmt.Errorf("database requires action.connection and forbids HTTP filters/actions")
 		}
 		if c.TLS != nil && c.TLS.Mode != "verify-full" {
@@ -333,17 +361,14 @@ func (rules ProxyRules) HTTPRecipe(method, rawURL string, caller http.Header) (H
 		return out, fmt.Errorf("HTTP operation unavailable")
 	}
 	u, err := url.Parse(rawURL)
-	if err != nil || u.User != nil || u.Fragment != "" {
+	if err != nil || u.User != nil || u.Fragment != "" || strings.Contains(strings.SplitN(rawURL, "?", 2)[0], "\\") {
 		return out, fmt.Errorf("invalid request URL")
 	}
 	origin, err := NormalizeOrigin(u.Scheme + "://" + u.Host)
 	if err != nil {
 		return out, err
 	}
-	path, err := RequestPath(u)
-	if err != nil {
-		return out, err
-	}
+	path, pathError := RequestPath(u)
 	originFound := false
 	for _, rule := range rules {
 		if rule.Match.Protocol != "http" {
@@ -361,11 +386,14 @@ func (rules ProxyRules) HTTPRecipe(method, rawURL string, caller http.Header) (H
 			continue
 		}
 		originFound = true
-		if !rule.Match.matchesRequest(method, path, caller) {
+		if !rule.Match.matchesRequest(method, u, caller) {
 			continue
 		}
 		out = rule.Action.httpRecipe(rawURL)
 		if rewrite := rule.Action.Rewrite; rewrite != nil {
+			if pathError != nil || len(rule.Match.OpaquePathParameters) > 0 {
+				return HTTPRecipe{}, fmt.Errorf("opaque paths cannot be rewritten")
+			}
 			if err := validateStripPrefix(rewrite.StripPrefix); err != nil {
 				return HTTPRecipe{}, err
 			}
@@ -400,11 +428,18 @@ func originMatches(pattern, origin string) bool {
 	suffix, wildcard := strings.CutPrefix(pattern, "https://*")
 	return wildcard && strings.HasSuffix(strings.TrimPrefix(origin, "https://"), suffix)
 }
-func (m ProxyMatch) matchesRequest(method, path string, caller http.Header) bool {
+func (m ProxyMatch) matchesRequest(method string, u *url.URL, caller http.Header) bool {
 	if m.Method != nil && !slices.Contains(m.Method, method) {
 		return false
 	}
-	if m.Path != nil {
+	path, err := RequestPath(u)
+	if len(m.OpaquePathParameters) > 0 {
+		if !m.matchesOpaquePath(u.EscapedPath()) {
+			return false
+		}
+	} else if err != nil {
+		return false
+	} else if m.Path != nil {
 		found := false
 		for _, pattern := range m.Path {
 			if PathMatches(pattern, path) {

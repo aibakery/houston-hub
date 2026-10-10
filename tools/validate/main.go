@@ -15,18 +15,22 @@ import (
 )
 
 func main() {
-	root := "connectors/fastmail"
+	roots := []string{"connectors/fastmail", "connectors/notion"}
 	if len(os.Args) > 2 {
 		fmt.Fprintln(os.Stderr, "usage: go run ./tools/validate [bundle-or-catalog-directory]")
 		os.Exit(2)
 	}
 	if len(os.Args) == 2 {
-		root = os.Args[1]
+		roots = os.Args[1:]
 	}
-	count, err := validate(root)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+	count := 0
+	for _, root := range roots {
+		n, err := validate(root)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		count += n
 	}
 	fmt.Printf("%d connector bundles validated\n", count)
 }

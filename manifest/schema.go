@@ -63,12 +63,16 @@ func Schema() ([]byte, error) {
 	enum("Field", "display", "plain", "masked")
 	enum("AuthMethod", "type", "manual", "oauth2")
 	enum("AuthMethod", "client_auth", "basic", "body", "none")
+	enum("AuthMethod", "token_encoding", "form", "json")
 	enum("AuthMethod", "pkce", "S256", "none")
 	enum("OAuthAccount", "method", "GET", "POST")
 	enum("ResponseCheck", "op", "exists", "equals")
 	enum("ProxyMatch", "protocol", "http", "postgres", "mysql", "clickhouse")
 	enum("TLS", "mode", "verify-full")
 	enum("Manifest", "icon", "icon.svg", "icon.png")
+	props("ProxyMatch")["opaque_path_parameters"].(map[string]any)["minItems"] = 1
+	props("ProxyMatch")["opaque_path_parameters"].(map[string]any)["uniqueItems"] = true
+	props("ProxyMatch")["opaque_path_parameters"].(map[string]any)["items"] = map[string]any{"type": "string", "pattern": `^(\*|[A-Za-z_][A-Za-z0-9_]*)$`}
 	props("Manifest")["schema_version"] = map[string]any{"const": 1}
 	for _, nk := range [][2]string{{"Manifest", "files"}, {"Manifest", "proxy"}, {"Field", "options"}, {"ScopeGroup", "values"}, {"ProxyMatch", "host"}, {"ProxyMatch", "method"}, {"ProxyMatch", "path"}} {
 		props(nk[0])[nk[1]].(map[string]any)["minItems"] = 1
@@ -108,7 +112,7 @@ func Schema() ([]byte, error) {
 		map[string]any{
 			"if":   map[string]any{"properties": map[string]any{"match": condition("protocol", "http")}},
 			"then": map[string]any{"properties": map[string]any{"match": map[string]any{"required": []string{"host"}}, "action": forbid("connection")}},
-			"else": map[string]any{"properties": map[string]any{"match": forbid("host", "method", "path", "header"), "action": map[string]any{"required": []string{"connection"}, "properties": map[string]any{"headers": false, "rewrite": false, "basic_auth": false}}}},
+			"else": map[string]any{"properties": map[string]any{"match": forbid("host", "method", "path", "opaque_path_parameters", "header"), "action": map[string]any{"required": []string{"connection"}, "properties": map[string]any{"headers": false, "rewrite": false, "basic_auth": false}}}},
 		},
 		map[string]any{
 			"if":   map[string]any{"properties": map[string]any{"match": map[string]any{"not": condition("protocol", "clickhouse")}}},
@@ -116,7 +120,7 @@ func Schema() ([]byte, error) {
 		},
 	}
 
-	manualKeys := []string{"authorize_url", "token_url", "client_id", "client_secret", "client_auth", "pkce", "scopes", "scope_parameter", "scope_separator", "authorize_params", "token_params", "refresh_params", "token_response", "refresh_response", "require_refresh", "account"}
+	manualKeys := []string{"authorize_url", "token_url", "client_id", "client_secret", "client_auth", "token_encoding", "token_headers", "pkce", "scopes", "scope_parameter", "scope_separator", "authorize_params", "token_params", "refresh_params", "token_response", "refresh_response", "require_refresh", "account"}
 	manual := forbid(manualKeys...)
 	manual["required"] = []string{"config"}
 	oauth := forbid("config")

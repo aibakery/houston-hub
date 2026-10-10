@@ -39,6 +39,8 @@
               "scope_parameter": false,
               "scope_separator": false,
               "scopes": false,
+              "token_encoding": false,
+              "token_headers": false,
               "token_params": false,
               "token_response": false,
               "token_url": false
@@ -171,6 +173,19 @@
             "$ref": "#/$defs/ScopeGroup"
           },
           "type": "array"
+        },
+        "token_encoding": {
+          "enum": [
+            "form",
+            "json"
+          ],
+          "type": "string"
+        },
+        "token_headers": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
         },
         "token_params": {
           "additionalProperties": {
@@ -592,6 +607,7 @@
                   "header": false,
                   "host": false,
                   "method": false,
+                  "opaque_path_parameters": false,
                   "path": false
                 }
               }
@@ -731,6 +747,15 @@
               "DELETE",
               "OPTIONS"
             ],
+            "type": "string"
+          },
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "opaque_path_parameters": {
+          "items": {
+            "pattern": "^(\\*|[A-Za-z_][A-Za-z0-9_]*)$",
             "type": "string"
           },
           "minItems": 1,
