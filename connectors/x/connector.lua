@@ -146,7 +146,7 @@ function functions.help(): string
 		"Paged calls accept max_results (default 10), start_time/end_time (RFC3339), since_id/until_id (strings). Pass result.meta.next_token as next_token for search, or pagination_token for timelines. Stop when it is absent. Fetch only the pages you need; each request uses your provider quota. To browse replies, search query = \"conversation_id:<tweet-id>\" within the chosen search window.",
 		[[## Example
 
-Here x is the configured X connection. Read note_post.text when present for long-form posts.
+Here x is the configured X connection. Calls return completed values; do not wrap them in await(). Read note_post.text when present for long-form posts.
 
 ```lua
 local users = x.getUserByUsername({username = "XDevelopers"})

@@ -127,6 +127,12 @@ when final headers and a body Reader are available. `await` retrieves the result
 it does not start or rerun work. A local session cache lasts only for that
 invocation. No background work continues through another invocation.
 
+`await(operation, timeoutMs?)` requires an Operation or File. Connector calls
+already return completed values: use `connector.getItem(...)` directly, without
+`await`. The runtime rejects plain values with `invalid_argument` and explains
+how to correct the call. Make this distinction explicit in the connector's
+`help()` examples.
+
 Use sequential bounded batches as the baseline. The current runner limits each
 invocation to 256 native calls, including file operations, 64 MiB of Lua memory,
 and 8 MiB per JSON transport frame. Server deadlines and transport limits also
