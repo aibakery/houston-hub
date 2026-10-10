@@ -1,7 +1,7 @@
 # Houston Hub
 
 This repository contains thirteen connector bundles, the authoritative manifest v1
-contract and reviewed operation access metadata. Registrations in Houston define the live
+contract and configured Lua operations. Registrations in Houston define the live
 catalog; repository files are not published automatically.
 
 A bundle contains `houston.json`, declared Luau entrypoints, private helpers and

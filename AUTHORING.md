@@ -415,8 +415,10 @@ declared auth method, enabled proxy rule, and intended enabled/disabled surface.
 Eligibility coverage does not establish which rule wins; matcher tests separately
 cover rule order, request filters, and action behavior.
 Fixtures assert actual provider arguments, responses and behavior. Publication
-checks deterministic configured exports and requires each to have reviewed access
-metadata. Initialization is also checked without fixture transport mocks.
+checks deterministic configured exports and help, and requires fixture scenarios
+covering each authentication method and enabled proxy rule. Access is determined
+by the configured Lua exports; there is no operation-access metadata sidecar.
+Initialization is also checked without fixture transport mocks.
 `configure` supplies synthetic
 native responses before the real bundle initializes; it is a test-only environment.
 Test actual helpers and exports, not replacement helper implementations.
