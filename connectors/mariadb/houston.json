@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "name": "ClickHouse",
+  "name": "MariaDB",
   "files": [
     "connector.lua"
   ],
@@ -29,17 +29,17 @@
       "type": "string"
     },
     "port": {
-      "default": 8443,
-      "label": "HTTPS port",
+      "default": 3306,
+      "label": "Port",
       "maximum": 65535,
       "minimum": 1,
       "order": 3,
       "type": "integer"
     },
     "database": {
-      "default": "default",
       "label": "Database",
       "order": 4,
+      "required": true,
       "type": "string"
     },
     "username": {
@@ -58,7 +58,7 @@
   "proxy": [
     {
       "match": {
-        "protocol": "clickhouse"
+        "protocol": "mysql"
       },
       "action": {
         "connection": {

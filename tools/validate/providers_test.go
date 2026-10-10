@@ -52,6 +52,9 @@ func TestEveryProviderAuthenticationAndTransport(t *testing.T) {
 				if m.Proxy[0].Match.Protocol != "http" {
 					config["host"] = "database.example.com"
 					config["database"] = "sample"
+					if provider == "redis" {
+						config["database"] = 2
+					}
 					config["username"] = "reader"
 					config["password"] = "synthetic-root-secret"
 				}
@@ -114,17 +117,6 @@ func TestEveryProviderAuthenticationAndTransport(t *testing.T) {
 					}
 					if db.Password != "synthetic-root-secret" || db.Host != "database.example.com" || db.TLSMode != "verify-full" {
 						t.Fatalf("invalid native database recipe: %#v", db)
-					}
-					if provider == "clickhouse" {
-						config["transport"] = "native"
-						r, err = m.Resolve(publisher, config, input, method)
-						if err != nil {
-							t.Fatal(err)
-						}
-						db, err = m.Proxy[r.ProxyIndices[0]].ResolveDatabase(r.Context)
-						if err != nil || db.Port != 9440 {
-							t.Fatalf("native ClickHouse port %d: %v", db.Port, err)
-						}
 					}
 				}
 			})

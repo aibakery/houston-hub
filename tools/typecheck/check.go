@@ -46,7 +46,12 @@ local await: <T>(Operation<T>, number?) -> T = nil :: any
 local awaitAll: ({Operation<any>}, number?) -> PackedResults<any> = nil :: any
 local http: {request: (HttpRequest) -> Operation<HttpResponse>,multipart: ({MultipartPart}) -> (StreamReader,string)} = nil :: any
 local compression: {gzip:(Reader)->StreamReader,gunzip:(Reader)->StreamReader} = nil :: any
-local db: {query: ({query:string,params:{any}?,max_rows:number?,read_only:boolean?}) -> any} = nil :: any
+type DbParam = string | number | boolean
+type DbQuery = {sql:string,params:({DbParam} | {[string]:DbParam})?,maxRows:number?,readOnly:boolean?}
+type DbResult = {columns:{string},rows:{{[string]:any}},truncated:boolean,affectedRows:number?,lastInsertId:number?}
+type DbCommand = {args:{string | number},readOnly:boolean?}
+-- SQL protocols provide query; Redis provides command.
+local db: {query: (DbQuery) -> Operation<DbResult>, command: (DbCommand) -> Operation<any>} = nil :: any
 local fs: {
     open:(string,"r" | "w")->File,
     stat:(string)->Operation<FileStat>,

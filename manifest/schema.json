@@ -259,9 +259,6 @@
         "tls": {
           "$ref": "#/$defs/TLS"
         },
-        "transport": {
-          "type": "string"
-        },
         "user": {
           "type": "string"
         }
@@ -641,37 +638,6 @@
               }
             }
           }
-        },
-        {
-          "if": {
-            "properties": {
-              "match": {
-                "not": {
-                  "properties": {
-                    "protocol": {
-                      "const": "clickhouse"
-                    }
-                  },
-                  "required": [
-                    "protocol"
-                  ]
-                }
-              }
-            }
-          },
-          "then": {
-            "properties": {
-              "action": {
-                "properties": {
-                  "connection": {
-                    "properties": {
-                      "transport": false
-                    }
-                  }
-                }
-              }
-            }
-          }
         }
       ],
       "properties": {
@@ -775,7 +741,8 @@
             "http",
             "postgres",
             "mysql",
-            "clickhouse"
+            "clickhouse",
+            "redis"
           ],
           "type": "string"
         }

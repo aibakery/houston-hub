@@ -1,4 +1,4 @@
--- MySQL over Houston's verified-TLS connection. Credentials stay on Houston.
+-- MariaDB over Houston's verified-TLS connection. Credentials stay on Houston.
 type Params = {string | number | boolean}
 type Result = {
 	columns: {string}, rows: {{[string]: any}}, truncated: boolean,
@@ -23,13 +23,13 @@ end
 local HELP: {[string]: string} = {
 	query = [[query(sql, params?) -> {columns, rows, truncated}
   Runs one SELECT, WITH, SHOW, DESCRIBE, EXPLAIN, TABLE or VALUES statement in
-  a read-only session. Bind values with ? in sql and
-  pass them in order as params (strings, numbers, booleans).
+  a read-only session. Bind values with ? in sql and pass them in order as
+  params (strings, numbers, booleans).
   rows are objects keyed by column name, in columns order; NULL columns are
-  absent. Integer, floating-point and JSON columns become Lua values; integers
-  beyond 2^53, DECIMAL, dates, times and text keep MySQL's text form, such as
-  '2026-01-31 09:30:00' for DATETIME. Binary columns become '\x'-prefixed hex,
-  such as '\x00ff'.
+  absent. Integer and floating-point columns become Lua values; integers beyond
+  2^53, DECIMAL, dates, times and text keep MariaDB's text form, such as
+  '2026-01-31 09:30:00' for DATETIME. MariaDB stores JSON as text, so decode it
+  with json.decode. Binary columns become '\x'-prefixed hex, such as '\x00ff'.
   At most 10,000 rows or 4 MiB are returned; truncated tells when more exist,
   so add LIMIT, filters or aggregation. Give duplicate column names an alias.
   Example: query("SELECT id, name FROM users WHERE team = ? ORDER BY id", {"core"})]],
@@ -42,7 +42,7 @@ local HELP: {[string]: string} = {
 }
 
 function exports.help(): string
-	local sections = {"mysql: SQL on one MySQL database. Each call is one statement on its own connection; your database grants still apply."}
+	local sections = {"mariadb: SQL on one MariaDB database. Each call is one statement on its own connection; your database grants still apply."}
 	for _, name in {"query", "execute"} do
 		if exports[name] then
 			table.insert(sections, HELP[name])
