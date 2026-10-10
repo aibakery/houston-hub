@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "name": "X",
+  "description": "Search and browse public tweets, profiles, user timelines, and mentions on X.",
+  "stateless": true,
+  "icon": "icon.svg",
+  "files": ["connector.lua"],
+  "auth": {
+    "token": {
+      "type": "manual",
+      "label": "App bearer token",
+      "config": {
+        "token": {
+          "type": "secret",
+          "label": "App bearer token",
+          "description": "From your X developer app’s Keys and tokens. X bills usage to your developer account.",
+          "required": true
+        }
+      }
+    }
+  },
+  "proxy": [{
+    "match": {
+      "protocol": "http",
+      "host": ["api.x.com"],
+      "method": ["GET"],
+      "path": ["/2/tweets", "/2/tweets/{id}", "/2/tweets/search/recent", "/2/tweets/search/all", "/2/users/{id}", "/2/users/by/username/{username}", "/2/users/{id}/tweets", "/2/users/{id}/mentions"]
+    },
+    "action": {"headers": {"set": {"Authorization": "Bearer {{auth.token.token}}"}}}
+  }]
+}

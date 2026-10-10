@@ -54,6 +54,13 @@ Every imported file belongs to the pinned release; imports cannot cross bundles.
 Entrypoints return function maps, without metadata or implicit context arguments.
 Duplicate export names fail publication. Initialization cannot make network calls.
 
+Set the optional root `stateless` boolean to `true` for service credentials that
+access public/service data without linking a user's private account (for example,
+X public browsing or Exa search). It defaults to `false`. Houston uses this
+metadata to show a disabled **Houston billing — Coming soon** option during
+connection setup. It does not supply credentials, change authentication, or charge
+credits. Do not mark mailboxes, private workspaces, or databases as stateless.
+
 ```json
 {
   "schema_version": 1,

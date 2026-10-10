@@ -511,6 +511,9 @@
         "setup": {
           "type": "string"
         },
+        "stateless": {
+          "type": "boolean"
+        },
         "verification_key": {
           "minLength": 1,
           "type": "string"

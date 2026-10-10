@@ -332,3 +332,24 @@ func TestRedisDatabaseIndex(t *testing.T) {
 		t.Fatalf("Redis resolution: %#v %v", db, err)
 	}
 }
+
+func TestStatelessMetadata(t *testing.T) {
+	m := example(t, 2)
+	if m.Stateless {
+		t.Fatal("account connectors must not default to stateless")
+	}
+	m.Stateless = true
+	raw, err := json.Marshal(m)
+	if err != nil {
+		t.Fatal(err)
+	}
+	parsed, err := Parse(raw)
+	if err != nil || !parsed.Stateless {
+		t.Fatalf("stateless metadata lost: %v", err)
+	}
+	for _, invalid := range []string{`"true"`, `1`, `null`} {
+		if _, err := Parse([]byte(strings.Replace(string(raw), `"stateless":true`, `"stateless":`+invalid, 1))); err == nil {
+			t.Fatalf("accepted stateless=%s", invalid)
+		}
+	}
+}

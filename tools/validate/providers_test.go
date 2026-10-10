@@ -23,6 +23,7 @@ func TestEveryProviderAuthenticationAndTransport(t *testing.T) {
 		"slack": {"GET", "https://slack.com/api/auth.test"}, "fastmail": {"GET", "https://api.fastmail.com/jmap/session"},
 		"notion":  {"GET", "https://api.notion.com/v1/users/me"},
 		"mercury": {"GET", "https://api.mercury.com/api/v1/accounts"},
+		"x":       {"GET", "https://api.x.com/2/tweets/123"},
 	}
 	for _, path := range paths {
 		provider := filepath.Base(filepath.Dir(path))
@@ -170,6 +171,43 @@ func TestFastmailDiscoveredOrigins(t *testing.T) {
 	for _, host := range []string{"fastmail.com", "app.fastmail.com", "evilapi.fastmail.com", "api.fastmail.com.evil.test", "www.fastmailusercontent.com.evil.test"} {
 		if _, err := p.HTTPRecipe("GET", "https://"+host+"/jmap/download/u1/blob/file", nil); err == nil {
 			t.Fatalf("accepted %s", host)
+		}
+	}
+}
+
+func TestXPublicReadOnlyProxy(t *testing.T) {
+	raw, err := os.ReadFile("../../connectors/x/houston.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, err := manifest.Parse(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r, err := m.Resolve(nil, nil, map[string]any{"token": "fixture-x-token"}, "token")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !m.Stateless {
+		t.Fatal("public X browsing should offer the billing preview")
+	}
+	p := m.Proxy.Select(r.ProxyIndices)
+	for _, path := range []string{"/2/tweets?ids=1,2", "/2/tweets/123", "/2/tweets/search/recent?query=test", "/2/tweets/search/all?query=test", "/2/users/123", "/2/users/by/username/XDevelopers", "/2/users/123/tweets", "/2/users/123/mentions"} {
+		recipe, err := p.HTTPRecipe("GET", "https://api.x.com"+path, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		headers, err := recipe.Prepare(r.Context, http.Header{"Authorization": {"forged"}})
+		if err != nil || headers.Get("Authorization") != "Bearer fixture-x-token" {
+			t.Fatalf("credential injection: %v", err)
+		}
+		if _, err := p.HTTPRecipe("POST", "https://api.x.com"+path, nil); err == nil {
+			t.Fatalf("write accepted: %s", path)
+		}
+	}
+	for _, url := range []string{"https://api.x.com/2/users/123/bookmarks", "https://api.x.com/2/users/123/timelines/reverse_chronological", "https://api.x.com/2/dm_events", "https://api.x.com.evil.test/2/tweets/123", "https://api.twitter.com/2/tweets/123"} {
+		if _, err := p.HTTPRecipe("GET", url, nil); err == nil {
+			t.Fatalf("unexpected endpoint accepted: %s", url)
 		}
 	}
 }
