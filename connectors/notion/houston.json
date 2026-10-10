@@ -33,9 +33,8 @@
       "client_auth": "basic",
       "client_id": "{{config.client_id}}",
       "client_secret": "{{config.client_secret}}",
-      "if": "{{ isDefined config.client_id }}",
-      "label": "Connect with Notion",
-      "order": 2,
+      "label": "Connect with Notion (recommended)",
+      "order": 1,
       "pkce": "none",
       "token_encoding": "json",
       "token_headers": {
@@ -53,7 +52,7 @@
         }
       },
       "label": "Internal connection or personal access token",
-      "order": 1,
+      "order": 2,
       "type": "manual"
     }
   },
@@ -74,11 +73,10 @@
       "type": "string"
     },
     "client_id": {
-      "label": "OAuth client ID (optional)",
+      "label": "OAuth client ID",
       "type": "string"
     },
     "client_secret": {
-      "if": "{{ isDefined config.client_id }}",
       "label": "OAuth client secret",
       "type": "secret"
     }

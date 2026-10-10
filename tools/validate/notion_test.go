@@ -59,14 +59,13 @@ func TestNotionRegistrationAndAuthenticationSelection(t *testing.T) {
 		}
 		for _, method := range draft.Methods {
 			want := method.Key != "oauth" || len(publisher) == 2
-			eligible := method.Key != "oauth" || publisher["client_id"] != nil
-			if method.Eligible != eligible || method.Available != want {
+			if !method.Eligible || method.Available != want {
 				t.Fatalf("publisher=%v method=%+v; available=%v", publisher, method, want)
 			}
 		}
 		if len(publisher) != 2 {
 			if _, err := m.Resolve(nil, publisher, nil, "oauth"); err == nil {
-				t.Fatal("OAuth activated without complete publisher settings")
+				t.Fatal("OAuth activated without complete client credentials")
 			}
 		}
 		secretField := false
@@ -78,8 +77,8 @@ func TestNotionRegistrationAndAuthenticationSelection(t *testing.T) {
 				}
 			}
 		}
-		if secretField != (publisher["client_id"] != nil) {
-			t.Fatal("OAuth client secret form did not follow client ID activation")
+		if !secretField {
+			t.Fatal("OAuth client secret field must be visible before credentials are entered")
 		}
 		manual, err := m.Resolve(nil, publisher, map[string]any{"token": "manual-token"}, "token")
 		if err != nil || m.RequireCredentials(manual.Context) != nil {

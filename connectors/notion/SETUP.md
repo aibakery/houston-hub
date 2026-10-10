@@ -1,31 +1,31 @@
 # Connect your Notion account
 
-In Houston, add the **Notion** connector from the Hub and choose an available
-sign-in method. Choose **Read-only** to browse and query, or **Read and write** to
-let agents create and change content.
+Use **Connect with Notion (recommended)** to authorize the workspace and pages
+you want to share. Choose **Read-only** to browse and query, or **Read and write**
+to let agents create and change content.
 
-## Connect with a token
-
-1. Create an internal connection in [Notion's developer portal](https://www.notion.so/profile/integrations),
-   or create a [personal access token](https://developers.notion.com/guides/get-started/personal-access-tokens).
-2. For an internal connection, share the pages or databases through their
-   **Connections** menu in Notion. A personal access token uses your own permitted access.
-3. In Houston, choose **Internal connection or personal access token**, paste
-   the token into **Token**, and add the connector.
-
-## Connect with Notion (OAuth)
+## Connect with Notion (OAuth, recommended)
 
 1. Create a public connection in [Notion's developer portal](https://www.notion.so/profile/integrations) and configure its capabilities.
-2. Copy the **OAuth callback URL** already shown in the Houston setup form and
-   add it to Notion's redirect URI list. You can copy it before entering any credentials.
-3. Enter Notion's OAuth client ID and secret in Houston, then choose **Connect with Notion**.
+2. Copy the **OAuth callback URL** shown below and add it to Notion's redirect URI list.
+3. Enter Notion's OAuth client ID and secret in Houston.
 4. Choose **Authorize account**, select the workspace
    and pages to share, and return to Houston.
 
 Credentials stay on the Houston server and are never available to agent scripts.
 Only the pages you share are accessible.
 
-## Advanced: permissions, enterprise access and troubleshooting
+## Advanced: tokens, permissions and troubleshooting
+
+### Connect with a token
+
+1. Create an internal connection in [Notion's developer portal](https://www.notion.so/profile/integrations),
+   or create a [personal access token](https://developers.notion.com/guides/get-started/personal-access-tokens).
+2. For an internal connection, share the pages or databases through their
+   **Connections** menu in Notion. A personal access token uses your own permitted access.
+3. In Houston, choose **Internal connection or personal access token**, paste
+   the token into **Token**, and add the connector. OAuth client credentials are
+   not needed for this method.
 
 ### Permissions and tokens
 
