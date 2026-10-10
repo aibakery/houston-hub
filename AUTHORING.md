@@ -737,4 +737,5 @@ routes. Webhook configuration is supported, but Houston does not become a webhoo
 receiver for the caller; use a receiver you control.
 
 Mercury's icon is the official SVG from [mercury.com/icon.svg](https://mercury.com/icon.svg),
-retrieved 2026-10-10. Mercury owns the mark.
+retrieved 2026-10-10. Its dark-mode style element is removed for Houston's SVG
+allowlist; the original paths and explicit fill are preserved. Mercury owns the mark.
