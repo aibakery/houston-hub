@@ -1,0 +1,222 @@
+{
+  "schema_version": 1,
+  "name": "Mercury",
+  "files": [
+    "connector.lua"
+  ],
+  "icon": "icon.svg",
+  "config": {
+    "access": {
+      "default": "read-only",
+      "label": "Access",
+      "options": [
+        {
+          "label": "Read-only",
+          "value": "read-only"
+        },
+        {
+          "label": "Read and write",
+          "value": "read-write"
+        }
+      ],
+      "type": "string"
+    },
+    "reveal_card_details": {
+      "default": false,
+      "label": "Allow revealing agent card numbers and CVCs",
+      "type": "boolean"
+    }
+  },
+  "auth": {
+    "token": {
+      "config": {
+        "token": {
+          "label": "API token (including secret-token: prefix)",
+          "required": true,
+          "type": "secret"
+        }
+      },
+      "label": "Mercury API token",
+      "type": "manual"
+    }
+  },
+  "proxy": [
+    {
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.token.token}}"
+          }
+        }
+      },
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "host": [
+          "api.mercury.com"
+        ],
+        "method": [
+          "DELETE"
+        ],
+        "path": [
+          "/api/v1/ar/customers/{customerId}",
+          "/api/v1/categories/{expenseCategoryId}",
+          "/api/v1/recipient/{recipientId}",
+          "/api/v1/recipients/invites/{inviteId}",
+          "/api/v1/webhooks/{webhookEndpointId}"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.token.token}}"
+          }
+        }
+      },
+      "match": {
+        "host": [
+          "api.mercury.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/api/v1/account/{accountId}/cards",
+          "/api/v1/account/{accountId}/statements",
+          "/api/v1/account/{accountId}/transaction/{transactionId}",
+          "/api/v1/account/{accountId}/transactions",
+          "/api/v1/accounts",
+          "/api/v1/ar/attachments/{attachmentId}",
+          "/api/v1/ar/customers",
+          "/api/v1/ar/customers/{customerId}",
+          "/api/v1/ar/invoices",
+          "/api/v1/ar/invoices/{invoiceId}",
+          "/api/v1/ar/invoices/{invoiceId}/attachments",
+          "/api/v1/ar/invoices/{invoiceId}/pdf",
+          "/api/v1/cards",
+          "/api/v1/cards/{cardId}",
+          "/api/v1/categories",
+          "/api/v1/credit",
+          "/api/v1/events",
+          "/api/v1/events/{eventId}",
+          "/api/v1/merchants",
+          "/api/v1/organization",
+          "/api/v1/recipient/{recipientId}",
+          "/api/v1/recipients",
+          "/api/v1/recipients/attachments",
+          "/api/v1/recipients/invites",
+          "/api/v1/recipients/invites/{inviteId}",
+          "/api/v1/request-send-money",
+          "/api/v1/request-send-money/{requestId}",
+          "/api/v1/request-transfer",
+          "/api/v1/request-transfer/{requestId}",
+          "/api/v1/safes",
+          "/api/v1/safes/{safeRequestId}",
+          "/api/v1/safes/{safeRequestId}/document",
+          "/api/v1/statements/{statementId}/pdf",
+          "/api/v1/transaction/{transactionId}",
+          "/api/v1/transactions",
+          "/api/v1/treasury",
+          "/api/v1/treasury/{treasuryId}/statements",
+          "/api/v1/treasury/{treasuryId}/transactions",
+          "/api/v1/users",
+          "/api/v1/users/{userId}",
+          "/api/v1/webhooks",
+          "/api/v1/webhooks/{webhookEndpointId}"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.token.token}}"
+          }
+        }
+      },
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "host": [
+          "api.mercury.com"
+        ],
+        "method": [
+          "PATCH"
+        ],
+        "path": [
+          "/api/v1/transaction/{transactionId}"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.token.token}}"
+          }
+        }
+      },
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "host": [
+          "api.mercury.com"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/api/v1/account/{accountId}/request-send-money",
+          "/api/v1/account/{accountId}/transactions",
+          "/api/v1/ar/customers",
+          "/api/v1/ar/customers/{customerId}",
+          "/api/v1/ar/invoices",
+          "/api/v1/ar/invoices/{invoiceId}",
+          "/api/v1/ar/invoices/{invoiceId}/cancel",
+          "/api/v1/cards",
+          "/api/v1/cards/{cardId}",
+          "/api/v1/cards/{cardId}/cancel",
+          "/api/v1/cards/{cardId}/freeze",
+          "/api/v1/cards/{cardId}/unfreeze",
+          "/api/v1/categories",
+          "/api/v1/categories/{expenseCategoryId}",
+          "/api/v1/recipient/{recipientId}",
+          "/api/v1/recipient/{recipientId}/attachments",
+          "/api/v1/recipients",
+          "/api/v1/recipients/invites",
+          "/api/v1/request-transfer",
+          "/api/v1/transaction/{transactionId}/attachments",
+          "/api/v1/transfer",
+          "/api/v1/webhooks",
+          "/api/v1/webhooks/{webhookEndpointId}",
+          "/api/v1/webhooks/{webhookEndpointId}/verify"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.token.token}}"
+          }
+        }
+      },
+      "if": "{{ is config.reveal_card_details true }}",
+      "match": {
+        "host": [
+          "vault-api.mercury.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/api/v1/cards/{cardId}/reveal"
+        ],
+        "protocol": "http"
+      }
+    }
+  ]
+}

@@ -429,7 +429,7 @@ go run ./tools/validate connectors/fastmail
 ```
 
 Replace `connectors/fastmail` with the bundle you are authoring. The no-argument
-validator selects the bundles migrated to the current runtime: Fastmail, Notion
+validator selects the bundles migrated to the current runtime: Fastmail, Mercury, Notion
 and the database connectors. Other providers will join as they are migrated. An explicit catalog directory validates all its
 bundles.
 
@@ -712,3 +712,29 @@ file buckets and observed regional Notion storage hosts. Review any newly used
 storage origin before extending those rules; never inject a Notion API token into
 storage requests. Opaque path matching is scoped to property IDs and signed
 storage keys, leaving literal route prefixes and other parameters strict.
+
+### Publishing Mercury
+
+Register repository `https://github.com/aibakery/houston-hub`, revision `main`,
+manifest path `connectors/mercury/houston.json`. The bundle uses the existing
+manifest v1 and async HTTP/file runtime, including native multipart uploads;
+no Mercury client registration or publisher credentials are needed.
+The [account setup guide](connectors/mercury/SETUP.md) covers API tokens and
+Mercury's IP requirements for write permissions.
+
+The connector covers all 73 non-OAuth operations in Mercury's official
+[API index](https://docs.mercury.com/llms.txt), checked on 2026-10-10. The endpoint
+links in configured Lua help point to the reviewed OpenAPI definitions. This
+includes the dedicated Vault host, enabled only by the connection's explicit
+card-details option. SAFE endpoints expose reads and PDF downloads, not SAFE
+creation or signing. OAuth onboarding/exchange is separate credential management
+and is not exposed. The token connector targets production, not the sandbox.
+
+Attachment APIs return signed URLs without specifying a stable storage allowlist.
+The connector preserves those links rather than granting credentials to arbitrary
+storage hosts. Statement, invoice and SAFE PDFs use documented API download
+routes. Webhook configuration is supported, but Houston does not become a webhook
+receiver for the caller; use a receiver you control.
+
+Mercury's icon is the official SVG from [mercury.com/icon.svg](https://mercury.com/icon.svg),
+retrieved 2026-10-10. Mercury owns the mark.
