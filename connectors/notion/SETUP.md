@@ -1,68 +1,53 @@
-# Set up Notion
+# Connect your Notion account
 
-In Houston's Hub, register repository `https://github.com/aibakery/houston-hub`,
-revision `main`, manifest path `connectors/notion/houston.json`. It requires a deployment
-with JSON OAuth token encoding, opaque path parameters and native `http.multipart` support. The registration
-owns its optional OAuth client settings; a token-only registration needs no
-publisher credentials.
+In Houston, select the registered **Notion** connector and choose an available
+sign-in method. Choose **Read-only** to browse and query, or **Read and write** to
+let agents create and change content.
+
+## Connect with Notion
+
+If **Connect with Notion** is available, select it and sign in to Notion. Choose
+the workspace and pages you want to share, then approve access and return to
+Houston. You do not need to create an OAuth application or enter client credentials.
+
+Only the pages you authorize are accessible. You can change shared pages and
+revoke access from Notion's connection settings.
 
 ## Internal connection or personal access token
 
-1. Create a connection in [Notion's developer portal](https://www.notion.so/profile/integrations),
+1. Create an internal connection in [Notion's developer portal](https://www.notion.so/profile/integrations),
    or create a [personal access token](https://developers.notion.com/guides/get-started/personal-access-tokens).
-2. Grant the content, comments and user capabilities your work requires. Share the
-   pages/databases with an internal connection through Notion's Connections menu.
-   A PAT acts with its owner's permitted access; feature and workspace policies
-   still apply.
-3. Add a connection in Houston, choose **Internal connection or personal access
-   token**, paste the token into its secret field, and choose the access level.
+2. Grant the content, comments and user capabilities you need. For an internal
+   connection, share the pages or databases through their **Connections** menu
+   in Notion. A personal access token uses your own permitted access.
+3. In Houston, choose **Internal connection or personal access token**, paste
+   the token into **Token**, select the access level, and add the connector.
 
-Use `getSelf()` and a small `search({page_size=1})` as read-only smoke checks.
-A 403/404 commonly means a missing capability or unshared content. Never paste
-credentials into a Lua script. Tokens stay on the Houston server.
+Your token stays on the Houston server. Do not paste it into an agent conversation
+or script. Some agent, meeting-note and skills features require a personal access
+token or additional Notion plan permissions.
 
-## Public connection (OAuth)
+## Enterprise organization bot
 
-1. Create a public Notion connection and configure its capabilities.
-2. Enter its OAuth client ID and client secret in the Houston registration's
-   publisher settings. This enables **Connect with Notion**. Copy the exact
-   callback URL Houston displays into the public connection's redirect URI list.
-3. Add a connection, choose **Connect with Notion**, and authorize the pages to share.
+For organization administration, add a separate connection using **Enterprise
+organization bot (Admin API)**. This requires an eligible Notion Enterprise
+organization and an organization bot token with the appropriate
+[Admin API scopes](https://developers.notion.com/reference/admin/scopes).
+Ask your Notion organization administrator for access if needed.
 
-Notion selects capabilities in the developer portal, not OAuth scope strings.
-Houston uses HTTP Basic client authentication, a JSON token request and the
-required Notion API version header. Refresh tokens, when returned, remain private
-and are rotated by Houston. Disconnecting Houston is not a claim that the provider
-credential has been revoked; revoke it through Notion's connection administration
-when that is needed.
+Paste the organization bot token into **Token** and choose the access level.
+This connection exposes organization administration features instead of page
+content. Ordinary connection tokens and personal access tokens cannot replace an
+organization bot token. Read-only access excludes administrative changes and
+creating export jobs.
 
-## Enterprise Admin API
+## If content is missing
 
-Create an organization bot in Notion's organization administration and grant the
-required [Admin API scopes](https://developers.notion.com/reference/admin/scopes).
-Choose **Enterprise organization bot (Admin API)** in a separate Houston connection.
-This API requires an eligible Enterprise organization and an organization bot;
-ordinary internal/public connection tokens and PATs cannot substitute for it.
-Read-only omits administrative mutations and export-job creation. Only the selected
-authentication method's API surface appears in discovery and `help()`.
+Check that you chose the correct workspace, shared the page or database with the
+connection, and granted the necessary capabilities in Notion. Houston's access
+setting cannot grant permissions that Notion has not given your connection.
 
-## Files and limits
-
-Create an upload with `createFileUpload`, send a session file with `sendFileUpload`,
-and attach its file-upload ID to content before it expires. For multipart uploads,
-create with `mode="multi_part"` and `number_of_parts`, send each prepared part file
-with a `part_number`, then call `completeFileUpload`. `external_url` mode imports
-an external URL through Notion. The connector never collects file bytes in Lua.
-
-`downloadFile` accepts fresh signed URLs from Notion's documented storage origins,
-including the Notion-specific S3 buckets and regional file hosts listed in the
-manifest. Arbitrary external URLs and redirects are not followed. Refresh expired
-URLs by retrieving the owning object again. Admin export hosts can vary; an
-unlisted storage origin requires reviewing and extending the manifest, never
-sending a Notion bearer token to the storage service.
-
-Operations return one page and never silently retry writes or wait for jobs.
-Poll asynchronous tasks explicitly. `streamSession` stores the raw SSE stream in
-a session file; Houston returns when the stream finishes and its execution limits
-still apply. After a timeout, inspect the session and partial file before resuming
-from a committed event ID. Cancellation cannot undo a remote write.
+File links expire. Ask your agent to retrieve the file's owning page, block or
+comment again to obtain a fresh link. Removing the connection from Houston does
+not revoke its token in Notion; revoke the token in Notion when you no longer
+want it used.

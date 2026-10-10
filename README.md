@@ -29,7 +29,7 @@ in the selected bundle. Fastmail and Notion are the supported connectors for
 runtime validation; other provider bundles remain available for future migration.
 From the Houston checkout, `go -C tools/runtime run . test-connectors` builds the
 runner and invokes this validator. See the
-[authoring guide](docs/authoring.md) and [provider bundles](connectors/). Register a copied bundle or an edited local
+[authoring guide](AUTHORING.md) and [provider bundles](connectors/). Register a copied bundle or an edited local
 source through Hub; each registration owns its publisher settings independently.
 
 For implementation ideas, see the optional [Luau practices](docs/luau-practices.md).
@@ -38,7 +38,8 @@ These are recommendations, not additional contribution requirements.
 ## Repository layout
 
 - [connectors/](connectors/): provider manifests, Lua implementations, icons and tests.
-- [docs/](docs/authoring.md): authoring instructions and [provider operation reference](docs/connectors/).
+- [AUTHORING.md](AUTHORING.md): create, validate and publish connectors, with runtime examples.
+- [docs/](docs/): Lua practices and [provider operation reference](docs/connectors/).
 - [tools/](tools/): the public validator and its reusable typecheck/conformance packages.
 - [manifest/](manifest/): shared manifest parser and generated schema used by Houston.
 

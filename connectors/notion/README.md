@@ -4,36 +4,22 @@ description: Work with Notion pages, databases, files, agents and workspace admi
 
 # Notion
 
-Search shared pages, read and edit rich blocks or Markdown, manage databases and
-data sources, query views, discuss work in comments, and upload or download files.
-The connector also exposes meeting notes, custom emojis, agents, sessions, skills
-and asynchronous tasks from Notion's current API.
+Give your agents access to Notion so they can find shared pages, work with your
+knowledge and keep projects up to date.
 
-Connect an internal connection token, a personal access token, or an OAuth public
-connection. Choose **Read-only** to browse and query, or **Read and write** to
-create and change content. Notion's own capabilities, page sharing, plan and beta
-eligibility still apply. Agent sessions can take actions using their own enabled
-tools; running a session requires read and write access in Houston.
+With read-only access, agents can search pages, read content and comments, query
+databases and views, and download files. With read and write access, they can also
+create and edit pages, organize data, add comments and upload files.
 
-Enterprise organization bots use a separate **Admin API** authentication option,
-which exposes administration operations instead of workspace content operations:
+The connector supports Notion agents and sessions, meeting notes, custom emojis,
+and skills where your Notion account has access to those features. Running an
+agent session requires read and write access in Houston because the agent can
+use its own tools to take actions.
+
+Enterprise organization bots can use a separate connection for administration:
 legal holds, exports, analytics, permission groups, access tokens, MCP connections
 and agent policies, permissions and credit limits.
 
-The implementation preserves Notion's native field names, complete JSON responses,
-nulls and pagination. Large transfers use native streaming. See [setup](SETUP.md)
-and call the connection's `help()` for signatures, examples and provider limits.
-
-API coverage is checked against Notion's official [Data API schema](https://developers.notion.com/openapi.json)
-and [Admin API schema](https://developers.notion.com/openapi-adminApi.json):
-61 content/agent/file operations and 40 administration operations, plus streamed
-session and download helpers. Data API version: **2026-03-11**. Admin API version:
-**2026-06-01**. Deprecated database APIs are replaced by data-source operations.
-OAuth credential endpoints are managed separately from callable content operations:
-Houston performs exchange and refresh; introspection and provider token revocation
-remain application-administration tasks. Webhook subscriptions are configured in
-Notion's developer portal; there is no subscription-management REST endpoint.
-
-The icon uses the official Notion mark from the navigation on
-[notion.com](https://www.notion.com/), retrieved 2026-10-10. Its SVG paths are
-unchanged; the website's CSS fill is resolved to black. Notion owns the mark.
+Connect with Notion, an internal connection token, or a personal access token.
+You choose Houston's access level; Notion's own capabilities, shared pages and
+plan permissions still apply. See [Connect your Notion account](SETUP.md).

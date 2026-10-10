@@ -4,7 +4,7 @@ These are optional recommendations, illustrated by the
 [Fastmail connector](../connectors/fastmail/connector.lua). They are not additional
 publication rules or a style checklist enforced by CI. Contributors may choose a
 different structure when it makes their connector easier to understand. The
-[authoring guide](authoring.md) describes the actual runtime and bundle contract.
+[authoring guide](../AUTHORING.md) describes the actual runtime and bundle contract.
 
 ## Start with the interface
 
@@ -90,7 +90,7 @@ explicitly with `await(response.body:readAll())`; inspect `statusCode` and close
 unneeded bodies. Request and response headers contain arrays of strings.
 Sequential batches keep in-flight work predictable. Account for
 the invocation's native-call, memory, frame-size and execution budgets, including
-file operations; see [execution and waiting](authoring.md#execution-and-waiting).
+file operations; see [execution and waiting](../AUTHORING.md#execution-and-waiting).
 An interrupted operation cannot roll back a write already accepted upstream.
 
 Build strings with a parts array and `table.concat` when collecting many pieces.
@@ -124,7 +124,7 @@ streaming. For memory improvements, check that unnecessary fields or repeated
 requests disappear; avoid asserting exact source text or incidental helper names.
 
 Run the existing Go validator with the runtime and Luau analyzer described in the
-[authoring guide](authoring.md#tests-and-publication):
+[authoring guide](../AUTHORING.md#tests-and-publication):
 
 ```sh
 go run ./tools/validate connectors/fastmail
