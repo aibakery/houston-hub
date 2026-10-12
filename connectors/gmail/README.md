@@ -1,12 +1,14 @@
 ---
-description: Find conversations, catch up on email, and work with Gmail attachments.
+description: Search, read and answer Gmail, with attachments and drafts.
 ---
 # Gmail
 
 Give agents the context they need from your Gmail inbox.
 
-- Find messages by person, topic, date, or label.
-- Read conversations to catch up before a meeting or follow-up.
+- Search mail with Gmail's own search syntax and read whole conversations.
 - Download attachments to work with alongside your other files.
+- With **Read and write** access: send and reply (with attachments), prepare
+  drafts for you to review, and organize mail with labels, archive and trash.
 
-This connector provides read-only access. It cannot send mail or change your inbox.
+Read-only access cannot send mail or change your inbox. Messages are never
+permanently deleted: trash keeps them for 30 days.

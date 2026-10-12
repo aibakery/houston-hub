@@ -1,255 +1,164 @@
--- Google Calendar connector: read calendars and events through Houston's HTTP proxy.
--- Host primitives used: private http.request and json.
+-- Google Calendar API v3. Arguments and results keep Google's native field names.
+type Options = {[string]: any}
+type Endpoint = {method: string, path: string, read: boolean, query: {string}?, body: boolean?, defaults: Options?, list: string?, help: string}
+local API = "https://www.googleapis.com/calendar/v3"
 
-local BASE = "https://www.googleapis.com/calendar/v3"
+-- Request layer shared verbatim by the Google connectors (tools/validate checks they match).
+local function text(value: any, field: string): string
+	assert(type(value) == "string" and value ~= "", field .. " must be a nonempty string")
+	return value
+end
 
-local function encode(s: any)
-	s = tostring(s)
-	return (string.gsub(s, "[^A-Za-z0-9%-_%.~]", function(c: any)
+local function options(value: any): Options
+	if value == nil then return {} end
+	assert(type(value) == "table", "opts must be an object")
+	for key in value do assert(type(key) == "string", "opts must have named fields") end
+	return table.clone(value)
+end
+
+local function encode(value: string): string
+	return (string.gsub(value, "[^A-Za-z0-9%-_%.~]", function(c: string)
 		return string.format("%%%02X", string.byte(c))
 	end))
 end
 
-local function scalar(value: any)
-	if type(value) == "boolean" then
-		if value then
-			return "true"
+-- Moves the named fields from args into a query string; arrays repeat the key.
+local function query(args: Options, names: {string}): string
+	local parts: {string} = {}
+	for _, name in names do
+		local value = args[name]
+		args[name] = nil
+		for _, item in (if type(value) == "table" then value else {value}) do
+			assert(type(item) == "string" or type(item) == "number" or type(item) == "boolean", name .. " must be a string, number, boolean or an array of them")
+			table.insert(parts, encode(name) .. "=" .. encode(tostring(item)))
 		end
-		return "false"
 	end
-	return tostring(value)
+	return if #parts > 0 then "?" .. table.concat(parts, "&") else ""
 end
 
-local function add_query(parts: any,key: any,value: any)
-	if value == nil then
-		return
-	end
-	if type(value) == "table" then
-		for _, item in value do
-			add_query(parts, key, item)
-		end
-		return
-	end
-	parts[#parts + 1] = encode(key) .. "=" .. encode(scalar(value))
+local function fail(operation: string, response: HttpResponse): never
+	local chunk = await(response.body:read(4096))
+	response.body:close()
+	local ok, decoded = pcall(json.decode, if chunk.done then "" else chunk.data)
+	local problem = if ok and type(decoded) == "table" and type(decoded.error) == "table" then decoded.error else {}
+	local reason = type(problem.errors) == "table" and type(problem.errors[1]) == "table" and problem.errors[1].reason
+	local message = "Google HTTP " .. tostring(response.statusCode)
+	if type(problem.status) == "string" then message ..= " (" .. problem.status .. ")" end
+	if type(problem.message) == "string" then message ..= ": " .. string.sub(problem.message, 1, 600) end
+	if type(reason) == "string" then message ..= " [" .. reason .. "]" end
+	local retry = response.headers["retry-after"]
+	if retry and retry[1] then message ..= "; Retry-After: " .. retry[1] end
+	local limited = type(reason) == "string" and string.find(string.lower(reason), "ratelimitexceeded", 1, true) ~= nil
+	return houston.fail({operation = operation, layer = "upstream", upstream_status = response.statusCode,
+		retryable = response.statusCode == 429 or response.statusCode >= 500 or limited, message = message})
 end
 
-local function query_string(params: any)
-	if type(params) ~= "table" then
-		return ""
+local function decode(operation: string, response: HttpResponse): any
+	if response.statusCode < 200 or response.statusCode >= 300 then fail(operation, response) end
+	local raw = await(response.body:readAll())
+	if raw == "" then return {success = true} end
+	local ok, value = pcall(json.decode, raw)
+	if not ok or type(value) ~= "table" or not string.match(raw, "^%s*{") then
+		houston.fail({operation = operation, layer = "upstream", upstream_status = response.statusCode,
+			retryable = false, message = "Google returned an invalid JSON object"})
 	end
-	local parts = {}
-	for key, value in params do
-		add_query(parts, key, value)
-	end
-	if #parts == 0 then
-		return ""
-	end
-	local s = parts[1]
-	for i = 2, #parts do
-		s = s .. "&" .. parts[i]
-	end
-	return s
+	return value
 end
 
-local function request(method: any,path: any,params: any,operation: any,body: any)
-	local url = BASE .. path
-	local qs = query_string(params)
-	if qs ~= "" then
-		url = url .. "?" .. qs
-	end
-	local headers, payload = nil, nil
-	if body ~= nil then
-		headers = { ["Content-Type"] = "application/json" }
-		payload = json.encode(body)
-	end
-	local response = http.request({
-		method = method,
-		url = url,
-		headers = headers,
-		body = payload,
-	})
-	if response.status < 200 or response.status >= 300 then
-		houston.fail({operation = operation, layer = "upstream", upstream_status = response.status,
-			retryable = response.status == 429 or response.status == 502 or response.status == 503 or response.status == 504,
-			message = "upstream HTTP request failed"})
-	end
-	local decoded = nil
-	if response.body ~= nil and response.body ~= "" then
-		local ok, body = pcall(json.decode, response.body)
-		assert(ok, "upstream returned invalid JSON")
-		decoded = body
-	end
-	return decoded
+local function call(operation: string, method: string, url: string, body: any?): any
+	return decode(operation, await(http.request({method = method, url = url,
+		headers = if body ~= nil then {["Content-Type"] = {"application/json"}} else nil,
+		body = if body ~= nil then json.encode(body) else nil})))
 end
 
-local function list_calendar_params(opts: any)
-	opts = opts or {}
-	return {
-		maxResults = opts.maxResults,
-		pageToken = opts.pageToken,
-		minAccessRole = opts.minAccessRole,
-		showDeleted = opts.showDeleted,
-		showHidden = opts.showHidden,
-	}
+-- Moves {placeholders} and declared query fields from args into the URL; remaining fields form the JSON body.
+local function target(name: string, endpoint: Endpoint, args: Options): string
+	local defaults: Options = endpoint.defaults or {}
+	for key, value in defaults do
+		if args[key] == nil then args[key] = value end
+	end
+	local path = string.gsub(endpoint.path, "{(%w+)}", function(field: string)
+		local value = encode(text(args[field], field))
+		args[field] = nil
+		return value
+	end)
+	path ..= query(args, endpoint.query or {})
+	if not endpoint.body then assert(next(args) == nil, name .. " received an unknown option") end
+	return API .. path
 end
 
-local function list_event_params(opts: any)
-	opts = opts or {}
-	return {
-		timeMin = opts.timeMin,
-		timeMax = opts.timeMax,
-		maxResults = opts.maxResults,
-		pageToken = opts.pageToken,
-		q = opts.q,
-		singleEvents = opts.singleEvents,
-		orderBy = opts.orderBy,
-		timeZone = opts.timeZone,
-	}
+local function invoke(name: string, endpoint: Endpoint, input: any): any
+	local args = options(input)
+	local result = call(name, endpoint.method, target(name, endpoint, args), if endpoint.body then args else nil)
+	if endpoint.list and result[endpoint.list] == nil then result[endpoint.list] = json.decode("[]") end
+	return result
 end
 
-local function get_event_params(opts: any)
-	opts = opts or {}
-	return {
-		timeZone = opts.timeZone,
-	}
+local exports: {[string]: any} = {}
+local help: {[string]: string} = {}
+
+-- Exposes an operation when it only reads or the connection allows writes.
+local function export(name: string, isRead: boolean, fn: (any) -> any, doc: string)
+	if isRead or config.access == "read-write" then
+		exports[name], help[name] = fn, doc
+	end
 end
 
-local functions = {}
-
-function functions.listCalendars(opts: any)
-	return request("GET", "/users/me/calendarList", list_calendar_params(opts), "listCalendars")
+local function exportEndpoints(endpoints: {[string]: Endpoint})
+	for name, endpoint in endpoints do
+		export(name, endpoint.read, function(args: Options?): any return invoke(name, endpoint, args) end, endpoint.help)
+	end
 end
 
-function functions.listEvents(calendarId: any,opts: any)
-	if type(calendarId) == "table" then
-		opts = calendarId
-		calendarId = calendarId.calendarId
+-- help() introduces the API, then documents exactly the configured operations.
+local function helpWith(overview: {string}): () -> string
+	return function(): string
+		local names: {string} = {}
+		for name in help do table.insert(names, name) end
+		table.sort(names)
+		local lines = table.clone(overview)
+		for _, name in names do table.insert(lines, help[name]) end
+		return table.concat(lines, "\n")
 	end
-	if type(calendarId) ~= "string" or calendarId == "" then
-		error("gcalendar.listEvents requires a calendar id")
-	end
-	return request("GET", "/calendars/" .. encode(calendarId) .. "/events", list_event_params(opts), "listEvents")
 end
+-- End of the shared request layer.
 
-function functions.getEvent(calendarId: any,eventId: any,opts: any)
-	if type(calendarId) == "table" then
-		opts = calendarId
-		eventId = calendarId.eventId
-		calendarId = calendarId.calendarId
-	end
-	if type(calendarId) ~= "string" or calendarId == "" then
-		error("gcalendar.getEvent requires a calendar id")
-	end
-	if type(eventId) ~= "string" or eventId == "" then
-		error("gcalendar.getEvent requires an event id")
-	end
-	return request(
-		"GET",
-		"/calendars/" .. encode(calendarId) .. "/events/" .. encode(eventId),
-		get_event_params(opts),
-		"getEvent")
-end
-
-local writes = {}
-
-function writes.insertEvent(calendarId: any,event: any)
-	if type(calendarId) == "table" then
-		event = calendarId.event or calendarId
-		calendarId = calendarId.calendarId
-	end
-	if type(calendarId) ~= "string" or calendarId == "" then
-		error("gcalendar.insertEvent requires a calendar id")
-	end
-	if type(event) ~= "table" then
-		error("gcalendar.insertEvent requires an event body")
-	end
-	return request("POST", "/calendars/" .. encode(calendarId) .. "/events", nil, "insertEvent", event)
-end
-
-function writes.deleteEvent(calendarId: any,eventId: any)
-	if type(calendarId) == "table" then
-		eventId = calendarId.eventId
-		calendarId = calendarId.calendarId
-	end
-	if type(calendarId) ~= "string" or calendarId == "" then
-		error("gcalendar.deleteEvent requires a calendar id")
-	end
-	if type(eventId) ~= "string" or eventId == "" then
-		error("gcalendar.deleteEvent requires an event id")
-	end
-	return request(
-		"DELETE",
-		"/calendars/" .. encode(calendarId) .. "/events/" .. encode(eventId),
-		nil,
-		"deleteEvent")
-end
-
-if config.access == "read-write" then
-    for name, fn in (writes :: {[string]: any}) do (functions :: {[string]: any})[name] = fn end
-end
-
-local operationHelp: {[string]: string} = {
-	deleteEvent = [==[## deleteEvent(calendarId, eventId)
-
-Calendar `events.delete`. `calendarId` and `eventId` may be strings, or a
-table with those fields.]==],
-	getEvent = [==[## getEvent(calendarId, eventId, opts?)
-
-Calendar `events.get`. `calendarId` and `eventId` may be strings, or a
-table with those fields. Optional `timeZone` on `opts`.
-
-Returns the Event resource. Use only when `listEvents` is missing a
-field you need.
-
-Write functions are bound only when this instance is read-write.]==],
-	insertEvent = [==[## insertEvent(calendarId, event)
-
-Calendar `events.insert`. `calendarId` may be a string (e.g. `"primary"`)
-or a table with `calendarId` and `event`. `event` is the Event resource.]==],
-	listCalendars = [==[## listCalendars(opts?)
-
-Calendar `calendarList.list`. Optional fields on `opts`:
-
-- `maxResults` (number)
-- `pageToken` (string)
-- `minAccessRole` (string)
-- `showDeleted` (boolean)
-- `showHidden` (boolean)
-
-Returns `items` (`{ id, summary, ... }[]`) and `nextPageToken`.]==],
-	listEvents = [==[## listEvents(calendarId, opts?)
-
-Calendar `events.list`. `calendarId` may be a string (e.g. `"primary"`)
-or a table with `calendarId`. Optional fields on `opts`:
-
-- `timeMin` / `timeMax` (RFC3339 strings)
-- `maxResults` (number)
-- `pageToken` (string)
-- `q` (string)
-- `singleEvents` (boolean)
-- `orderBy` (string)
-- `timeZone` (string)
-
-Returns `items` (`{ id, summary, start, end, ... }[]`) and
-`nextPageToken`. `listEvents` already has `id`, `summary`, `start`,
-and `end`. Do not `getEvent` every row unless you need extra fields
-(attendees, description, conference data). Loop pagination in one
-`run`.]==],
+local PRIMARY = {calendarId = "primary"}
+local WRITE = {"sendUpdates", "conferenceDataVersion", "supportsAttachments", "maxAttendees"}
+local endpoints: {[string]: Endpoint} = {
+	listCalendars = {method = "GET", path = "/users/me/calendarList", read = true, list = "items",
+		query = {"maxResults", "pageToken", "minAccessRole", "showDeleted", "showHidden", "syncToken"},
+		help = "listCalendars(opts?) -> {items, nextPageToken?, nextSyncToken?}. Calendars in the user's list. opts: maxResults (≤250), pageToken, minAccessRole, showDeleted, showHidden, syncToken."},
+	getCalendar = {method = "GET", path = "/calendars/{calendarId}", read = true, defaults = PRIMARY,
+		help = "getCalendar({calendarId?}) -> calendar {id, summary, timeZone, ...}. calendarId defaults to primary."},
+	listEvents = {method = "GET", path = "/calendars/{calendarId}/events", read = true, defaults = PRIMARY, list = "items",
+		query = {"timeMin", "timeMax", "q", "maxResults", "pageToken", "singleEvents", "orderBy", "timeZone", "showDeleted", "updatedMin", "syncToken", "iCalUID", "eventTypes", "privateExtendedProperty", "sharedExtendedProperty"},
+		help = "listEvents({calendarId?, timeMin?, timeMax?, q?, singleEvents?, orderBy?, maxResults?, pageToken?, ...}) -> {items, nextPageToken?, timeZone, ...}. Times are RFC 3339 (2026-10-12T09:00:00Z). singleEvents=true expands recurring events and allows orderBy='startTime'. maxResults ≤2500."},
+	getEvent = {method = "GET", path = "/calendars/{calendarId}/events/{eventId}", read = true, defaults = PRIMARY,
+		query = {"timeZone", "maxAttendees"},
+		help = "getEvent({calendarId?, eventId, timeZone?}) -> event."},
+	listEventInstances = {method = "GET", path = "/calendars/{calendarId}/events/{eventId}/instances", read = true, defaults = PRIMARY, list = "items",
+		query = {"timeMin", "timeMax", "maxResults", "pageToken", "timeZone", "showDeleted", "originalStart"},
+		help = "listEventInstances({calendarId?, eventId, timeMin?, timeMax?, maxResults?, pageToken?}) -> {items, nextPageToken?}. Occurrences of a recurring event."},
+	queryFreeBusy = {method = "POST", path = "/freeBusy", read = true, body = true,
+		help = "queryFreeBusy({timeMin, timeMax, items={{id='primary'}}, timeZone?}) -> {calendars={[id]={busy={{start,end}}}}}. Busy intervals only; event details stay private."},
+	insertEvent = {method = "POST", path = "/calendars/{calendarId}/events", read = false, body = true, defaults = PRIMARY, query = WRITE,
+		help = "insertEvent({calendarId?, summary, start={dateTime|date, timeZone?}, end={...}, attendees?, description?, location?, recurrence?, sendUpdates?, conferenceDataVersion?, ...}) -> event. sendUpdates: all, externalOnly or none (default none). Use conferenceDataVersion=1 with conferenceData.createRequest to add Google Meet."},
+	patchEvent = {method = "PATCH", path = "/calendars/{calendarId}/events/{eventId}", read = false, body = true, defaults = PRIMARY, query = WRITE,
+		help = "patchEvent({calendarId?, eventId, sendUpdates?, ...fields to change}) -> event. Only the given fields change; arrays such as attendees are replaced whole."},
+	deleteEvent = {method = "DELETE", path = "/calendars/{calendarId}/events/{eventId}", read = false, defaults = PRIMARY, query = {"sendUpdates"},
+		help = "deleteEvent({calendarId?, eventId, sendUpdates?}) -> {success=true}. Cancels the event for its attendees when sendUpdates is all."},
+	moveEvent = {method = "POST", path = "/calendars/{calendarId}/events/{eventId}/move", read = false, defaults = PRIMARY, query = {"destination", "sendUpdates"},
+		help = "moveEvent({calendarId?, eventId, destination, sendUpdates?}) -> event. Changes the event's organizer calendar."},
+	quickAddEvent = {method = "POST", path = "/calendars/{calendarId}/events/quickAdd", read = false, defaults = PRIMARY, query = {"text", "sendUpdates"},
+		help = "quickAddEvent({calendarId?, text, sendUpdates?}) -> event. Creates an event from text such as 'Lunch with Ana tomorrow 12pm'."},
 }
 
-function functions.help(): string
-	local names: {string} = {}
-	for name in (functions :: {[string]: any}) do
-		if name ~= "help" then names[#names + 1] = name end
-	end
-	table.sort(names)
-	local sections = {"gcalendar: configured connection help. Credentials stay on Houston. Use only the functions listed below. Provider scopes are enforced by real calls; help makes no network requests."}
-	for _, name in names do
-		local text = operationHelp[name]
-		assert(text, "missing help for configured function " .. name)
-		sections[#sections + 1] = text
-	end
-	return table.concat(sections, "\n\n")
-end
-
-return functions
+exportEndpoints(endpoints)
+exports.help = helpWith({
+	"Google Calendar API v3. Every operation takes one named options object with Google's camelCase fields and returns Google's JSON unchanged; deletes return {success=true}.",
+	"calendarId defaults to 'primary' (the connected account's calendar); other IDs come from listCalendars. Lists return one page: pass nextPageToken as pageToken until it is absent.",
+	"No hidden paging or retries. Errors report the HTTP status, Google's message and reason. A failed or timed-out write may already have succeeded; check with getEvent or listEvents before repeating.",
+	"Example: listEvents({timeMin='2026-10-12T00:00:00Z', timeMax='2026-10-19T00:00:00Z', singleEvents=true, orderBy='startTime'}).",
+})
+return exports

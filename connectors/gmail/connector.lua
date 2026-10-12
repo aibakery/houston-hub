@@ -1,807 +1,479 @@
--- Gmail connector: one mailbox through Houston's HTTP proxy.
--- Host primitives used: private http.request and json.
--- Public functions are the mail contract later providers reuse; only the
--- HTTP paths and filter compilation below are Gmail-specific.
+-- Gmail API v1 for the connected mailbox. Arguments and results keep Google's native
+-- field names; reads add decoded bodies and writes build MIME so callers never handle base64.
+type Options = {[string]: any}
+type Endpoint = {method: string, path: string, read: boolean, query: {string}?, body: boolean?, defaults: Options?, list: string?, help: string}
+local API = "https://gmail.googleapis.com/gmail/v1/users/me"
+local UPLOAD = "https://gmail.googleapis.com/upload/gmail/v1/users/me"
+local base64 = require("lib/base64.lua")
 
-local BASE = "https://gmail.googleapis.com/gmail/v1/users/me"
-local BATCH_URL = "https://gmail.googleapis.com/batch/gmail/v1"
-local MAX_BATCH = 50
-local BATCH_BOUNDARY = "batch_houston"
-local B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+-- Request layer shared verbatim by the Google connectors (tools/validate checks they match).
+local function text(value: any, field: string): string
+	assert(type(value) == "string" and value ~= "", field .. " must be a nonempty string")
+	return value
+end
 
-local function encode(s: any)
-	s = tostring(s)
-	return (string.gsub(s, "[^A-Za-z0-9%-_%.~]", function(c: any)
+local function options(value: any): Options
+	if value == nil then return {} end
+	assert(type(value) == "table", "opts must be an object")
+	for key in value do assert(type(key) == "string", "opts must have named fields") end
+	return table.clone(value)
+end
+
+local function encode(value: string): string
+	return (string.gsub(value, "[^A-Za-z0-9%-_%.~]", function(c: string)
 		return string.format("%%%02X", string.byte(c))
 	end))
 end
 
-local function scalar(value: any)
-	if type(value) == "boolean" then
-		if value then
-			return "true"
-		end
-		return "false"
-	end
-	return tostring(value)
-end
-
-local function add_query(parts: any,key: any,value: any)
-	if value == nil then
-		return
-	end
-	if type(value) == "table" then
-		for _, item in value do
-			add_query(parts, key, item)
-		end
-		return
-	end
-	parts[#parts + 1] = encode(key) .. "=" .. encode(scalar(value))
-end
-
-local function query_string(params: any)
-	if type(params) ~= "table" then
-		return ""
-	end
-	local parts = {}
-	for key, value in params do
-		add_query(parts, key, value)
-	end
-	if #parts == 0 then
-		return ""
-	end
-	local s = parts[1]
-	for i = 2, #parts do
-		s = s .. "&" .. parts[i]
-	end
-	return s
-end
-
-
-local function request(method: any,path: any,params: any,operation: any,body: any)
-	local url = BASE .. path
-	local qs = query_string(params)
-	if qs ~= "" then
-		url = url .. "?" .. qs
-	end
-	local headers, payload = nil, nil
-	if body ~= nil then
-		headers = { ["Content-Type"] = "application/json" }
-		payload = json.encode(body)
-	end
-	local response = http.request({
-		method = method,
-		url = url,
-		headers = headers,
-		body = payload,
-	})
-	if response.status < 200 or response.status >= 300 then
-		houston.fail({operation = operation, layer = "upstream", upstream_status = response.status,
-			retryable = response.status == 429 or response.status == 502 or response.status == 503 or response.status == 504,
-			message = "upstream HTTP request failed"})
-	end
-	local decoded = nil
-	if response.body ~= nil and response.body ~= "" then
-		local ok, body = pcall(json.decode, response.body)
-		assert(ok, "upstream returned invalid JSON")
-		decoded = body
-	end
-	return decoded
-end
-
-local function gmail_date(value: any)
-	local s = tostring(value)
-	local y, m, d = string.match(s, "^(%d%d%d%d)%D(%d%d)%D(%d%d)")
-	if y and m and d then
-		return y .. "/" .. m .. "/" .. d
-	end
-	return s
-end
-
-local function quote_term(value: any)
-	local s = tostring(value)
-	if string.find(s, '[%s"()]') == nil then
-		return s
-	end
-	s = string.gsub(s, "\\", "\\\\")
-	s = string.gsub(s, '"', '\\"')
-	return '"' .. s .. '"'
-end
-
-local function add_term(terms: any,prefix: any,value: any)
-	if value == nil then
-		return
-	end
-	if type(value) == "table" then
-		for _, item in value do
-			add_term(terms, prefix, item)
-		end
-		return
-	end
-	local s = tostring(value)
-	if s == "" then
-		return
-	end
-	if prefix == "" then
-		terms[#terms + 1] = s
-	else
-		terms[#terms + 1] = prefix .. quote_term(s)
-	end
-end
-
-local function compile_query(opts: any): string?
-	local terms = {}
-	add_term(terms, "from:", opts.from)
-	add_term(terms, "to:", opts.to)
-	add_term(terms, "subject:", opts.subject)
-	if opts.after ~= nil and tostring(opts.after) ~= "" then
-		terms[#terms + 1] = "after:" .. gmail_date(opts.after)
-	end
-	if opts.before ~= nil and tostring(opts.before) ~= "" then
-		terms[#terms + 1] = "before:" .. gmail_date(opts.before)
-	end
-	add_term(terms, "", opts.text)
-	add_term(terms, "", opts.q)
-	if #terms == 0 then
-		return nil
-	end
-	return table.concat(terms, " ")
-end
-
-local function folder_ids(opts: any): {string}?
-	local ids: {string} = {}
-	local function add(value: any)
-		if value == nil then
-			return
-		end
-		if type(value) == "table" then
-			for _, item in value do
-				add(item)
-			end
-			return
-		end
-		local s = tostring(value)
-		if s ~= "" then
-			ids[#ids + 1] = s
+-- Moves the named fields from args into a query string; arrays repeat the key.
+local function query(args: Options, names: {string}): string
+	local parts: {string} = {}
+	for _, name in names do
+		local value = args[name]
+		args[name] = nil
+		for _, item in (if type(value) == "table" then value else {value}) do
+			assert(type(item) == "string" or type(item) == "number" or type(item) == "boolean", name .. " must be a string, number, boolean or an array of them")
+			table.insert(parts, encode(name) .. "=" .. encode(tostring(item)))
 		end
 	end
-	add(opts.folder)
-	add(opts.folders)
-	add(opts.labelIds)
-	if #ids == 0 then
-		return nil
-	end
-	return ids
+	return if #parts > 0 then "?" .. table.concat(parts, "&") else ""
 end
 
-local function list_params(opts: any)
-	opts = opts or {}
-	return {
-		maxResults = opts.maxResults,
-		pageToken = opts.pageToken,
-		q = compile_query(opts),
-		labelIds = folder_ids(opts),
-		includeSpamTrash = opts.includeSpamTrash,
-	}
+local function fail(operation: string, response: HttpResponse): never
+	local chunk = await(response.body:read(4096))
+	response.body:close()
+	local ok, decoded = pcall(json.decode, if chunk.done then "" else chunk.data)
+	local problem = if ok and type(decoded) == "table" and type(decoded.error) == "table" then decoded.error else {}
+	local reason = type(problem.errors) == "table" and type(problem.errors[1]) == "table" and problem.errors[1].reason
+	local message = "Google HTTP " .. tostring(response.statusCode)
+	if type(problem.status) == "string" then message ..= " (" .. problem.status .. ")" end
+	if type(problem.message) == "string" then message ..= ": " .. string.sub(problem.message, 1, 600) end
+	if type(reason) == "string" then message ..= " [" .. reason .. "]" end
+	local retry = response.headers["retry-after"]
+	if retry and retry[1] then message ..= "; Retry-After: " .. retry[1] end
+	local limited = type(reason) == "string" and string.find(string.lower(reason), "ratelimitexceeded", 1, true) ~= nil
+	return houston.fail({operation = operation, layer = "upstream", upstream_status = response.statusCode,
+		retryable = response.statusCode == 429 or response.statusCode >= 500 or limited, message = message})
 end
 
-local function get_params(opts: any)
-	opts = opts or {}
-	return {
-		format = opts.format,
-		metadataHeaders = opts.metadataHeaders,
-	}
-end
-
-local function message_id(value: any)
-	if type(value) == "table" then
-		return value.id
+local function decode(operation: string, response: HttpResponse): any
+	if response.statusCode < 200 or response.statusCode >= 300 then fail(operation, response) end
+	local raw = await(response.body:readAll())
+	if raw == "" then return {success = true} end
+	local ok, value = pcall(json.decode, raw)
+	if not ok or type(value) ~= "table" or not string.match(raw, "^%s*{") then
+		houston.fail({operation = operation, layer = "upstream", upstream_status = response.statusCode,
+			retryable = false, message = "Google returned an invalid JSON object"})
 	end
 	return value
 end
 
-local function collect_ids(ids: any): {string}
-	if type(ids) ~= "table" then
-		return {}
-	end
-	local out = {}
-	for _, item in ids do
-		local id = message_id(item)
-		if type(id) == "string" and id ~= "" then
-			out[#out + 1] = id
-		end
-	end
-	return out
+local function call(operation: string, method: string, url: string, body: any?): any
+	return decode(operation, await(http.request({method = method, url = url,
+		headers = if body ~= nil then {["Content-Type"] = {"application/json"}} else nil,
+		body = if body ~= nil then json.encode(body) else nil})))
 end
 
-local function last_json_end(part: any,json_start: any)
-	local last = nil
-	local k = json_start
-	while true do
-		local n = string.find(part, "}", k, true)
-		if not n then
-			break
-		end
-		last = n
-		k = n + 1
+-- Moves {placeholders} and declared query fields from args into the URL; remaining fields form the JSON body.
+local function target(name: string, endpoint: Endpoint, args: Options): string
+	local defaults: Options = endpoint.defaults or {}
+	for key, value in defaults do
+		if args[key] == nil then args[key] = value end
 	end
-	return last
+	local path = string.gsub(endpoint.path, "{(%w+)}", function(field: string)
+		local value = encode(text(args[field], field))
+		args[field] = nil
+		return value
+	end)
+	path ..= query(args, endpoint.query or {})
+	if not endpoint.body then assert(next(args) == nil, name .. " received an unknown option") end
+	return API .. path
 end
 
-local function parse_batch(body: any)
-	if type(body) ~= "string" or body == "" then
-		error("gmail.getMessages: empty batch response")
-	end
-	local boundary = string.match(body, "%-%-([A-Za-z0-9_%-]+)")
-	if not boundary then
-		error("gmail.getMessages: missing multipart boundary")
-	end
-	local sep = "--" .. boundary
-	local out = {}
-	local start = 1
-	while true do
-		local _, j = string.find(body, sep, start, true)
-		if not j then
-			break
-		end
-		local next_i = string.find(body, sep, j + 1, true)
-		if not next_i then
-			break
-		end
-		local part = string.sub(body, j + 1, next_i - 1)
-		local status = string.match(part, "HTTP/%d%.%d (%d+)")
-		if status and (tonumber(status) or 0) >= 400 then
-			error("gmail.getMessages part failed: " .. tostring(status))
-		end
-		local json_start = string.find(part, "{", 1, true)
-		if json_start then
-			local json_end = last_json_end(part, json_start)
-			if json_end then
-				out[#out + 1] = json.decode(string.sub(part, json_start, json_end))
-			end
-		end
-		start = next_i
-	end
-	return out
+local function invoke(name: string, endpoint: Endpoint, input: any): any
+	local args = options(input)
+	local result = call(name, endpoint.method, target(name, endpoint, args), if endpoint.body then args else nil)
+	if endpoint.list and result[endpoint.list] == nil then result[endpoint.list] = json.decode("[]") end
+	return result
 end
 
-local function decode_base64url(data: any)
-	if type(data) ~= "string" or data == "" then
-		return ""
+local exports: {[string]: any} = {}
+local help: {[string]: string} = {}
+
+-- Exposes an operation when it only reads or the connection allows writes.
+local function export(name: string, isRead: boolean, fn: (any) -> any, doc: string)
+	if isRead or config.access == "read-write" then
+		exports[name], help[name] = fn, doc
 	end
-	data = string.gsub(data, "-", "+")
-	data = string.gsub(data, "_", "/")
-	while #data % 4 ~= 0 do
-		data = data .. "="
-	end
-	local out = {}
-	local acc, n = 0, 0
-	for i = 1, #data do
-		local c = string.sub(data, i, i)
-		if c ~= "=" then
-			local p = string.find(B64, c, 1, true)
-			if p then
-				acc = acc * 64 + (p - 1)
-				n += 1
-				if n == 4 then
-					out[#out + 1] = string.char(
-						bit32.extract(acc, 16, 8),
-						bit32.extract(acc, 8, 8),
-						bit32.extract(acc, 0, 8)
-					)
-					acc, n = 0, 0
-				end
-			end
-		end
-	end
-	if n == 3 then
-		acc = acc * 64
-		out[#out + 1] = string.char(bit32.extract(acc, 16, 8), bit32.extract(acc, 8, 8))
-	elseif n == 2 then
-		acc = acc * 64 * 64
-		out[#out + 1] = string.char(bit32.extract(acc, 16, 8))
-	end
-	return table.concat(out)
 end
 
-local function header_map(headers: any)
-	local map = {}
-	if type(headers) ~= "table" then
-		return map
+local function exportEndpoints(endpoints: {[string]: Endpoint})
+	for name, endpoint in endpoints do
+		export(name, endpoint.read, function(args: Options?): any return invoke(name, endpoint, args) end, endpoint.help)
 	end
-	for _, h in headers do
-		if type(h) == "table" and type(h.name) == "string" then
-			map[string.lower(h.name)] = h.value or ""
-		end
-	end
-	return map
 end
 
-local function header_values(headers: any,name: any)
-	local want = string.lower(name)
-	local out = {}
-	if type(headers) ~= "table" then
-		return out
+-- help() introduces the API, then documents exactly the configured operations.
+local function helpWith(overview: {string}): () -> string
+	return function(): string
+		local names: {string} = {}
+		for name in help do table.insert(names, name) end
+		table.sort(names)
+		local lines = table.clone(overview)
+		for _, name in names do table.insert(lines, help[name]) end
+		return table.concat(lines, "\n")
 	end
-	for _, h in headers do
-		if type(h) == "table" and type(h.name) == "string" and string.lower(h.name) == want then
-			out[#out + 1] = h.value or ""
-		end
-	end
-	return out
 end
+-- End of the shared request layer.
 
-local function content_id(raw: any): string?
-	if type(raw) ~= "string" or raw == "" then
-		return nil
-	end
-	return (string.gsub(string.gsub(raw, "^%s*<", ""), ">%s*$", ""))
-end
-
-local function collect_part(part: any,bodies: any,atts: any)
-	if type(part) ~= "table" then
-		return
-	end
-	if type(part.parts) == "table" then
-		for _, child in part.parts do
-			collect_part(child, bodies, atts)
-		end
-		return
-	end
-	local mime = string.lower(tostring(part.mimeType or ""))
-	local headers = header_map(part.headers)
-	local disp = string.lower(headers["content-disposition"] or "")
-	local filename = part.filename
-	if type(filename) ~= "string" or filename == "" then
-		filename = nil
-	end
-	local attached = string.find(disp, "attachment", 1, true) ~= nil
-	local body = part.body or {}
-	if (mime == "text/plain" or mime == "text/html") and not attached and not filename then
-		local data = decode_base64url(body.data)
-		if mime == "text/plain" then
-			if bodies.text == nil and data ~= "" then
-				bodies.text = data
-			end
-		elseif bodies.html == nil and data ~= "" then
-			bodies.html = data
-		end
-		return
-	end
-	local cid = content_id(headers["content-id"])
-	local has_id = type(body.attachmentId) == "string" and body.attachmentId ~= ""
-	if
-		not filename
-		and not has_id
-		and cid == nil
-		and not attached
-		and string.find(disp, "inline", 1, true) == nil
-	then
-		return
-	end
-	local inline = false
-	if attached then
-		inline = false
-	elseif string.find(disp, "inline", 1, true) ~= nil or cid ~= nil then
-		inline = true
-	end
-	atts[#atts + 1] = {
-		id = body.attachmentId,
-		filename = filename,
-		mimeType = part.mimeType,
-		size = body.size,
-		inline = inline,
-		contentId = cid,
-		data = body.data,
-	}
-end
-
-local function decorate_message(msg: any)
-	if type(msg) ~= "table" then
-		return msg
-	end
-	local payload = msg.payload
-	local headers = {}
-	if type(payload) == "table" and type(payload.headers) == "table" then
-		headers = payload.headers
-	end
-	local map = header_map(headers)
-	msg.from = map.from
-	msg.to = map.to
-	msg.cc = map.cc
-	msg.bcc = map.bcc
-	msg.replyTo = map["reply-to"]
-	msg.subject = map.subject
-	msg.date = map.date
-	msg.messageId = map["message-id"]
-	msg.headers = headers
-	msg.received = header_values(headers, "Received")
-	local bodies: {[string]: string} = {}
-	local atts = {}
-	if type(payload) == "table" then
-		collect_part(payload, bodies, atts)
-	end
-	local body = bodies.text
-	if body == nil or body == "" then
-		body = bodies.html
-	end
-	if body == nil or body == "" then
-		body = msg.snippet
-	end
-	msg.body = body or ""
-	msg.attachments = atts
-	return msg
-end
-
-local function decorate_thread(thread: any)
-	if type(thread) == "table" and type(thread.messages) == "table" then
-		for _, m in thread.messages do
-			decorate_message(m)
-		end
-	end
-	return thread
-end
-
-local functions = {}
-
-function functions.getProfile()
-	return request("GET", "/profile", nil, "getProfile")
-end
-
-function functions.listFolders()
-	local raw = request("GET", "/labels", nil, "listFolders")
-	if type(raw) ~= "table" then
-		return { folders = {} }
-	end
-	local folders = {}
-	if type(raw.labels) == "table" then
-		for _, lab in (raw.labels :: {{[string]: any}}) do
-			if type(lab) == "table" then
-				folders[#folders + 1] = {
-					id = lab.id,
-					name = lab.name,
-					type = lab.type,
-				}
-			end
-		end
-	end
-	raw.folders = folders
-	return raw
-end
-
-function functions.listMessages(opts: any)
-	return request("GET", "/messages", list_params(opts), "listMessages")
-end
-
-function functions.getMessage(id: any,opts: any)
-	if type(id) == "table" then
-		opts = id
-		id = id.id
-	end
-	if type(id) ~= "string" or id == "" then
-		error("gmail.getMessage requires a message id")
-	end
-	return decorate_message(request("GET", "/messages/" .. encode(id), get_params(opts), "getMessage"))
-end
-
-function functions.listThreads(opts: any)
-	return request("GET", "/threads", list_params(opts), "listThreads")
-end
-
-function functions.getThread(id: any,opts: any)
-	if type(id) == "table" then
-		opts = id
-		id = id.id
-	end
-	if type(id) ~= "string" or id == "" then
-		error("gmail.getThread requires a thread id")
-	end
-	return decorate_thread(request("GET", "/threads/" .. encode(id), get_params(opts), "getThread"))
-end
-
-function functions.getMessages(ids: any,opts: any)
-	if type(ids) == "table" and ids[1] == nil and type(ids.ids) == "table" then
-		opts = ids
-		ids = ids.ids
-	end
-	local collected = collect_ids(ids)
-	if #collected == 0 then
-		error("gmail.getMessages requires a list of message ids")
-	end
-	if #collected > MAX_BATCH then
-		error("gmail.getMessages accepts at most 50 ids")
-	end
-	local qs = query_string(get_params(opts))
-	local parts = {}
-	for i, id in collected do
-		local path = "/gmail/v1/users/me/messages/" .. encode(id)
-		if qs ~= "" then
-			path = path .. "?" .. qs
-		end
-		parts[#parts + 1] = "--"
-			.. BATCH_BOUNDARY
-			.. "\r\nContent-Type: application/http\r\nContent-ID: <item"
-			.. tostring(i - 1)
-			.. ">\r\n\r\nGET "
-			.. path
-			.. "\r\n"
-	end
-	parts[#parts + 1] = "--" .. BATCH_BOUNDARY .. "--\r\n"
-	local body = table.concat(parts, "")
-	local response = http.request({
-		method = "POST",
-		url = BATCH_URL,
-		headers = { ["Content-Type"] = "multipart/mixed; boundary=" .. BATCH_BOUNDARY },
-		body = body,
-	})
-	if response.status < 200 or response.status >= 300 then
-		houston.fail({operation = "getMessages", layer = "upstream", upstream_status = response.status,
-			retryable = response.status == 429 or response.status == 502 or response.status == 503 or response.status == 504,
-			message = "upstream HTTP request failed"})
-	end
-	local raw = response.body
-	local out = parse_batch(raw)
-	for _, msg in out do
-		decorate_message(msg)
-	end
-	return out
-end
-
-function functions.listAttachments(id: any)
-	if type(id) == "table" then
-		if type(id.attachments) == "table" then
-			return id.attachments
-		end
-		id = id.id
-	end
-	if type(id) ~= "string" or id == "" then
-		error("gmail.listAttachments requires a message id")
-	end
-	local msg = functions.getMessage(id)
-	if type(msg) ~= "table" or type(msg.attachments) ~= "table" then
-		return {}
-	end
-	return msg.attachments
-end
-
-local function attachment_path(attachmentId: any,path: any)
-	if type(path) == "string" and path ~= "" then
-		return path
-	end
-	local safe = string.gsub(tostring(attachmentId or "file"), "[^%w%-_]", "")
-	if #safe > 24 then
-		safe = string.sub(safe, 1, 24)
-	end
-	if safe == "" then
-		safe = "file"
-	end
-	return "attachments/" .. safe
-end
-
-local function download_attachment(messageId: any,attachmentId: any,path: any)
-	return http.request({
-		method = "GET",
-		url = BASE .. "/messages/" .. encode(messageId) .. "/attachments/" .. encode(attachmentId),
-		dest = path,
-	})
-end
-
-local function finish_attachment(path: any)
-	local parsed = json.decode(fs.read(path))
-	if type(parsed) ~= "table" then
-		error("gmail.getAttachment: invalid attachment payload")
-	end
-	local data = decode_base64url(parsed.data)
-	fs.write(path, data)
-	local signed = nil
-	if type(fs) == "table" and type(fs.signedGetUrl) == "function" then
-		signed = fs.signedGetUrl(path)
-	end
-	return {
-		path = path,
-		url = signed,
-		size = parsed.size or #data,
-	}
-end
-
-function functions.getAttachments(messageId: any,items: any): {any}
-	if type(messageId) == "table" and items == nil then
-		items = messageId
-		messageId = messageId.messageId or messageId.id
-	end
-	if type(messageId) ~= "string" or messageId == "" then
-		error("gmail.getAttachments requires a message id")
-	end
-	if type(items) ~= "table" then
-		error("gmail.getAttachments requires a list of attachments")
-	end
-	local jobs: {{id: string, path: string}} = {}
-	for _, item in ipairs(items :: {any}) do
-		local attachmentId = item
-		local path: string? = nil
-		if type(item) == "table" then
-			attachmentId = item.id or item.attachmentId
-			path = item.path
-		end
-		if type(attachmentId) ~= "string" or attachmentId == "" then
-			error("gmail.getAttachments requires an attachment id")
-		end
-		path = attachment_path(attachmentId, path)
-		jobs[#jobs + 1] = { id = attachmentId, path = path }
-	end
-	if #jobs == 0 then
-		return {}
-	end
-	local out = {}
-	for i, job in ipairs(jobs) do
-		local res = download_attachment(messageId, job.id, job.path)
-		if type(res) ~= "table" or (res.status ~= nil and (type(res.status) ~= "number" or res.status < 200 or res.status >= 300)) then
-			houston.fail({
-				layer = "upstream",
-				upstream_status = res and res.status,
-				connector = "gmail",
-				operation = "getAttachment",
-				path = job.path,
-				message = "download failed",
-			})
-		end
-		out[i] = finish_attachment(job.path)
-	end
-	return out
-end
-
-function functions.getAttachment(messageId: any,attachmentId: any,path: any)
-	if type(messageId) == "table" and attachmentId == nil then
-		path = messageId.path
-		attachmentId = messageId.attachmentId or messageId.id
-		messageId = messageId.messageId
-	elseif type(attachmentId) == "table" then
-		path = attachmentId.path or path
-		attachmentId = attachmentId.id or attachmentId.attachmentId
-	end
-	if type(messageId) ~= "string" or messageId == "" then
-		error("gmail.getAttachment requires a message id")
-	end
-	if type(attachmentId) ~= "string" or attachmentId == "" then
-		error("gmail.getAttachment requires an attachment id")
-	end
-	return functions.getAttachments(messageId, { { id = attachmentId, path = path } })[1]
-end
-
-local writes = {}
-
-function writes.sendMessage(body: any)
-	if type(body) ~= "table" then
-		error("gmail.sendMessage requires a message body")
-	end
-	return request("POST", "/messages/send", nil, "sendMessage", body)
-end
-
-function writes.trashMessage(id: any)
-	if type(id) == "table" then
-		id = id.id
-	end
-	if type(id) ~= "string" or id == "" then
-		error("gmail.trashMessage requires a message id")
-	end
-	return request("POST", "/messages/" .. encode(id) .. "/trash", nil, "trashMessage")
-end
-
-if config.access == "read-write" then
-    for name, fn in (writes :: {[string]: any}) do (functions :: {[string]: any})[name] = fn end
-end
-
-function functions.listMailFolders(...: any): {{id: string, name: string}}
-    if select("#", ...) ~= 0 then error("listMailFolders takes no arguments") end
-    local folders = functions.listFolders().folders
-    if type(folders) ~= "table" then error("mail provider returned invalid folders") end
-    local out: {{id: string, name: string}} = json.decode("[]")
-    local seen = {}
-    for _, folder in (folders :: {any}) do
-        if type(folder.id) ~= "string" or folder.id == "" or type(folder.name) ~= "string" or seen[folder.id] then
-            error("mail provider returned invalid folder metadata")
-        end
-        seen[folder.id] = true
-        out[#out + 1] = {id = folder.id, name = folder.name}
-    end
-    table.sort(out, function(a: any,b: any) return a.id < b.id end)
-    return out
-end
-
-local operationHelp: {[string]: string} = {
-	getAttachment = [==[## getAttachment(messageId, attachmentId, path?)
-
-Downloads one listed attachment onto a session path (streams past the
-proxy buffer) and returns `{ path, url, size }` where `url` is a Houston
-signed GET URL. `attachmentId` is `id` from `listAttachments` /
-`getMessage.attachments`. Optional `path` defaults under `attachments/`.
-`getAttachment({ messageId, id, path })` is the same call. Do not inline
-bytes or base64; give the caller the signed URL.]==],
-	getAttachments = [==[## getAttachments(messageId, items)
-
-Downloads several attachments in order. `items` is `{ { id, path? }, ... }`.
-Returns an array of `{ path, url, size }` in the same order. Attachment bytes stay in private session files.]==],
-	getMessage = [==[## getMessage(id, opts?)
-
-One message. `id` may be a string or a table with `id`. Returns envelope
-fields so callers do not parse headers or MIME:
-
-- `from`, `to`, `cc`, `bcc`, `replyTo`, `subject`, `date`, `messageId`
-- `body` (plain text when present)
-- `attachments` (metadata rows; use `getAttachment` to download)
-- `headers` (raw header list, including `Received`)
-- `received` (Received header values, for originating IP when present)
-
-`getMessage("abc")` and `getMessage({ id = "abc" })` are the same call.]==],
-	getMessages = [==[## getMessages(ids, opts?)
-
-Batch get, at most 50 ids. `ids` is an array of message ids (strings or
-`{ id }`), or a table with `ids`. Returns an array of messages (same
-shape as `getMessage`). One Houston call. Otherwise loop `getMessage`
-in the same `run`.
-
-Write functions are bound only when this instance is read-write.]==],
-	getProfile = [==[## getProfile()
-
-Mailbox identity (`emailAddress`, plus provider extras).]==],
-	getThread = [==[## getThread(id, opts?)
-
-The thread and **all messages** in that conversation. Each message has
-the same envelope, body, and attachments fields as `getMessage`.]==],
-	listAttachments = [==[## listAttachments(id)
-
-Attachment rows for one message: `id`, `filename`, `mimeType`, `size`,
-`inline`, `contentId`. Same rows as `getMessage(id).attachments`. `id`
-may be a message id, `{ id }`, or an already-fetched message.]==],
-	listFolders = [==[## listFolders()
-
-Folders in this mailbox (Gmail labels). Returns `folders`
-(`{ id, name, type }[]`). Use `id` as `folder` when listing messages.]==],
-	listMailFolders = [==[listMailFolders() -> {id:string,name:string}[]. No arguments. Returns every available Gmail label sorted by nonempty unique ID; names may repeat. An empty mailbox returns an empty array. Provider failures raise errors.]==],
-	listMessages = [==[## listMessages(opts?)
-
-Search and list message ids. Returns **ids only** (`id`, `threadId`) —
-not subjects or bodies. Optional filters on `opts`:
-
-- `from`, `to`, `subject` (string, or array of strings)
-- `after`, `before` (YYYY-MM-DD)
-- `folder` or `folders` (id from `listFolders`, or array)
-- `text` (free-text)
-- `maxResults` (number, default 100, max 500)
-- `pageToken` (string)
-- `includeSpamTrash` (boolean)
-
-This list+filters path is search. Returns `messages` (`{ id, threadId }[]`),
-`nextPageToken`, and `resultSizeEstimate`. `resultSizeEstimate` is capped
-(often ~201) and is **not a count**. Use `#messages` plus `nextPageToken`.
-`messages` is omitted when there are no results.]==],
-	listThreads = [==[## listThreads(opts?)
-
-Conversation list. Same optional filters as `listMessages`. Returns
-`threads` (`{ id, snippet, historyId }[]`), `nextPageToken`, and
-`resultSizeEstimate` (capped; not a count). Prefer this plus `getThread`
-for conversation state. Loop pagination in one `run`.]==],
-	sendMessage = [==[## sendMessage(body)
-
-Send a message. `body` is typically `{ raw = "<base64url RFC 2822>" }`.]==],
-	trashMessage = [==[## trashMessage(id)
-
-Move a message to trash. `id` may be a string or a table with `id`.]==],
+local SEARCH = {"q", "labelIds", "maxResults", "pageToken", "includeSpamTrash"}
+local endpoints: {[string]: Endpoint} = {
+	getProfile = {method = "GET", path = "/profile", read = true,
+		help = "getProfile() -> {emailAddress, messagesTotal, threadsTotal, historyId}."},
+	listLabels = {method = "GET", path = "/labels", read = true, list = "labels",
+		help = "listLabels() -> {labels={{id, name, type}}}. System labels include INBOX, SENT, DRAFT, SPAM, TRASH, UNREAD, STARRED and IMPORTANT."},
+	getLabel = {method = "GET", path = "/labels/{id}", read = true,
+		help = "getLabel({id}) -> label with message and thread counts."},
+	listMessages = {method = "GET", path = "/messages", read = true, list = "messages", query = SEARCH,
+		help = "listMessages({q?, labelIds?, maxResults?, pageToken?, includeSpamTrash?}) -> {messages={{id, threadId}}, nextPageToken?, resultSizeEstimate}. IDs only: read them with getMessages. q uses Gmail search syntax, e.g. 'from:ana@example.com after:2026/10/01 has:attachment'. maxResults ≤500 (default 100). resultSizeEstimate is not a count."},
+	listThreads = {method = "GET", path = "/threads", read = true, list = "threads", query = SEARCH,
+		help = "listThreads({q?, labelIds?, maxResults?, pageToken?, includeSpamTrash?}) -> {threads={{id, snippet, historyId}}, nextPageToken?}. Read a conversation with getThread."},
+	listDrafts = {method = "GET", path = "/drafts", read = true, list = "drafts", query = {"q", "maxResults", "pageToken", "includeSpamTrash"},
+		help = "listDrafts({q?, maxResults?, pageToken?}) -> {drafts={{id, message={id, threadId}}}, nextPageToken?}."},
+	listHistory = {method = "GET", path = "/history", read = true, list = "history", query = {"startHistoryId", "labelId", "historyTypes", "maxResults", "pageToken"},
+		help = "listHistory({startHistoryId, historyTypes?, labelId?, maxResults?, pageToken?}) -> {history, historyId, nextPageToken?}. Changes since a historyId from getProfile or a message; 404 means it expired: resync with listMessages."},
+	listSendAs = {method = "GET", path = "/settings/sendAs", read = true, list = "sendAs",
+		help = "listSendAs() -> {sendAs={{sendAsEmail, displayName, isDefault, ...}}}. Addresses usable as from."},
+	modifyMessage = {method = "POST", path = "/messages/{id}/modify", read = false, body = true,
+		help = "modifyMessage({id, addLabelIds?, removeLabelIds?}) -> message. E.g. removeLabelIds={'UNREAD'} marks read; removeLabelIds={'INBOX'} archives."},
+	batchModifyMessages = {method = "POST", path = "/messages/batchModify", read = false, body = true,
+		help = "batchModifyMessages({ids, addLabelIds?, removeLabelIds?}) -> {success=true}. Up to 1000 IDs."},
+	trashMessage = {method = "POST", path = "/messages/{id}/trash", read = false,
+		help = "trashMessage({id}) -> message. Moves to Trash; Gmail deletes it after 30 days."},
+	untrashMessage = {method = "POST", path = "/messages/{id}/untrash", read = false,
+		help = "untrashMessage({id}) -> message."},
+	modifyThread = {method = "POST", path = "/threads/{id}/modify", read = false, body = true,
+		help = "modifyThread({id, addLabelIds?, removeLabelIds?}) -> thread. Applies to every message in the conversation."},
+	trashThread = {method = "POST", path = "/threads/{id}/trash", read = false,
+		help = "trashThread({id}) -> thread."},
+	untrashThread = {method = "POST", path = "/threads/{id}/untrash", read = false,
+		help = "untrashThread({id}) -> thread."},
+	createLabel = {method = "POST", path = "/labels", read = false, body = true,
+		help = "createLabel({name, labelListVisibility?, messageListVisibility?, color?}) -> label. Nest with 'Parent/Child' names."},
+	updateLabel = {method = "PATCH", path = "/labels/{id}", read = false, body = true,
+		help = "updateLabel({id, name?, labelListVisibility?, messageListVisibility?, color?}) -> label."},
+	deleteLabel = {method = "DELETE", path = "/labels/{id}", read = false,
+		help = "deleteLabel({id}) -> {success=true}. Removes the label from its messages; the messages remain."},
+	sendDraft = {method = "POST", path = "/drafts/send", read = false, body = true,
+		help = "sendDraft({id}) -> sent message {id, threadId, labelIds}."},
+	deleteDraft = {method = "DELETE", path = "/drafts/{id}", read = false,
+		help = "deleteDraft({id}) -> {success=true}. Permanently deletes the draft."},
 }
 
-function functions.help(): string
-	local names: {string} = {}
-	for name in (functions :: {[string]: any}) do
-		if name ~= "help" then names[#names + 1] = name end
+local function header(headers: any, name: string): string?
+	for _, item in headers or {} do
+		if type(item) == "table" and type(item.name) == "string" and string.lower(item.name) == name then return item.value end
 	end
-	table.sort(names)
-	local sections = {"gmail: configured connection help. Credentials stay on Houston. Use only the functions listed below. Provider scopes are enforced by real calls; help makes no network requests."}
-	for _, name in names do
-		local text = operationHelp[name]
-		assert(text, "missing help for configured function " .. name)
-		sections[#sections + 1] = text
-	end
-	return table.concat(sections, "\n\n")
+	return nil
 end
 
-return functions
+-- Gmail returns body bytes in their original charset; non-UTF-8 text is read as Latin-1.
+local function bodyText(data: string, limit: number): (string, boolean)
+	local value = base64.decode(data)
+	if utf8.len(value) == nil then
+		value = string.gsub(value, "[\128-\255]", function(c: string) return utf8.char(string.byte(c)) end)
+	end
+	if limit == 0 or #value <= limit then return value, false end
+	value = string.sub(value, 1, limit)
+	while utf8.len(value) == nil do value = string.sub(value, 1, -2) end
+	return value, true
+end
+
+local function collect(part: any, found: Options)
+	if type(part.parts) == "table" then
+		for _, child in part.parts do collect(child, found) end
+		return
+	end
+	local body = part.body or {}
+	local disposition = string.lower(header(part.headers, "content-disposition") or "")
+	local attached = string.sub(disposition, 1, 10) == "attachment"
+	local filename = if type(part.filename) == "string" and part.filename ~= "" then part.filename else nil
+	if not filename and not attached and (part.mimeType == "text/plain" or part.mimeType == "text/html") then
+		found[part.mimeType] = found[part.mimeType] or body.data
+	elseif type(body.attachmentId) == "string" then
+		local contentId = header(part.headers, "content-id")
+		table.insert(found.attachments, {id = body.attachmentId, filename = filename, mimeType = part.mimeType, size = body.size,
+			inline = not attached and (contentId ~= nil or string.sub(disposition, 1, 6) == "inline"),
+			contentId = if contentId then string.match(contentId, "^%s*<?(.-)>?%s*$") else nil})
+	end
+end
+
+-- Replaces Gmail's MIME payload with envelope fields, one decoded body and attachment metadata.
+local function message(raw: Options, limit: number): Options
+	local payload = raw.payload or {}
+	local headers = payload.headers or json.decode("[]")
+	local found: Options = {attachments = json.decode("[]")}
+	collect(payload, found)
+	local data = found["text/plain"] or found["text/html"]
+	local body, truncated = raw.snippet or "", false
+	if data then body, truncated = bodyText(data, limit) end
+	return {
+		id = raw.id, threadId = raw.threadId, labelIds = raw.labelIds or json.decode("[]"), snippet = raw.snippet,
+		historyId = raw.historyId, internalDate = raw.internalDate, sizeEstimate = raw.sizeEstimate,
+		from = header(headers, "from"), to = header(headers, "to"), cc = header(headers, "cc"), bcc = header(headers, "bcc"),
+		replyTo = header(headers, "reply-to"), subject = header(headers, "subject"), date = header(headers, "date"),
+		messageId = header(headers, "message-id"), body = body, bodyTruncated = truncated, attachments = found.attachments, headers = headers,
+	}
+end
+
+-- Moves the read options from args into a query string; returns it with the body byte limit.
+local function readQuery(args: Options): (string, number)
+	local limit = args.maxBodyBytes or 65536
+	assert(type(limit) == "number" and limit >= 0 and limit % 1 == 0, "maxBodyBytes must be a nonnegative integer")
+	local format = args.format or "full"
+	assert(format == "full" or format == "metadata" or format == "minimal", "format must be full, metadata or minimal")
+	args.maxBodyBytes, args.format = nil, format
+	return query(args, {"format", "metadataHeaders"}), limit
+end
+
+local function read(name: string, collection: string, input: any): (any, number)
+	local args = options(input)
+	local id = text(args.id, "id")
+	args.id = nil
+	local suffix, limit = readQuery(args)
+	assert(next(args) == nil, name .. " received an unknown option")
+	return call(name, "GET", API .. "/" .. collection .. "/" .. encode(id) .. suffix), limit
+end
+
+local function getMessages(input: any): {Options}
+	local args = options(input)
+	local ids = args.ids
+	assert(type(ids) == "table" and #ids >= 1 and #ids <= 100, "ids must be an array of 1 to 100 message IDs")
+	for i, id in ids do text(id, "ids[" .. tostring(i) .. "]") end
+	args.ids = nil
+	local suffix, limit = readQuery(args)
+	assert(next(args) == nil, "getMessages received an unknown option")
+	local out: {Options} = json.decode("[]")
+	-- Bounded concurrency stays within Gmail's per-user rate limits.
+	for first = 1, #ids, 10 do
+		local pending = {}
+		for i = first, math.min(first + 9, #ids) do
+			table.insert(pending, http.request({method = "GET", url = API .. "/messages/" .. encode(ids[i]) .. suffix}))
+		end
+		local responses = awaitAll(pending)
+		for i = 1, responses.n do table.insert(out, message(decode("getMessages", responses[i]), limit)) end
+	end
+	return out
+end
+
+-- Gmail returns {"size": n, "data": "<base64url>"}; decode the data string as it streams so
+-- large attachments never sit in memory.
+local function getAttachment(input: any): Options
+	local args = options(input)
+	local messageId, attachmentId, path = text(args.messageId, "messageId"), text(args.attachmentId, "attachmentId"), text(args.path, "path")
+	args.messageId, args.attachmentId, args.path = nil, nil, nil
+	assert(next(args) == nil, "getAttachment received an unknown option")
+	local response = await(http.request({method = "GET", url = API .. "/messages/" .. encode(messageId) .. "/attachments/" .. encode(attachmentId)}))
+	if response.statusCode < 200 or response.statusCode >= 300 then fail("getAttachment", response) end
+	local output = fs.open(path, "w")
+	local pending, started, finished = "", false, false
+	while not finished do
+		local chunk = await(response.body:read(1048576))
+		if chunk.done then break end
+		pending ..= chunk.data
+		if not started then
+			local _, last = string.find(pending, '"data"%s*:%s*"')
+			if last then started, pending = true, string.sub(pending, last + 1) end
+		end
+		if started then
+			local close = string.find(pending, '"', 1, true)
+			finished = close ~= nil
+			local usable = if close then close - 1 else #pending - #pending % 4
+			await(output:write(base64.decode(string.sub(pending, 1, usable))))
+			pending = string.sub(pending, usable + 1)
+		end
+	end
+	response.body:close()
+	await(output:close())
+	if not finished then
+		houston.fail({operation = "getAttachment", layer = "upstream", upstream_status = response.statusCode, retryable = false, message = "Google returned no attachment data"})
+	end
+	return {path = path, url = await(fs.signedGetUrl(path)), size = await(fs.stat(path)).size}
+end
+
+local EMAIL = "[%w%.%_%%%+%-]+@[%w%.%-]+"
+
+local function line(name: string, value: string?): string
+	if value == nil then return "" end
+	assert(not string.find(value, "[\r\n]"), name .. " must not contain line breaks")
+	return name .. ": " .. value .. "\r\n"
+end
+
+local function addresses(value: any, field: string): string?
+	if value == nil then return nil end
+	local list = if type(value) == "string" then {value} else value
+	assert(type(list) == "table" and #list > 0, field .. " must be an address or an array of addresses")
+	for _, item in list do assert(type(item) == "string" and item ~= "", field .. " must contain address strings") end
+	return table.concat(list, ", ")
+end
+
+-- Appends one base64-encoded MIME part.
+local function part(out: {string}, contentType: string, data: string, disposition: string?)
+	table.insert(out, line("Content-Type", contentType) .. line("Content-Disposition", disposition) .. "Content-Transfer-Encoding: base64\r\n\r\n")
+	table.insert(out, base64.encode(data, true))
+end
+
+-- Returns the opening, separating and closing lines of a multipart body.
+-- Base64 parts never contain "=_", so these fixed boundaries cannot collide with content.
+local function multipart(subtype: string): (string, string, string)
+	local boundary = "=_houston_" .. subtype
+	return "Content-Type: multipart/" .. subtype .. "; boundary=\"" .. boundary .. "\"\r\n\r\n--" .. boundary .. "\r\n",
+		"\r\n--" .. boundary .. "\r\n", "\r\n--" .. boundary .. "--\r\n"
+end
+
+local function attachment(out: {string}, item: any)
+	local spec = if type(item) == "string" then {path = item} else item
+	assert(type(spec) == "table", "attachments must be paths or {path, filename?, mimeType?}")
+	local path = text(spec.path, "attachment path")
+	local filename = text(spec.filename or string.match(path, "[^/]+$"), "attachment filename")
+	local file = fs.open(path, "r")
+	local data = await(file:readAll())
+	await(file:close())
+	local name = if string.match(filename, "^[%w%.%-_ ()]+$") then "filename=\"" .. filename .. "\"" else "filename*=UTF-8''" .. encode(filename)
+	part(out, text(spec.mimeType or "application/octet-stream", "attachment mimeType"), data, "attachment; " .. name)
+end
+
+-- Builds the MIME message as pieces and returns them with the thread to post into. inReplyTo
+-- threads a reply to that message: recipients, subject and references default from the original.
+local function compose(name: string, args: Options): ({string}, string?)
+	local known = {}
+	for _, field in {"to", "cc", "bcc", "replyTo", "from", "subject", "text", "html", "attachments", "inReplyTo", "replyAll"} do known[field] = true end
+	for key in args do assert(known[key], name .. " received an unknown option " .. key) end
+	local to, cc, subject, threadId, references, inReplyTo = addresses(args.to, "to"), addresses(args.cc, "cc"), args.subject, nil, nil, nil
+	if args.inReplyTo ~= nil then
+		local metadata = {format = "metadata", metadataHeaders = {"From", "Reply-To", "To", "Cc", "Subject", "Message-ID", "References"}}
+		local original = call(name, "GET", API .. "/messages/" .. encode(text(args.inReplyTo, "inReplyTo")) .. query(metadata, {"format", "metadataHeaders"}))
+		local headers = original.payload and original.payload.headers
+		threadId, inReplyTo = original.threadId, header(headers, "message-id")
+		references = if inReplyTo then table.concat({header(headers, "references") or "", inReplyTo}, " ") else nil
+		to = to or header(headers, "reply-to") or header(headers, "from")
+		if subject == nil then
+			local previous = header(headers, "subject") or ""
+			subject = if string.match(string.lower(previous), "^re:") then previous else "Re: " .. previous
+		end
+		if args.replyAll == true and cc == nil then
+			local seen = {[string.lower(call(name, "GET", API .. "/profile").emailAddress or "")] = true}
+			for email in string.gmatch(string.lower(to or ""), EMAIL) do seen[email] = true end
+			local copied: {string} = {}
+			for email in string.gmatch(string.lower((header(headers, "to") or "") .. "," .. (header(headers, "cc") or "")), EMAIL) do
+				if not seen[email] then seen[email], copied[#copied + 1] = true, email end
+			end
+			cc = if #copied > 0 then table.concat(copied, ", ") else nil
+		end
+	end
+	assert(to, name .. " requires to (or inReplyTo)")
+	assert(args.text ~= nil or args.html ~= nil, name .. " requires text or html")
+	local attachments = if args.attachments == nil then {} else args.attachments
+	assert(type(attachments) == "table", "attachments must be an array")
+	if subject ~= nil and string.find(subject, "[\128-\255]") then subject = "=?UTF-8?B?" .. base64.encode(subject) .. "?=" end
+	local out = {line("From", args.from) .. line("To", to) .. line("Cc", cc) .. line("Bcc", addresses(args.bcc, "bcc"))
+		.. line("Reply-To", addresses(args.replyTo, "replyTo")) .. line("Subject", subject) .. line("In-Reply-To", inReplyTo)
+		.. line("References", references) .. "MIME-Version: 1.0\r\n"}
+	local open, between, close = multipart("mixed")
+	if #attachments > 0 then table.insert(out, open) end
+	if args.text ~= nil and args.html ~= nil then
+		local first, second, last = multipart("alternative")
+		table.insert(out, first)
+		part(out, "text/plain; charset=UTF-8", text(args.text, "text"))
+		table.insert(out, second)
+		part(out, "text/html; charset=UTF-8", text(args.html, "html"))
+		table.insert(out, last)
+	elseif args.html ~= nil then
+		part(out, "text/html; charset=UTF-8", text(args.html, "html"))
+	else
+		part(out, "text/plain; charset=UTF-8", text(args.text, "text"))
+	end
+	if #attachments > 0 then
+		for _, item in attachments do
+			table.insert(out, between)
+			attachment(out, item)
+		end
+		table.insert(out, close)
+	end
+	return out, threadId
+end
+
+-- Uploads the message as message/rfc822 beside Gmail's JSON metadata, so attachments are
+-- base64-encoded only once. Drafts nest the thread under message.
+local function submit(name: string, method: string, path: string, args: Options, draft: boolean): any
+	local mime, threadId = compose(name, args)
+	local metadata = if draft then {message = {threadId = threadId}} else {threadId = threadId}
+	local body = {"--=_houston_upload\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n" .. json.encode(metadata)
+		.. "\r\n--=_houston_upload\r\nContent-Type: message/rfc822\r\n\r\n"}
+	table.move(mime, 1, #mime, 2, body)
+	table.insert(body, "\r\n--=_houston_upload--\r\n")
+	return decode(name, await(http.request({method = method, url = UPLOAD .. path .. "?uploadType=multipart",
+		headers = {["Content-Type"] = {"multipart/related; boundary=\"=_houston_upload\""}}, body = table.concat(body)})))
+end
+
+exportEndpoints(endpoints)
+
+local READ_OPTIONS = "format: full (default), metadata (headers only) or minimal; metadataHeaders limits metadata headers; maxBodyBytes caps body (default 65536, 0 for no cap) and sets bodyTruncated."
+export("getMessage", true, function(input: any): Options
+	local raw, limit = read("getMessage", "messages", input)
+	return message(raw, limit)
+end, "getMessage({id, format?, metadataHeaders?, maxBodyBytes?}) -> {id, threadId, labelIds, snippet, internalDate, from, to, cc, bcc, replyTo, subject, date, messageId, body, bodyTruncated, attachments={{id, filename, mimeType, size, inline, contentId}}, headers}. body is the decoded plain text, else HTML, else the snippet. " .. READ_OPTIONS)
+export("getMessages", true, getMessages,
+	"getMessages({ids, format?, metadataHeaders?, maxBodyBytes?}) -> messages in the order of ids, each shaped like getMessage. 1 to 100 IDs; use format='metadata' to scan many messages cheaply.")
+export("getThread", true, function(input: any): Options
+	local thread, limit = read("getThread", "threads", input)
+	local messages: {Options} = json.decode("[]")
+	for _, raw in thread.messages or {} do table.insert(messages, message(raw, limit)) end
+	thread.messages = messages
+	return thread
+end, "getThread({id, format?, metadataHeaders?, maxBodyBytes?}) -> {id, historyId, messages} with every message of the conversation, oldest first, shaped like getMessage.")
+export("getDraft", true, function(input: any): Options
+	local draft, limit = read("getDraft", "drafts", input)
+	draft.message = message(draft.message or {}, limit)
+	return draft
+end, "getDraft({id, format?, maxBodyBytes?}) -> {id, message} with message shaped like getMessage.")
+export("getAttachment", true, getAttachment,
+	"getAttachment({messageId, attachmentId, path}) -> {path, url, size}. Saves an attachment (id from a message's attachments) to a session path; url is a signed Houston download link. Never inline attachment bytes.")
+export("listMailFolders", true, function(...: any): {{id: string, name: string}}
+	assert(select("#", ...) == 0, "listMailFolders takes no arguments")
+	local labels = call("listMailFolders", "GET", API .. "/labels").labels or {}
+	local folders: {{id: string, name: string}} = json.decode("[]")
+	local seen = {}
+	for _, label in labels do
+		if type(label) ~= "table" or type(label.id) ~= "string" or label.id == "" or type(label.name) ~= "string" or seen[label.id] then
+			houston.fail({operation = "listMailFolders", layer = "upstream", retryable = false, message = "Google returned invalid label metadata"})
+		end
+		seen[label.id] = true
+		table.insert(folders, {id = label.id, name = label.name})
+	end
+	table.sort(folders, function(a: any, b: any) return a.id < b.id end)
+	return folders
+end, "listMailFolders() -> {{id, name}} sorted by ID. No arguments; every label of the mailbox.")
+
+local COMPOSE = "to, cc, bcc and replyTo take an address ('Ana <ana@example.com>') or an array of them; from must be one of listSendAs. text and/or html are required. attachments={'path' or {path, filename?, mimeType?}} reads session files; the message must stay under 8 MiB (about 5 MiB of attachments), so share larger files from Drive. inReplyTo=<Gmail message id> replies in that thread: to, subject (Re:) and threading headers default from the original; replyAll=true also copies its To and Cc (except you) into cc."
+export("sendMessage", false, function(input: any): any
+	return submit("sendMessage", "POST", "/messages/send", options(input), false)
+end, "sendMessage({to, subject?, text?, html?, cc?, bcc?, replyTo?, from?, attachments?, inReplyTo?, replyAll?}) -> {id, threadId, labelIds}. " .. COMPOSE .. " A timeout may still have sent the mail: check the SENT label before retrying.")
+export("createDraft", false, function(input: any): any
+	return submit("createDraft", "POST", "/drafts", options(input), true)
+end, "createDraft({...same options as sendMessage}) -> {id, message={id, threadId}}. Saves without sending; send later with sendDraft.")
+export("updateDraft", false, function(input: any): any
+	local args = options(input)
+	local id = text(args.id, "id")
+	args.id = nil
+	return submit("updateDraft", "PUT", "/drafts/" .. encode(id), args, true)
+end, "updateDraft({id, ...same options as sendMessage}) -> draft. Replaces the draft's whole content.")
+
+exports.help = helpWith({
+	"Gmail API v1 for the connected mailbox. Operations take one named options object with Google's camelCase fields. Lists and label operations return Google's JSON unchanged; deletes return {success=true}.",
+	"Message reads decode bodies and list attachment metadata; attachments download to session files. Sends build the MIME message from plain fields: never base64-encode anything yourself.",
+	"Lists return one page: pass nextPageToken as pageToken until it is absent. List results carry IDs only; fetch details with getMessages or getThread.",
+	"No hidden paging or retries. Errors report the HTTP status, Google's message and reason. A failed or timed-out write may already have succeeded; check before repeating.",
+	"Example: local page = listMessages({q='is:unread in:inbox', maxResults=20}); local ids = {}; for _, m in page.messages do table.insert(ids, m.id) end; getMessages({ids=ids, format='metadata', metadataHeaders={'From','Subject'}}).",
+})
+return exports
