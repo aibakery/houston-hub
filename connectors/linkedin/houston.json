@@ -1,0 +1,164 @@
+{
+  "schema_version": 1,
+  "name": "LinkedIn",
+  "files": [
+    "connector.lua"
+  ],
+  "icon": "icon.png",
+  "config": {
+    "access": {
+      "default": "read-only",
+      "label": "Access",
+      "options": [
+        {
+          "label": "Read-only",
+          "value": "read-only"
+        },
+        {
+          "label": "Read and write",
+          "value": "read-write"
+        }
+      ],
+      "type": "string"
+    },
+    "client_id": {
+      "label": "OAuth client ID",
+      "order": 1,
+      "required": true,
+      "type": "string"
+    },
+    "client_secret": {
+      "label": "OAuth client secret",
+      "order": 2,
+      "required": true,
+      "type": "secret"
+    }
+  },
+  "auth": {
+    "oauth": {
+      "type": "oauth2",
+      "label": "Connect with LinkedIn",
+      "authorize_url": "https://www.linkedin.com/oauth/v2/authorization",
+      "token_url": "https://www.linkedin.com/oauth/v2/accessToken",
+      "client_id": "{{config.client_id}}",
+      "client_secret": "{{config.client_secret}}",
+      "client_auth": "body",
+      "pkce": "none",
+      "scope_separator": ",",
+      "scopes": [
+        {
+          "values": [
+            "openid",
+            "profile",
+            "email"
+          ]
+        },
+        {
+          "if": "{{ is config.access \"read-write\" }}",
+          "values": [
+            "w_member_social"
+          ]
+        }
+      ],
+      "account": {
+        "url": "https://api.linkedin.com/v2/userinfo",
+        "headers": {
+          "Authorization": {
+            "value": "Bearer {{auth.oauth.access_token}}"
+          }
+        },
+        "label": "/name"
+      }
+    }
+  },
+  "proxy": [
+    {
+      "match": {
+        "protocol": "http",
+        "host": [
+          "api.linkedin.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/v2/userinfo"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "api.linkedin.com"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/rest/images",
+          "/rest/posts"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "api.linkedin.com"
+        ],
+        "method": [
+          "DELETE"
+        ],
+        "path": [
+          "/rest/posts/{id}"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "www.linkedin.com"
+        ],
+        "method": [
+          "PUT"
+        ],
+        "path": [
+          "/dms-uploads/*"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      }
+    }
+  ]
+}

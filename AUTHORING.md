@@ -453,7 +453,8 @@ go run ./tools/validate connectors/fastmail
 ```
 
 Replace `connectors/fastmail` with the bundle you are authoring. The no-argument
-validator selects the bundles migrated to the current runtime: Fastmail, Mercury, Notion
+validator selects the bundles migrated to the current runtime: Fastmail, the Google connectors,
+LinkedIn, Mercury, Notion, X
 and the database connectors. Other providers will join as they are migrated. An explicit catalog directory validates all its
 bundles.
 
@@ -821,3 +822,36 @@ receiver for the caller; use a receiver you control.
 Mercury's icon is the official SVG from [mercury.com/icon.svg](https://mercury.com/icon.svg),
 retrieved 2026-10-10. Its dark-mode style element is removed for Houston's SVG
 allowlist; the original paths and explicit fill are preserved. Mercury owns the mark.
+
+### Publishing LinkedIn
+
+Register repository `https://github.com/aibakery/houston-hub`, revision `main`,
+manifest path `connectors/linkedin/houston.json`. The bundle uses the existing
+manifest v1 and async HTTP/file runtime. OAuth client settings belong to each
+connection; the [account setup guide](connectors/linkedin/SETUP.md) covers the
+LinkedIn developer app, its products and the callback URL.
+
+The connector covers the self-serve **Sign In with LinkedIn using OpenID Connect**
+(`openid`, `profile`, `email`) and **Share on LinkedIn** (`w_member_social`)
+products, checked on 2026-10-12. Read-only connections request only the OpenID
+scopes and expose the member profile from `/v2/userinfo`. Read-write connections
+add text, article and image posts and post deletion through the versioned
+[Posts](https://learn.microsoft.com/en-us/linkedin/marketing/community-management/shares/posts-api)
+and [Images](https://learn.microsoft.com/en-us/linkedin/marketing/community-management/shares/images-api)
+APIs, pinned to `LinkedIn-Version: 202609`. Move that version forward before
+LinkedIn sunsets it, about a year after release. Reading posts, comments and
+organization pages needs restricted LinkedIn partner programs and is not exposed.
+
+LinkedIn joins requested scopes with commas, and its token responses report
+granted scopes the same way, as in LinkedIn's official
+[API client](https://github.com/linkedin-developers/linkedin-api-js-client); the
+manifest therefore sets `scope_separator` to `,`. Ordinary apps receive 60-day
+access tokens without refresh tokens, so the method does not require refresh and
+users reauthorize when access expires. Image uploads go to the signed
+`www.linkedin.com/dms-uploads` URL returned by the Images API, which LinkedIn
+documents with the member's bearer token.
+
+LinkedIn's icon is the official In logo (`LI-In-Bug.png`) from the
+[LinkedIn brand downloads](https://brand.linkedin.com/downloads), retrieved
+2026-10-12. It is scaled proportionally and centered on a transparent 1024×1024
+canvas to meet the PNG icon contract, without other changes. LinkedIn owns the mark.

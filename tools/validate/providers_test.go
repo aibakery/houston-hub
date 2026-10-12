@@ -21,9 +21,10 @@ func TestEveryProviderAuthenticationAndTransport(t *testing.T) {
 		"gmail": {"GET", "https://gmail.googleapis.com/gmail/v1/users/me/profile"}, "gdrive": {"GET", "https://www.googleapis.com/drive/v3/files"},
 		"gcalendar": {"GET", "https://www.googleapis.com/calendar/v3/users/me/calendarList"}, "dropbox": {"POST", "https://api.dropboxapi.com/2/files/list_folder"},
 		"slack": {"GET", "https://slack.com/api/auth.test"}, "fastmail": {"GET", "https://api.fastmail.com/jmap/session"},
-		"notion":  {"GET", "https://api.notion.com/v1/users/me"},
-		"mercury": {"GET", "https://api.mercury.com/api/v1/accounts"},
-		"x":       {"GET", "https://api.x.com/2/tweets/123"},
+		"notion":   {"GET", "https://api.notion.com/v1/users/me"},
+		"mercury":  {"GET", "https://api.mercury.com/api/v1/accounts"},
+		"x":        {"GET", "https://api.x.com/2/tweets/123"},
+		"linkedin": {"GET", "https://api.linkedin.com/v2/userinfo"},
 	}
 	for _, path := range paths {
 		provider := filepath.Base(filepath.Dir(path))
