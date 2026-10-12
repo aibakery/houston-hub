@@ -1,28 +1,43 @@
 {
+  "schema_version": 1,
+  "name": "Google Drive",
+  "files": [
+    "connector.lua"
+  ],
+  "icon": "icon.svg",
+  "config": {
+    "access": {
+      "type": "string",
+      "label": "Access",
+      "default": "read-only",
+      "options": [
+        {
+          "label": "Read-only",
+          "value": "read-only"
+        },
+        {
+          "label": "Read and write",
+          "value": "read-write"
+        }
+      ]
+    }
+  },
   "auth": {
     "oauth": {
-      "account": {
-        "headers": {
-          "Authorization": {
-            "value": "Bearer {{auth.oauth.access_token}}"
-          }
-        },
-        "label": "/email",
-        "method": "GET",
-        "url": "https://www.googleapis.com/oauth2/v2/userinfo"
-      },
+      "type": "oauth2",
+      "label": "Connect with Google",
+      "authorize_url": "https://accounts.google.com/o/oauth2/v2/auth",
+      "token_url": "https://oauth2.googleapis.com/token",
+      "client_id": "{{publisher.client_id}}",
+      "client_secret": "{{publisher.client_secret}}",
+      "client_auth": "body",
+      "pkce": "S256",
+      "require_refresh": true,
       "authorize_params": {
         "access_type": "offline",
         "include_granted_scopes": "false",
         "prompt": "consent"
       },
-      "authorize_url": "https://accounts.google.com/o/oauth2/v2/auth",
-      "client_auth": "body",
-      "client_id": "{{config.client_id}}",
-      "client_secret": "{{config.client_secret}}",
-      "label": "Connect account",
-      "pkce": "S256",
-      "require_refresh": true,
       "scopes": [
         {
           "values": [
@@ -38,74 +53,58 @@
           ]
         }
       ],
-      "token_url": "https://oauth2.googleapis.com/token",
-      "type": "oauth2"
+      "account": {
+        "method": "GET",
+        "url": "https://www.googleapis.com/oauth2/v2/userinfo",
+        "headers": {
+          "Authorization": {
+            "value": "Bearer {{auth.oauth.access_token}}"
+          }
+        },
+        "label": "/email"
+      }
     }
   },
-  "config": {
-    "access": {
-      "default": "read-only",
-      "label": "Access",
-      "options": [
-        {
-          "label": "Read only",
-          "value": "read-only"
-        },
-        {
-          "label": "Read and write",
-          "value": "read-write"
-        }
-      ],
-      "type": "string"
-    },
+  "publisher": {
     "client_id": {
-      "label": "OAuth client ID",
-      "order": 1,
+      "type": "string",
+      "label": "Google OAuth client ID",
       "required": true,
-      "type": "string"
+      "order": 1
     },
     "client_secret": {
-      "label": "OAuth client secret",
-      "order": 2,
+      "type": "secret",
+      "label": "Google OAuth client secret",
       "required": true,
-      "type": "secret"
+      "order": 2
     }
   },
-  "description": "Read-only access to Google Drive.",
-  "files": [
-    "connector.lua"
-  ],
-  "icon": "icon.svg",
-  "name": "Google Drive",
   "proxy": [
     {
-      "action": {
-        "headers": {
-          "set": {
-            "Authorization": "Bearer {{auth.oauth.access_token}}"
-          }
-        }
-      },
       "match": {
+        "protocol": "http",
         "host": [
           "www.googleapis.com"
         ],
         "method": [
           "GET",
-          "HEAD",
           "POST",
           "PUT",
           "PATCH",
           "DELETE"
         ],
         "path": [
-          "/drive/*",
-          "/upload/drive/*"
-        ],
-        "protocol": "http"
+          "/drive/v3/*",
+          "/upload/drive/v3/*"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
       }
     }
-  ],
-  "schema_version": 1,
-  "setup": "Create an OAuth application with your provider and enter its client ID and client secret in this connection's settings. Copy the OAuth callback URL shown here into that application's allowed redirect URLs before authorizing. Every Houston connection gets a different callback URL; reauthorizing the same connection keeps it. Houston will ask Google for permission, then keep the token on this server. Your files stay in Google."
+  ]
 }

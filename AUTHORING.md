@@ -214,10 +214,13 @@ to learn signatures by issuing live send/delete probes.
 
 Authentication methods are a map with stable keys, ordered by `order`, then key.
 Manual methods declare their own inputs. OAuth methods declare endpoints and
-reference connection `config.client_id` (string) and `config.client_secret`
-(secret) fields. The connection admin enters these values in the connection form
-and registers its displayed callback in the provider application. Each connection
-has a distinct callback, including multiple instances in the same organization. OAuth
+reference a string `client_id` and secret `client_secret` field with one owner.
+Connection-owned clients use `config.client_id` and `config.client_secret`: the
+connection admin enters them in the connection form and registers its displayed
+callback in the provider application, so each connection has a distinct callback.
+Publisher-owned clients use `publisher.client_id` and `publisher.client_secret`:
+the publisher registers one application whose redirect URI serves every connection
+of the publication, and connection admins only authorize their account. OAuth
 scopes are ordered groups of `{values: [...]}` with optional `if` predicates.
 OAuth exchanges and refreshes default to form-encoded bodies. Providers such as
 Notion can select `token_encoding: "json"` and supply literal `token_headers`
@@ -703,16 +706,65 @@ A publisher adds the GitHub source to the Hub, producing a `HubPublicationID`
 publication to an organization or personal account, producing separate
 `connection_id` values. Each instance owns its settings and credentials.
 
-For OAuth, declare client ID and secret as connection config fields and reference
-them from the authentication method. Houston reserves a callback before consent:
-`<Houston public URL>/oauth/connections/<callback-id>/callback`. The callback maps
-to one connection after authorization and remains stable on reconnect. Include
-provider application setup in account-user `SETUP.md`, since the connection admin
-now owns that setup. Publishing a bundle requires no OAuth client credentials.
+For a connection-owned OAuth client, declare client ID and secret as connection
+config fields and reference them from the authentication method. Houston reserves
+a callback before consent: `<Houston public URL>/oauth/connections/<callback-id>/callback`.
+The callback maps to one connection after authorization and remains stable on
+reconnect. Include provider application setup in account-user `SETUP.md`, since the
+connection admin owns that setup. Publishing such a bundle requires no OAuth client
+credentials.
+
+For a publisher-owned OAuth client, declare client ID and secret as publisher
+fields instead. Register `<Houston public URL>/oauth/connectors/<hub-publication-id>/callback`
+as a redirect URI in the provider application, then enter its client ID and secret
+in the publication's publisher settings. Every connection of the publication uses
+that redirect, and the connection form shows no callback or client fields.
 
 When a bundle needs a new runtime or manifest capability, merge and deploy the
 Houston change before registering a release that uses it. Keep the source release
 and required runtime change linked in the PR so operators can apply them together.
+
+### Publishing the Google connectors
+
+Register repository `https://github.com/aibakery/houston-hub`, revision `main`, and
+the manifest paths `connectors/gmail/houston.json`, `connectors/gcalendar/houston.json`
+and `connectors/gdrive/houston.json`. The bundles use Houston's async HTTP and file
+runtime and a publisher-owned OAuth client, so users only choose an access level and
+select **Connect with Google**.
+
+In the Google Cloud project that owns Houston's client:
+
+1. Enable the Gmail API, Google Calendar API and Google Drive API.
+2. Configure the OAuth consent screen (External) with Houston's name, logo, home
+   page, privacy policy and authorized domain, and declare the scopes below.
+3. Create a **Web application** OAuth client. Add each publication's redirect URI,
+   `<Houston public URL>/oauth/connectors/<hub-publication-id>/callback`, to its
+   authorized redirect URIs.
+4. Enter the client ID and secret in each publication's publisher settings.
+
+One client can serve all three publications, or each publication can have its own
+client in a separate project; the bundles work either way.
+
+| Connector | Read-only scopes | Added for read and write |
+| --- | --- | --- |
+| Gmail | `gmail.readonly` (restricted) | `gmail.modify` (restricted) |
+| Google Calendar | `calendar.readonly` (sensitive) | `calendar.events` (sensitive) |
+| Google Drive | `drive.readonly` (restricted) | `drive` (restricted) |
+
+Every method also requests `openid email` to label the connected account, and asks
+for offline access so Houston receives a refresh token. Restricted scopes require
+Google's app verification with an annual third-party security assessment; sensitive
+scopes require verification without the assessment. Until the app is verified, Google
+shows an unverified-app warning and caps new users at 100. While the consent screen
+is in testing, only listed test users can connect and refresh tokens expire after
+seven days, so connections must be authorized again weekly.
+
+Gmail cannot permanently delete messages: `gmail.modify` excludes it, and the
+connector moves messages to Trash instead. Each connector proxies only its own API
+paths: Gmail `gmail.googleapis.com/gmail/v1/users/me` and its upload path, Calendar
+`www.googleapis.com/calendar/v3`, and Drive `www.googleapis.com/drive/v3` and
+`/upload/drive/v3`. Bundles cannot share files, so the three `connector.lua` files
+carry the same request layer; `tools/validate` checks that the copies match.
 
 ### Publishing Notion
 

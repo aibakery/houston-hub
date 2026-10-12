@@ -18,6 +18,8 @@ type MethodAvailability struct {
 	Eligible  bool   `json:"eligible"`
 	Available bool   `json:"available"`
 	Error     string `json:"error,omitempty"`
+	// PublisherClient marks OAuth methods whose client and redirect URI belong to the publication.
+	PublisherClient bool `json:"publisher_client,omitempty"`
 }
 type Resolved struct {
 	Context         Context
@@ -203,7 +205,7 @@ func (m *Manifest) resolve(publisher, config, auth map[string]any, selected stri
 	for _, key := range m.MethodKeys() {
 		a := m.Auth[key]
 		yes, e := EvaluatePredicate(a.If, *c)
-		status := MethodAvailability{Key: key, Label: a.Label, Type: a.Type, Eligible: yes, Available: yes}
+		status := MethodAvailability{Key: key, Label: a.Label, Type: a.Type, Eligible: yes, Available: yes, PublisherClient: a.Type == "oauth2" && a.PublisherClient()}
 		if e != nil {
 			status.Error = e.Error()
 			status.Available = false

@@ -1,439 +1,229 @@
--- Google Drive connector: metadata, vendor links, and session-file transfer.
--- Host primitives used: private http.request and fs.signedGetUrl.
--- Public functions are the storage/drive contract later providers reuse;
--- only the HTTP paths and filter compilation below are Drive-specific.
--- File bytes do not travel in the MCP RPC envelope.
+-- Google Drive API v3. Arguments and results keep Google's native field names.
+type Options = {[string]: any}
+type Endpoint = {method: string, path: string, read: boolean, query: {string}?, body: boolean?, defaults: Options?, list: string?, help: string}
+local API = "https://www.googleapis.com/drive/v3"
+local UPLOAD = "https://www.googleapis.com/upload/drive/v3"
+local FOLDER = "application/vnd.google-apps.folder"
 
-local BASE = "https://www.googleapis.com/drive/v3"
-local UPLOAD_BASE = "https://www.googleapis.com/upload/drive/v3"
-local FOLDER_MIME = "application/vnd.google-apps.folder"
-local FILE_FIELDS =
-	"id,name,mimeType,size,md5Checksum,webViewLink,webContentLink,exportLinks,modifiedTime"
-local LIST_FIELDS = "nextPageToken,files(" .. FILE_FIELDS .. ")"
-
-local function encode(value: any)
-    return (string.gsub(tostring(value), "[^A-Za-z0-9%-_%.~]", function(c: any)
-        return string.format("%%%02X", string.byte(c))
-    end))
+-- Request layer shared verbatim by the Google connectors (tools/validate checks they match).
+local function text(value: any, field: string): string
+	assert(type(value) == "string" and value ~= "", field .. " must be a nonempty string")
+	return value
 end
 
-local function query_string(params: any)
-    local parts = {}
-    local function add(key: any, value: any)
-        if value == nil then return end
-        if type(value) == "table" then for _, item in value do add(key, item) end
-        else parts[#parts + 1] = encode(key) .. "=" .. encode(value) end
-    end
-    for key, value in params or {} do add(key, value) end
-    table.sort(parts)
-    return table.concat(parts, "&")
+local function options(value: any): Options
+	if value == nil then return {} end
+	assert(type(value) == "table", "opts must be an object")
+	for key in value do assert(type(key) == "string", "opts must have named fields") end
+	return table.clone(value)
 end
 
-local function request(method: any,path: any,params: any,operation: any,body: any)
-	local url = BASE .. path
-	local qs = query_string(params)
-	if qs ~= "" then
-		url = url .. "?" .. qs
-	end
-	local headers, payload = nil, nil
-	if body ~= nil then
-		headers = { ["Content-Type"] = "application/json" }
-		payload = json.encode(body)
-	end
-	local response = http.request({
-		method = method,
-		url = url,
-		headers = headers,
-		body = payload,
-	})
-	if response.status < 200 or response.status >= 300 then
-		houston.fail({operation = operation, layer = "upstream", upstream_status = response.status,
-			retryable = response.status == 429 or response.status == 502 or response.status == 503 or response.status == 504,
-			message = "upstream HTTP request failed"})
-	end
-	local decoded = nil
-	if response.body ~= nil and response.body ~= "" then
-		local ok, body = pcall(json.decode, response.body)
-		assert(ok, "upstream returned invalid JSON")
-		decoded = body
-	end
-	return decoded
+local function encode(value: string): string
+	return (string.gsub(value, "[^A-Za-z0-9%-_%.~]", function(c: string)
+		return string.format("%%%02X", string.byte(c))
+	end))
 end
 
-local function drive_quote(value: any)
-	local s = tostring(value)
-	s = string.gsub(s, "\\", "\\\\")
-	s = string.gsub(s, "'", "\\'")
-	return "'" .. s .. "'"
-end
-
-local function rfc3339(value: any)
-	local s = tostring(value)
-	local y, m, d = string.match(s, "^(%d%d%d%d)%D(%d%d)%D(%d%d)")
-	if not y or not m or not d then
-		return s
-	end
-	local rest = string.match(s, "^%d%d%d%d%D%d%d%D%d%d(.*)$") or ""
-	if rest == "" then
-		return y .. "-" .. m .. "-" .. d .. "T00:00:00"
-	end
-	if string.sub(rest, 1, 1) == "T" then
-		return y .. "-" .. m .. "-" .. d .. rest
-	end
-	return y .. "-" .. m .. "-" .. d .. "T00:00:00"
-end
-
-local function each_value(value: any,fn: any)
-	if value == nil then
-		return
-	end
-	if type(value) == "table" then
-		for _, item in value do
-			each_value(item, fn)
+-- Moves the named fields from args into a query string; arrays repeat the key.
+local function query(args: Options, names: {string}): string
+	local parts: {string} = {}
+	for _, name in names do
+		local value = args[name]
+		args[name] = nil
+		for _, item in (if type(value) == "table" then value else {value}) do
+			assert(type(item) == "string" or type(item) == "number" or type(item) == "boolean", name .. " must be a string, number, boolean or an array of them")
+			table.insert(parts, encode(name) .. "=" .. encode(tostring(item)))
 		end
-		return
 	end
-	local s = tostring(value)
-	if s ~= "" then
-		fn(s)
-	end
+	return if #parts > 0 then "?" .. table.concat(parts, "&") else ""
 end
 
-local function compile_query(opts: any): string?
-	local terms = {}
-	each_value(opts.name, function(s: any)
-		terms[#terms + 1] = "name contains " .. drive_quote(s)
+local function fail(operation: string, response: HttpResponse): never
+	local chunk = await(response.body:read(4096))
+	response.body:close()
+	local ok, decoded = pcall(json.decode, if chunk.done then "" else chunk.data)
+	local problem = if ok and type(decoded) == "table" and type(decoded.error) == "table" then decoded.error else {}
+	local reason = type(problem.errors) == "table" and type(problem.errors[1]) == "table" and problem.errors[1].reason
+	local message = "Google HTTP " .. tostring(response.statusCode)
+	if type(problem.status) == "string" then message ..= " (" .. problem.status .. ")" end
+	if type(problem.message) == "string" then message ..= ": " .. string.sub(problem.message, 1, 600) end
+	if type(reason) == "string" then message ..= " [" .. reason .. "]" end
+	local retry = response.headers["retry-after"]
+	if retry and retry[1] then message ..= "; Retry-After: " .. retry[1] end
+	local limited = type(reason) == "string" and string.find(string.lower(reason), "ratelimitexceeded", 1, true) ~= nil
+	return houston.fail({operation = operation, layer = "upstream", upstream_status = response.statusCode,
+		retryable = response.statusCode == 429 or response.statusCode >= 500 or limited, message = message})
+end
+
+local function decode(operation: string, response: HttpResponse): any
+	if response.statusCode < 200 or response.statusCode >= 300 then fail(operation, response) end
+	local raw = await(response.body:readAll())
+	if raw == "" then return {success = true} end
+	local ok, value = pcall(json.decode, raw)
+	if not ok or type(value) ~= "table" or not string.match(raw, "^%s*{") then
+		houston.fail({operation = operation, layer = "upstream", upstream_status = response.statusCode,
+			retryable = false, message = "Google returned an invalid JSON object"})
+	end
+	return value
+end
+
+local function call(operation: string, method: string, url: string, body: any?): any
+	return decode(operation, await(http.request({method = method, url = url,
+		headers = if body ~= nil then {["Content-Type"] = {"application/json"}} else nil,
+		body = if body ~= nil then json.encode(body) else nil})))
+end
+
+-- Moves {placeholders} and declared query fields from args into the URL; remaining fields form the JSON body.
+local function target(name: string, endpoint: Endpoint, args: Options): string
+	local defaults: Options = endpoint.defaults or {}
+	for key, value in defaults do
+		if args[key] == nil then args[key] = value end
+	end
+	local path = string.gsub(endpoint.path, "{(%w+)}", function(field: string)
+		local value = encode(text(args[field], field))
+		args[field] = nil
+		return value
 	end)
-	each_value(opts.mime, function(s: any)
-		terms[#terms + 1] = "mimeType = " .. drive_quote(s)
-	end)
-	each_value(opts.folder, function(s: any)
-		terms[#terms + 1] = drive_quote(s) .. " in parents"
-	end)
-	if opts.after ~= nil and tostring(opts.after) ~= "" then
-		terms[#terms + 1] = "modifiedTime > " .. drive_quote(rfc3339(opts.after))
-	end
-	if opts.before ~= nil and tostring(opts.before) ~= "" then
-		terms[#terms + 1] = "modifiedTime < " .. drive_quote(rfc3339(opts.before))
-	end
-	each_value(opts.text, function(s: any)
-		terms[#terms + 1] = "fullText contains " .. drive_quote(s)
-	end)
-	if opts.q ~= nil and tostring(opts.q) ~= "" then
-		local raw = tostring(opts.q)
-		if #terms > 0 then
-			terms[#terms + 1] = "(" .. raw .. ")"
-		else
-			terms[#terms + 1] = raw
-		end
-	end
-	if #terms == 0 then
-		return nil
-	end
-	return table.concat(terms, " and ")
+	path ..= query(args, endpoint.query or {})
+	if not endpoint.body then assert(next(args) == nil, name .. " received an unknown option") end
+	return API .. path
 end
 
-local function list_params(opts: any)
-	opts = opts or {}
-	return {
-		pageSize = opts.pageSize or opts.maxResults,
-		pageToken = opts.pageToken,
-		q = compile_query(opts),
-		orderBy = opts.orderBy,
-		fields = opts.fields or LIST_FIELDS,
-	}
+local function invoke(name: string, endpoint: Endpoint, input: any): any
+	local args = options(input)
+	local result = call(name, endpoint.method, target(name, endpoint, args), if endpoint.body then args else nil)
+	if endpoint.list and result[endpoint.list] == nil then result[endpoint.list] = json.decode("[]") end
+	return result
 end
 
-local function get_params(opts: any)
-	opts = opts or {}
-	return {
-		fields = opts.fields or FILE_FIELDS,
-	}
+local exports: {[string]: any} = {}
+local help: {[string]: string} = {}
+
+-- Exposes an operation when it only reads or the connection allows writes.
+local function export(name: string, isRead: boolean, fn: (any) -> any, doc: string)
+	if isRead or config.access == "read-write" then
+		exports[name], help[name] = fn, doc
+	end
 end
 
-local function vendor_links(meta: any)
-	if type(meta) ~= "table" then
-		return meta
+local function exportEndpoints(endpoints: {[string]: Endpoint})
+	for name, endpoint in endpoints do
+		export(name, endpoint.read, function(args: Options?): any return invoke(name, endpoint, args) end, endpoint.help)
 	end
-	-- Relayed Google links must never include an access token.
-	local function scrub(url: any)
-		if type(url) ~= "string" then
-			return url
-		end
-		if string.find(url, "access_token=", 1, true) or string.find(url, "token=", 1, true) then
-			return nil
-		end
-		return url
-	end
-	meta.webContentLink = scrub(meta.webContentLink)
-	meta.webViewLink = scrub(meta.webViewLink)
-	if type(meta.exportLinks) == "table" then
-		local clean = {}
-		for k, v in meta.exportLinks do
-			clean[k] = scrub(v)
-		end
-		meta.exportLinks = clean
-	end
-	return meta
 end
 
-local function decorate_file(meta: any)
-	if type(meta) ~= "table" then
-		return meta
+-- help() introduces the API, then documents exactly the configured operations.
+local function helpWith(overview: {string}): () -> string
+	return function(): string
+		local names: {string} = {}
+		for name in help do table.insert(names, name) end
+		table.sort(names)
+		local lines = table.clone(overview)
+		for _, name in names do table.insert(lines, help[name]) end
+		return table.concat(lines, "\n")
 	end
-	vendor_links(meta)
-	if meta.mime == nil then
-		meta.mime = meta.mimeType
-	end
-	if meta.modified == nil then
-		meta.modified = meta.modifiedTime
-	end
-	if type(meta.size) == "string" then
-		local n = tonumber(meta.size)
-		if n ~= nil then
-			meta.size = n
-		end
-	end
-	if meta.folder == nil then
-		meta.folder = meta.mime == FOLDER_MIME or meta.mimeType == FOLDER_MIME
-	end
-	return meta
 end
+-- End of the shared request layer.
 
-local function decorate_list(raw: any)
-	if type(raw) == "table" and type(raw.files) == "table" then
-		for _, file in raw.files do
-			decorate_file(file)
-		end
-	end
-	return raw
-end
-
-local function request_file(method: any,url: any,path: any,operation: any,headers: any)
-	local response = http.request({
-		method = method,
-		url = url,
-		headers = headers,
-		dest = path,
-	})
-	if response.status < 200 or response.status >= 300 then
-		houston.fail({operation = operation, layer = "upstream", upstream_status = response.status,
-			retryable = response.status == 429 or response.status == 502 or response.status == 503 or response.status == 504,
-			message = "upstream HTTP request failed"})
-	end
-	return response
-end
-
-local function upload_file_body(method: any,url: any,path: any,operation: any,headers: any)
-	local response = http.request({
-		method = method,
-		url = url,
-		headers = headers,
-		src = path,
-	})
-	if response.status < 200 or response.status >= 300 then
-		houston.fail({operation = operation, layer = "upstream", upstream_status = response.status,
-			retryable = response.status == 429 or response.status == 502 or response.status == 503 or response.status == 504,
-			message = "upstream HTTP request failed"})
-	end
-	local decoded = nil
-	if response.body ~= nil and response.body ~= "" then
-		local ok, body = pcall(json.decode, response.body)
-		assert(ok, "upstream returned invalid JSON")
-		decoded = body
-	end
-	return decoded
-end
-
-local functions = {}
-
-function functions.listFiles(opts: any)
-	return decorate_list(request("GET", "/files", list_params(opts), "listFiles"))
-end
-
-function functions.getFile(id: any,opts: any)
-	if type(id) == "table" then
-		opts = id
-		id = id.id
-	end
-	if type(id) ~= "string" or id == "" then
-		error("gdrive.getFile requires a file id")
-	end
-	return decorate_file(request("GET", "/files/" .. encode(id), get_params(opts), "getFile"))
-end
-
-function functions.downloadFile(id: any,path: any,opts: any)
-	if type(id) == "table" then
-		opts = id
-		path = id.path
-		id = id.id
-	end
-	opts = opts or {}
-	if type(id) ~= "string" or id == "" then
-		error("gdrive.downloadFile requires a file id")
-	end
-	if type(path) ~= "string" or path == "" then
-		error("gdrive.downloadFile requires a session path")
-	end
-	local url
-	if type(opts.mimeType) == "string" and opts.mimeType ~= "" then
-		url = BASE .. "/files/" .. encode(id) .. "/export?mimeType=" .. encode(opts.mimeType)
-	else
-		url = BASE .. "/files/" .. encode(id) .. "?alt=media"
-	end
-	local saved = request_file("GET", url, path, "downloadFile")
-	local signed = nil
-	if type(fs) == "table" and type(fs.signedGetUrl) == "function" then
-		signed = fs.signedGetUrl(path)
-	end
-	return {
-		path = path,
-		url = signed,
-		bytes = saved and saved.bytes,
-	}
-end
-
-local writes = {}
-
-function writes.createFile(meta: any)
-	if meta ~= nil and type(meta) ~= "table" then
-		error("gdrive.createFile requires a metadata table")
-	end
-	return request("POST", "/files", nil, "createFile", meta or {})
-end
-
-function writes.deleteFile(id: any)
-	if type(id) == "table" then
-		id = id.id
-	end
-	if type(id) ~= "string" or id == "" then
-		error("gdrive.deleteFile requires a file id")
-	end
-	return request("DELETE", "/files/" .. encode(id), nil, "deleteFile")
-end
-
-function writes.uploadFile(path: any,meta: any)
-	if type(path) == "table" then
-		meta = path
-		path = path.path
-	end
-	if type(path) ~= "string" or path == "" then
-		error("gdrive.uploadFile requires a session path")
-	end
-	meta = meta or {}
-	local mime = meta.mimeType or "application/octet-stream"
-	local created = upload_file_body(
-		"POST",
-		UPLOAD_BASE .. "/files?uploadType=media",
-		path,
-		"uploadFile",
-		{ ["Content-Type"] = mime }
-	)
-	if type(created) ~= "table" or type(created.id) ~= "string" or created.id == "" then
-		return created
-	end
-	local patch = {}
-	local has_patch = false
-	if type(meta.name) == "string" and meta.name ~= "" then
-		patch.name = meta.name
-		has_patch = true
-	end
-	if type(meta.parents) == "table" then
-		patch.parents = meta.parents
-		has_patch = true
-	end
-	if not has_patch then
-		return created
-	end
-	return request("PATCH", "/files/" .. encode(created.id), nil, "uploadFile", patch)
-end
-
-if config.access == "read-write" then
-    for name, fn in (writes :: {[string]: any}) do (functions :: {[string]: any})[name] = fn end
-end
-
-function functions.statFile(id: string, ...: any): {id: string, name: string, isFolder: boolean, size: number?}
-    if select("#", ...) ~= 0 then error("statFile takes one argument") end
-    if type(id) ~= "string" or id == "" then error("statFile requires a nonempty file ID") end
-    local file = functions.getFile(id)
-    if type(file) ~= "table" or type(file.id) ~= "string" or file.id == "" or type(file.name) ~= "string" then
-        error("storage provider returned invalid file metadata")
-    end
-    local folder = file.folder == true or file.mimeType == "application/vnd.google-apps.folder"
-    local result: {id: string, name: string, isFolder: boolean, size: number?} = {id = file.id, name = file.name, isFolder = folder}
-    if not folder and file.size ~= nil then
-        local size = tonumber(file.size)
-        if not size or size < 0 or size > 9007199254740991 or size % 1 ~= 0 then error("storage provider returned invalid size") end
-        result.size = size
-    end
-    return result
-end
-
-local operationHelp: {[string]: string} = {
-	createFile = [==[## createFile(meta?)
-
-Drive `files.create`. `meta` is the File resource metadata (for example
-`{ name = "notes.md", mimeType = "text/markdown" }`).]==],
-	deleteFile = [==[## deleteFile(id)
-
-Drive `files.delete`. `id` may be a string or a table with `id`.]==],
-	downloadFile = [==[## downloadFile(id, path, opts?)
-
-Downloads file bytes onto the session path (streams past the proxy buffer)
-and returns `{ path, url, bytes }` where `url` is a Houston signed GET URL.
-Optional `opts.mimeType` uses Drive `files.export` for Google-native types.
-Do not return the file bytes from `run`; give the caller the signed URL.
-
-Write functions are bound only when this instance is read-write.]==],
-	getFile = [==[## getFile(id, opts?)
-
-One file. `id` may be a string or a table with `id`. Same shared fields as
-`listFiles`, plus `webViewLink`, `webContentLink`, and `exportLinks` when
-Drive provides them. Use those vendor links when you do not need to
-process bytes — they do not include a Google access token.
-
-`getFile("abc")` and `getFile({ id = "abc" })` are the same call.
-This does not download file bytes into Houston.]==],
-	listFiles = [==[## listFiles(opts?)
-
-Search and list files. Rows already have `id`, `name`, `mime`, `size`,
-`modified`, and `folder` (boolean) — do not `getFile` every row. Optional
-filters on `opts`:
-
-- `folder` (Drive folder id)
-- `name`, `mime`, `text` (string, or array of strings)
-- `after`, `before` (YYYY-MM-DD)
-- `pageSize` or `maxResults` (number)
-- `pageToken` (string)
-- `orderBy` (string)
-- `q` (raw Drive search string; escape hatch, compiled with the filters)
-
-Filters are compiled to Drive `q` inside this module (`name contains`,
-`mimeType =`, `'id' in parents`, `modifiedTime`, `fullText contains`).
-Pass `q` only when you need a vendor clause the filters do not cover.
-
-Returns `files` and `nextPageToken`. Loop pages in the same `run`.]==],
-	statFile = [==[statFile(id: string) -> {id:string,name:string,isFolder:boolean,size?:number}. Requires one nonempty file ID. Folder results omit size; known file sizes are nonnegative safe integers. Provider failures raise errors.]==],
-	uploadFile = [==[## uploadFile(path, meta?)
-
-Uploads a session file (PUT bytes there first with `fs.signedPutUrl` when
-the caller is sending a file). `meta` may include `name`, `mimeType`, and
-`parents`. Streams the file through Houston; does not inline bytes in MCP.]==],
+local FILE_FIELDS = "id,name,mimeType,size,createdTime,modifiedTime,parents,webViewLink,trashed,description,owners(displayName,emailAddress)"
+local FILE = {fields = FILE_FIELDS, supportsAllDrives = true}
+local FILE_QUERY = {"fields", "supportsAllDrives"}
+local ALL_DRIVES = {supportsAllDrives = true}
+local endpoints: {[string]: Endpoint} = {
+	getAbout = {method = "GET", path = "/about", read = true, defaults = {fields = "user,storageQuota"}, query = {"fields"},
+		help = "getAbout({fields?}) -> {user, storageQuota}. The connected account and its storage use."},
+	listFiles = {method = "GET", path = "/files", read = true, list = "files",
+		defaults = {fields = "nextPageToken,incompleteSearch,files(" .. FILE_FIELDS .. ")", supportsAllDrives = true, includeItemsFromAllDrives = true},
+		query = {"q", "pageSize", "pageToken", "orderBy", "fields", "corpora", "driveId", "spaces", "includeItemsFromAllDrives", "supportsAllDrives"},
+		help = "listFiles({q?, pageSize?, pageToken?, orderBy?, corpora?, driveId?, fields?}) -> {files, nextPageToken?, incompleteSearch}. q uses Drive search syntax, e.g. \"name contains 'report' and trashed = false\" or \"'<folderId>' in parents\". pageSize ≤1000. Includes shared drives."},
+	getFile = {method = "GET", path = "/files/{fileId}", read = true, defaults = FILE, query = FILE_QUERY,
+		help = "getFile({fileId, fields?}) -> file metadata. Pass fields='*' for every field."},
+	listDrives = {method = "GET", path = "/drives", read = true, list = "drives", query = {"q", "pageSize", "pageToken"},
+		help = "listDrives({q?, pageSize?, pageToken?}) -> {drives, nextPageToken?}. Shared drives the account can access."},
+	listPermissions = {method = "GET", path = "/files/{fileId}/permissions", read = true, list = "permissions",
+		defaults = {fields = "nextPageToken,permissions(id,type,role,emailAddress,domain,displayName)", supportsAllDrives = true},
+		query = {"pageSize", "pageToken", "fields", "supportsAllDrives"},
+		help = "listPermissions({fileId, pageSize?, pageToken?}) -> {permissions, nextPageToken?}. Who can access a file."},
+	createFile = {method = "POST", path = "/files", read = false, body = true, defaults = FILE, query = FILE_QUERY,
+		help = "createFile({name, mimeType?, parents?, description?, ...}) -> file. Metadata only: creates folders (mimeType='" .. FOLDER .. "'), shortcuts or empty Google Docs. Use uploadFile for content."},
+	updateFile = {method = "PATCH", path = "/files/{fileId}", read = false, body = true, defaults = FILE, query = {"addParents", "removeParents", "fields", "supportsAllDrives"},
+		help = "updateFile({fileId, addParents?, removeParents?, name?, description?, trashed?, ...}) -> file. Renames, moves (addParents/removeParents as comma-separated folder IDs) or trashes (trashed=true)."},
+	copyFile = {method = "POST", path = "/files/{fileId}/copy", read = false, body = true, defaults = FILE, query = FILE_QUERY,
+		help = "copyFile({fileId, name?, parents?}) -> the new file."},
+	deleteFile = {method = "DELETE", path = "/files/{fileId}", read = false, defaults = ALL_DRIVES, query = {"supportsAllDrives"},
+		help = "deleteFile({fileId}) -> {success=true}. Permanently deletes, skipping the trash; prefer updateFile({fileId, trashed=true})."},
+	createPermission = {method = "POST", path = "/files/{fileId}/permissions", read = false, body = true, defaults = ALL_DRIVES,
+		query = {"sendNotificationEmail", "emailMessage", "transferOwnership", "supportsAllDrives", "fields"},
+		help = "createPermission({fileId, type='user'|'group'|'domain'|'anyone', role='reader'|'commenter'|'writer'|..., emailAddress?, domain?, sendNotificationEmail?, emailMessage?}) -> permission. Shares a file."},
+	deletePermission = {method = "DELETE", path = "/files/{fileId}/permissions/{permissionId}", read = false, defaults = ALL_DRIVES, query = {"supportsAllDrives"},
+		help = "deletePermission({fileId, permissionId}) -> {success=true}. Revokes access."},
 }
 
-function functions.help(): string
-	local names: {string} = {}
-	for name in (functions :: {[string]: any}) do
-		if name ~= "help" then names[#names + 1] = name end
-	end
-	table.sort(names)
-	local sections = {"gdrive: configured connection help. Credentials stay on Houston. Use only the functions listed below. Provider scopes are enforced by real calls; help makes no network requests."}
-	for _, name in names do
-		local text = operationHelp[name]
-		assert(text, "missing help for configured function " .. name)
-		sections[#sections + 1] = text
-	end
-	return table.concat(sections, "\n\n")
+-- Downloads stream the response body to a session file.
+local downloads: {[string]: Endpoint} = {
+	downloadFile = {method = "GET", path = "/files/{fileId}", read = true, defaults = {alt = "media", supportsAllDrives = true}, query = {"alt", "supportsAllDrives", "acknowledgeAbuse"},
+		help = "downloadFile({fileId, path}) -> {path, url, size}. Saves a stored file's bytes to a session path; url is a signed Houston download link. Google Docs, Sheets and Slides have no stored bytes: use exportFile."},
+	exportFile = {method = "GET", path = "/files/{fileId}/export", read = true, query = {"mimeType"},
+		help = "exportFile({fileId, mimeType, path}) -> {path, url, size}. Converts a Google Doc, Sheet or Slides file, e.g. mimeType='text/markdown', 'text/plain', 'text/csv', 'application/pdf' or an Office format. Exports are limited to 10 MB."},
+}
+
+local function download(name: string, endpoint: Endpoint, input: any): Options
+	local args = options(input)
+	local path = text(args.path, "path")
+	args.path = nil
+	local response = await(http.request({method = "GET", url = target(name, endpoint, args)}))
+	if response.statusCode < 200 or response.statusCode >= 300 then fail(name, response) end
+	local output = fs.open(path, "w")
+	output:write(response.body)
+	await(output:close())
+	return {path = path, url = await(fs.signedGetUrl(path)), size = await(fs.stat(path)).size}
 end
 
-return functions
+-- Resumable upload: Google returns a session URL for the metadata, then receives the streamed file.
+local function upload(input: any): any
+	local args = options(input)
+	local path = text(args.path, "path")
+	local fileId = if args.fileId == nil then nil else text(args.fileId, "fileId")
+	local contentType = text(args.contentType or "application/octet-stream", "contentType")
+	args.path, args.fileId, args.contentType = nil, nil, nil
+	if fileId == nil and args.name == nil then args.name = string.match(path, "[^/]+$") end
+	local url = UPLOAD .. "/files" .. (if fileId then "/" .. encode(fileId) else "") .. "?uploadType=resumable&supportsAllDrives=true&fields=" .. encode(FILE_FIELDS)
+	local session = await(http.request({method = if fileId then "PATCH" else "POST", url = url, body = json.encode(args),
+		headers = {["Content-Type"] = {"application/json; charset=UTF-8"}, ["X-Upload-Content-Type"] = {contentType}}}))
+	if session.statusCode < 200 or session.statusCode >= 300 then fail("uploadFile", session) end
+	session.body:close()
+	local location = session.headers.location
+	if not location or not location[1] then
+		houston.fail({operation = "uploadFile", layer = "upstream", upstream_status = session.statusCode, retryable = false, message = "Google returned no upload session URL"})
+	end
+	return decode("uploadFile", await(http.request({method = "PUT", url = location[1], headers = {["Content-Type"] = {contentType}}, body = fs.open(path, "r")})))
+end
+
+exportEndpoints(endpoints)
+for name, endpoint in downloads do
+	export(name, true, function(args: Options): Options return download(name, endpoint, args) end, endpoint.help)
+end
+
+-- Fixed-signature file lookup shared with other storage connectors.
+export("statFile", true, function(...: any): {id: string, name: string, isFolder: boolean, size: number?}
+	assert(select("#", ...) == 1, "statFile takes exactly one file ID")
+	local id = text((...), "file ID")
+	local file = call("statFile", "GET", API .. "/files/" .. encode(id) .. "?fields=id%2Cname%2CmimeType%2Csize&supportsAllDrives=true")
+	local size = if file.size == nil then nil else tonumber(file.size)
+	if type(file.id) ~= "string" or file.id == "" or type(file.name) ~= "string"
+		or (file.size ~= nil and (size == nil or size < 0 or size % 1 ~= 0 or size > 9007199254740991)) then
+		houston.fail({operation = "statFile", layer = "upstream", retryable = false, message = "Google returned invalid file metadata"})
+	end
+	return {id = file.id, name = file.name, isFolder = file.mimeType == FOLDER, size = size}
+end, "statFile(fileId) -> {id, name, isFolder, size?}. One positional file ID; size is absent for folders and Google Docs.")
+
+export("uploadFile", false, upload, "uploadFile({path, name?, parents?, mimeType?, contentType?, fileId?, ...metadata}) -> file. Streams a session file to Drive. name defaults to the path's basename; contentType describes the bytes (default application/octet-stream). Setting mimeType to a Google type converts, e.g. a .docx with mimeType='application/vnd.google-apps.document'. With fileId, replaces that file's content (and applies any metadata). A failed upload may leave nothing or a complete file: check with listFiles before retrying.")
+
+exports.help = helpWith({
+	"Google Drive API v3. Operations take one named options object with Google's camelCase fields and return Google's JSON unchanged; deletes return {success=true}. Shared drives are included by default.",
+	"File metadata defaults to " .. FILE_FIELDS .. "; pass fields to choose others ('*' for all). Lists return one page: pass nextPageToken as pageToken until it is absent.",
+	"Files move through session paths: downloads save to a path and return a signed URL, uploads read from a path. Never inline file bytes.",
+	"No hidden paging or retries. Errors report the HTTP status, Google's message and reason. A failed or timed-out write may already have succeeded; check before repeating.",
+	"Example: listFiles({q=\"mimeType = 'application/pdf' and trashed = false\", orderBy='modifiedTime desc', pageSize=20}); exportFile({fileId='...', mimeType='text/markdown', path='notes.md'}).",
+})
+return exports

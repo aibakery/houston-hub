@@ -1,12 +1,14 @@
 ---
-description: Find files in Google Drive and bring useful documents into your work.
+description: Find, read and organize files in Google Drive.
 ---
 # Google Drive
 
 Help agents find the files and documents you need without hunting through folders.
 
-- Browse and find files in your Drive.
-- Check file details before choosing what to use.
-- Download files and export Google documents for further work.
+- Search My Drive and shared drives, and check file details and sharing.
+- Download files and export Google Docs, Sheets and Slides as Markdown, text,
+  CSV, PDF or Office formats.
+- With **Read and write** access: upload files, create folders, rename, move,
+  copy, trash and share files.
 
-This connector provides read-only access. It cannot edit or delete your files.
+Read-only access cannot change, share or delete your files.

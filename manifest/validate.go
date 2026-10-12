@@ -271,8 +271,8 @@ func (m *Manifest) template(s, mode string, used map[string]bool) error {
 		return fmt.Errorf("password requires a secret reference or explicit empty literal")
 	}
 	if mode == "client_id" || mode == "client_secret" {
-		if len(parts) != 1 || len(refs) != 1 || len(parts[0].refs) != 1 || !strings.HasPrefix(refs[0], "config.") {
-			return fmt.Errorf("OAuth client requires an exact connection config reference")
+		if len(parts) != 1 || len(refs) != 1 || len(parts[0].refs) != 1 || clientOwner(s) == "" {
+			return fmt.Errorf("OAuth client requires an exact publisher or connection config reference")
 		}
 	}
 	if mode == "port" && (len(parts) != 1 || len(parts[0].refs) == 0) {
@@ -414,6 +414,9 @@ func (m *Manifest) validateOAuth(key string, a AuthMethod, used map[string]bool)
 	case "basic", "body":
 		if e := m.template(a.ClientSecret, "client_secret", used); e != nil {
 			return e
+		}
+		if clientOwner(a.ClientSecret) != clientOwner(a.ClientID) {
+			return fmt.Errorf("OAuth client ID and secret must have the same owner")
 		}
 	case "none":
 		if a.ClientSecret != "" || a.PKCE != "S256" {
@@ -688,3 +691,20 @@ func checkPresence(data []byte) error {
 	}
 	return nil
 }
+
+// clientOwner returns the settings source ("publisher" or "config") of an exact OAuth client reference.
+func clientOwner(s string) string {
+	refs, e := TemplateReferences(s)
+	if e != nil || len(refs) != 1 {
+		return ""
+	}
+	owner, _, _ := strings.Cut(refs[0], ".")
+	if owner != "publisher" && owner != "config" {
+		return ""
+	}
+	return owner
+}
+
+// PublisherClient reports whether the publication, not each connection, owns the OAuth client.
+// Its connections share one registered redirect URI per publication.
+func (a AuthMethod) PublisherClient() bool { return clientOwner(a.ClientID) == "publisher" }

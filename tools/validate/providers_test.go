@@ -44,8 +44,12 @@ func TestEveryProviderAuthenticationAndTransport(t *testing.T) {
 				publisher := map[string]any{}
 				config := map[string]any{}
 				if m.Auth[method].Type == "oauth2" {
-					config["client_id"] = "synthetic-public-client"
-					config["client_secret"] = "synthetic-connection-secret"
+					client := config
+					if m.Auth[method].PublisherClient() {
+						client = publisher
+					}
+					client["client_id"] = "synthetic-public-client"
+					client["client_secret"] = "synthetic-client-secret"
 				}
 				input := map[string]any{}
 				if provider == "slack" {
