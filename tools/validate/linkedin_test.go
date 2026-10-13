@@ -48,7 +48,7 @@ func TestLinkedInScopesAndAccessRoutes(t *testing.T) {
 			t.Fatalf("access=%s scopes %v", access, r.Scopes)
 		}
 		r.Context.Auth["oauth"]["access_token"] = "fixture-token"
-		rules := m.Proxy.Select(r.ProxyIndices)
+		rules := r.Proxy
 		check := func(route string, allowed bool) {
 			t.Helper()
 			method, url, _ := strings.Cut(route, " ")

@@ -94,7 +94,7 @@ func Schema() ([]byte, error) {
 
 	props("ProxyMatch")["method"].(map[string]any)["items"] = map[string]any{"type": "string", "enum": []string{"GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"}}
 	props("ProxyMatch")["header"].(map[string]any)["additionalProperties"] = map[string]any{"oneOf": []any{map[string]any{"type": "string"}, map[string]any{"const": true}}}
-	props("ProxyMatch")["host"].(map[string]any)["description"] = "Hostnames with optional ports; HTTPS only. Leading *. matches subdomains, not the base host."
+	props("ProxyMatch")["host"].(map[string]any)["description"] = "Hostnames with optional ports; HTTPS only. Leading *. matches subdomains, not the base host. A template such as {{config.host}} renders one exact origin per connection."
 
 	props("AuthMethod")["config"].(map[string]any)["minProperties"] = 1
 	// Conditional requirements mirror discriminated unions without adding aliases.

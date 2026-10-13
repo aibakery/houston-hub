@@ -45,7 +45,7 @@ func TestRulesConditionsAndSnapshot(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		rules := snapshot.Proxy.Select(r.ProxyIndices)
+		rules := r.Proxy
 		wantCount := 1
 		if enabled {
 			wantCount = 2
@@ -160,7 +160,7 @@ func TestRulesOptionalSecretAndFallback(t *testing.T) {
 					t.Fatal(err)
 				}
 				caller := http.Header{"Authorization": {"caller"}}
-				recipe, err := m.Proxy.Select(r.ProxyIndices).HTTPRecipe("GET", "https://api.example.com/", caller)
+				recipe, err := r.Proxy.HTTPRecipe("GET", "https://api.example.com/", caller)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -250,7 +250,7 @@ func TestHostPatternValidation(t *testing.T) {
 			t.Errorf("%s: %v", host, err)
 		}
 	}
-	for _, host := range []string{"*", "*example.com", "api.*.com", "*.*.example.com", "*.127.0.0.1", "*.[::1]", "*.bad..example.com", "*.example.com/", "*.example.com?token=x", "user@*.example.com", "https://api.example.com", "http://*.example.com", "{{config.host}}"} {
+	for _, host := range []string{"*", "*example.com", "api.*.com", "*.*.example.com", "*.127.0.0.1", "*.[::1]", "*.bad..example.com", "*.example.com/", "*.example.com?token=x", "user@*.example.com", "https://api.example.com", "http://*.example.com", "{{config.missing}}"} {
 		m := parseRules(t, `[{"match":{"protocol":"http","host":["api.example.com"]},"action":{}}]`)
 		m.Proxy[0].Match.Host = []string{host}
 		if err := m.Validate(); err == nil {
@@ -261,6 +261,62 @@ func TestHostPatternValidation(t *testing.T) {
 	m.Proxy[0].Match.Host = []string{"*.EXAMPLE.com:443", "*.example.com"}
 	if err := m.Validate(); err == nil {
 		t.Fatal("accepted duplicate normalized wildcard")
+	}
+}
+
+func TestTemplatedHostIsOneConnectionOrigin(t *testing.T) {
+	const store = `{"schema_version":1,"name":"Store","files":["main.luau"],
+	 "config":{"store":{"type":"string","label":"Store","required":true},"key":{"type":"secret","label":"Key","required":true}},
+	 "proxy":[{"match":{"protocol":"http","host":["{{config.store}}","api.example.com"]},"action":{"basic_auth":{"username":"user","password":"{{config.key}}"}}}]}`
+	m, err := Parse([]byte(store))
+	if err != nil {
+		t.Fatal(err)
+	}
+	r, err := m.Resolve(nil, map[string]any{"store": "Shop.Example.org", "key": "secret"}, nil, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m.Proxy[0].Match.Host[0] != "{{config.store}}" || r.Proxy[0].Match.Host[0] != "shop.example.org" {
+		t.Fatalf("want a canonical rendered host and an unchanged manifest, got %v", r.Proxy[0].Match.Host)
+	}
+	for _, origin := range []string{"https://shop.example.org", "https://api.example.com"} {
+		recipe, err := r.Proxy.HTTPRecipe("GET", origin+"/wp-json", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if h, err := recipe.Prepare(r.Context, nil); err != nil || h.Get("Authorization") == "" {
+			t.Fatalf("%s: credentials not injected: %v", origin, err)
+		}
+	}
+	for _, origin := range []string{"https://a.shop.example.org", "https://shop.example.org.evil.test", "https://shop.example.org:8443"} {
+		if _, err := r.Proxy.HTTPRecipe("GET", origin+"/wp-json", nil); err == nil {
+			t.Errorf("accepted %s", origin)
+		}
+	}
+	if _, err := m.Proxy.HTTPRecipe("GET", "https://shop.example.org/wp-json", nil); err == nil {
+		t.Error("unrendered rules accepted a request")
+	}
+	for _, store := range []string{"*.example.org", "https://shop.example.org", "shop.example.org/wp", "user@shop.example.org", "shop..example.org", ""} {
+		if _, err := m.Resolve(nil, map[string]any{"store": store, "key": "secret"}, nil, ""); err == nil {
+			t.Errorf("resolved host %q", store)
+		}
+	}
+	withHost := func(host string) string { return strings.Replace(store, `"{{config.store}}"`, host, 1) }
+	publisher := strings.Replace(strings.Replace(store, `"config":{`, `"publisher":{"key":{"type":"secret","label":"Key","required":true}},"config":{`, 1),
+		`"username":"user","password":"{{config.key}}"`, `"username":"{{config.key}}","password":"{{publisher.key}}"`, 1)
+	oauth := strings.Replace(strings.Replace(store, `"proxy":`, `"auth":{"oauth":{"authorize_url":"https://example.com/auth","client_auth":"none","client_id":"{{config.store}}","label":"OAuth","pkce":"S256","token_url":"https://example.com/token","type":"oauth2"}},"proxy":`, 1),
+		`"basic_auth":{"username":"user","password":"{{config.key}}"}`, `"headers":{"set":{"Authorization":"Bearer {{auth.oauth.access_token}}","X-Key":"{{config.key}}"}}`, 1)
+	for _, tc := range []struct{ manifest, want string }{
+		{withHost(`"{{config.key}}"`), "destination must not use secrets"},
+		{withHost(`"{{config.missing}}"`), "undeclared reference"},
+		{withHost(`"*.{{config.store}}"`), "host must be a literal or whole-value reference"},
+		{withHost(`"{{config.store}}.example.com"`), "host must be a literal or whole-value reference"},
+		{publisher, "publisher secrets and OAuth tokens require a publisher-controlled recipient"},
+		{oauth, "publisher secrets and OAuth tokens require a publisher-controlled recipient"},
+	} {
+		if _, err := Parse([]byte(tc.manifest)); err == nil || !strings.Contains(err.Error(), tc.want) {
+			t.Errorf("want %q, got %v", tc.want, err)
+		}
 	}
 }
 

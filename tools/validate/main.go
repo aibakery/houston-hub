@@ -15,7 +15,7 @@ import (
 )
 
 // Bundles migrated to the current runtime. Pass a directory to validate another.
-var migrated = []string{"connectors/fastmail", "connectors/notion", "connectors/gmail", "connectors/gcalendar", "connectors/gdrive", "connectors/mercury", "connectors/x", "connectors/linkedin", "connectors/clickhouse", "connectors/mariadb", "connectors/mysql", "connectors/postgres", "connectors/redis", "connectors/supabase"}
+var migrated = []string{"connectors/fastmail", "connectors/notion", "connectors/gmail", "connectors/gcalendar", "connectors/gdrive", "connectors/mercury", "connectors/x", "connectors/linkedin", "connectors/clickhouse", "connectors/mariadb", "connectors/mysql", "connectors/postgres", "connectors/redis", "connectors/supabase", "connectors/woocommerce"}
 
 func main() {
 	roots := migrated

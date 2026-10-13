@@ -275,8 +275,8 @@ func (m *Manifest) template(s, mode string, used map[string]bool) error {
 			return fmt.Errorf("OAuth client requires an exact publisher or connection config reference")
 		}
 	}
-	if mode == "port" && (len(parts) != 1 || len(parts[0].refs) == 0) {
-		return fmt.Errorf("port must be an integer or whole-value reference")
+	if (mode == "port" || mode == "host") && (len(parts) != 1 || len(parts[0].refs) == 0) {
+		return fmt.Errorf("%s must be a literal or whole-value reference", mode)
 	}
 	for _, ref := range refs {
 		f, e := m.reference(ref)
@@ -306,7 +306,7 @@ func (m *Manifest) template(s, mode string, used map[string]bool) error {
 			if auth {
 				return fmt.Errorf("token parameters cannot reference auth")
 			}
-		case "destination", "port":
+		case "destination", "port", "host":
 			if f.Type == "secret" || managed {
 				return fmt.Errorf("destination must not use secrets or OAuth")
 			}

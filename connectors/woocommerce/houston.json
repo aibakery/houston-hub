@@ -1,0 +1,100 @@
+{
+  "schema_version": 1,
+  "name": "WooCommerce",
+  "files": [
+    "connector.lua"
+  ],
+  "icon": "icon.svg",
+  "config": {
+    "access": {
+      "default": "read-only",
+      "label": "Access",
+      "options": [
+        {
+          "label": "Read-only",
+          "value": "read-only"
+        },
+        {
+          "label": "Read and write",
+          "value": "read-write"
+        }
+      ],
+      "order": 1,
+      "type": "string"
+    },
+    "store_host": {
+      "description": "The domain your store is served from, without https:// or a path.",
+      "label": "Store domain",
+      "max_length": 253,
+      "order": 2,
+      "placeholder": "shop.example.com",
+      "required": true,
+      "type": "string"
+    }
+  },
+  "auth": {
+    "keys": {
+      "config": {
+        "consumer_key": {
+          "label": "Consumer key",
+          "order": 1,
+          "required": true,
+          "type": "secret"
+        },
+        "consumer_secret": {
+          "label": "Consumer secret",
+          "order": 2,
+          "required": true,
+          "type": "secret"
+        }
+      },
+      "label": "WooCommerce REST API key",
+      "type": "manual"
+    }
+  },
+  "proxy": [
+    {
+      "action": {
+        "basic_auth": {
+          "password": "{{auth.keys.consumer_secret}}",
+          "username": "{{auth.keys.consumer_key}}"
+        }
+      },
+      "match": {
+        "host": [
+          "{{config.store_host}}"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/wp-json/wc/v3/*"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "basic_auth": {
+          "password": "{{auth.keys.consumer_secret}}",
+          "username": "{{auth.keys.consumer_key}}"
+        }
+      },
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "host": [
+          "{{config.store_host}}"
+        ],
+        "method": [
+          "POST",
+          "PUT",
+          "DELETE"
+        ],
+        "path": [
+          "/wp-json/wc/v3/*"
+        ],
+        "protocol": "http"
+      }
+    }
+  ]
+}

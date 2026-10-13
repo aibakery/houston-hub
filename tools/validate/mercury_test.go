@@ -35,7 +35,7 @@ func TestMercuryAuthenticationAndTransportBoundaries(t *testing.T) {
 					t.Fatal("credential leaked into Lua public config")
 				}
 			}
-			rules := m.Proxy.Select(r.ProxyIndices)
+			rules := r.Proxy
 			assertRoute := func(method, url string, allowed bool) {
 				t.Helper()
 				caller := http.Header{"Authorization": {"forged"}}
