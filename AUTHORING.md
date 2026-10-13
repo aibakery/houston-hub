@@ -853,5 +853,6 @@ documents with the member's bearer token.
 
 LinkedIn's icon is the official In logo (`LI-In-Bug.png`) from the
 [LinkedIn brand downloads](https://brand.linkedin.com/downloads), retrieved
-2026-10-12. It is scaled proportionally and centered on a transparent 1024×1024
-canvas to meet the PNG icon contract, without other changes. LinkedIn owns the mark.
+2026-10-12. It is cropped to the In square, omitting the registered-trademark
+symbol, then scaled proportionally and centered on a transparent 1024×1024 canvas
+to meet the PNG icon contract, without other changes. LinkedIn owns the mark.
