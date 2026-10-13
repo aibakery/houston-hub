@@ -685,8 +685,13 @@ register the repository URL, a revision and the path to its `houston.json`.
 Publication resolves the bundle and private imports, validates the manifest,
 checks configured Lua exports/help, type-checks the implementation and runs its
 fixtures. Resolve those failures before making the connector available to users.
-A release pins its source; pushing a new commit does not automatically update
-existing Hub publications or connections.
+Hub refreshes registered branches, so every validated push becomes the latest
+release. Existing connections move to it unless its configuration shape changed:
+a `config`, `publisher` or auth field was added or removed, or changed its type,
+requirement, options or condition, or an auth method was added, removed or changed
+its type or condition. Those connections must be set up again. Every other change
+applies without setup: labels, defaults, limits, OAuth endpoints and scopes,
+`proxy` rules, documentation and Lua, even when it changes a connector's API.
 
 Use `README.md` for the account user's overview and `SETUP.md` for connecting an
 account to that registered connector. Callable signatures and examples belong in
