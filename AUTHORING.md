@@ -746,14 +746,17 @@ In the Google Cloud project that owns Houston's client:
 One client can serve all three publications, or each publication can have its own
 client in a separate project; the bundles work either way.
 
-| Connector | Read-only scopes | Added for read and write |
+| Connector | Read-only scopes | Read and write scopes |
 | --- | --- | --- |
 | Gmail | `gmail.readonly` (restricted) | `gmail.modify` (restricted) |
-| Google Calendar | `calendar.readonly` (sensitive) | `calendar.events` (sensitive) |
+| Google Calendar | `calendar.readonly` (sensitive) | `calendar.readonly`, `calendar.events` (sensitive) |
 | Google Drive | `drive.readonly` (restricted) | `drive` (restricted) |
 
-Every method also requests `openid email` to label the connected account, and asks
-for offline access so Houston receives a refresh token. Restricted scopes require
+Every method also requests `userinfo.email` to label the connected account, and asks
+for offline access so Houston receives a refresh token. Houston requires every
+requested scope verbatim in Google's token response, so manifests use full scope URLs
+(Google reports `email` as `userinfo.email`) and one data scope set per access level.
+Restricted scopes require
 Google's app verification with an annual third-party security assessment; sensitive
 scopes require verification without the assessment. Until the app is verified, Google
 shows an unverified-app warning and caps new users at 100. While the consent screen
