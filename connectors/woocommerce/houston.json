@@ -60,12 +60,16 @@
           "username": "{{auth.keys.consumer_key}}"
         }
       },
+      "if": "{{ is config.access \"read-write\" }}",
       "match": {
         "host": [
           "{{config.store_host}}"
         ],
         "method": [
-          "GET"
+          "GET",
+          "POST",
+          "PUT",
+          "DELETE"
         ],
         "path": [
           "/wp-json/wc/v3/*"
@@ -78,20 +82,40 @@
         "basic_auth": {
           "password": "{{auth.keys.consumer_secret}}",
           "username": "{{auth.keys.consumer_key}}"
+        },
+        "headers": {
+          "remove": [
+            "X-HTTP-Method-Override"
+          ]
         }
       },
-      "if": "{{ is config.access \"read-write\" }}",
       "match": {
         "host": [
           "{{config.store_host}}"
         ],
         "method": [
-          "POST",
-          "PUT",
-          "DELETE"
+          "GET"
         ],
         "path": [
-          "/wp-json/wc/v3/*"
+          "/wp-json/wc/v3/coupons",
+          "/wp-json/wc/v3/coupons/*",
+          "/wp-json/wc/v3/customers",
+          "/wp-json/wc/v3/customers/*",
+          "/wp-json/wc/v3/data/*",
+          "/wp-json/wc/v3/orders",
+          "/wp-json/wc/v3/orders/*",
+          "/wp-json/wc/v3/products",
+          "/wp-json/wc/v3/products/*",
+          "/wp-json/wc/v3/refunds",
+          "/wp-json/wc/v3/reports",
+          "/wp-json/wc/v3/reports/*",
+          "/wp-json/wc/v3/shipping/*",
+          "/wp-json/wc/v3/shipping_methods",
+          "/wp-json/wc/v3/shipping_methods/*",
+          "/wp-json/wc/v3/system_status",
+          "/wp-json/wc/v3/system_status/*",
+          "/wp-json/wc/v3/taxes",
+          "/wp-json/wc/v3/taxes/*"
         ],
         "protocol": "http"
       }

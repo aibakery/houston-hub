@@ -304,15 +304,27 @@ func TestTemplatedHostIsOneConnectionOrigin(t *testing.T) {
 	withHost := func(host string) string { return strings.Replace(store, `"{{config.store}}"`, host, 1) }
 	publisher := strings.Replace(strings.Replace(store, `"config":{`, `"publisher":{"key":{"type":"secret","label":"Key","required":true}},"config":{`, 1),
 		`"username":"user","password":"{{config.key}}"`, `"username":"{{config.key}}","password":"{{publisher.key}}"`, 1)
-	oauth := strings.Replace(strings.Replace(store, `"proxy":`, `"auth":{"oauth":{"authorize_url":"https://example.com/auth","client_auth":"none","client_id":"{{config.store}}","label":"OAuth","pkce":"S256","token_url":"https://example.com/token","type":"oauth2"}},"proxy":`, 1),
-		`"basic_auth":{"username":"user","password":"{{config.key}}"}`, `"headers":{"set":{"Authorization":"Bearer {{auth.oauth.access_token}}","X-Key":"{{config.key}}"}}`, 1)
+	// An OAuth token from the publisher's client is a publisher credential; a token
+	// from the connection's own client may go to the connection's host.
+	oauth := func(client string) string {
+		m := strings.Replace(store, `"proxy":`, `"auth":{"oauth":{"authorize_url":"https://example.com/auth","client_auth":"none","client_id":"`+client+`","label":"OAuth","pkce":"S256","token_url":"https://example.com/token","type":"oauth2"}},"proxy":`, 1)
+		m = strings.Replace(m, `"basic_auth":{"username":"user","password":"{{config.key}}"}`, `"headers":{"set":{"Authorization":"Bearer {{auth.oauth.access_token}}","X-Key":"{{config.key}}"}}`, 1)
+		if strings.HasPrefix(client, "{{publisher.") {
+			m = strings.Replace(m, `"config":{`, `"publisher":{"client":{"type":"string","label":"Client","required":true}},"config":{`, 1)
+		}
+		return m
+	}
+	if _, err := Parse([]byte(oauth("{{config.store}}"))); err != nil {
+		t.Errorf("connection-owned OAuth client rejected: %v", err)
+	}
 	for _, tc := range []struct{ manifest, want string }{
-		{withHost(`"{{config.key}}"`), "destination must not use secrets"},
+		{withHost(`"{{config.key}}"`), "host requires a required, unconditional string setting"},
+		{strings.Replace(store, `"label":"Store","required":true`, `"label":"Store"`, 1), "host requires a required, unconditional string setting"},
 		{withHost(`"{{config.missing}}"`), "undeclared reference"},
 		{withHost(`"*.{{config.store}}"`), "host must be a literal or whole-value reference"},
 		{withHost(`"{{config.store}}.example.com"`), "host must be a literal or whole-value reference"},
-		{publisher, "publisher secrets and OAuth tokens require a publisher-controlled recipient"},
-		{oauth, "publisher secrets and OAuth tokens require a publisher-controlled recipient"},
+		{publisher, "publisher-owned credentials require a publisher-controlled recipient"},
+		{oauth("{{publisher.client}}"), "publisher-owned credentials require a publisher-controlled recipient"},
 	} {
 		if _, err := Parse([]byte(tc.manifest)); err == nil || !strings.Contains(err.Error(), tc.want) {
 			t.Errorf("want %q, got %v", tc.want, err)

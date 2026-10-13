@@ -35,7 +35,7 @@ func TestWooCommerceStoreHostAndAccessBoundaries(t *testing.T) {
 		}
 		assertRoute := func(method, url string, allowed bool) {
 			t.Helper()
-			caller := http.Header{"Authorization": {"forged"}}
+			caller := http.Header{"Authorization": {"forged"}, "X-Http-Method-Override": {"DELETE"}}
 			recipe, err := r.Proxy.HTTPRecipe(method, url, caller)
 			if !allowed {
 				if err == nil {
@@ -50,10 +50,22 @@ func TestWooCommerceStoreHostAndAccessBoundaries(t *testing.T) {
 			if err != nil || headers.Get("Authorization") != basic || caller.Get("Authorization") != "forged" {
 				t.Fatalf("incorrect credential injection: %v", err)
 			}
+			if access == "read-only" && headers.Get("X-Http-Method-Override") != "" {
+				t.Fatalf("read-only %s %s kept the method override", method, url)
+			}
 		}
 		const api = "https://shop.example.com/wp-json/wc/v3"
-		for _, path := range []string{"/orders?status%5B%5D=processing", "/orders/1/notes", "/reports/sales", "/data/currencies/current"} {
+		for _, path := range []string{
+			"/orders?status%5B%5D=processing", "/orders/1/notes", "/orders/1/actions/email_templates", "/refunds",
+			"/products/1/variations", "/products/attributes/1/terms", "/customers/1/downloads", "/coupons", "/taxes/classes",
+			"/shipping/zones/0/methods", "/shipping_methods", "/system_status", "/system_status/tools",
+			"/reports", "/reports/sales", "/data/currencies/current",
+		} {
 			assertRoute("GET", api+path, true)
+		}
+		// Their responses contain gateway credentials and webhook secrets.
+		for _, path := range []string{"/settings", "/settings/general/woocommerce_currency", "/payment_gateways", "/payment_gateways/stripe", "/webhooks/1"} {
+			assertRoute("GET", api+path, access == "read-write")
 		}
 		for _, route := range [][2]string{{"POST", "/orders"}, {"PUT", "/orders/1"}, {"DELETE", "/products/1?force=true"}, {"POST", "/products/batch"}, {"PUT", "/system_status/tools/clear_transients"}} {
 			assertRoute(route[0], api+route[1], access == "read-write")

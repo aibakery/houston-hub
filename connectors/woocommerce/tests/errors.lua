@@ -47,6 +47,8 @@ return {
 			{"HTTP 401", "woocommerce_rest_cannot_edit", "not allowed to edit"})
 		upstream(400, '{"code":"rest_invalid_param","message":"Invalid parameter(s): status","data":{"status":400,"params":{"status":"status is not one of pending, processing."}}}', {},
 			{"HTTP 400", "rest_invalid_param", "status is not one of"})
+		upstream(400, json.encode({code = "rest_invalid_param", message = string.rep("x", 5000), data = {params = {status = "status is invalid"}}}), {},
+			{"rest_invalid_param", "status is invalid"})
 		upstream(429, "Too many requests", {["retry-after"] = {"30"}}, {"HTTP 429", "Retry-After: 30"})
 		upstream(500, "<html>Fatal error</html>", {}, {"HTTP 500"})
 		upstream(301, "", {location = {"https://www.shop.example.com/wp-json/wc/v3/orders/1"}},

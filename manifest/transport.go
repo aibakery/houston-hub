@@ -204,7 +204,7 @@ func (m *Manifest) validateProxy(p Proxy, used map[string]bool) error {
 		for _, host := range p.Match.Host {
 			normalized := host
 			var err error
-			if strings.Contains(host, "{{") {
+			if templated(host) {
 				err = m.template(host, "host", used) // Rendered per connection.
 			} else {
 				normalized, err = normalizeOriginPattern(host)
@@ -317,16 +317,16 @@ func (m *Manifest) validateProxy(p Proxy, used map[string]bool) error {
 	return nil
 }
 
-// publisherRecipient keeps publisher secrets and OAuth tokens, which the publisher's
-// client obtains for its provider, away from destinations a connection controls.
+// publisherRecipient keeps publisher secrets, including OAuth tokens obtained with
+// the publisher's client, away from destinations a connection controls.
 func (m *Manifest) publisherRecipient(credentials, destinations []string) error {
 	bound := false
 	for _, s := range credentials {
 		refs, _ := TemplateReferences(s)
 		for _, r := range refs {
 			f, _ := m.reference(r)
-			p := strings.Split(r, ".")
-			bound = bound || p[0] == "publisher" && f.Type == "secret" || p[0] == "auth" && m.Auth[p[1]].Type == "oauth2"
+			method, oauth := m.oauthMethod(r)
+			bound = bound || strings.HasPrefix(r, "publisher.") && f.Type == "secret" || oauth && method.PublisherClient()
 		}
 	}
 	if !bound {
@@ -336,7 +336,7 @@ func (m *Manifest) publisherRecipient(credentials, destinations []string) error 
 		refs, _ := TemplateReferences(s)
 		for _, r := range refs {
 			if !strings.HasPrefix(r, "publisher.") {
-				return fmt.Errorf("publisher secrets and OAuth tokens require a publisher-controlled recipient")
+				return fmt.Errorf("publisher-owned credentials require a publisher-controlled recipient")
 			}
 		}
 	}
@@ -364,11 +364,14 @@ func (a ProxyAction) httpRecipe(rawURL string) HTTPRecipe {
 // render fills templated HTTP hosts from connection settings. A rendered host
 // names exactly one origin; only literal patterns may contain wildcards.
 func (rules ProxyRules) render(c Context) (ProxyRules, error) {
-	out := slices.Clone(rules)
-	for i, p := range out {
+	out, copied := rules, false
+	for i, p := range rules {
+		if !slices.ContainsFunc(p.Match.Host, templated) {
+			continue
+		}
 		hosts := slices.Clone(p.Match.Host)
 		for j, host := range hosts {
-			if !strings.Contains(host, "{{") {
+			if !templated(host) {
 				continue
 			}
 			rendered, err := RenderString(host, c)
@@ -381,10 +384,15 @@ func (rules ProxyRules) render(c Context) (ProxyRules, error) {
 			}
 			hosts[j] = strings.TrimPrefix(origin, "https://")
 		}
+		if !copied {
+			out, copied = slices.Clone(rules), true
+		}
 		out[i].Match.Host = hosts
 	}
 	return out, nil
 }
+
+func templated(s string) bool { return strings.Contains(s, "{{") }
 
 // OriginDeniedError contains only the normalized origin, never a path or query.
 type OriginDeniedError struct{ Origin string }

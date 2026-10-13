@@ -274,12 +274,13 @@ depth, excluding the base hostname. Ports must match, with implicit and explicit
 443 equivalent. Other wildcard positions and wildcard IPs are invalid. First-rule
 priority also applies when an exact host and a wildcard both match.
 
-For self-hosted services, a host can be one whole-value reference to a nonsecret
-setting, such as `{{config.store_host}}` in WooCommerce. Houston renders it when
-resolving each connection; the result must be one exact origin, so wildcards, schemes
-and paths in the setting are rejected. Lua builds its URLs from the same `config`
-value. Publisher secrets and OAuth tokens cannot be sent to a host a connection
-controls. Houston's egress still refuses private, loopback and link-local addresses.
+For self-hosted services, a host can be one whole-value reference to a required,
+unconditional string setting, such as `{{config.store_host}}` in WooCommerce.
+Houston renders it when resolving each connection; the result must be one exact
+origin, so wildcards, schemes and paths in the setting are rejected. Lua builds its
+URLs from the same `config` value. Publisher secrets, including OAuth tokens obtained
+with a publisher-owned client, cannot be sent to a host a connection controls.
+Houston's egress still refuses private, loopback and link-local addresses.
 
 Optional `method` and `path` arrays accept any listed value; different filter
 fields combine with AND. Omission leaves that filter unrestricted; empty arrays
@@ -888,13 +889,14 @@ reviews and custom field names; customers, coupons, reports, taxes, webhooks,
 settings, payment gateways, shipping zones and methods, system status and data.
 Updating shipping zone locations is omitted because its body is a bare array.
 Requests use HTTP Basic authentication with the consumer key and secret over HTTPS.
-The proxy allows only `/wp-json/wc/v3/*` on the connection's store domain, and
-writes need read-write access. WordPress also reads `_method` and `rest_route`
-from any query string, which could change a request's method or route, and the
-proxy cannot filter queries: the connector therefore accepts only plain WooCommerce
-query parameter names. Settings, payment gateways and webhooks return credentials
-and secrets, so they are exported only on read-write connections. Stores must use
-pretty permalinks at the domain root.
+The proxy allows only `/wp-json/wc/v3/*` on the connection's store domain.
+Read-write connections may use it all; read-only connections may only GET the listed
+non-sensitive resources, because settings, payment gateways and webhooks return
+credentials and secrets. The read-only rule also strips WordPress's
+`X-HTTP-Method-Override` header. WordPress reads `_method` and `rest_route` from any
+query string too, which could change a request's method or route, and the proxy
+cannot filter queries: the connector therefore accepts only plain WooCommerce query
+parameter names. Stores must use pretty permalinks at the domain root.
 
 WooCommerce's icon is the official Woo logo (`Woo_logo_color.svg`) from the
 [brand assets](https://woocommerce.com/brand-and-logo-guidelines/), retrieved

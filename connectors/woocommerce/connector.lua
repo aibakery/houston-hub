@@ -148,11 +148,23 @@ local function header(response: HttpResponse, name: string): string?
 	return if values then values[1] else nil
 end
 
-local function failStatus(name: string, response: HttpResponse): never
-	local chunk = await(response.body:read(4096))
+-- Reads at most 16 KiB of an error body; one read can return any part of it.
+local function errorBody(response: HttpResponse): string
+	local parts: {string} = {}
+	local size, limit = 0, 16 * 1024
+	while size < limit do
+		local chunk = await(response.body:read(limit - size))
+		if chunk.done then break end
+		table.insert(parts, chunk.data)
+		size += #chunk.data
+	end
 	response.body:close()
+	return table.concat(parts)
+end
+
+local function failStatus(name: string, response: HttpResponse): never
 	local message = "WooCommerce HTTP " .. tostring(response.statusCode)
-	local ok, value = pcall(json.decode, if chunk.done then "" else chunk.data)
+	local ok, value = pcall(json.decode, errorBody(response))
 	if ok and type(value) == "table" then
 		if type(value.code) == "string" then message ..= " (" .. value.code .. ")" end
 		if type(value.message) == "string" then message ..= ": " .. string.sub(value.message, 1, 600) end
