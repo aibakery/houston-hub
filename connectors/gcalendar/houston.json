@@ -41,14 +41,19 @@
       "scopes": [
         {
           "values": [
-            "openid",
-            "email",
+            "https://www.googleapis.com/auth/userinfo.email"
+          ]
+        },
+        {
+          "if": "{{ is config.access \"read-only\" }}",
+          "values": [
             "https://www.googleapis.com/auth/calendar.readonly"
           ]
         },
         {
           "if": "{{ is config.access \"read-write\" }}",
           "values": [
+            "https://www.googleapis.com/auth/calendar.readonly",
             "https://www.googleapis.com/auth/calendar.events"
           ]
         }

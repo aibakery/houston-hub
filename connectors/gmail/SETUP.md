@@ -4,7 +4,8 @@
    - **Read-only** to let agents read without changing anything.
    - **Read and write** to also let agents send and reply, manage drafts, and organize mail with labels and trash.
 2. Select **Connect with Google**, choose your account, and approve the
-   permissions Google lists.
+   permissions Google lists. If Google shows a checkbox per permission, tick
+   them all: Houston refuses a partial grant.
 
 Houston keeps your Google authorization on its server; agent scripts never see
 it. Each Gmail connection asks only for its own permissions, so connecting
