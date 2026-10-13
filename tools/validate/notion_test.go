@@ -151,7 +151,7 @@ func TestNotionContentRoutesAndWriteBoundary(t *testing.T) {
 func assertNotionRoute(t *testing.T, m *manifest.Manifest, r *manifest.Resolved, route [2]string, allowed bool, credential, version string) {
 	t.Helper()
 	caller := http.Header{"Authorization": {"forged"}, "Notion-Version": {"old"}}
-	recipe, err := m.Proxy.Select(r.ProxyIndices).HTTPRecipe(route[0], "https://api.notion.com"+route[1], caller)
+	recipe, err := r.Proxy.HTTPRecipe(route[0], "https://api.notion.com"+route[1], caller)
 	if !allowed {
 		if err == nil {
 			t.Fatalf("unexpectedly allowed %v", route)
@@ -201,7 +201,7 @@ func TestNotionDownloadBoundaries(t *testing.T) {
 	m := notionManifest(t)
 	for _, method := range []string{"token", "oauth", "admin"} {
 		r := notionConnection(t, m, method, "read-only")
-		rules := m.Proxy.Select(r.ProxyIndices)
+		rules := r.Proxy
 		for _, url := range []string{
 			"https://s3.us-west-2.amazonaws.com/secure.notion-static.com/folder/100%25%2Ffile.pdf?X-Amz-Signature=exact%2Fvalue",
 			"https://prod-files-secure.s3.us-west-2.amazonaws.com/workspace/100%25.pdf",

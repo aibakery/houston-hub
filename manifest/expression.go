@@ -426,8 +426,7 @@ func (m *Manifest) validatePredicate(s, phase string, used map[string]bool) erro
 			return fmt.Errorf("auth references forbidden before selection")
 		}
 		if f.Type == "secret" {
-			parts := strings.Split(n.ref, ".")
-			managedToken := len(parts) == 3 && parts[0] == "auth" && m.Auth[parts[1]].Type == "oauth2"
+			_, managedToken := m.oauthMethod(n.ref) // OAuth's only secret is its access token.
 			allowedPresence := phase == "header" || phase == "proxy" && !managedToken
 			if n.op != "isDefined" || !allowedPresence {
 				return fmt.Errorf("secret references require an allowed presence check; proxy rules cannot depend on OAuth tokens")

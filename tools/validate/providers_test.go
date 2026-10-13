@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/base64"
 	"github.com/aibakery/houston-hub/manifest"
 	"net/http"
 	"os"
@@ -21,10 +22,11 @@ func TestEveryProviderAuthenticationAndTransport(t *testing.T) {
 		"gmail": {"GET", "https://gmail.googleapis.com/gmail/v1/users/me/profile"}, "gdrive": {"GET", "https://www.googleapis.com/drive/v3/files"},
 		"gcalendar": {"GET", "https://www.googleapis.com/calendar/v3/users/me/calendarList"}, "dropbox": {"POST", "https://api.dropboxapi.com/2/files/list_folder"},
 		"slack": {"GET", "https://slack.com/api/auth.test"}, "fastmail": {"GET", "https://api.fastmail.com/jmap/session"},
-		"notion":   {"GET", "https://api.notion.com/v1/users/me"},
-		"mercury":  {"GET", "https://api.mercury.com/api/v1/accounts"},
-		"x":        {"GET", "https://api.x.com/2/tweets/123"},
-		"linkedin": {"GET", "https://api.linkedin.com/v2/userinfo"},
+		"notion":      {"GET", "https://api.notion.com/v1/users/me"},
+		"mercury":     {"GET", "https://api.mercury.com/api/v1/accounts"},
+		"x":           {"GET", "https://api.x.com/2/tweets/123"},
+		"linkedin":    {"GET", "https://api.linkedin.com/v2/userinfo"},
+		"woocommerce": {"GET", "https://shop.example.com/wp-json/wc/v3/orders"},
 	}
 	for _, path := range paths {
 		provider := filepath.Base(filepath.Dir(path))
@@ -68,6 +70,12 @@ func TestEveryProviderAuthenticationAndTransport(t *testing.T) {
 				if method != "" && m.Auth[method].Type == "manual" {
 					input["token"] = "synthetic-method-secret"
 				}
+				authorization := "Bearer synthetic-method-secret"
+				if provider == "woocommerce" {
+					config["store_host"] = "shop.example.com"
+					input = map[string]any{"consumer_key": "synthetic-method-key", "consumer_secret": "synthetic-method-secret"}
+					authorization = "Basic " + base64.StdEncoding.EncodeToString([]byte("synthetic-method-key:synthetic-method-secret"))
+				}
 				r, err := m.Resolve(publisher, config, input, method)
 				if err != nil {
 					t.Fatal(err)
@@ -78,10 +86,9 @@ func TestEveryProviderAuthenticationAndTransport(t *testing.T) {
 					}
 				}
 				if m.Proxy[r.ProxyIndices[0]].Match.Protocol == "http" {
-					credential := "synthetic-method-secret"
 					if m.Auth[method].Type == "oauth2" {
-						credential = "synthetic-oauth-token"
-						r.Context.Auth[method]["access_token"] = credential
+						authorization = "Bearer synthetic-oauth-token"
+						r.Context.Auth[method]["access_token"] = "synthetic-oauth-token"
 						if len(m.Auth[method].Scopes) > 0 && len(r.Scopes) == 0 {
 							t.Fatal("OAuth scopes missing")
 						}
@@ -93,7 +100,7 @@ func TestEveryProviderAuthenticationAndTransport(t *testing.T) {
 					if provider == "notion" && method == "admin" {
 						ep = [2]string{"GET", "https://api.notion.com/admin/v1/legal_holds"}
 					}
-					recipe, err := m.Proxy.Select(r.ProxyIndices).HTTPRecipe(ep[0], ep[1], nil)
+					recipe, err := r.Proxy.HTTPRecipe(ep[0], ep[1], nil)
 					if err != nil {
 						t.Fatal(err)
 					}
@@ -101,14 +108,14 @@ func TestEveryProviderAuthenticationAndTransport(t *testing.T) {
 					if err != nil {
 						t.Fatal(err)
 					}
-					if h.Get("Authorization") != "Bearer "+credential {
+					if h.Get("Authorization") != authorization {
 						t.Fatalf("wrong injection %q", h.Get("Authorization"))
 					}
-					if _, err := m.Proxy.Select(r.ProxyIndices).HTTPRecipe("GET", "https://unlisted.example.com/", nil); err == nil {
+					if _, err := r.Proxy.HTTPRecipe("GET", "https://unlisted.example.com/", nil); err == nil {
 						t.Fatal("unlisted origin accepted")
 					}
 					if provider == "slack" {
-						recipe, err := m.Proxy.Select(r.ProxyIndices).HTTPRecipe("POST", "https://files.slack.com/upload/v1/signed", nil)
+						recipe, err := r.Proxy.HTTPRecipe("POST", "https://files.slack.com/upload/v1/signed", nil)
 						if err != nil {
 							t.Fatal(err)
 						}
@@ -145,7 +152,7 @@ func TestFastmailDiscoveredOrigins(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	p := m.Proxy.Select(r.ProxyIndices)
+	p := r.Proxy
 	for _, host := range []string{"api.fastmail.com", "phl.api.fastmail.com", "ams.api.fastmail.com", "jmap.fastmail.com"} {
 		for _, route := range [][2]string{{"GET", "/jmap/session"}, {"POST", "/jmap/api/"}, {"POST", "/jmap/upload/u1/"}, {"GET", "/jmap/download/u1/blob/file"}} {
 			recipe, err := p.HTTPRecipe(route[0], "https://"+host+route[1], nil)
@@ -196,7 +203,7 @@ func TestXPublicReadOnlyProxy(t *testing.T) {
 	if !m.Stateless {
 		t.Fatal("public X browsing should offer the billing preview")
 	}
-	p := m.Proxy.Select(r.ProxyIndices)
+	p := r.Proxy
 	for _, path := range []string{"/2/tweets?ids=1,2", "/2/tweets/123", "/2/tweets/search/recent?query=test", "/2/tweets/search/all?query=test", "/2/users/123", "/2/users/by/username/XDevelopers", "/2/users/123/tweets", "/2/users/123/mentions"} {
 		recipe, err := p.HTTPRecipe("GET", "https://api.x.com"+path, nil)
 		if err != nil {

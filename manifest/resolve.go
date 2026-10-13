@@ -32,6 +32,9 @@ type Resolved struct {
 	Methods          []MethodAvailability
 	Scopes           []string
 	ProxyIndices     []int
+	// Proxy holds the active rules, with templated hosts rendered for this connection.
+	// It is set only by Resolve, not ResolveDraft.
+	Proxy ProxyRules
 }
 
 func (m *Manifest) MethodKeys() []string {
@@ -285,6 +288,7 @@ func (m *Manifest) resolve(publisher, config, auth map[string]any, selected stri
 	}
 	r.ConnectionFields = m.connectionOrder(r.ConfigFields, r.AuthFields)
 
+	var active ProxyRules
 	for i, p := range m.Proxy {
 		yes, err := EvaluatePredicate(p.If, *c)
 		if err != nil {
@@ -295,9 +299,9 @@ func (m *Manifest) resolve(publisher, config, auth map[string]any, selected stri
 		}
 		if yes {
 			r.ProxyIndices = append(r.ProxyIndices, i)
+			active = append(active, p)
 		}
 	}
-	active := m.Proxy.Select(r.ProxyIndices)
 	valid := len(active) > 0
 	for _, p := range active {
 		if p.Match.Protocol != active[0].Match.Protocol {
@@ -315,6 +319,11 @@ func (m *Manifest) resolve(publisher, config, auth map[string]any, selected stri
 		return r, fmt.Errorf("OAuth requires HTTP proxy")
 	}
 	if !draft {
+		var err error
+		if active, err = active.render(*c); err != nil {
+			return r, err
+		}
+		r.Proxy = active
 		preparation := *c
 		// OAuth setup precedes acquisition; use a private stand-in only here.
 		if selected != "" && m.Auth[selected].Type == "oauth2" {

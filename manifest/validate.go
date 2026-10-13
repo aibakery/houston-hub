@@ -275,8 +275,8 @@ func (m *Manifest) template(s, mode string, used map[string]bool) error {
 			return fmt.Errorf("OAuth client requires an exact publisher or connection config reference")
 		}
 	}
-	if mode == "port" && (len(parts) != 1 || len(parts[0].refs) == 0) {
-		return fmt.Errorf("port must be an integer or whole-value reference")
+	if (mode == "port" || mode == "host") && (len(parts) != 1 || len(parts[0].refs) == 0) {
+		return fmt.Errorf("%s must be a literal or whole-value reference", mode)
 	}
 	for _, ref := range refs {
 		f, e := m.reference(ref)
@@ -284,11 +284,7 @@ func (m *Manifest) template(s, mode string, used map[string]bool) error {
 			return e
 		}
 		auth := strings.HasPrefix(ref, "auth.")
-		managed := false
-		if auth {
-			p := strings.Split(ref, ".")
-			managed = m.Auth[p[1]].Type == "oauth2"
-		}
+		_, managed := m.oauthMethod(ref)
 		switch mode {
 		case "client_id":
 			if f.Type != "string" {
@@ -305,6 +301,11 @@ func (m *Manifest) template(s, mode string, used map[string]bool) error {
 		case "token":
 			if auth {
 				return fmt.Errorf("token parameters cannot reference auth")
+			}
+		case "host":
+			setting := strings.HasPrefix(ref, "config.") || strings.HasPrefix(ref, "publisher.")
+			if !setting || f.Type != "string" || f.If != "" || !f.Required && f.Default == nil {
+				return fmt.Errorf("host requires a required, unconditional string setting")
 			}
 		case "destination", "port":
 			if f.Type == "secret" || managed {
@@ -708,3 +709,12 @@ func clientOwner(s string) string {
 // PublisherClient reports whether the publication, not each connection, owns the OAuth client.
 // Its connections share one registered redirect URI per publication.
 func (a AuthMethod) PublisherClient() bool { return clientOwner(a.ClientID) == "publisher" }
+
+// oauthMethod returns the OAuth method an auth.<method>[.<field>] reference names.
+func (m *Manifest) oauthMethod(ref string) (AuthMethod, bool) {
+	p := strings.Split(ref, ".")
+	if len(p) < 2 || p[0] != "auth" || m.Auth[p[1]].Type != "oauth2" {
+		return AuthMethod{}, false
+	}
+	return m.Auth[p[1]], true
+}

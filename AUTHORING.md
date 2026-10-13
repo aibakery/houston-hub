@@ -274,6 +274,14 @@ depth, excluding the base hostname. Ports must match, with implicit and explicit
 443 equivalent. Other wildcard positions and wildcard IPs are invalid. First-rule
 priority also applies when an exact host and a wildcard both match.
 
+For self-hosted services, a host can be one whole-value reference to a required,
+unconditional string setting, such as `{{config.store_host}}` in WooCommerce.
+Houston renders it when resolving each connection; the result must be one exact
+origin, so wildcards, schemes and paths in the setting are rejected. Lua builds its
+URLs from the same `config` value. Publisher secrets, including OAuth tokens obtained
+with a publisher-owned client, cannot be sent to a host a connection controls.
+Houston's egress still refuses private, loopback and link-local addresses.
+
 Optional `method` and `path` arrays accept any listed value; different filter
 fields combine with AND. Omission leaves that filter unrestricted; empty arrays
 are invalid. Paths support exact paths, whole-segment `{id}` placeholders, and a
@@ -454,7 +462,7 @@ go run ./tools/validate connectors/fastmail
 
 Replace `connectors/fastmail` with the bundle you are authoring. The no-argument
 validator selects the bundles migrated to the current runtime: Fastmail, the Google connectors,
-LinkedIn, Mercury, Notion, X
+LinkedIn, Mercury, Notion, WooCommerce, X
 and the database connectors. Other providers will join as they are migrated. An explicit catalog directory validates all its
 bundles.
 
@@ -864,3 +872,34 @@ LinkedIn's icon is the official In logo (`LI-In-Bug.png`) from the
 2026-10-12. It is cropped to the In square, omitting the registered-trademark
 symbol, then scaled proportionally and centered on a transparent 1024×1024 canvas
 to meet the PNG icon contract, without other changes. LinkedIn owns the mark.
+
+### Publishing WooCommerce
+
+Register repository `https://github.com/aibakery/houston-hub`, revision `main`,
+manifest path `connectors/woocommerce/houston.json`. It requires a Houston deployment
+that renders templated HTTP proxy hosts. No publisher settings or provider app are
+needed: each connection enters its store domain and a WooCommerce REST API key, as
+the [account setup guide](connectors/woocommerce/SETUP.md) describes.
+
+The connector covers the WooCommerce REST API v3 resources in the
+[official reference](https://developer.woocommerce.com/docs/apis/rest-api/v3/),
+checked on 2026-10-13: orders, notes, refunds and order actions; products,
+duplication, variations, attributes, terms, categories, tags, shipping classes,
+reviews and custom field names; customers, coupons, reports, taxes, webhooks,
+settings, payment gateways, shipping zones and methods, system status and data.
+Updating shipping zone locations is omitted because its body is a bare array.
+Requests use HTTP Basic authentication with the consumer key and secret over HTTPS.
+The proxy allows only `/wp-json/wc/v3/*` on the connection's store domain.
+Read-write connections may use it all; read-only connections may only GET the listed
+non-sensitive resources, because settings, payment gateways and webhooks return
+credentials and secrets. The read-only rule also strips WordPress's
+`X-HTTP-Method-Override` header. WordPress reads `_method` and `rest_route` from any
+query string too, which could change a request's method or route, and the proxy
+cannot filter queries: the connector therefore accepts only plain WooCommerce query
+parameter names. Stores must use pretty permalinks at the domain root.
+
+WooCommerce's icon is the official Woo logo (`Woo_logo_color.svg`) from the
+[brand assets](https://woocommerce.com/brand-and-logo-guidelines/), retrieved
+2026-10-13. Its paths and purple fill are unchanged; the style element is replaced
+by an equivalent fill attribute and the view box is padded to a centered square.
+WooCommerce and Woo are trademarks of Automattic.
