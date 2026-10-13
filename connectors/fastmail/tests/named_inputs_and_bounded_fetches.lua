@@ -5,6 +5,16 @@ return {
         requests, responses = {}, {}
         http = {request = function(request)
             requests[#requests + 1] = request
+            if request.body then
+                local invocation = json.decode(request.body).methodCalls[1]
+                -- Cyrus _email_getargs_parse accepts maxBodyValueBytes only when > 0.
+                -- https://github.com/cyrusimap/cyrus-imapd/blob/master/imap/jmap_mail.c
+                if invocation[1] == "Email/get" and invocation[2].maxBodyValueBytes == 0 then
+                    return fixture.operation({statusCode=200, headers={}, body=fixture.reader(json.encode({
+                        methodResponses = {{"error", {type = "invalidArguments", arguments = {"maxBodyValueBytes"}}, "0"}},
+                    }))})
+                end
+            end
             local response = table.remove(responses, 1)
             assert(response, "unexpected request: " .. request.url)
             return fixture.operation({statusCode=200, headers={}, body=fixture.reader(if type(response)=="string" then response else json.encode(response))})
@@ -80,5 +90,29 @@ return {
         local created = args(#requests).create.folder
         assert(created.name == "Projects" and created.parentId == "in")
         assert(#responses == 0)
+
+        -- Preserve the public zero-means-unlimited API without sending an explicit zero.
+        local fullBody = string.rep("x", 65537)
+        for _, case in {
+            {read = function() return fastmail.getMessage({id = "m1", maxBodyValueBytes = 0}) end},
+            {read = function() return fastmail.getMessage("m1", {maxBodyValueBytes = 0}) end},
+            {read = function() return fastmail.getMessages({ids = {"m1"}, maxBodyValueBytes = 0})[1] end},
+            {read = function() return fastmail.getMessages({"m1"}, {maxBodyValueBytes = 0})[1] end},
+            {thread = true, read = function() return fastmail.getThread({id = "thread", maxBodyValueBytes = 0}).messages[1] end},
+            {thread = true, read = function() return fastmail.getThread("thread", {maxBodyValueBytes = 0}).messages[1] end},
+        } do
+            -- Both thread APIs first fetch the message IDs.
+            responses = {result("Email/get", {list = {{id = "m1", textBody = {{partId = "1"}},
+                bodyValues = {["1"] = {value = fullBody, isTruncated = false}}}}})}
+            if case.thread then
+                table.insert(responses, 1, result("Thread/get", {list = {{id = "thread", emailIds = {"m1"}}}}))
+            end
+            local unbounded = case.read()
+            local request = args(#requests)
+            assert(request.maxBodyValueBytes == nil, "omit the cap to disable truncation on Fastmail")
+            assert(request.ids[1] == "m1" and #request.ids == 1)
+            assert(unbounded.body == fullBody and not unbounded.bodyTruncated)
+            assert(#responses == 0)
+        end
     end,
 }

@@ -391,7 +391,8 @@ function functions.getMessages(input: IdList | MessagesOptions, options: BodyOpt
 	for _, id in ids do requested[#requested + 1] = id_of(id) end
 	local data = call("Email/get", {
 		ids = requested, properties = MESSAGE_PROPERTIES, fetchTextBodyValues = true, fetchHTMLBodyValues = true,
-		maxBodyValueBytes = maxBytes,
+		-- Fastmail rejects explicit zero; omitting the argument leaves bodies unlimited.
+		maxBodyValueBytes = if maxBytes > 0 then maxBytes else nil,
 	})
 	local byId, out = {}, {}
 	for _, msg in data.list or {} do byId[msg.id] = decorate(msg) end
