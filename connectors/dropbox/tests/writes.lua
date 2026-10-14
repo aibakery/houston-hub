@@ -32,6 +32,7 @@ return {
 		local arg = json.decode(req.headers["Dropbox-API-Arg"][1])
 		assert(arg.path == "/Reports/report.pdf" and arg.mode == "overwrite" and arg.session_path == nil)
 		assert(not pcall(c.upload, {path = "/Reports/report.pdf"}), "upload requires a session_path")
+		assert(not pcall(c.upload, {path = "/Reports", session_path = "uploads"}), "uploaded a directory")
 		assert(#requests == 1)
 
 		-- Writes post Dropbox's arguments unchanged, including nested unions and arrays.

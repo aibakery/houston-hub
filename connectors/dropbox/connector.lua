@@ -83,18 +83,19 @@ end
 -- Streams the response body to a session file; Dropbox describes it in the Dropbox-API-Result header.
 local function download(name: string, endpoint: Endpoint, input: any): Options
 	local request, path = content(endpoint, input, {})
+	-- Opening the session file first refuses an invalid path before any Dropbox request.
+	local output = fs.open(path, "w")
 	local response = await(http.request(request))
-	if response.statusCode < 200 or response.statusCode >= 300 then fail(name, response) end
+	if response.statusCode < 200 or response.statusCode >= 300 then
+		await(output:close())
+		fail(name, response)
+	end
 	local header = response.headers["dropbox-api-result"]
 	local ok, result = pcall(json.decode, if header and header[1] then header[1] else "")
 	if not ok or type(result) ~= "table" then
 		response.body:close()
+		await(output:close())
 		invalid(name, response, "Dropbox returned no Dropbox-API-Result metadata")
-	end
-	local opened, output = pcall(function(): File return fs.open(path, "w") end)
-	if not opened then
-		response.body:close()
-		error(output, 0)
 	end
 	output:write(response.body)
 	await(output:close())
@@ -103,7 +104,9 @@ end
 
 local function upload(name: string, endpoint: Endpoint, input: any): any
 	local request, path = content(endpoint, input, {["Content-Type"] = {"application/octet-stream"}})
-	assert(await(fs.stat(path)).size <= MAX_UPLOAD_BYTES, "upload sends at most 150 MiB; larger files are not supported")
+	local file = await(fs.stat(path))
+	assert(file.isFile, "session_path must be a file")
+	assert(file.size <= MAX_UPLOAD_BYTES, "upload sends at most 150 MiB; larger files are not supported")
 	request.body = fs.open(path, "r")
 	return decode(name, await(http.request(request)))
 end
@@ -259,10 +262,10 @@ exports.help = function(): string
 	table.sort(names)
 	local lines = {
 		"Dropbox API v2. Each operation takes one options table with Dropbox's snake_case arguments, calls the route in brackets and returns Dropbox's JSON unchanged; routes without a result return {success=true}. Read-only connections omit changes.",
-		"Every argument and result is documented by route under User endpoints at https://docs.dropboxapi.com/dropbox-api/api-reference/overview. Union values are a tag string or a table, e.g. mode='overwrite' or mode={['.tag']='update', update='<rev>'}.",
+		"Every argument and result is documented by route under User endpoints at https://docs.dropboxapi.com/dropbox-api/api-reference/overview. Union values are a tag string or a table, e.g. mode='overwrite' or mode={['.tag']='update', update='<rev>'}. Pass json.decode('[]') for an empty list.",
 		"Paths start with '/', are case-insensitive and use '' for the root folder (not '/'). Most routes also accept 'id:...' from metadata, and 'ns:<namespace_id>/...' reaches a team space.",
 		"Lists return one page. While has_more is true, or a sharing list returns a cursor, pass cursor to the matching ...Continue operation; listSharedLinks takes its cursor back and listRevisions pages with before_rev.",
-		"Files move through session paths: downloads save to session_path and return {session_path, url, size, result}, where url is a signed Houston link and result is Dropbox's metadata; upload reads session_path. Never inline file bytes. A transfer must finish within the call's time limit and stops at Houston's 256 MiB file limit; upload also stops at Dropbox's 150 MiB single-request limit.",
+		"Files move through session paths: downloads save to session_path and return {session_path, url, size, result}, where url is a signed Houston link and result is Dropbox's metadata; upload reads session_path. Never inline file bytes. A failed download can leave an empty or partial session file. A transfer must finish within the call's time limit and stops at Houston's 256 MiB file limit; upload also stops at Dropbox's 150 MiB single-request limit.",
 		"No hidden paging, polling or retries. Batch, URL-saving and sharing jobs may return an async_job_id: poll the status operation their help names. Errors report the HTTP status and Dropbox's error_summary, e.g. 'Dropbox HTTP 409: path/not_found/..'. A failed or timed-out change may already have happened; check before repeating.",
 		"Connector calls return completed values; do not await them. Example: local page = dropbox.listFolder({path='/Reports', limit=100}); local file = dropbox.download({path=page.entries[1].path_lower, session_path='report.pdf'}); return file.url.",
 	}
