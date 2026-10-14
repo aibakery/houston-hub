@@ -94,7 +94,9 @@ return {
 		ok, err = pcall(c.download, {path = "/Docs", session_path = "docs"})
 		assert(not ok and string.find(tostring(err), "path/not_file", 1, true), tostring(err))
 		responses = {{headers = {["dropbox-api-result"] = {'{"name":"a"}'}}, body = "bytes"}}
-		assert(not pcall(c.download, {path = "/a", session_path = "../outside"}), "accepted a session path outside the session")
+		-- The session file system refuses the path after Dropbox answered; that error reaches the caller.
+		ok, err = pcall(c.download, {path = "/a", session_path = "../outside"})
+		assert(not ok and type(err) == "table" and err.code == "permission_denied", "accepted a session path outside the session")
 		before = #requests
 		assert(not pcall(c.download, {path = "/a"}), "download requires a session_path")
 		assert(#requests == before)
