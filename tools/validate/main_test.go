@@ -8,7 +8,7 @@ import (
 )
 
 func TestSupportedBundles(t *testing.T) {
-	for _, name := range []string{"fastmail", "notion", "gmail", "gcalendar", "gdrive", "mercury", "x", "linkedin"} {
+	for _, name := range []string{"fastmail", "notion", "gmail", "gcalendar", "gdrive", "mercury", "x", "linkedin", "calcom", "calendly"} {
 		t.Run(name, func(t *testing.T) {
 			count, err := validate("../../connectors/" + name)
 			if err != nil {

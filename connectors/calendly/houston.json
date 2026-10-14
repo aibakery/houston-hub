@@ -1,0 +1,249 @@
+{
+  "schema_version": 1,
+  "name": "Calendly",
+  "files": [
+    "connector.lua"
+  ],
+  "icon": "icon.svg",
+  "config": {
+    "access": {
+      "default": "read-only",
+      "label": "Access",
+      "options": [
+        {
+          "label": "Read-only",
+          "value": "read-only"
+        },
+        {
+          "label": "Read and write",
+          "value": "read-write"
+        }
+      ],
+      "type": "string"
+    },
+    "client_id": {
+      "label": "OAuth client ID",
+      "order": 1,
+      "type": "string"
+    },
+    "client_secret": {
+      "label": "OAuth client secret",
+      "order": 2,
+      "type": "secret"
+    }
+  },
+  "auth": {
+    "token": {
+      "type": "manual",
+      "label": "Personal access token",
+      "order": 1,
+      "config": {
+        "token": {
+          "label": "Personal access token",
+          "required": true,
+          "type": "secret"
+        }
+      }
+    },
+    "oauth": {
+      "type": "oauth2",
+      "label": "Connect with Calendly",
+      "order": 2,
+      "authorize_url": "https://auth.calendly.com/oauth/authorize",
+      "token_url": "https://auth.calendly.com/oauth/token",
+      "client_id": "{{config.client_id}}",
+      "client_secret": "{{config.client_secret}}",
+      "require_refresh": true,
+      "scopes": [
+        {
+          "values": [
+            "users:read",
+            "organizations:read",
+            "event_types:read",
+            "availability:read",
+            "scheduled_events:read",
+            "locations:read",
+            "routing_forms:read",
+            "groups:read",
+            "webhooks:read",
+            "contacts:read",
+            "meeting_recaps:read",
+            "activity_log:read",
+            "outgoing_communications:read"
+          ]
+        },
+        {
+          "if": "{{ is config.access \"read-write\" }}",
+          "values": [
+            "organizations:write",
+            "event_types:write",
+            "availability:write",
+            "scheduled_events:write",
+            "scheduling_links:write",
+            "shares:write",
+            "webhooks:write",
+            "contacts:write",
+            "meeting_recaps:write"
+          ]
+        }
+      ],
+      "account": {
+        "url": "https://api.calendly.com/users/me",
+        "headers": {
+          "Authorization": {
+            "value": "Bearer {{auth.oauth.access_token}}"
+          }
+        },
+        "label": "/resource/email"
+      }
+    }
+  },
+  "proxy": [
+    {
+      "match": {
+        "protocol": "http",
+        "host": [
+          "api.calendly.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/activity_log_entries",
+          "/contacts",
+          "/contacts/custom_field_definitions",
+          "/contacts/custom_field_definitions/{field}",
+          "/contacts/{contact}",
+          "/event_type_availability_schedules",
+          "/event_type_available_times",
+          "/event_type_memberships",
+          "/event_types",
+          "/event_types/{event_type}",
+          "/group_relationships",
+          "/group_relationships/{relationship}",
+          "/groups",
+          "/groups/{group}",
+          "/invitee_no_shows/{no_show}",
+          "/locations",
+          "/meeting_recaps",
+          "/meeting_recaps/{recap}",
+          "/meeting_recaps/{recap}/transcript",
+          "/organization_memberships",
+          "/organization_memberships/{membership}",
+          "/organizations/{organization}",
+          "/organizations/{organization}/invitations",
+          "/organizations/{organization}/invitations/{invitation}",
+          "/outgoing_communications",
+          "/routing_form_submissions",
+          "/routing_form_submissions/{submission}",
+          "/routing_forms",
+          "/routing_forms/{form}",
+          "/sample_webhook_data",
+          "/scheduled_events",
+          "/scheduled_events/{event}",
+          "/scheduled_events/{event}/invitees",
+          "/scheduled_events/{event}/invitees/{invitee}",
+          "/teams",
+          "/teams/{team}",
+          "/user_availability_schedules",
+          "/user_availability_schedules/{schedule}",
+          "/user_busy_times",
+          "/users/me",
+          "/users/{user}",
+          "/webhook_subscriptions",
+          "/webhook_subscriptions/{webhook}"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.token.token || auth.oauth.access_token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "api.calendly.com"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/contacts",
+          "/event_types",
+          "/invitee_no_shows",
+          "/invitees",
+          "/one_off_event_types",
+          "/organizations/{organization}/invitations",
+          "/scheduled_events/{event}/cancellation",
+          "/scheduling_links",
+          "/shares",
+          "/webhook_subscriptions"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.token.token || auth.oauth.access_token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "api.calendly.com"
+        ],
+        "method": [
+          "PATCH"
+        ],
+        "path": [
+          "/contacts/{contact}",
+          "/event_type_availability_schedules",
+          "/event_types/{event_type}",
+          "/meeting_recaps/{recap}"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.token.token || auth.oauth.access_token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "api.calendly.com"
+        ],
+        "method": [
+          "DELETE"
+        ],
+        "path": [
+          "/contacts/{contact}",
+          "/invitee_no_shows/{no_show}",
+          "/meeting_recaps/{recap}",
+          "/organization_memberships/{membership}",
+          "/organizations/{organization}/invitations/{invitation}",
+          "/webhook_subscriptions/{webhook}"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.token.token || auth.oauth.access_token}}"
+          }
+        }
+      }
+    }
+  ]
+}

@@ -27,6 +27,8 @@ func TestEveryProviderAuthenticationAndTransport(t *testing.T) {
 		"x":           {"GET", "https://api.x.com/2/tweets/123"},
 		"linkedin":    {"GET", "https://api.linkedin.com/v2/userinfo"},
 		"woocommerce": {"GET", "https://shop.example.com/wp-json/wc/v3/orders"},
+		"calcom":      {"GET", "https://api.cal.com/v2/me"},
+		"calendly":    {"GET", "https://api.calendly.com/users/me"},
 	}
 	for _, path := range paths {
 		provider := filepath.Base(filepath.Dir(path))

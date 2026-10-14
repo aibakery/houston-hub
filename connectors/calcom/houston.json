@@ -1,0 +1,279 @@
+{
+  "schema_version": 1,
+  "name": "Cal.com",
+  "files": [
+    "connector.lua"
+  ],
+  "icon": "icon.svg",
+  "config": {
+    "access": {
+      "default": "read-only",
+      "label": "Access",
+      "options": [
+        {
+          "label": "Read-only",
+          "value": "read-only"
+        },
+        {
+          "label": "Read and write",
+          "value": "read-write"
+        }
+      ],
+      "type": "string"
+    }
+  },
+  "auth": {
+    "api_key": {
+      "type": "manual",
+      "label": "API key",
+      "config": {
+        "token": {
+          "label": "API key",
+          "required": true,
+          "type": "secret"
+        }
+      }
+    }
+  },
+  "proxy": [
+    {
+      "match": {
+        "protocol": "http",
+        "host": [
+          "api.cal.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/v2/bookings",
+          "/v2/bookings/by-seat/{seatUid}",
+          "/v2/bookings/{bookingUid}",
+          "/v2/bookings/{bookingUid}/attendees",
+          "/v2/bookings/{bookingUid}/attendees/{attendeeId}",
+          "/v2/bookings/{bookingUid}/calendar-links",
+          "/v2/bookings/{bookingUid}/conferencing-sessions",
+          "/v2/bookings/{bookingUid}/recordings",
+          "/v2/bookings/{bookingUid}/references",
+          "/v2/bookings/{bookingUid}/routing-trace",
+          "/v2/bookings/{bookingUid}/transcripts",
+          "/v2/calendars",
+          "/v2/calendars/busy-times",
+          "/v2/conferencing",
+          "/v2/conferencing/default",
+          "/v2/event-types",
+          "/v2/event-types/{eventTypeId}",
+          "/v2/event-types/{eventTypeId}/booking-fields",
+          "/v2/event-types/{eventTypeId}/history",
+          "/v2/event-types/{eventTypeId}/private-links",
+          "/v2/event-types/{eventTypeId}/scheduling-config",
+          "/v2/me",
+          "/v2/me/ooo",
+          "/v2/schedules",
+          "/v2/schedules/default",
+          "/v2/schedules/{scheduleId}",
+          "/v2/slots",
+          "/v2/slots/reservations/{reservationUid}",
+          "/v2/teams",
+          "/v2/teams/{teamId}",
+          "/v2/teams/{teamId}/bookings",
+          "/v2/teams/{teamId}/event-types",
+          "/v2/teams/{teamId}/event-types/{eventTypeId}",
+          "/v2/teams/{teamId}/memberships",
+          "/v2/teams/{teamId}/schedules",
+          "/v2/timezones",
+          "/v2/verified-resources/emails",
+          "/v2/verified-resources/emails/{id}",
+          "/v2/verified-resources/phones",
+          "/v2/verified-resources/phones/{id}",
+          "/v2/workflows",
+          "/v2/workflows/{workflowId}",
+          "/v2/workflows/{workflowId}/condition-fields"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.api_key.token}}"
+          }
+        }
+      }
+    },
+    {
+      "match": {
+        "protocol": "http",
+        "host": [
+          "api.cal.com"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/v2/routing-forms/{routingFormId}/calculate-slots"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.api_key.token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "api.cal.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/v2/event-types/{eventTypeId}/webhooks",
+          "/v2/event-types/{eventTypeId}/webhooks/{webhookId}",
+          "/v2/webhooks",
+          "/v2/webhooks/{webhookId}"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.api_key.token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "api.cal.com"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/v2/bookings",
+          "/v2/bookings/{bookingUid}/attendees",
+          "/v2/bookings/{bookingUid}/cancel",
+          "/v2/bookings/{bookingUid}/confirm",
+          "/v2/bookings/{bookingUid}/decline",
+          "/v2/bookings/{bookingUid}/guests",
+          "/v2/bookings/{bookingUid}/mark-absent",
+          "/v2/bookings/{bookingUid}/reassign",
+          "/v2/bookings/{bookingUid}/reassign/{userId}",
+          "/v2/bookings/{bookingUid}/request-reschedule",
+          "/v2/bookings/{bookingUid}/reschedule",
+          "/v2/conferencing/{app}/default",
+          "/v2/event-types",
+          "/v2/event-types/{eventTypeId}/booking-fields",
+          "/v2/event-types/{eventTypeId}/private-links",
+          "/v2/event-types/{eventTypeId}/webhooks",
+          "/v2/me/ooo",
+          "/v2/schedules",
+          "/v2/slots/reservations",
+          "/v2/verified-resources/emails/verification-code/request",
+          "/v2/verified-resources/emails/verification-code/verify",
+          "/v2/verified-resources/phones/verification-code/request",
+          "/v2/verified-resources/phones/verification-code/verify",
+          "/v2/webhooks",
+          "/v2/workflows"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.api_key.token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "api.cal.com"
+        ],
+        "method": [
+          "PATCH"
+        ],
+        "path": [
+          "/v2/bookings/{bookingUid}/location",
+          "/v2/event-types/{eventTypeId}",
+          "/v2/event-types/{eventTypeId}/booking-fields",
+          "/v2/event-types/{eventTypeId}/private-links/{linkId}",
+          "/v2/event-types/{eventTypeId}/webhooks/{webhookId}",
+          "/v2/me",
+          "/v2/me/ooo/{oooId}",
+          "/v2/schedules/{scheduleId}",
+          "/v2/slots/reservations/{reservationUid}",
+          "/v2/webhooks/{webhookId}",
+          "/v2/workflows/{workflowId}"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.api_key.token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "api.cal.com"
+        ],
+        "method": [
+          "PUT"
+        ],
+        "path": [
+          "/v2/event-types/{eventTypeId}/booking-fields"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.api_key.token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "api.cal.com"
+        ],
+        "method": [
+          "DELETE"
+        ],
+        "path": [
+          "/v2/event-types/{eventTypeId}",
+          "/v2/event-types/{eventTypeId}/booking-fields/{slug}",
+          "/v2/event-types/{eventTypeId}/private-links/{linkId}",
+          "/v2/event-types/{eventTypeId}/webhooks/{webhookId}",
+          "/v2/me/ooo/{oooId}",
+          "/v2/schedules/{scheduleId}",
+          "/v2/slots/reservations/{reservationUid}",
+          "/v2/webhooks/{webhookId}",
+          "/v2/workflows/{workflowId}"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.api_key.token}}"
+          }
+        }
+      }
+    }
+  ]
+}
