@@ -62,9 +62,12 @@ func TestEveryProviderAuthenticationAndTransport(t *testing.T) {
 				}
 				if m.Proxy[0].Match.Protocol != "http" {
 					config["host"] = "database.example.com"
-					config["database"] = "sample"
-					if provider == "redis" {
+					switch provider {
+					case "imap": // A mail server has no database.
+					case "redis":
 						config["database"] = 2
+					default:
+						config["database"] = "sample"
 					}
 					config["username"] = "reader"
 					config["password"] = "synthetic-root-secret"

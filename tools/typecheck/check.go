@@ -52,6 +52,8 @@ type DbResult = {columns:{string},rows:{{[string]:any}},truncated:boolean,affect
 type DbCommand = {args:{string | number},readOnly:boolean?}
 -- SQL protocols provide query; Redis provides command.
 local db: {query: (DbQuery) -> Operation<DbResult>, command: (DbCommand) -> Operation<any>} = nil :: any
+-- IMAP requests name a command; other fields are scalars or arrays of scalars.
+local imap: {command: ({[string]: any}) -> Operation<any>} = nil :: any
 local fs: {
     open:(string,"r" | "w")->File,
     stat:(string)->Operation<FileStat>,

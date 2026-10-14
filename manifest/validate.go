@@ -674,18 +674,18 @@ func checkPresence(data []byte) error {
 			if match["protocol"] != "http" {
 				for _, key := range []string{"host", "method", "path", "opaque_path_parameters", "header"} {
 					if _, exists := match[key]; exists {
-						return fmt.Errorf("database forbids HTTP filters")
+						return fmt.Errorf("native protocol forbids HTTP filters")
 					}
 				}
 				for _, key := range []string{"headers", "rewrite", "basic_auth"} {
 					if _, exists := action[key]; exists {
-						return fmt.Errorf("database forbids HTTP actions")
+						return fmt.Errorf("native protocol forbids HTTP actions")
 					}
 				}
 			}
 			if c, ok := action["connection"].(map[string]any); ok {
 				if _, exists := c["password"]; !exists {
-					return fmt.Errorf("database password required")
+					return fmt.Errorf("connection password required")
 				}
 			}
 		}

@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "name": "IMAP",
+  "files": [
+    "connector.lua"
+  ],
+  "icon": "icon.svg",
+  "config": {
+    "access": {
+      "default": "read-only",
+      "label": "Access",
+      "options": [
+        {
+          "label": "Read-only",
+          "value": "read-only"
+        },
+        {
+          "label": "Read and write",
+          "value": "read-write"
+        }
+      ],
+      "order": 1,
+      "type": "string"
+    },
+    "host": {
+      "label": "IMAP server",
+      "order": 2,
+      "required": true,
+      "type": "string"
+    },
+    "port": {
+      "default": 993,
+      "label": "Port",
+      "maximum": 65535,
+      "minimum": 1,
+      "order": 3,
+      "type": "integer"
+    },
+    "username": {
+      "label": "Username",
+      "order": 4,
+      "required": true,
+      "type": "string"
+    },
+    "password": {
+      "label": "Password or app password",
+      "order": 5,
+      "required": true,
+      "type": "secret"
+    }
+  },
+  "proxy": [
+    {
+      "match": {
+        "protocol": "imap"
+      },
+      "action": {
+        "connection": {
+          "host": "{{config.host}}",
+          "port": "{{config.port}}",
+          "user": "{{config.username}}",
+          "password": "{{config.password}}",
+          "tls": {
+            "mode": "verify-full"
+          }
+        }
+      }
+    }
+  ]
+}
