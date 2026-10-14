@@ -1,12 +1,23 @@
 ---
-description: Browse your Dropbox folders and bring the files you need into your work.
+description: Find, read and organize your Dropbox files, shared links and file requests.
 ---
+
 # Dropbox
 
-Give agents access to useful files in your Dropbox.
+Give your agents access to the files you keep in Dropbox, so they can find the
+documents they need and keep your folders tidy.
 
-- Browse files and folders to find the material you need.
-- Check file details, including names and sizes.
-- Download files to read and work with alongside other documents.
+- Browse and search folders, check file details and earlier versions, and follow
+  recent changes.
+- Download files, whole folders as zip archives, previews and thumbnails, and
+  export Paper docs.
+- Review shared links, shared folders and their members, files others shared with
+  you, and your file requests.
+- With **Read and write** access: upload files, create folders, rename, move,
+  copy, delete and restore files, save files from the web, create and revoke
+  shared links, share folders and files, and manage file requests.
 
-This connector provides read-only access. It cannot edit or delete your files.
+Read-only access cannot change, share or delete your files. Deleted files stay
+recoverable in Dropbox for your plan's retention period.
+
+[Connect your Dropbox account](SETUP.md).

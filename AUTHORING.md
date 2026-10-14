@@ -469,7 +469,7 @@ go run ./tools/validate connectors/fastmail
 ```
 
 Replace `connectors/fastmail` with the bundle you are authoring. The no-argument
-validator selects the bundles migrated to the current runtime: Cal.com, Calendly, Fastmail, the Google connectors,
+validator selects the bundles migrated to the current runtime: Cal.com, Calendly, Dropbox, Fastmail, the Google connectors,
 IMAP, LinkedIn, Mercury, Notion, WooCommerce, X
 and the database connectors. Other providers will join as they are migrated. An explicit catalog directory validates all its
 bundles.
@@ -993,3 +993,47 @@ Calendly's icon is the current square mark served at
 [calendly.com/media/favicon/icon.svg](https://calendly.com/media/favicon/icon.svg),
 retrieved 2026-10-14, unchanged; its gradient uses a local fragment reference.
 Calendly owns the mark.
+
+### Publishing Dropbox
+
+Register repository `https://github.com/aibakery/houston-hub`, revision `main`,
+manifest path `connectors/dropbox/houston.json`. The bundle uses the existing
+manifest v1 and async HTTP/file runtime. OAuth client settings belong to each
+connection: the [account setup guide](connectors/dropbox/SETUP.md) covers creating a
+scoped Dropbox app, its permissions and the callback URL. No publisher settings are
+needed.
+
+The connector covers 69 user routes of the [Dropbox API v2
+specification](https://github.com/dropbox/dropbox-api-spec), checked on 2026-10-14:
+account and space usage; file metadata, listing, change cursors, search, revisions,
+temporary links, downloads, zip downloads, exports, previews and thumbnails;
+uploads, folders, moves, copies, deletes, restores, URL saves and the batch move,
+copy and delete jobs; shared links; shared folder and file membership; and file
+requests. It also keeps the cross-provider `statFile` lookup. Omitted on purpose:
+routes the specification marks as preview or deprecated, except `files/export`, the
+only way to read Paper docs; upload sessions, so uploads stop at Dropbox's 150 MiB
+single-request limit, since larger files would need chunked uploads within one
+call's native-call, memory and time budgets; long polling on
+`notify.dropboxapi.com`; file locks, tags, properties and templates; contacts,
+profile photos and team administration, which needs a team app; permanent deletion,
+which needs a team scope, and routes behind private scopes. Not yet covered: folder
+creation and thumbnail batches, copy references, temporary upload links, account
+batches and feature values, shared folder and file policies, folder ownership
+transfer, file member updates and batch lookups, and file request counts and bulk
+deletion.
+
+Every Dropbox route is a POST, so the proxy cannot tell reads from writes. As in
+Google Drive, one rule injects the token into `/2/*` on `api.dropboxapi.com` and
+`content.dropboxapi.com`, keeping it off the OAuth token endpoint. Read-only
+connections request only read scopes, so Dropbox refuses their writes; callers
+narrowed to read-only on a read-write connection get only the read exports. Read
+scopes are always requested and read-write connections add the write scopes, so that
+narrowing keeps a granted scope set. Dropbox lists granted scopes in its token
+response, and Houston refuses an authorization that lacks a requested one. Download
+and upload routes send their argument in the `Dropbox-API-Arg` header, which Dropbox
+requires to be ASCII: the connector escapes other characters as JSON `\u` escapes.
+
+Dropbox's icon is the official glyph (`dropbox_logo_glyph_m1.svg`) served from
+Dropbox's static asset host, retrieved 2026-10-14. Its paths and blue fill are
+unchanged; the style element is replaced by equivalent fill attributes and the view
+box is padded to a centered square. Dropbox owns the mark.
