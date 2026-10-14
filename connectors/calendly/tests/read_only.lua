@@ -59,8 +59,11 @@ return {
 		assert(last().url == API .. "/event_types?user=https%3A%2F%2Fapi.calendly.com%2Fusers%2FU1&active=true")
 		calendly.listContactCustomFields()
 		assert(last().url == API .. "/contacts/custom_field_definitions")
+		calendly.getUserAvailabilitySchedule({schedule = "https://api.calendly.com/user_availability_schedule/S1"})
+		assert(last().url == API .. "/user_availability_schedules/S1", "singular schedule URIs are accepted")
 		payload = ""
-		assert(calendly.getGroup({group = "G1"}).success == true, "an empty 200 response is a success")
+		local ok, err = pcall(function() calendly.getGroup({group = "G1"}) end)
+		assert(not ok and string.find(tostring(err), "invalid JSON object", 1, true), "an empty GET response is not a resource")
 
 		rejected(function() calendly.getScheduledEvent() end, "event must be a UUID or Calendly URI")
 		rejected(function() calendly.getScheduledEvent({event = "../users/me"}) end, "UUID or Calendly URI")
@@ -77,6 +80,6 @@ return {
 		rejected(function() calendly.listScheduledEvents({status = {{"active"}}}) end, "must be a string, boolean, number")
 		rejected(function() calendly.listScheduledEvents("active") end, "opts must be an object")
 		rejected(function() calendly.listScheduledEvents({"active"}) end, "named fields")
-		assert(#requests == 9)
+		assert(#requests == 10)
 	end,
 }

@@ -5,10 +5,9 @@ type Endpoint = {
 	write: boolean?, body: (boolean | string)?, doc: string, about: string,
 }
 
-local API = "https://api.cal.com/v2"
+local PROVIDER = "Cal.com"
+local API = "https://api.cal.com"
 local DOCS = "https://cal.com/docs/api-reference/v2/"
-local NULL = json.decode("null")
-local NONE: {string} = table.freeze({})
 
 -- Cal.com versions each controller with a cal-api-version header; without the expected
 -- value an endpoint silently falls back to its legacy behavior, or does not exist.
@@ -32,186 +31,189 @@ local BOOKING_FILTERS = {"status", "attendeeEmail", "attendeeName", "bookingUid"
 local SLOT_OPTIONS = {"start", "end", "timeZone", "duration", "format", "bookingUidToReschedule"}
 
 -- Operations in Cal.com's public OpenAPI that a user API key can call, checked on
--- 2026-10-14. Path {fields} and listed query fields are taken from the options; POST,
--- PATCH and PUT send every other field as the JSON body unless body is false (no body)
--- or names the one option to send. GET and DELETE accept no other fields. write
--- overrides the default that only GET reads: webhook reads return signing secrets.
+-- 2026-10-14. Path {fields} and listed query fields are taken from the options; the
+-- other fields form the JSON body (see hasBody). Webhook reads are writes because they
+-- return signing secrets; the routing-form slot calculation only reads.
 local endpoints: {[string]: Endpoint} = {
-	getMe = {method = "GET", path = "/me", doc = "me/get-my-profile", about = "The connected user: id, username, email, timeZone, defaultScheduleId, ..."},
-	updateMe = {method = "PATCH", path = "/me", doc = "me/update-my-profile",
+	getMe = {method = "GET", path = "/v2/me", doc = "me/get-my-profile", about = "The connected user: id, username, email, timeZone, defaultScheduleId, ..."},
+	updateMe = {method = "PATCH", path = "/v2/me", doc = "me/update-my-profile",
 		about = "Body {name?, email?, timeZone?, timeFormat? (12 or 24), weekStart?, defaultScheduleId?, locale?, bio?, avatarUrl?, metadata?}."},
-	listOutOfOffice = {method = "GET", path = "/me/ooo", doc = "out-of-office/get-all-out-of-office-entries-for-the-authenticated-user",
+	listOutOfOffice = {method = "GET", path = "/v2/me/ooo", doc = "out-of-office/get-all-out-of-office-entries-for-the-authenticated-user",
 		query = list(PAGE, {"sortStart", "sortEnd"}), about = "Out-of-office entries."},
-	createOutOfOffice = {method = "POST", path = "/me/ooo", doc = "out-of-office/create-an-out-of-office-entry-for-the-authenticated-user",
+	createOutOfOffice = {method = "POST", path = "/v2/me/ooo", doc = "out-of-office/create-an-out-of-office-entry-for-the-authenticated-user",
 		about = "Body {start, end, reason? (unspecified, vacation, travel, sick or public_holiday), notes?, toUserId? (redirect bookings)}."},
-	updateOutOfOffice = {method = "PATCH", path = "/me/ooo/{oooId}", doc = "out-of-office/update-an-out-of-office-entry-for-the-authenticated-user",
+	updateOutOfOffice = {method = "PATCH", path = "/v2/me/ooo/{oooId}", doc = "out-of-office/update-an-out-of-office-entry-for-the-authenticated-user",
 		about = "Body: the createOutOfOffice fields to change."},
-	deleteOutOfOffice = {method = "DELETE", path = "/me/ooo/{oooId}", doc = "out-of-office/delete-an-out-of-office-entry-for-the-authenticated-user", about = "Deletes an entry."},
+	deleteOutOfOffice = {method = "DELETE", path = "/v2/me/ooo/{oooId}", doc = "out-of-office/delete-an-out-of-office-entry-for-the-authenticated-user", about = "Deletes an entry."},
 
-	listBookings = {method = "GET", path = "/bookings", version = BOOKING_LIST, doc = "bookings/get-all-bookings",
+	listBookings = {method = "GET", path = "/v2/bookings", version = BOOKING_LIST, doc = "bookings/get-all-bookings",
 		query = list(BOOKING_FILTERS, {"teamsIds", "teamId", "cursor", "limit"}),
 		about = "Bookings you host or attend. status: upcoming, recurring, past, cancelled or unconfirmed (one per call). limit is 1..100 (default 50); continue with cursor=pagination.nextCursor while pagination.hasMore."},
-	getBooking = {method = "GET", path = "/bookings/{bookingUid}", version = BOOKINGS, doc = "bookings/get-a-booking", about = "A booking with its attendees, location and status."},
-	getBookingBySeat = {method = "GET", path = "/bookings/by-seat/{seatUid}", version = BOOKINGS, doc = "bookings/get-a-booking-by-seat-uid", about = "The booking holding a seat."},
-	createBooking = {method = "POST", path = "/bookings", version = BOOKINGS, doc = "bookings/create-a-booking",
+	getBooking = {method = "GET", path = "/v2/bookings/{bookingUid}", version = BOOKINGS, doc = "bookings/get-a-booking", about = "A booking with its attendees, location and status."},
+	getBookingBySeat = {method = "GET", path = "/v2/bookings/by-seat/{seatUid}", version = BOOKINGS, doc = "bookings/get-a-booking-by-seat-uid", about = "The booking holding a seat."},
+	createBooking = {method = "POST", path = "/v2/bookings", version = BOOKINGS, doc = "bookings/create-a-booking",
 		about = "Body {start, attendee={name, email, timeZone, phoneNumber?, language?}, eventTypeId (or eventTypeSlug with username or teamSlug), guests?, location?, lengthInMinutes?, bookingFieldsResponses?, metadata?}. Take start from getSlots. Add recurrenceCount for recurring event types. Cal.com emails the attendees and hosts."},
-	cancelBooking = {method = "POST", path = "/bookings/{bookingUid}/cancel", version = BOOKINGS, doc = "bookings/cancel-a-booking",
+	cancelBooking = {method = "POST", path = "/v2/bookings/{bookingUid}/cancel", version = BOOKINGS, doc = "bookings/cancel-a-booking",
 		about = "Body {cancellationReason?, cancelSubsequentBookings?}, or {seatUid, cancellationReason?} for one seat. Notifies attendees."},
-	rescheduleBooking = {method = "POST", path = "/bookings/{bookingUid}/reschedule", version = BOOKINGS, doc = "bookings/reschedule-a-booking",
+	rescheduleBooking = {method = "POST", path = "/v2/bookings/{bookingUid}/reschedule", version = BOOKINGS, doc = "bookings/reschedule-a-booking",
 		about = "Body {start, reschedulingReason?, rescheduledBy?, lengthInMinutes?}, plus seatUid for a seat. Creates a new booking uid and notifies attendees."},
-	requestBookingReschedule = {method = "POST", path = "/bookings/{bookingUid}/request-reschedule", version = BOOKINGS, doc = "bookings/request-to-reschedule-a-booking",
+	requestBookingReschedule = {method = "POST", path = "/v2/bookings/{bookingUid}/request-reschedule", version = BOOKINGS, doc = "bookings/request-to-reschedule-a-booking",
 		about = "Body {rescheduleReason?}. Cancels the booking and asks the attendee to pick a new time."},
-	confirmBooking = {method = "POST", path = "/bookings/{bookingUid}/confirm", version = BOOKINGS, body = false, doc = "bookings/confirm-a-booking", about = "Accepts a booking that requires confirmation."},
-	declineBooking = {method = "POST", path = "/bookings/{bookingUid}/decline", version = BOOKINGS, doc = "bookings/decline-a-booking",
+	confirmBooking = {method = "POST", path = "/v2/bookings/{bookingUid}/confirm", version = BOOKINGS, body = false, doc = "bookings/confirm-a-booking", about = "Accepts a booking that requires confirmation."},
+	declineBooking = {method = "POST", path = "/v2/bookings/{bookingUid}/decline", version = BOOKINGS, doc = "bookings/decline-a-booking",
 		about = "Body {reason?}. Rejects a booking that requires confirmation."},
-	markBookingAbsence = {method = "POST", path = "/bookings/{bookingUid}/mark-absent", version = BOOKINGS, doc = "bookings/mark-a-booking-absence",
+	markBookingAbsence = {method = "POST", path = "/v2/bookings/{bookingUid}/mark-absent", version = BOOKINGS, doc = "bookings/mark-a-booking-absence",
 		about = "Body {host?, attendees?={{email, absent}}}. Records no-shows after the meeting."},
-	reassignBooking = {method = "POST", path = "/bookings/{bookingUid}/reassign", version = BOOKINGS, body = false, doc = "bookings/reassign-a-booking-to-auto-selected-host",
+	reassignBooking = {method = "POST", path = "/v2/bookings/{bookingUid}/reassign", version = BOOKINGS, body = false, doc = "bookings/reassign-a-booking-to-auto-selected-host",
 		about = "Moves a round-robin booking to another available host."},
-	reassignBookingToUser = {method = "POST", path = "/bookings/{bookingUid}/reassign/{userId}", version = BOOKINGS, doc = "bookings/reassign-a-booking-to-a-specific-host",
+	reassignBookingToUser = {method = "POST", path = "/v2/bookings/{bookingUid}/reassign/{userId}", version = BOOKINGS, doc = "bookings/reassign-a-booking-to-a-specific-host",
 		about = "Body {reason?}. Moves a round-robin booking to the given host."},
-	getBookingReferences = {method = "GET", path = "/bookings/{bookingUid}/references", version = BOOKINGS, doc = "bookings/get-booking-references",
+	getBookingReferences = {method = "GET", path = "/v2/bookings/{bookingUid}/references", version = BOOKINGS, doc = "bookings/get-booking-references",
 		query = {"type"}, about = "Calendar events and video meetings created for a booking."},
-	getBookingRecordings = {method = "GET", path = "/bookings/{bookingUid}/recordings", version = BOOKINGS, doc = "bookings/get-all-the-recordings-for-the-booking", about = "Cal Video recordings."},
-	getBookingTranscripts = {method = "GET", path = "/bookings/{bookingUid}/transcripts", version = BOOKINGS,
+	getBookingRecordings = {method = "GET", path = "/v2/bookings/{bookingUid}/recordings", version = BOOKINGS, doc = "bookings/get-all-the-recordings-for-the-booking", about = "Cal Video recordings."},
+	getBookingTranscripts = {method = "GET", path = "/v2/bookings/{bookingUid}/transcripts", version = BOOKINGS,
 		doc = "bookings/get-cal-video-real-time-transcript-download-links-for-the-booking", about = "Cal Video transcript download links."},
-	getBookingConferencingSessions = {method = "GET", path = "/bookings/{bookingUid}/conferencing-sessions", version = BOOKINGS,
+	getBookingConferencingSessions = {method = "GET", path = "/v2/bookings/{bookingUid}/conferencing-sessions", version = BOOKINGS,
 		doc = "bookings/get-video-meeting-sessions-only-supported-for-cal-video", about = "Cal Video sessions with participants and join times."},
-	getBookingCalendarLinks = {method = "GET", path = "/bookings/{bookingUid}/calendar-links", version = BOOKINGS,
+	getBookingCalendarLinks = {method = "GET", path = "/v2/bookings/{bookingUid}/calendar-links", version = BOOKINGS,
 		doc = "bookings/get-add-to-calendar-links-for-a-booking", about = "Add-to-calendar links for Google, Outlook, Yahoo and ICS."},
-	updateBookingLocation = {method = "PATCH", path = "/bookings/{bookingUid}/location", version = BOOKING_DETAILS,
+	updateBookingLocation = {method = "PATCH", path = "/v2/bookings/{bookingUid}/location", version = BOOKING_DETAILS,
 		doc = "bookings/update-booking-location-for-an-existing-booking", about = "Body {location={type, ...}}. Changes where the meeting takes place."},
-	listBookingAttendees = {method = "GET", path = "/bookings/{bookingUid}/attendees", version = BOOKING_DETAILS,
+	listBookingAttendees = {method = "GET", path = "/v2/bookings/{bookingUid}/attendees", version = BOOKING_DETAILS,
 		doc = "bookings-attendees/get-all-attendees-for-a-booking", about = "Attendees of a booking."},
-	getBookingAttendee = {method = "GET", path = "/bookings/{bookingUid}/attendees/{attendeeId}", version = BOOKING_DETAILS,
+	getBookingAttendee = {method = "GET", path = "/v2/bookings/{bookingUid}/attendees/{attendeeId}", version = BOOKING_DETAILS,
 		doc = "bookings-attendees/get-a-specific-attendee-for-a-booking", about = "An attendee."},
-	addBookingAttendee = {method = "POST", path = "/bookings/{bookingUid}/attendees", version = BOOKING_DETAILS,
+	addBookingAttendee = {method = "POST", path = "/v2/bookings/{bookingUid}/attendees", version = BOOKING_DETAILS,
 		doc = "bookings-attendees/add-an-attendee-to-a-booking", about = "Body {name, email, timeZone, phoneNumber?, language?}. Notifies the new attendee."},
-	addBookingGuests = {method = "POST", path = "/bookings/{bookingUid}/guests", version = BOOKING_DETAILS,
+	addBookingGuests = {method = "POST", path = "/v2/bookings/{bookingUid}/guests", version = BOOKING_DETAILS,
 		doc = "bookings-guests/add-guests-to-an-existing-booking", about = "Body {guests={{email, name?, timeZone?}}}: at most 10 per call and 30 per booking. Notifies the guests."},
-	getBookingRoutingTrace = {method = "GET", path = "/bookings/{bookingUid}/routing-trace", version = BOOKING_DETAILS,
+	getBookingRoutingTrace = {method = "GET", path = "/v2/bookings/{bookingUid}/routing-trace", version = BOOKING_DETAILS,
 		doc = "bookings-routing-trace/get-the-routing-trace-for-a-booking", about = "How a routing form chose the booking's host."},
 
-	listEventTypes = {method = "GET", path = "/event-types", version = EVENT_TYPES, doc = "event-types/list-event-types",
+	listEventTypes = {method = "GET", path = "/v2/event-types", version = EVENT_TYPES, doc = "event-types/list-event-types",
 		query = {"username", "eventSlug", "usernames", "orgSlug", "orgId", "sortCreatedAt"},
 		about = "Your event types without filters, or another user's public ones by username (and eventSlug)."},
-	getEventType = {method = "GET", path = "/event-types/{eventTypeId}", version = EVENT_TYPES, doc = "event-types/get-an-event-type", about = "An event type."},
-	createEventType = {method = "POST", path = "/event-types", version = EVENT_TYPES, doc = "event-types/create-an-event-type",
+	getEventType = {method = "GET", path = "/v2/event-types/{eventTypeId}", version = EVENT_TYPES, doc = "event-types/get-an-event-type", about = "An event type."},
+	createEventType = {method = "POST", path = "/v2/event-types", version = EVENT_TYPES, doc = "event-types/create-an-event-type",
 		about = "Body {title, slug, lengthInMinutes, description?, locations?, bookingFields?, scheduleId?, hidden?, ...}."},
-	updateEventType = {method = "PATCH", path = "/event-types/{eventTypeId}", version = EVENT_TYPES, doc = "event-types/update-an-event-type",
+	updateEventType = {method = "PATCH", path = "/v2/event-types/{eventTypeId}", version = EVENT_TYPES, doc = "event-types/update-an-event-type",
 		about = "Body: the createEventType fields to change."},
-	deleteEventType = {method = "DELETE", path = "/event-types/{eventTypeId}", version = EVENT_TYPES, doc = "event-types/delete-an-event-type", about = "Deletes an event type."},
-	getEventTypeSchedulingConfig = {method = "GET", path = "/event-types/{eventTypeId}/scheduling-config", version = EVENT_TYPES,
+	deleteEventType = {method = "DELETE", path = "/v2/event-types/{eventTypeId}", version = EVENT_TYPES, doc = "event-types/delete-an-event-type", about = "Deletes an event type."},
+	getEventTypeSchedulingConfig = {method = "GET", path = "/v2/event-types/{eventTypeId}/scheduling-config", version = EVENT_TYPES,
 		doc = "event-types/get-scheduling-configuration", about = "Availability, limits and buffers that decide an event type's slots."},
-	getEventTypeHistory = {method = "GET", path = "/event-types/{eventTypeId}/history", version = EVENT_TYPES, doc = "event-types/get-event-type-history",
+	getEventTypeHistory = {method = "GET", path = "/v2/event-types/{eventTypeId}/history", version = EVENT_TYPES, doc = "event-types/get-event-type-history",
 		query = {"cursor", "limit"}, about = "Changes made to an event type; limit is 1..50."},
-	getBookingFields = {method = "GET", path = "/event-types/{eventTypeId}/booking-fields", version = EVENT_TYPES, doc = "event-types/get-booking-fields",
+	getBookingFields = {method = "GET", path = "/v2/event-types/{eventTypeId}/booking-fields", version = EVENT_TYPES, doc = "event-types/get-booking-fields",
 		about = "Questions the booking form asks."},
-	addBookingFields = {method = "POST", path = "/event-types/{eventTypeId}/booking-fields", version = EVENT_TYPES, doc = "event-types/add-custom-booking-fields",
+	addBookingFields = {method = "POST", path = "/v2/event-types/{eventTypeId}/booking-fields", version = EVENT_TYPES, doc = "event-types/add-custom-booking-fields",
 		about = "Body {bookingFields={{type, slug, label, required, ...}}}. Adds custom questions."},
-	updateBookingFields = {method = "PATCH", path = "/event-types/{eventTypeId}/booking-fields", version = EVENT_TYPES, doc = "event-types/update-booking-fields",
+	updateBookingFields = {method = "PATCH", path = "/v2/event-types/{eventTypeId}/booking-fields", version = EVENT_TYPES, doc = "event-types/update-booking-fields",
 		about = "Body {bookingFields}. Changes the questions with matching slugs."},
-	replaceBookingFields = {method = "PUT", path = "/event-types/{eventTypeId}/booking-fields", version = EVENT_TYPES, doc = "event-types/replace-booking-fields",
+	replaceBookingFields = {method = "PUT", path = "/v2/event-types/{eventTypeId}/booking-fields", version = EVENT_TYPES, doc = "event-types/replace-booking-fields",
 		about = "Body {bookingFields}. Replaces every question."},
-	deleteBookingField = {method = "DELETE", path = "/event-types/{eventTypeId}/booking-fields/{slug}", version = EVENT_TYPES,
+	deleteBookingField = {method = "DELETE", path = "/v2/event-types/{eventTypeId}/booking-fields/{slug}", version = EVENT_TYPES,
 		doc = "event-types/delete-a-custom-booking-field", about = "Deletes a custom question."},
-	listEventTypeWebhooks = {method = "GET", path = "/event-types/{eventTypeId}/webhooks", write = true, doc = "event-types-webhooks/get-all-webhooks",
+	listEventTypeWebhooks = {method = "GET", path = "/v2/event-types/{eventTypeId}/webhooks", write = true, doc = "event-types-webhooks/get-all-webhooks",
 		query = PAGE, about = "Webhooks of an event type."},
-	getEventTypeWebhook = {method = "GET", path = "/event-types/{eventTypeId}/webhooks/{webhookId}", write = true, doc = "event-types-webhooks/get-a-webhook", about = "A webhook."},
-	createEventTypeWebhook = {method = "POST", path = "/event-types/{eventTypeId}/webhooks", doc = "event-types-webhooks/create-a-webhook",
+	getEventTypeWebhook = {method = "GET", path = "/v2/event-types/{eventTypeId}/webhooks/{webhookId}", write = true, doc = "event-types-webhooks/get-a-webhook", about = "A webhook."},
+	createEventTypeWebhook = {method = "POST", path = "/v2/event-types/{eventTypeId}/webhooks", doc = "event-types-webhooks/create-a-webhook",
 		about = "Body as createWebhook, for one event type's bookings."},
-	updateEventTypeWebhook = {method = "PATCH", path = "/event-types/{eventTypeId}/webhooks/{webhookId}", doc = "event-types-webhooks/update-a-webhook",
+	updateEventTypeWebhook = {method = "PATCH", path = "/v2/event-types/{eventTypeId}/webhooks/{webhookId}", doc = "event-types-webhooks/update-a-webhook",
 		about = "Body: the createWebhook fields to change."},
-	deleteEventTypeWebhook = {method = "DELETE", path = "/event-types/{eventTypeId}/webhooks/{webhookId}", doc = "event-types-webhooks/delete-a-webhook", about = "Deletes a webhook."},
-	listPrivateLinks = {method = "GET", path = "/event-types/{eventTypeId}/private-links", version = PRIVATE_LINKS,
+	deleteEventTypeWebhook = {method = "DELETE", path = "/v2/event-types/{eventTypeId}/webhooks/{webhookId}", doc = "event-types-webhooks/delete-a-webhook", about = "Deletes a webhook."},
+	listPrivateLinks = {method = "GET", path = "/v2/event-types/{eventTypeId}/private-links", version = PRIVATE_LINKS,
 		doc = "event-types-private-links/get-all-private-links-for-an-event-type", about = "Private booking links of an event type."},
-	createPrivateLink = {method = "POST", path = "/event-types/{eventTypeId}/private-links", version = PRIVATE_LINKS,
+	createPrivateLink = {method = "POST", path = "/v2/event-types/{eventTypeId}/private-links", version = PRIVATE_LINKS,
 		doc = "event-types-private-links/create-a-private-link-for-an-event-type", about = "Body {expiresAt?, maxUsageCount?}. Returns a booking URL for a hidden event type."},
-	updatePrivateLink = {method = "PATCH", path = "/event-types/{eventTypeId}/private-links/{linkId}", version = PRIVATE_LINKS,
+	updatePrivateLink = {method = "PATCH", path = "/v2/event-types/{eventTypeId}/private-links/{linkId}", version = PRIVATE_LINKS,
 		doc = "event-types-private-links/update-a-private-link-for-an-event-type", about = "Body {expiresAt?, maxUsageCount?}."},
-	deletePrivateLink = {method = "DELETE", path = "/event-types/{eventTypeId}/private-links/{linkId}", version = PRIVATE_LINKS,
+	deletePrivateLink = {method = "DELETE", path = "/v2/event-types/{eventTypeId}/private-links/{linkId}", version = PRIVATE_LINKS,
 		doc = "event-types-private-links/delete-a-private-link-for-an-event-type", about = "Disables a private link."},
 
-	listWebhooks = {method = "GET", path = "/webhooks", write = true, doc = "webhooks/get-all-webhooks", query = PAGE, about = "Your webhooks for all your bookings."},
-	getWebhook = {method = "GET", path = "/webhooks/{webhookId}", write = true, doc = "webhooks/get-a-webhook", about = "A webhook."},
-	createWebhook = {method = "POST", path = "/webhooks", doc = "webhooks/create-a-webhook",
+	listWebhooks = {method = "GET", path = "/v2/webhooks", write = true, doc = "webhooks/get-all-webhooks", query = PAGE, about = "Your webhooks for all your bookings."},
+	getWebhook = {method = "GET", path = "/v2/webhooks/{webhookId}", write = true, doc = "webhooks/get-a-webhook", about = "A webhook."},
+	createWebhook = {method = "POST", path = "/v2/webhooks", doc = "webhooks/create-a-webhook",
 		about = "Body {subscriberUrl, triggers={'BOOKING_CREATED', ...}, active, secret?, payloadTemplate?}. Cal.com then posts those events to subscriberUrl, a receiver you control."},
-	updateWebhook = {method = "PATCH", path = "/webhooks/{webhookId}", doc = "webhooks/update-a-webhook", about = "Body: the createWebhook fields to change."},
-	deleteWebhook = {method = "DELETE", path = "/webhooks/{webhookId}", doc = "webhooks/delete-a-webhook", about = "Deletes a webhook."},
+	updateWebhook = {method = "PATCH", path = "/v2/webhooks/{webhookId}", doc = "webhooks/update-a-webhook", about = "Body: the createWebhook fields to change."},
+	deleteWebhook = {method = "DELETE", path = "/v2/webhooks/{webhookId}", doc = "webhooks/delete-a-webhook", about = "Deletes a webhook."},
 
-	getSlots = {method = "GET", path = "/slots", version = SLOTS, doc = "slots/get-available-time-slots-for-an-event-type",
+	getSlots = {method = "GET", path = "/v2/slots", version = SLOTS, doc = "slots/get-available-time-slots-for-an-event-type",
 		query = list(SLOT_OPTIONS, {"eventTypeId", "eventTypeSlug", "username", "usernames", "teamSlug", "organizationSlug"}), required = {"start", "end"},
 		about = "Bookable times between start and end, as data keyed by date with {start} slots ({start, end} with format='range'). Pass eventTypeId, or eventTypeSlug with username or teamSlug."},
-	reserveSlot = {method = "POST", path = "/slots/reservations", version = SLOTS, doc = "slots/reserve-a-slot",
+	reserveSlot = {method = "POST", path = "/v2/slots/reservations", version = SLOTS, doc = "slots/reserve-a-slot",
 		about = "Body {eventTypeId, slotStart, slotDuration?, reservationDuration? (minutes, default 5)}. Holds a slot while booking."},
-	getSlotReservation = {method = "GET", path = "/slots/reservations/{reservationUid}", version = SLOTS, doc = "slots/get-reserved-slot", about = "A slot reservation."},
-	updateSlotReservation = {method = "PATCH", path = "/slots/reservations/{reservationUid}", version = SLOTS, doc = "slots/update-a-reserved-slot",
+	getSlotReservation = {method = "GET", path = "/v2/slots/reservations/{reservationUid}", version = SLOTS, doc = "slots/get-reserved-slot", about = "A slot reservation."},
+	updateSlotReservation = {method = "PATCH", path = "/v2/slots/reservations/{reservationUid}", version = SLOTS, doc = "slots/update-a-reserved-slot",
 		about = "Body as reserveSlot."},
-	deleteSlotReservation = {method = "DELETE", path = "/slots/reservations/{reservationUid}", version = SLOTS, doc = "slots/delete-a-reserved-slot", about = "Releases a slot."},
+	deleteSlotReservation = {method = "DELETE", path = "/v2/slots/reservations/{reservationUid}", version = SLOTS, doc = "slots/delete-a-reserved-slot", about = "Releases a slot."},
 
-	listSchedules = {method = "GET", path = "/schedules", version = SCHEDULES, doc = "schedules/get-all-schedules", about = "Your availability schedules."},
-	getDefaultSchedule = {method = "GET", path = "/schedules/default", version = SCHEDULES, doc = "schedules/get-default-schedule", about = "Your default schedule."},
-	getSchedule = {method = "GET", path = "/schedules/{scheduleId}", version = SCHEDULES, doc = "schedules/get-a-schedule", about = "A schedule."},
-	createSchedule = {method = "POST", path = "/schedules", version = SCHEDULES, doc = "schedules/create-a-schedule",
+	listSchedules = {method = "GET", path = "/v2/schedules", version = SCHEDULES, doc = "schedules/get-all-schedules", about = "Your availability schedules."},
+	getDefaultSchedule = {method = "GET", path = "/v2/schedules/default", version = SCHEDULES, doc = "schedules/get-default-schedule", about = "Your default schedule."},
+	getSchedule = {method = "GET", path = "/v2/schedules/{scheduleId}", version = SCHEDULES, doc = "schedules/get-a-schedule", about = "A schedule."},
+	createSchedule = {method = "POST", path = "/v2/schedules", version = SCHEDULES, doc = "schedules/create-a-schedule",
 		about = "Body {name, timeZone, isDefault, availability?={{days={'Monday', ...}, startTime='09:00', endTime='17:00'}}, overrides?={{date, startTime, endTime}}}."},
-	updateSchedule = {method = "PATCH", path = "/schedules/{scheduleId}", version = SCHEDULES, doc = "schedules/update-a-schedule",
+	updateSchedule = {method = "PATCH", path = "/v2/schedules/{scheduleId}", version = SCHEDULES, doc = "schedules/update-a-schedule",
 		about = "Body: the createSchedule fields to change; availability and overrides are replaced whole."},
-	deleteSchedule = {method = "DELETE", path = "/schedules/{scheduleId}", version = SCHEDULES, doc = "schedules/delete-a-schedule", about = "Deletes a schedule."},
+	deleteSchedule = {method = "DELETE", path = "/v2/schedules/{scheduleId}", version = SCHEDULES, doc = "schedules/delete-a-schedule", about = "Deletes a schedule."},
 
-	listCalendars = {method = "GET", path = "/calendars", doc = "calendars/get-all-calendars",
+	listCalendars = {method = "GET", path = "/v2/calendars", doc = "calendars/get-all-calendars",
 		about = "Connected calendars, the calendars checked for conflicts and the destination calendar, with credential IDs."},
-	getBusyTimes = {method = "GET", path = "/calendars/busy-times", doc = "calendars/get-busy-times",
+	getBusyTimes = {method = "GET", path = "/v2/calendars/busy-times", doc = "calendars/get-busy-times",
 		query = {"dateFrom", "dateTo", "timeZone", "calendar"}, required = {"dateFrom", "dateTo", "calendar"},
 		about = "Busy intervals in connected calendars. calendar is an array of one or more 'credentialId,externalId' from listCalendars."},
-	listConferencingApps = {method = "GET", path = "/conferencing", doc = "conferencing/list-your-conferencing-applications", about = "Installed video apps."},
-	getDefaultConferencingApp = {method = "GET", path = "/conferencing/default", doc = "conferencing/get-your-default-conferencing-application", about = "Your default video app."},
-	setDefaultConferencingApp = {method = "POST", path = "/conferencing/{app}/default", body = false, doc = "conferencing/set-your-default-conferencing-application",
+	listConferencingApps = {method = "GET", path = "/v2/conferencing", doc = "conferencing/list-your-conferencing-applications", about = "Installed video apps."},
+	getDefaultConferencingApp = {method = "GET", path = "/v2/conferencing/default", doc = "conferencing/get-your-default-conferencing-application", about = "Your default video app."},
+	setDefaultConferencingApp = {method = "POST", path = "/v2/conferencing/{app}/default", body = false, doc = "conferencing/set-your-default-conferencing-application",
 		about = "Makes an installed app the default: google-meet, zoom, msteams or daily-video."},
-	calculateRoutingFormSlots = {method = "POST", path = "/routing-forms/{routingFormId}/calculate-slots", write = false, body = "answers",
+	calculateRoutingFormSlots = {method = "POST", path = "/v2/routing-forms/{routingFormId}/calculate-slots", write = false, body = "answers",
 		doc = "routing-forms/calculate-slots-based-on-routing-form-response", query = list(SLOT_OPTIONS, {"rescheduleWithSameHost"}), required = {"start", "end"},
 		about = "answers: the form answers keyed by field. Returns the routed event type and its slots without saving a response."},
 
-	listVerifiedEmails = {method = "GET", path = "/verified-resources/emails", doc = "verified-resources/get-list-of-verified-emails", query = PAGE,
+	listVerifiedEmails = {method = "GET", path = "/v2/verified-resources/emails", doc = "verified-resources/get-list-of-verified-emails", query = PAGE,
 		about = "Emails verified for workflow messages."},
-	getVerifiedEmail = {method = "GET", path = "/verified-resources/emails/{id}", doc = "verified-resources/get-verified-email-by-id", about = "A verified email."},
-	requestEmailVerificationCode = {method = "POST", path = "/verified-resources/emails/verification-code/request", doc = "verified-resources/request-email-verification-code",
+	getVerifiedEmail = {method = "GET", path = "/v2/verified-resources/emails/{id}", doc = "verified-resources/get-verified-email-by-id", about = "A verified email."},
+	requestEmailVerificationCode = {method = "POST", path = "/v2/verified-resources/emails/verification-code/request", doc = "verified-resources/request-email-verification-code",
 		about = "Body {email}. Emails a verification code."},
-	verifyEmail = {method = "POST", path = "/verified-resources/emails/verification-code/verify", doc = "verified-resources/verify-an-email", about = "Body {email, code}."},
-	listVerifiedPhones = {method = "GET", path = "/verified-resources/phones", doc = "verified-resources/get-list-of-verified-phone-numbers", query = PAGE,
+	verifyEmail = {method = "POST", path = "/v2/verified-resources/emails/verification-code/verify", doc = "verified-resources/verify-an-email", about = "Body {email, code}."},
+	listVerifiedPhones = {method = "GET", path = "/v2/verified-resources/phones", doc = "verified-resources/get-list-of-verified-phone-numbers", query = PAGE,
 		about = "Phone numbers verified for workflow messages."},
-	getVerifiedPhone = {method = "GET", path = "/verified-resources/phones/{id}", doc = "verified-resources/get-verified-phone-number-by-id", about = "A verified phone number."},
-	requestPhoneVerificationCode = {method = "POST", path = "/verified-resources/phones/verification-code/request",
+	getVerifiedPhone = {method = "GET", path = "/v2/verified-resources/phones/{id}", doc = "verified-resources/get-verified-phone-number-by-id", about = "A verified phone number."},
+	requestPhoneVerificationCode = {method = "POST", path = "/v2/verified-resources/phones/verification-code/request",
 		doc = "verified-resources/request-phone-number-verification-code", about = "Body {phone}. Texts a verification code."},
-	verifyPhone = {method = "POST", path = "/verified-resources/phones/verification-code/verify", doc = "verified-resources/verify-a-phone-number", about = "Body {phone, code}."},
+	verifyPhone = {method = "POST", path = "/v2/verified-resources/phones/verification-code/verify", doc = "verified-resources/verify-a-phone-number", about = "Body {phone, code}."},
 
-	listWorkflows = {method = "GET", path = "/workflows", version = WORKFLOWS, doc = "workflows/get-your-workflows", query = PAGE,
+	listWorkflows = {method = "GET", path = "/v2/workflows", version = WORKFLOWS, doc = "workflows/get-your-workflows", query = PAGE,
 		about = "Automated reminders and follow-ups."},
-	getWorkflow = {method = "GET", path = "/workflows/{workflowId}", version = WORKFLOWS, doc = "workflows/get-your-workflow", about = "A workflow."},
-	getWorkflowConditionFields = {method = "GET", path = "/workflows/{workflowId}/condition-fields", version = WORKFLOWS,
+	getWorkflow = {method = "GET", path = "/v2/workflows/{workflowId}", version = WORKFLOWS, doc = "workflows/get-your-workflow", about = "A workflow."},
+	getWorkflowConditionFields = {method = "GET", path = "/v2/workflows/{workflowId}/condition-fields", version = WORKFLOWS,
 		doc = "workflows/get-the-fields-a-workflows-conditions-can-read", about = "Fields a workflow's conditions can test."},
-	createWorkflow = {method = "POST", path = "/workflows", version = WORKFLOWS, doc = "workflows/create-a-workflow",
+	createWorkflow = {method = "POST", path = "/v2/workflows", version = WORKFLOWS, doc = "workflows/create-a-workflow",
 		about = "Body {name, activation, trigger, steps}. Steps send emails or texts to attendees or hosts."},
-	updateWorkflow = {method = "PATCH", path = "/workflows/{workflowId}", version = WORKFLOWS, doc = "workflows/update-your-workflow",
+	updateWorkflow = {method = "PATCH", path = "/v2/workflows/{workflowId}", version = WORKFLOWS, doc = "workflows/update-your-workflow",
 		about = "Body: the createWorkflow fields to change."},
-	deleteWorkflow = {method = "DELETE", path = "/workflows/{workflowId}", version = WORKFLOWS, doc = "workflows/delete-your-workflow", about = "Deletes a workflow."},
+	deleteWorkflow = {method = "DELETE", path = "/v2/workflows/{workflowId}", version = WORKFLOWS, doc = "workflows/delete-your-workflow", about = "Deletes a workflow."},
 
-	listTeams = {method = "GET", path = "/teams", doc = "teams/get-teams", about = "Teams you belong to."},
-	getTeam = {method = "GET", path = "/teams/{teamId}", doc = "teams/get-a-team", about = "A team."},
-	listTeamBookings = {method = "GET", path = "/teams/{teamId}/bookings", doc = "teams-bookings/get-team-bookings",
+	listTeams = {method = "GET", path = "/v2/teams", doc = "teams/get-teams", about = "Teams you belong to."},
+	getTeam = {method = "GET", path = "/v2/teams/{teamId}", doc = "teams/get-a-team", about = "A team."},
+	listTeamBookings = {method = "GET", path = "/v2/teams/{teamId}/bookings", doc = "teams-bookings/get-team-bookings",
 		query = list(BOOKING_FILTERS, PAGE), about = "A team's bookings. status is one value or a comma-separated string such as 'upcoming,past'; take is 1..250 (default 100)."},
-	listTeamEventTypes = {method = "GET", path = "/teams/{teamId}/event-types", version = EVENT_TYPES, doc = "team-event-types/list-team-event-types",
+	listTeamEventTypes = {method = "GET", path = "/v2/teams/{teamId}/event-types", version = EVENT_TYPES, doc = "team-event-types/list-team-event-types",
 		query = {"eventSlug", "hostsLimit", "sortCreatedAt"}, about = "A team's event types."},
-	getTeamEventType = {method = "GET", path = "/teams/{teamId}/event-types/{eventTypeId}", version = EVENT_TYPES, doc = "team-event-types/get-a-team-event-type",
+	getTeamEventType = {method = "GET", path = "/v2/teams/{teamId}/event-types/{eventTypeId}", version = EVENT_TYPES, doc = "team-event-types/get-a-team-event-type",
 		about = "A team event type with its hosts."},
-	listTeamMemberships = {method = "GET", path = "/teams/{teamId}/memberships", doc = "teams-memberships/get-all-memberships",
+	listTeamMemberships = {method = "GET", path = "/v2/teams/{teamId}/memberships", doc = "teams-memberships/get-all-memberships",
 		query = list(PAGE, {"emails"}), about = "Team members and their roles."},
-	listTeamSchedules = {method = "GET", path = "/teams/{teamId}/schedules", doc = "teams-schedules/get-all-team-member-schedules", query = PAGE,
+	listTeamSchedules = {method = "GET", path = "/v2/teams/{teamId}/schedules", doc = "teams-schedules/get-all-team-member-schedules", query = PAGE,
 		about = "Availability schedules of team members."},
 
-	listTimezones = {method = "GET", path = "/timezones", doc = "timezones/get-timezones", query = {"search", "limit"}, about = "Supported time zones."},
+	listTimezones = {method = "GET", path = "/v2/timezones", doc = "timezones/get-timezones", query = {"search", "limit"}, about = "Supported time zones."},
 }
 
--- Request layer shared verbatim by the Cal.com and Calendly connectors (tools/validate checks they match).
+-- Request layer shared verbatim by the Cal.com and Calendly connectors (tools/validate checks
+-- they match). It uses each connector's PROVIDER, DOCS and Endpoint type.
+local NULL = json.decode("null")
+local NONE: {string} = table.freeze({})
+
 local function options(input: Options?): Options
 	if input == nil then return {} end
 	assert(type(input) == "table", "opts must be an object")
@@ -231,6 +233,18 @@ local function scalar(value: any, field: string): string
 	return encode(tostring(value))
 end
 
+-- Only GET reads unless write says otherwise.
+local function writes(endpoint: Endpoint): boolean
+	if endpoint.write ~= nil then return endpoint.write end
+	return endpoint.method ~= "GET"
+end
+
+-- POST, PATCH and PUT send the remaining options as the JSON body unless body is false
+-- (no body) or names the one option to send.
+local function hasBody(endpoint: Endpoint): boolean
+	return endpoint.body ~= false and (endpoint.method == "POST" or endpoint.method == "PATCH" or endpoint.method == "PUT")
+end
+
 -- Reads at most 16 KiB of an error body; one read can return any part of it.
 local function errorBody(response: HttpResponse): string
 	local parts: {string} = {}
@@ -248,6 +262,55 @@ end
 local function fail(name: string, response: HttpResponse, message: string): never
 	return houston.fail({operation = name, layer = "upstream", upstream_status = response.statusCode,
 		retryable = response.statusCode == 429 or response.statusCode >= 500, message = message})
+end
+
+-- A successful response's JSON object, or nil when a write answers without a body.
+local function object(name: string, endpoint: Endpoint, response: HttpResponse): Options?
+	local raw = await(response.body:readAll())
+	if endpoint.method ~= "GET" and string.match(raw, "^%s*$") then return nil end
+	local ok, value = pcall(json.decode, raw)
+	if not ok or type(value) ~= "table" or not string.match(raw, "^%s*{") then
+		fail(name, response, PROVIDER .. " returned an invalid JSON object")
+	end
+	return value
+end
+
+-- name({path fields, query fields?, ...body}) built from the endpoint itself.
+local function signature(endpoint: Endpoint): string
+	local fields: {string} = {}
+	for field in string.gmatch(endpoint.path, "{([%w_]+)}") do table.insert(fields, field) end
+	for _, field in endpoint.query or NONE do
+		table.insert(fields, if table.find(endpoint.required or NONE, field) then field else field .. "?")
+	end
+	if type(endpoint.body) == "string" then
+		table.insert(fields, endpoint.body)
+	elseif hasBody(endpoint) then
+		table.insert(fields, "...body")
+	end
+	return "({" .. table.concat(fields, ", ") .. "})"
+end
+
+-- A function for each endpoint the connection's access allows, and help listing them after intro.
+local function operations(endpoints: {[string]: Endpoint}, request: (string, Endpoint, Options?) -> any, intro: {string}): {[string]: any}
+	local exports: {[string]: any} = {}
+	for name, endpoint in endpoints do
+		if not writes(endpoint) or config.access == "read-write" then
+			exports[name] = function(args: Options?): any return request(name, endpoint, args) end
+		end
+	end
+	exports.help = function(): string
+		local names: {string} = {}
+		for name in exports do if name ~= "help" then table.insert(names, name) end end
+		table.sort(names)
+		local lines = table.clone(intro)
+		table.insert(lines, "Each function below names its route and reference page, " .. DOCS .. "<page>.")
+		for _, name in names do
+			local endpoint = endpoints[name]
+			table.insert(lines, name .. signature(endpoint) .. ": " .. endpoint.about .. " " .. endpoint.method .. " " .. endpoint.path .. " (" .. endpoint.doc .. ")")
+		end
+		return table.concat(lines, "\n")
+	end
+	return exports
 end
 -- End of the shared request layer.
 
@@ -298,26 +361,13 @@ local function failStatus(name: string, response: HttpResponse): never
 	return fail(name, response, message)
 end
 
-local function decode(name: string, response: HttpResponse): any
+local function decode(name: string, endpoint: Endpoint, response: HttpResponse): any
 	if response.statusCode < 200 or response.statusCode >= 300 then failStatus(name, response) end
-	local raw = await(response.body:readAll())
+	local value = object(name, endpoint, response)
 	-- Some deletions, such as deleteWorkflow, succeed without a body.
-	if string.match(raw, "^%s*$") then return {status = "success"} end
-	local ok, value = pcall(json.decode, raw)
-	if not ok or type(value) ~= "table" or not string.match(raw, "^%s*{") then
-		fail(name, response, "Cal.com returned an invalid JSON object")
-	end
+	if value == nil then return {status = "success"} end
 	if value.status ~= "success" then fail(name, response, errorMessage(response.statusCode, value)) end
 	return value
-end
-
-local function writes(endpoint: Endpoint): boolean
-	if endpoint.write == nil then return endpoint.method ~= "GET" end
-	return endpoint.write == true
-end
-
-local function hasBody(endpoint: Endpoint): boolean
-	return endpoint.body ~= false and (endpoint.method == "POST" or endpoint.method == "PATCH" or endpoint.method == "PUT")
 end
 
 local function request(name: string, endpoint: Endpoint, input: Options?): any
@@ -351,47 +401,14 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 	local unknown = next(args)
 	assert(unknown == nil, name .. " has no option " .. tostring(unknown))
 	if body then headers["Content-Type"] = {"application/json"} end
-	return decode(name, await(http.request({method = endpoint.method, url = API .. path, headers = headers, body = body})))
+	return decode(name, endpoint, await(http.request({method = endpoint.method, url = API .. path, headers = headers, body = body})))
 end
 
--- name({path fields, query fields?, ...body}) built from the endpoint itself.
-local function signature(endpoint: Endpoint): string
-	local fields: {string} = {}
-	for field in string.gmatch(endpoint.path, "{([%w_]+)}") do table.insert(fields, field) end
-	for _, field in endpoint.query or NONE do
-		table.insert(fields, if table.find(endpoint.required or NONE, field) then field else field .. "?")
-	end
-	if type(endpoint.body) == "string" then
-		table.insert(fields, endpoint.body)
-	elseif hasBody(endpoint) then
-		table.insert(fields, "...body")
-	end
-	return "({" .. table.concat(fields, ", ") .. "})"
-end
-
-local exports: {[string]: any} = {}
-for name, endpoint in endpoints do
-	if not writes(endpoint) or config.access == "read-write" then
-		exports[name] = function(args: Options?): any return request(name, endpoint, args) end
-	end
-end
-exports.help = function(): string
-	local names: {string} = {}
-	for name in exports do if name ~= "help" then table.insert(names, name) end end
-	table.sort(names)
-	local lines = {
-		"Cal.com API v2. Every function takes one named options object with Cal.com's camelCase names; ? marks optional fields and ...body the JSON body fields. Results are Cal.com's JSON unchanged: {status='success', data, pagination?}; an empty response returns {status='success'}. The connector sends each endpoint's cal-api-version. Connector calls return completed values: use them directly, without await.",
-		"Bookings are identified by their uid (bookingUid); event types, schedules, teams, users and attendees by numeric IDs. Times are ISO 8601, such as 2026-10-14T09:00:00Z, and time zones IANA names such as Europe/Paris. Lists such as eventTypeIds='100,200' are comma-separated strings; only getBusyTimes takes calendar as an array.",
-		"Paging: listBookings uses cursor and limit (continue with pagination.nextCursor while pagination.hasMore); getEventTypeHistory also uses a cursor. listTeamBookings returns pagination totals for take and skip. Other take/skip lists (take 1..250, default 250) return a plain data array: increase skip while a full page comes back. Event types, schedules, teams, calendars and apps are unpaginated.",
-		"To book: getSlots({eventTypeId=123, start='2026-10-15', end='2026-10-22', timeZone='Europe/Paris'}) returns data[date] = {{start=...}}; then createBooking({eventTypeId=123, start=slot.start, attendee={name='Ana', email='ana@example.com', timeZone='Europe/Paris'}}). Other examples: listBookings({status='upcoming', afterStart='2026-10-14T00:00:00Z', limit=20}); cancelBooking({bookingUid=uid, cancellationReason='Conflict'}); rescheduleBooking({bookingUid=uid, start='2026-10-16T14:00:00Z'}).",
-		"Read-only connections omit writes and webhook reads, whose responses include signing secrets; calculateRoutingFormSlots only reads. Bookings, cancellations, reschedules, reassignments and added attendees or guests email the people involved and update connected calendars; verification-code requests send an email or text; workflows send messages automatically. Team functions need team membership. Connecting calendars or video apps, organization administration and API key rotation happen in Cal.com, not here.",
-		"There are no automatic retries: after a timeout or 5xx, read the booking or resource again before repeating a write. Errors report the HTTP status, Cal.com's error code, message and validation details.",
-		"Each function below names its route and reference page, " .. DOCS .. "<page>.",
-	}
-	for _, name in names do
-		local endpoint = endpoints[name]
-		table.insert(lines, name .. signature(endpoint) .. ": " .. endpoint.about .. " " .. endpoint.method .. " /v2" .. endpoint.path .. " (" .. endpoint.doc .. ")")
-	end
-	return table.concat(lines, "\n")
-end
-return exports
+return operations(endpoints, request, {
+	"Cal.com API v2. Every function takes one named options object with Cal.com's camelCase names; ? marks optional fields and ...body the JSON body fields. end is a Luau keyword, so write it as ['end']='2026-10-22'. In bodies, pass json.decode('[]') for empty arrays and json.decode('null') to clear a field. Results are Cal.com's JSON unchanged: {status='success', data, pagination?}; a write without a response body returns {status='success'}. The connector sends each endpoint's cal-api-version. Connector calls return completed values: use them directly, without await.",
+	"Bookings are identified by their uid (bookingUid); event types, schedules, teams, users and attendees by numeric IDs. Times are ISO 8601, such as 2026-10-14T09:00:00Z, and time zones IANA names such as Europe/Paris. Lists such as eventTypeIds='100,200' are comma-separated strings; only getBusyTimes takes calendar as an array.",
+	"Paging: listBookings uses cursor and limit (continue with pagination.nextCursor while pagination.hasMore); getEventTypeHistory also uses a cursor. listTeamBookings returns pagination totals for take and skip. Other take/skip lists (take 1..250, default 250) return a plain data array: increase skip while a full page comes back. Event types, schedules, teams, calendars and apps are unpaginated.",
+	"To book: getSlots({eventTypeId=123, start='2026-10-15', ['end']='2026-10-22', timeZone='Europe/Paris'}) returns data[date] = {{start=...}}; then createBooking({eventTypeId=123, start=slot.start, attendee={name='Ana', email='ana@example.com', timeZone='Europe/Paris'}}). Other examples: listBookings({status='upcoming', afterStart='2026-10-14T00:00:00Z', limit=20}); cancelBooking({bookingUid=uid, cancellationReason='Conflict'}); rescheduleBooking({bookingUid=uid, start='2026-10-16T14:00:00Z'}).",
+	"Read-only connections omit writes and webhook reads, whose responses include signing secrets; calculateRoutingFormSlots only reads. Bookings, cancellations, reschedules, reassignments and added attendees or guests email the people involved and update connected calendars; verification-code requests send an email or text; workflows send messages automatically. Team functions need team membership. Connecting calendars or video apps, organization administration and API key rotation happen in Cal.com, not here.",
+	"There are no automatic retries: after a timeout or 5xx, read the booking or resource again before repeating a write. Errors report the HTTP status, Cal.com's error code, message and validation details.",
+})

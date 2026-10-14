@@ -85,5 +85,5 @@ extra scopes when moving to **Read and write**.
   callback URL.
 - **Requests fail with HTTP 401.** Calendly revokes tokens when your email,
   password or sign-in method changes. Create a new token or authorize again.
-- **You need to stop access.** Delete the token on the API & Webhooks page or the
-  app in the developer portal, or remove the connection in Houston.
+- **You need to stop access.** Revoke the token on the API & Webhooks page, delete
+  the app in the developer portal, or remove the connection in Houston.

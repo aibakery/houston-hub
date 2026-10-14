@@ -16,7 +16,7 @@ webhooks and invite people to your organization. Calendly emails invitees when
 meetings are booked or cancelled.
 
 Some features depend on your Calendly plan and role: booking for invitees,
-webhooks and recaps need a paid plan, and the activity log needs Enterprise. Your
-credentials stay on Houston's server.
+webhooks and recaps need a paid plan, and the activity log and sent messages need
+Enterprise. Your credentials stay on Houston's server.
 
 [Connect Calendly](SETUP.md).

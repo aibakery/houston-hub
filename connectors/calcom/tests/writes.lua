@@ -35,6 +35,8 @@ return {
 		assert(last().url == API .. "/bookings/b9/confirm" and last().body == nil and last().headers["Content-Type"] == nil)
 		local ok, err = pcall(function() cal.confirmBooking({bookingUid = "b9", reason = "typo"}) end)
 		assert(not ok and string.find(tostring(err), "confirmBooking has no option reason", 1, true))
+		cal.reassignBooking({bookingUid = "b9"})
+		assert(last().method == "POST" and last().url == API .. "/bookings/b9/reassign" and last().body == nil)
 		cal.reassignBookingToUser({bookingUid = "b9", userId = 42, reason = "Coverage"})
 		assert(last().url == API .. "/bookings/b9/reassign/42" and sent().reason == "Coverage" and sent().userId == nil)
 		cal.updateBookingLocation({bookingUid = "b9", location = {type = "address", address = "1 Main St"}})
@@ -49,7 +51,7 @@ return {
 		cal.updateSchedule({scheduleId = 9, availability = {{days = {"Monday"}, startTime = "09:00", endTime = "17:00"}}})
 		assert(last().url == API .. "/schedules/9" and sent().availability[1].days[1] == "Monday" and sent().scheduleId == nil)
 		cal.setDefaultConferencingApp({app = "google-meet"})
-		assert(last().method == "POST" and last().url == API .. "/conferencing/google-meet/default")
+		assert(last().method == "POST" and last().url == API .. "/conferencing/google-meet/default" and last().body == nil and last().headers["Content-Type"] == nil)
 		cal.deleteSlotReservation({reservationUid = "e2a7bcf9-cc7b-40a0-80d3-657d391775a6"})
 		assert(last().method == "DELETE" and last().url == API .. "/slots/reservations/e2a7bcf9-cc7b-40a0-80d3-657d391775a6")
 		cal.listWebhooks({take = 10})
@@ -57,6 +59,6 @@ return {
 		payload = ""
 		local deleted = cal.deleteWorkflow({workflowId = 5})
 		assert(last().method == "DELETE" and last().url == API .. "/workflows/5" and deleted.status == "success")
-		assert(#requests == 13)
+		assert(#requests == 14)
 	end,
 }

@@ -118,22 +118,37 @@ func TestCalendlyScopesAndAccessRoutes(t *testing.T) {
 	}
 }
 
-// The proxy must allow exactly the routes in each connector's endpoint table.
+// The proxy must allow exactly the routes in each connector's endpoint table, and the
+// writes only on read-write connections. Only GET reads unless an entry sets write.
 func TestSchedulingProxyMatchesEndpointTables(t *testing.T) {
-	endpoint := regexp.MustCompile(`method = "([A-Z]+)", path = "([^"]+)"`)
-	for name, prefix := range map[string]string{"calcom": "/v2", "calendly": ""} {
-		lua, err := os.ReadFile("../../connectors/" + name + "/connector.lua")
+	const readWrite = `{{ is config.access "read-write" }}`
+	endpoint := regexp.MustCompile(`(?m)^\t\w+ = \{method = "([A-Z]+)", path = "([^"]+)"(.*)$`)
+	override := regexp.MustCompile(`\bwrite = (true|false)\b`)
+	for _, name := range []string{"calcom", "calendly"} {
+		raw, err := os.ReadFile("../../connectors/" + name + "/connector.lua")
 		if err != nil {
 			t.Fatal(err)
 		}
+		lua := string(raw)
 		var want, got []string
-		for _, match := range endpoint.FindAllStringSubmatch(string(lua), -1) {
-			want = append(want, match[1]+" "+prefix+match[2])
+		for _, match := range endpoint.FindAllStringSubmatch(lua, -1) {
+			write := match[1] != "GET"
+			if flag := override.FindStringSubmatch(match[3]); flag != nil {
+				write = flag[1] == "true"
+			}
+			gate := ""
+			if write {
+				gate = readWrite
+			}
+			want = append(want, match[1]+" "+match[2]+" "+gate)
+		}
+		if entries := strings.Count(lua, "= {method = "); len(want) != entries {
+			t.Fatalf("%s: matched %d of %d endpoint entries", name, len(want), entries)
 		}
 		for _, rule := range parseManifest(t, "../../connectors/"+name+"/houston.json").Proxy {
 			for _, method := range rule.Match.Method {
 				for _, path := range rule.Match.Path {
-					got = append(got, method+" "+path)
+					got = append(got, method+" "+path+" "+rule.If)
 				}
 			}
 		}

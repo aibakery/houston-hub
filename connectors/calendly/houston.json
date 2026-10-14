@@ -51,6 +51,8 @@
       "order": 2,
       "authorize_url": "https://auth.calendly.com/oauth/authorize",
       "token_url": "https://auth.calendly.com/oauth/token",
+    "client_auth": "basic",
+    "pkce": "S256",
       "client_id": "{{config.client_id}}",
       "client_secret": "{{config.client_secret}}",
       "require_refresh": true,

@@ -935,6 +935,12 @@ Read-only connections may GET the listed routes except webhooks, whose responses
 include signing secrets, and may POST only to the routing-form slot calculation,
 which saves nothing.
 
+Bundles cannot share files, so Cal.com and Calendly carry the same request layer:
+option and query encoding, error reading, response decoding, and the generation of
+functions and help from each endpoint table. `tools/validate` checks that the copies
+match and that each manifest allows exactly the table's routes, with writes only on
+read-write connections.
+
 Cal.com's icon is the official square mark (`cal-logo-square-black.svg`) from the
 [brand kit](https://cal.com/brand), retrieved 2026-10-14, unchanged. Cal.com® and
 Cal® are registered trademarks of Cal.com, Inc.
@@ -947,7 +953,7 @@ manifest v1 and async HTTP runtime. Connections use a personal access token or
 their own Calendly OAuth app; the [account setup guide](connectors/calendly/SETUP.md)
 covers both and the scopes to select. No publisher settings are needed.
 
-The connector covers the 63 operations of Calendly's
+The connector covers 63 of the 65 operations in Calendly's
 [API v2 OpenAPI](https://developer.calendly.com/openapi/calendly-api.json), checked
 on 2026-10-14. It omits the two Enterprise data-compliance deletions, which
 irreversibly erase invitee and event data, and the undocumented operations of the
@@ -964,9 +970,6 @@ confirm one live authorization and refresh before announcing the OAuth method.
 Personal access tokens carry the scopes chosen when they were created. Both methods
 share the same proxy rules, which allow only the listed routes on `api.calendly.com`;
 writes require read-write access.
-
-Cal.com and Calendly carry the same small request helpers; `tools/validate` checks
-that the copies match, as it does for the Google connectors.
 
 Calendly's icon is the current square mark served at
 [calendly.com/media/favicon/icon.svg](https://calendly.com/media/favicon/icon.svg),

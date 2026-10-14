@@ -1,15 +1,14 @@
 -- Calendly API v2. Arguments and results keep Calendly's native snake_case fields.
 type Options = {[string]: any}
-type Endpoint = {method: string, path: string, query: {string}?, required: {string}?, doc: string, about: string}
+type Endpoint = {method: string, path: string, query: {string}?, required: {string}?, write: boolean?, body: (boolean | string)?, doc: string, about: string}
 
+local PROVIDER = "Calendly"
 local API = "https://api.calendly.com"
 local DOCS = "https://developer.calendly.com/api-docs/calendly-api/"
-local NULL = json.decode("null")
-local NONE: {string} = table.freeze({})
 
 -- Operations in Calendly's public OpenAPI, checked on 2026-10-14. Path {fields} name
--- the resource and take its UUID or Calendly URI. Query fields are listed; POST and
--- PATCH send every other field as the JSON body; GET and DELETE accept no others.
+-- the resource and take its UUID or Calendly URI. Listed query fields are taken from
+-- the options; the other fields form the JSON body (see hasBody).
 local endpoints: {[string]: Endpoint} = {
 	getCurrentUser = {method = "GET", path = "/users/me", doc = "users/get-current-user",
 		about = "The connected user. resource.uri is your user URI, resource.current_organization your organization URI."},
@@ -67,7 +66,7 @@ local endpoints: {[string]: Endpoint} = {
 		about = "Booked meetings of a user, organization or group; pass one. Another user's events need both user and organization and an admin. status: active or canceled; sort: start_time:asc or start_time:desc."},
 	getScheduledEvent = {method = "GET", path = "/scheduled_events/{event}", doc = "scheduled-events/get-scheduled-event", about = "A booked meeting."},
 	cancelScheduledEvent = {method = "POST", path = "/scheduled_events/{event}/cancellation", doc = "scheduled-events/create-scheduled-event-cancellation",
-		about = "Body {reason?}. Cancels the meeting for every invitee and notifies them. Only the event's host can cancel."},
+		about = "Body {reason?}. Cancels the meeting for every invitee and notifies them."},
 	listInvitees = {method = "GET", path = "/scheduled_events/{event}/invitees", doc = "scheduled-events/list-event-invitees",
 		query = {"status", "email", "sort", "count", "page_token"}, about = "Invitees of a meeting, with their answers. sort: created_at:asc or created_at:desc."},
 	getInvitee = {method = "GET", path = "/scheduled_events/{event}/invitees/{invitee}", doc = "scheduled-events/get-event-invitee", about = "An invitee."},
@@ -137,7 +136,11 @@ local endpoints: {[string]: Endpoint} = {
 		about = "Emails and texts Calendly sent for the organization (Enterprise admins)."},
 }
 
--- Request layer shared verbatim by the Cal.com and Calendly connectors (tools/validate checks they match).
+-- Request layer shared verbatim by the Cal.com and Calendly connectors (tools/validate checks
+-- they match). It uses each connector's PROVIDER, DOCS and Endpoint type.
+local NULL = json.decode("null")
+local NONE: {string} = table.freeze({})
+
 local function options(input: Options?): Options
 	if input == nil then return {} end
 	assert(type(input) == "table", "opts must be an object")
@@ -155,6 +158,18 @@ local function scalar(value: any, field: string): string
 	local kind = type(value)
 	assert(kind == "string" or kind == "boolean" or kind == "number", field .. " must be a string, boolean, number or array of those")
 	return encode(tostring(value))
+end
+
+-- Only GET reads unless write says otherwise.
+local function writes(endpoint: Endpoint): boolean
+	if endpoint.write ~= nil then return endpoint.write end
+	return endpoint.method ~= "GET"
+end
+
+-- POST, PATCH and PUT send the remaining options as the JSON body unless body is false
+-- (no body) or names the one option to send.
+local function hasBody(endpoint: Endpoint): boolean
+	return endpoint.body ~= false and (endpoint.method == "POST" or endpoint.method == "PATCH" or endpoint.method == "PUT")
 end
 
 -- Reads at most 16 KiB of an error body; one read can return any part of it.
@@ -175,16 +190,66 @@ local function fail(name: string, response: HttpResponse, message: string): neve
 	return houston.fail({operation = name, layer = "upstream", upstream_status = response.statusCode,
 		retryable = response.statusCode == 429 or response.statusCode >= 500, message = message})
 end
+
+-- A successful response's JSON object, or nil when a write answers without a body.
+local function object(name: string, endpoint: Endpoint, response: HttpResponse): Options?
+	local raw = await(response.body:readAll())
+	if endpoint.method ~= "GET" and string.match(raw, "^%s*$") then return nil end
+	local ok, value = pcall(json.decode, raw)
+	if not ok or type(value) ~= "table" or not string.match(raw, "^%s*{") then
+		fail(name, response, PROVIDER .. " returned an invalid JSON object")
+	end
+	return value
+end
+
+-- name({path fields, query fields?, ...body}) built from the endpoint itself.
+local function signature(endpoint: Endpoint): string
+	local fields: {string} = {}
+	for field in string.gmatch(endpoint.path, "{([%w_]+)}") do table.insert(fields, field) end
+	for _, field in endpoint.query or NONE do
+		table.insert(fields, if table.find(endpoint.required or NONE, field) then field else field .. "?")
+	end
+	if type(endpoint.body) == "string" then
+		table.insert(fields, endpoint.body)
+	elseif hasBody(endpoint) then
+		table.insert(fields, "...body")
+	end
+	return "({" .. table.concat(fields, ", ") .. "})"
+end
+
+-- A function for each endpoint the connection's access allows, and help listing them after intro.
+local function operations(endpoints: {[string]: Endpoint}, request: (string, Endpoint, Options?) -> any, intro: {string}): {[string]: any}
+	local exports: {[string]: any} = {}
+	for name, endpoint in endpoints do
+		if not writes(endpoint) or config.access == "read-write" then
+			exports[name] = function(args: Options?): any return request(name, endpoint, args) end
+		end
+	end
+	exports.help = function(): string
+		local names: {string} = {}
+		for name in exports do if name ~= "help" then table.insert(names, name) end end
+		table.sort(names)
+		local lines = table.clone(intro)
+		table.insert(lines, "Each function below names its route and reference page, " .. DOCS .. "<page>.")
+		for _, name in names do
+			local endpoint = endpoints[name]
+			table.insert(lines, name .. signature(endpoint) .. ": " .. endpoint.about .. " " .. endpoint.method .. " " .. endpoint.path .. " (" .. endpoint.doc .. ")")
+		end
+		return table.concat(lines, "\n")
+	end
+	return exports
+end
 -- End of the shared request layer.
 
 -- Responses identify resources by URI, such as https://api.calendly.com/scheduled_events/<uuid>.
 -- A path field takes the UUID or the URI of its own kind, the path segment before it.
+-- Calendly's examples also show singular kinds, such as user_availability_schedule/<uuid>.
 local function identifier(value: any, field: string, kind: string): string
 	assert(type(value) == "string", field .. " must be a UUID or Calendly URI")
 	local id = value
 	local uriKind, uriId = string.match(value, "^https://api%.calendly%.com/.-([%w_]+)/([^/]+)$")
 	if uriKind and uriId then
-		assert(uriKind == kind, field .. " must be a " .. kind .. " URI or UUID")
+		assert(uriKind == kind or uriKind .. "s" == kind, field .. " must be a " .. kind .. " URI or UUID")
 		id = uriId
 	end
 	assert(string.match(id, "^[%w%-_]+$"), field .. " must be a UUID or Calendly URI")
@@ -219,15 +284,10 @@ local function failStatus(name: string, response: HttpResponse): never
 	return fail(name, response, message)
 end
 
-local function decode(name: string, response: HttpResponse): any
+local function decode(name: string, endpoint: Endpoint, response: HttpResponse): any
 	if response.statusCode < 200 or response.statusCode >= 300 then failStatus(name, response) end
-	local raw = await(response.body:readAll())
-	if response.statusCode == 204 or string.match(raw, "^%s*$") then return {success = true} end
-	local ok, value = pcall(json.decode, raw)
-	if not ok or type(value) ~= "table" or not string.match(raw, "^%s*{") then
-		fail(name, response, "Calendly returned an invalid JSON object")
-	end
-	return value
+	-- Deletions answer 204 without a body.
+	return object(name, endpoint, response) or {success = true}
 end
 
 local function request(name: string, endpoint: Endpoint, input: Options?): any
@@ -250,50 +310,21 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 	if #query > 0 then path ..= "?" .. table.concat(query, "&") end
 	local headers: HttpHeaders = {Accept = {"application/json"}}
 	local body: string? = nil
-	if endpoint.method == "POST" or endpoint.method == "PATCH" then
+	if hasBody(endpoint) then
 		headers["Content-Type"] = {"application/json"}
 		body = json.encode(args)
-	else
-		local unknown = next(args)
-		assert(unknown == nil, name .. " has no option " .. tostring(unknown))
+		args = {}
 	end
-	return decode(name, await(http.request({method = endpoint.method, url = API .. path, headers = headers, body = body})))
+	local unknown = next(args)
+	assert(unknown == nil, name .. " has no option " .. tostring(unknown))
+	return decode(name, endpoint, await(http.request({method = endpoint.method, url = API .. path, headers = headers, body = body})))
 end
 
--- name({path fields, query fields?, ...body}) built from the endpoint itself.
-local function signature(endpoint: Endpoint): string
-	local fields: {string} = {}
-	for field in string.gmatch(endpoint.path, "{([%w_]+)}") do table.insert(fields, field) end
-	for _, field in endpoint.query or NONE do
-		table.insert(fields, if table.find(endpoint.required or NONE, field) then field else field .. "?")
-	end
-	if endpoint.method == "POST" or endpoint.method == "PATCH" then table.insert(fields, "...body") end
-	return "({" .. table.concat(fields, ", ") .. "})"
-end
-
-local exports: {[string]: any} = {}
-for name, endpoint in endpoints do
-	if endpoint.method == "GET" or config.access == "read-write" then
-		exports[name] = function(args: Options?): any return request(name, endpoint, args) end
-	end
-end
-exports.help = function(): string
-	local names: {string} = {}
-	for name in exports do if name ~= "help" then table.insert(names, name) end end
-	table.sort(names)
-	local lines = {
-		"Calendly API v2. Every function takes one named options object with Calendly's snake_case names; ? marks optional fields and ...body the JSON body fields. Results are Calendly's JSON unchanged: single objects usually as {resource}, lists as {collection, pagination}; deletes return {success=true}. In bodies, pass json.decode('[]') for empty arrays and json.decode('null') to clear a field. Connector calls return completed values: use them directly, without await.",
-		"Calendly identifies resources by URI, such as https://api.calendly.com/users/AAAA. Query and body fields that reference a resource (user, organization, event_type, invitee, owner, host, form, ...) take the full URI; path fields (event, invitee, contact, ...) take the UUID or the URI of that kind of resource. Start with getCurrentUser(): resource.uri is your user and resource.current_organization your organization.",
-		"Lists return one page: count is 1..100 (default 20) and pagination.next_page_token, while not null, is the next call's page_token. Array filters are sent comma-separated. Times are ISO 8601 UTC, such as 2026-10-14T09:00:00Z.",
-		"Examples: local me = calendly.getCurrentUser().resource; calendly.listScheduledEvents({user=me.uri, status='active', min_start_time='2026-10-14T00:00:00Z', sort='start_time:asc', count=50}); calendly.listInvitees({event=event.uri}); calendly.listEventTypeAvailableTimes({event_type=type.uri, start_time='2026-10-15T00:00:00Z', end_time='2026-10-22T00:00:00Z'}); calendly.createSchedulingLink({owner=type.uri, owner_type='EventType', max_event_count=1}).",
-		"Read-only connections omit writes. Calendly's own permissions also apply: organization-wide lists and webhooks need an admin or owner, the activity log and outgoing communications need Enterprise, and createInvitee, webhooks and recaps need a paid plan. A 403 for a missing scope lists the required scopes. Calendly has no API to delete event types or reschedule meetings.",
-		"Side effects: createInvitee books a real meeting and cancelScheduledEvent cancels one for every invitee, and Calendly emails them; inviteUserToOrganization emails an invitation. There are no automatic retries: after a timeout or 5xx, read the resource again before repeating a write. Errors report the HTTP status, Calendly's title, message and invalid parameters.",
-		"Each function below names its route and reference page, " .. DOCS .. "<page>.",
-	}
-	for _, name in names do
-		local endpoint = endpoints[name]
-		table.insert(lines, name .. signature(endpoint) .. ": " .. endpoint.about .. " " .. endpoint.method .. " " .. endpoint.path .. " (" .. endpoint.doc .. ")")
-	end
-	return table.concat(lines, "\n")
-end
-return exports
+return operations(endpoints, request, {
+	"Calendly API v2. Every function takes one named options object with Calendly's snake_case names; ? marks optional fields and ...body the JSON body fields. Results are Calendly's JSON unchanged: single objects usually as {resource}, lists as {collection, pagination}; deletes return {success=true}. In bodies, pass json.decode('[]') for empty arrays and json.decode('null') to clear a field. Connector calls return completed values: use them directly, without await.",
+	"Calendly identifies resources by URI, such as https://api.calendly.com/users/AAAA. Query and body fields that reference a resource (user, organization, event_type, invitee, owner, host, form, ...) take the full URI; path fields (event, invitee, contact, ...) take the UUID or the URI of that kind of resource. Start with getCurrentUser(): resource.uri is your user and resource.current_organization your organization.",
+	"Lists return one page: count is 1..100 (default 20) and pagination.next_page_token, while not null, is the next call's page_token. Array filters are sent comma-separated. Times are ISO 8601 UTC, such as 2026-10-14T09:00:00Z.",
+	"Examples: local me = calendly.getCurrentUser().resource; calendly.listScheduledEvents({user=me.uri, status='active', min_start_time='2026-10-14T00:00:00Z', sort='start_time:asc', count=50}); calendly.listInvitees({event=event.uri}); calendly.listEventTypeAvailableTimes({event_type=type.uri, start_time='2026-10-15T00:00:00Z', end_time='2026-10-22T00:00:00Z'}); calendly.createSchedulingLink({owner=type.uri, owner_type='EventType', max_event_count=1}).",
+	"Read-only connections omit writes. Calendly's own permissions also apply: organization-wide lists and webhooks need an admin or owner, the activity log and outgoing communications need Enterprise, and createInvitee, webhooks and recaps need a paid plan. A 403 for a missing scope lists the required scopes. Calendly has no API to delete event types or reschedule meetings.",
+	"Side effects: createInvitee books a real meeting and cancelScheduledEvent cancels one for every invitee, and Calendly emails them; inviteUserToOrganization emails an invitation. There are no automatic retries: after a timeout or 5xx, read the resource again before repeating a write. Errors report the HTTP status, Calendly's title, message and invalid parameters.",
+})

@@ -75,6 +75,10 @@ return {
 		local answers = json.decode(last().body)
 		assert(answers.company == "Acme" and answers.duration == "30 minutes" and answers.start == nil and answers.answers == nil)
 
+		payload = ""
+		local ok, err = pcall(function() cal.getMe() end)
+		assert(not ok and string.find(tostring(err), "invalid JSON object", 1, true), "an empty GET response is not data")
+
 		rejected(function() cal.getBooking() end, "bookingUid must be an ID")
 		rejected(function() cal.getBooking({bookingUid = "../me"}) end, "bookingUid must be an ID")
 		rejected(function() cal.getBooking({bookingUid = ""}) end, "bookingUid must be an ID")
@@ -91,6 +95,6 @@ return {
 		rejected(function() cal.listBookings({status = {{"upcoming"}}}) end, "must be a string, boolean, number")
 		rejected(function() cal.listBookings("upcoming") end, "opts must be an object")
 		rejected(function() cal.listBookings({"upcoming"}) end, "named fields")
-		assert(#requests == 12)
+		assert(#requests == 13)
 	end,
 }
