@@ -10,7 +10,8 @@ import (
 	"github.com/aibakery/houston-hub/manifest"
 )
 
-func TestLinkedInScopesAndAccessRoutes(t *testing.T) {
+func linkedInManifest(t *testing.T) *manifest.Manifest {
+	t.Helper()
 	raw, err := os.ReadFile("../../connectors/linkedin/houston.json")
 	if err != nil {
 		t.Fatal(err)
@@ -19,6 +20,46 @@ func TestLinkedInScopesAndAccessRoutes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	return m
+}
+
+// Houston's LinkedIn app serves every connection, so users only choose an access
+// level and authorize their account.
+func TestLinkedInPublisherOwnedClient(t *testing.T) {
+	m := linkedInManifest(t)
+	if !m.Auth["oauth"].PublisherClient() {
+		t.Fatal("LinkedIn OAuth client must belong to the publication")
+	}
+	for _, publisher := range []map[string]any{nil, {"client_id": "client"}, {"client_id": "client", "client_secret": "secret"}} {
+		draft, err := m.ResolveDraft(publisher, nil, nil, "")
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, field := range draft.ConfigFields {
+			if field.Name != "access" {
+				t.Fatalf("connection form asks for %s", field.Name)
+			}
+		}
+		want := len(publisher) == 2
+		if len(draft.Methods) != 1 || draft.Methods[0].Available != want {
+			t.Fatalf("publisher=%v methods=%+v; available=%v", publisher, draft.Methods, want)
+		}
+	}
+	publisher := map[string]any{"client_id": "client", "client_secret": "secret"}
+	if _, err := m.Resolve(publisher, map[string]any{"client_id": "own-client", "client_secret": "own-secret"}, nil, "oauth"); err == nil {
+		t.Fatal("connection replaced the publication's OAuth client")
+	}
+	r, err := m.Resolve(publisher, nil, nil, "oauth")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.PublicConfig["access"] != "read-only" || len(r.PublicConfig) != 1 {
+		t.Fatalf("unexpected public settings: %#v", r.PublicConfig)
+	}
+}
+
+func TestLinkedInScopesAndAccessRoutes(t *testing.T) {
+	m := linkedInManifest(t)
 	read := []string{"GET https://api.linkedin.com/v2/userinfo"}
 	writes := []string{
 		"POST https://api.linkedin.com/rest/posts",
@@ -34,8 +75,8 @@ func TestLinkedInScopesAndAccessRoutes(t *testing.T) {
 		"GET https://api.linkedin.com.evil.test/v2/userinfo",
 	}
 	for _, access := range []string{"read-only", "read-write"} {
-		config := map[string]any{"access": access, "client_id": "fixture-client", "client_secret": "fixture-secret"}
-		r, err := m.Resolve(nil, config, nil, "oauth")
+		publisher := map[string]any{"client_id": "fixture-client", "client_secret": "fixture-secret"}
+		r, err := m.Resolve(publisher, map[string]any{"access": access}, nil, "oauth")
 		if err != nil {
 			t.Fatal(err)
 		}

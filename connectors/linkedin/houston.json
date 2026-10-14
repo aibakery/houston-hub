@@ -20,18 +20,6 @@
         }
       ],
       "type": "string"
-    },
-    "client_id": {
-      "label": "OAuth client ID",
-      "order": 1,
-      "required": true,
-      "type": "string"
-    },
-    "client_secret": {
-      "label": "OAuth client secret",
-      "order": 2,
-      "required": true,
-      "type": "secret"
     }
   },
   "auth": {
@@ -40,8 +28,8 @@
       "label": "Connect with LinkedIn",
       "authorize_url": "https://www.linkedin.com/oauth/v2/authorization",
       "token_url": "https://www.linkedin.com/oauth/v2/accessToken",
-      "client_id": "{{config.client_id}}",
-      "client_secret": "{{config.client_secret}}",
+      "client_id": "{{publisher.client_id}}",
+      "client_secret": "{{publisher.client_secret}}",
       "client_auth": "body",
       "pkce": "none",
       "scope_separator": ",",
@@ -69,6 +57,20 @@
         },
         "label": "/name"
       }
+    }
+  },
+  "publisher": {
+    "client_id": {
+      "label": "LinkedIn OAuth client ID",
+      "order": 1,
+      "required": true,
+      "type": "string"
+    },
+    "client_secret": {
+      "label": "LinkedIn OAuth client secret",
+      "order": 2,
+      "required": true,
+      "type": "secret"
     }
   },
   "proxy": [

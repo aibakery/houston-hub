@@ -15,5 +15,5 @@ publish and delete posts. Posts can be public or limited to your connections.
 LinkedIn does not let connected apps read your feed, existing posts, connections
 or messages, so agents cannot browse or reply to LinkedIn content.
 
-Connecting requires a LinkedIn developer app, which is free to create. Your
-credentials stay on Houston's server. See [Connect LinkedIn](SETUP.md).
+Connect with LinkedIn in one click: sign in and allow access. Your
+authorization stays on Houston's server. See [Connect your LinkedIn account](SETUP.md).

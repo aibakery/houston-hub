@@ -861,9 +861,47 @@ allowlist; the original paths and explicit fill are preserved. Mercury owns the 
 
 Register repository `https://github.com/aibakery/houston-hub`, revision `main`,
 manifest path `connectors/linkedin/houston.json`. The bundle uses the existing
-manifest v1 and async HTTP/file runtime. OAuth client settings belong to each
-connection; the [account setup guide](connectors/linkedin/SETUP.md) covers the
-LinkedIn developer app, its products and the callback URL.
+manifest v1 and async HTTP/file runtime and a publisher-owned OAuth client, so
+users only choose an access level and select **Connect with LinkedIn**.
+
+In the [LinkedIn Developer Portal](https://www.linkedin.com/developers/apps), with
+the LinkedIn Page that represents Houston:
+
+1. Create Houston's app with its name, logo and privacy policy URL. LinkedIn shows
+   these on the consent screen.
+2. On the **Products** tab, add **Sign In with LinkedIn using OpenID Connect** and
+   **Share on LinkedIn**. Both are self-serve and granted immediately.
+3. On the **Auth** tab, add the publication's redirect URI,
+   `<Houston public URL>/oauth/connectors/<hub-publication-id>/callback`, under
+   **Authorized redirect URLs for your app**.
+4. Enter the **Client ID** and **Primary Client Secret** in the publication's
+   publisher settings.
+
+An **Invalid scope** error during authorization means the app lacks one of those
+products; a redirect error means the redirect URI differs from the one registered.
+
+LinkedIn enforces daily limits per member and per app. Member limits are the same
+as with a connection's own app; app limits are shared by every connection and
+reset daily. The app's **Analytics** tab shows usage against both.
+
+Every connection now acts through Houston's app, so one connection's abuse puts
+all LinkedIn connections at risk: LinkedIn can restrict or revoke the whole app,
+not just the offending member. Houston does not yet limit connector traffic
+itself, so it must add, before broad rollout:
+
+- per-connection caps on writes (posts, image uploads and deletions) well below
+  LinkedIn's member limits, with a minimum spacing between posts so a looping
+  agent cannot publish in bursts;
+- a cap on total writes across connections, kept well below the app limit;
+- refusing further calls for a connection after LinkedIn returns `429`, until its
+  daily window resets, rather than letting agents retry;
+- alerts on connections approaching their caps, and a way to pause one quickly.
+
+The publisher settings form appears once the publication syncs a release that
+declares them; until they are saved, LinkedIn cannot be connected. Connections
+created while client settings belonged to each connection ask to be set up again;
+connecting with LinkedIn once moves them to Houston's app, and their own LinkedIn
+apps can be deleted afterwards.
 
 The connector covers the self-serve **Sign In with LinkedIn using OpenID Connect**
 (`openid`, `profile`, `email`) and **Share on LinkedIn** (`w_member_social`)
