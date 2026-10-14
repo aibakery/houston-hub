@@ -51,7 +51,7 @@ export("getAttachment", true, function(input: any): any
 	local saved = command("download", options(input))
 	saved.url = await(fs.signedGetUrl(saved.path))
 	return saved
-end, "getAttachment({messageId, attachmentId, path}) -> {path, url, size, filename?, mimeType}. Saves an attachment (id from a message's attachments) to a session path, decoded; url is a signed Houston download link. Never inline attachment bytes.")
+end, "getAttachment({messageId, attachmentId, path}) -> {path, url, size, filename?, mimeType}. Saves an attachment (id from a message's attachments) to a session path, decoded; url is a signed Houston download link. Never inline attachment bytes. The download must finish within the call's one-minute limit.")
 
 local WRITE = " A failed or interrupted change may already have applied: check with getMessages or listMessages before repeating it."
 
