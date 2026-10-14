@@ -461,7 +461,7 @@ go run ./tools/validate connectors/fastmail
 ```
 
 Replace `connectors/fastmail` with the bundle you are authoring. The no-argument
-validator selects the bundles migrated to the current runtime: Fastmail, the Google connectors,
+validator selects the bundles migrated to the current runtime: Cal.com, Calendly, Fastmail, the Google connectors,
 LinkedIn, Mercury, Notion, WooCommerce, X
 and the database connectors. Other providers will join as they are migrated. An explicit catalog directory validates all its
 bundles.
@@ -903,3 +903,75 @@ WooCommerce's icon is the official Woo logo (`Woo_logo_color.svg`) from the
 2026-10-13. Its paths and purple fill are unchanged; the style element is replaced
 by an equivalent fill attribute and the view box is padded to a centered square.
 WooCommerce and Woo are trademarks of Automattic.
+
+### Publishing Cal.com
+
+Register repository `https://github.com/aibakery/houston-hub`, revision `main`,
+manifest path `connectors/calcom/houston.json`. The bundle uses the existing
+manifest v1 and async HTTP runtime; no publisher settings or provider app are
+needed. Each connection enters a Cal.com API key, as the
+[account setup guide](connectors/calcom/SETUP.md) describes.
+
+The connector covers a selected set of 94 user operations from Cal.com's
+[API v2 OpenAPI](https://cal.com/docs/api-reference/v2/openapi.json), checked on
+2026-10-14: profile and out-of-office, bookings and their attendees, guests,
+recordings and transcripts, event types with booking fields, webhooks and private
+links, slots and reservations, schedules, calendars and busy times, conferencing,
+routing-form slot calculation, verified emails and phones, workflows, team reads
+and time zones. Cal.com versions each controller with a `cal-api-version` header and
+silently falls back to legacy behavior without it, so each Lua endpoint sends its
+documented version; move them forward when Cal.com retires one.
+
+Omitted on purpose: API key rotation, which would revoke the connection's own key;
+credit charges; browser-based calendar, video and Stripe connection flows and Apple
+calendar passwords; Insights, whose authentication is undocumented; organization
+administration; the RSVP events API; and bulk webhook deletion. Not yet covered:
+booking limits, selected and destination calendars, unified calendar events, CRM
+sync errors, notification channels, and team administration beyond the listed
+reads. Cal.com OAuth clients need Cal.com's approval, so the connector uses API keys
+only. The EU host `api.cal.eu` is not documented by Cal.com and is not allowed.
+
+Read-only connections may GET the listed routes except webhooks, whose responses
+include signing secrets, and may POST only to the routing-form slot calculation,
+which saves nothing.
+
+Bundles cannot share files, so Cal.com and Calendly carry the same request layer:
+option and query encoding, error reading, response decoding, and the generation of
+functions and help from each endpoint table. `tools/validate` checks that the copies
+match and that each manifest allows exactly the table's routes, with writes only on
+read-write connections.
+
+Cal.com's icon is the official square mark (`cal-logo-square-black.svg`) from the
+[brand kit](https://cal.com/brand), retrieved 2026-10-14, unchanged. Cal.com® and
+Cal® are registered trademarks of Cal.com, Inc.
+
+### Publishing Calendly
+
+Register repository `https://github.com/aibakery/houston-hub`, revision `main`,
+manifest path `connectors/calendly/houston.json`. The bundle uses the existing
+manifest v1 and async HTTP runtime. Connections use a personal access token or
+their own Calendly OAuth app; the [account setup guide](connectors/calendly/SETUP.md)
+covers both and the scopes to select. No publisher settings are needed.
+
+The connector covers 63 of the 65 operations in Calendly's
+[API v2 OpenAPI](https://developer.calendly.com/openapi/calendly-api.json), checked
+on 2026-10-14. It omits the two Enterprise data-compliance deletions, which
+irreversibly erase invitee and event data, and the undocumented operations of the
+older Stoplight specification, such as account deletion. Calendly has no endpoint
+to delete event types or reschedule meetings.
+
+OAuth uses `auth.calendly.com` with HTTP Basic client authentication and PKCE. Access
+tokens last two hours and refresh tokens rotate on every use, so the method requires
+a refresh token. Read scopes are always requested and read-write connections add the
+write scopes, so narrowing a caller without write access to read-only keeps a granted
+scope set. Calendly documents only `"scope": "default"` in token response examples;
+Houston fails activation when a returned scope list lacks a requested scope, so
+confirm one live authorization and refresh before announcing the OAuth method.
+Personal access tokens carry the scopes chosen when they were created. Both methods
+share the same proxy rules, which allow only the listed routes on `api.calendly.com`;
+writes require read-write access.
+
+Calendly's icon is the current square mark served at
+[calendly.com/media/favicon/icon.svg](https://calendly.com/media/favicon/icon.svg),
+retrieved 2026-10-14, unchanged; its gradient uses a local fragment reference.
+Calendly owns the mark.
