@@ -1033,7 +1033,5 @@ response, and Houston refuses an authorization that lacks a requested one. Downl
 and upload routes send their argument in the `Dropbox-API-Arg` header, which Dropbox
 requires to be ASCII: the connector escapes other characters as JSON `\u` escapes.
 
-Dropbox's icon is the official glyph (`dropbox_logo_glyph_m1.svg`) served from
-Dropbox's static asset host, retrieved 2026-10-14. Its paths and blue fill are
-unchanged; the style element is replaced by equivalent fill attributes and the view
-box is padded to a centered square. Dropbox owns the mark.
+Dropbox's icon is the existing blue Dropbox mark, unchanged and shared with Houston's
+app marks through the central vendor-asset registry. Dropbox owns the mark.
