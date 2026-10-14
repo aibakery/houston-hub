@@ -861,9 +861,32 @@ allowlist; the original paths and explicit fill are preserved. Mercury owns the 
 
 Register repository `https://github.com/aibakery/houston-hub`, revision `main`,
 manifest path `connectors/linkedin/houston.json`. The bundle uses the existing
-manifest v1 and async HTTP/file runtime. OAuth client settings belong to each
-connection; the [account setup guide](connectors/linkedin/SETUP.md) covers the
-LinkedIn developer app, its products and the callback URL.
+manifest v1 and async HTTP/file runtime and a publisher-owned OAuth client, so
+users only choose an access level and select **Connect with LinkedIn**.
+
+In the [LinkedIn Developer Portal](https://www.linkedin.com/developers/apps), with
+the LinkedIn Page that represents Houston:
+
+1. Create Houston's app with its name, logo and privacy policy URL. LinkedIn shows
+   these on the consent screen.
+2. On the **Products** tab, add **Sign In with LinkedIn using OpenID Connect** and
+   **Share on LinkedIn**. Both are self-serve and granted immediately.
+3. On the **Auth** tab, add the publication's redirect URI,
+   `<Houston public URL>/oauth/connectors/<hub-publication-id>/callback`, under
+   **Authorized redirect URLs for your app**.
+4. Enter the **Client ID** and **Primary Client Secret** in the publication's
+   publisher settings.
+
+An **Invalid scope** error during authorization means the app lacks one of those
+products; a redirect error means the redirect URI differs from the one registered.
+LinkedIn applies its daily API limits to the app as a whole, so every connection
+shares them; the app's **Analytics** tab shows usage.
+
+The publisher settings form appears once the publication syncs a release that
+declares them; until they are saved, LinkedIn cannot be connected. Connections
+created while client settings belonged to each connection ask to be set up again;
+connecting with LinkedIn once moves them to Houston's app, and their own LinkedIn
+apps can be deleted afterwards.
 
 The connector covers the self-serve **Sign In with LinkedIn using OpenID Connect**
 (`openid`, `profile`, `email`) and **Share on LinkedIn** (`w_member_social`)
