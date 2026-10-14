@@ -310,6 +310,37 @@ func TestDatabaseUsesFirstEnabledRule(t *testing.T) {
 	}
 }
 
+func TestIMAPConnection(t *testing.T) {
+	raw := func(connection string) []byte {
+		return []byte(`{"schema_version":1,"name":"IMAP","files":["connector.lua"],
+			"config":{"host":{"type":"string","label":"Host","required":true},"username":{"type":"string","label":"Username","required":true},"password":{"type":"secret","label":"Password","required":true}},
+			"proxy":[{"match":{"protocol":"imap"},"action":{"connection":{"host":"{{config.host}}","user":"{{config.username}}","password":"{{config.password}}"` + connection + `}}}]}`)
+	}
+	if _, err := Parse(raw(`,"database":"mail"`)); err == nil {
+		t.Fatal("accepted an IMAP database")
+	}
+	if _, err := Parse(raw(`,"tls":{"mode":"disable"}`)); err == nil {
+		t.Fatal("accepted IMAP without verified TLS")
+	}
+	m, err := Parse(raw(""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	r, err := m.Resolve(nil, map[string]any{"host": "imap.example.com", "username": "ada@example.com", "password": "secret"}, nil, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	target, err := m.Proxy[0].ResolveDatabase(r.Context)
+	want := ResolvedDatabase{Protocol: "imap", Host: "imap.example.com", User: "ada@example.com", Password: "secret", Port: 993, TLSMode: "verify-full"}
+	if err != nil || target != want {
+		t.Fatalf("IMAP resolution: %#v %v", target, err)
+	}
+	// Database protocols still require a database.
+	if _, err := Parse([]byte(strings.Replace(string(raw("")), `"imap"`, `"postgres"`, 1))); err == nil {
+		t.Fatal("accepted a database connection without a database")
+	}
+}
+
 func TestRedisDatabaseIndex(t *testing.T) {
 	raw := func(database string) []byte {
 		return []byte(`{"schema_version":1,"name":"Redis","files":["connector.lua"],

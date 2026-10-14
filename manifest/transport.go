@@ -266,18 +266,20 @@ func (m *Manifest) validateProxy(p Proxy, used map[string]bool) error {
 				return err
 			}
 		}
-	case "postgres", "mysql", "clickhouse", "redis":
+	case "postgres", "mysql", "clickhouse", "redis", "imap":
 		c := p.Action.Connection
 		if c == nil || p.Match.Host != nil || p.Match.Method != nil || p.Match.Path != nil || p.Match.OpaquePathParameters != nil || p.Match.Header != nil || p.Action.Headers.Set != nil || p.Action.Headers.Remove != nil || p.Action.BasicAuth != nil || p.Action.Rewrite != nil {
-			return fmt.Errorf("database requires action.connection and forbids HTTP filters/actions")
+			return fmt.Errorf("native protocol requires action.connection and forbids HTTP filters/actions")
 		}
 		if c.TLS != nil && c.TLS.Mode != "verify-full" {
 			return fmt.Errorf("TLS must verify-full")
 		}
-		for _, s := range []string{c.Host, c.Database, c.User} {
-			if s == "" {
-				return fmt.Errorf("database host/database/user required")
-			}
+		if c.Host == "" || c.User == "" {
+			return fmt.Errorf("connection host/user required")
+		}
+		// A mail server has no database; every database protocol requires one.
+		if (p.Match.Protocol == "imap") != (c.Database == "") {
+			return fmt.Errorf("connection database is required for databases and forbidden for IMAP")
 		}
 		for mode, ss := range map[string][]string{"destination": {c.Host, c.Database}, "user": {c.User}, "password": {c.Password}} {
 			for _, s := range ss {
@@ -635,7 +637,7 @@ func (p Proxy) ResolveDatabase(c Context) (ResolvedDatabase, error) {
 	if out.User, e = RenderString(v.User, c); e != nil {
 		return out, e
 	}
-	if out.Database == "" || out.User == "" || strings.ContainsRune(out.Database, 0) || strings.ContainsRune(out.User, 0) {
+	if (out.Database == "") != (p.Match.Protocol == "imap") || out.User == "" || strings.ContainsRune(out.Database, 0) || strings.ContainsRune(out.User, 0) {
 		return out, fmt.Errorf("invalid database identity")
 	}
 	if out.Password, e = RenderString(v.Password, c); e != nil {
@@ -653,6 +655,8 @@ func (p Proxy) ResolveDatabase(c Context) (ResolvedDatabase, error) {
 		if !redisDatabase(out.Database) {
 			return out, fmt.Errorf("invalid Redis database index")
 		}
+	case "imap":
+		out.Port = 993 // Implicit TLS.
 	default:
 		return out, fmt.Errorf("unknown database protocol")
 	}

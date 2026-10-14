@@ -337,7 +337,9 @@ TLS. The protocols are `postgres`, `mysql`, `clickhouse` (its HTTPS interface)
 and `redis`, whose database is a numeric index. The first
 enabled database rule wins. Credentials and targets cannot be overridden by Luau
 query arguments. Database URLs are not accepted. Publisher credentials may be
-sent only to literal or publisher-owned database targets.
+sent only to literal or publisher-owned database targets. An `imap` rule has the
+same shape without a database: host, port (default 993), user, password and
+verified TLS. IMAP connects with implicit TLS; STARTTLS is not supported.
 
 `http.request({url, method, headers?, body?, timeoutMs?})` returns an operation
 whose result has `statusCode`, `headers`, and a body Reader. All headers use
@@ -370,6 +372,12 @@ Redis provides `db.command({args, readOnly?})` for one command, such as
 `{"HGET", key, field}`; a read-only command must carry Redis's `readonly` flag,
 and a missing value is nil. Database errors raise `database_error` with the
 server's message. These are protocol primitives, not a portable SQL interface.
+IMAP provides `imap.command({command, ...})`, an operation for one mail command
+on its own connection. Houston logs in, decodes MIME and owns the message IDs;
+the [IMAP connector](connectors/imap/connector.lua) documents each command and its
+options. Fields are strings, numbers, booleans or arrays of them, and unknown
+options are rejected. `store`, `move` and `create` change the mailbox and need
+write access. IMAP errors raise `imap_error` with the reason or server's message.
 
 Initialize JSON arrays with `json.decode("[]")`, including arrays that may be
 empty. A plain empty Luau table encodes as a JSON object. For example,
@@ -462,7 +470,7 @@ go run ./tools/validate connectors/fastmail
 
 Replace `connectors/fastmail` with the bundle you are authoring. The no-argument
 validator selects the bundles migrated to the current runtime: Cal.com, Calendly, Fastmail, the Google connectors,
-LinkedIn, Mercury, Notion, WooCommerce, X
+IMAP, LinkedIn, Mercury, Notion, WooCommerce, X
 and the database connectors. Other providers will join as they are migrated. An explicit catalog directory validates all its
 bundles.
 
@@ -811,6 +819,16 @@ file buckets and observed regional Notion storage hosts. Review any newly used
 storage origin before extending those rules; never inject a Notion API token into
 storage requests. Opaque path matching is scoped to property IDs and signed
 storage keys, leaving literal route prefixes and other parameters strict.
+
+### Publishing IMAP
+
+Register repository `https://github.com/aibakery/houston-hub`, revision `main`,
+manifest path `connectors/imap/houston.json`. It requires a Houston deployment
+with the native `imap` protocol. Each connection supplies its own server,
+username and password; the [account setup guide](connectors/imap/SETUP.md) covers
+app passwords and unsupported providers. The connector reads and organizes mail;
+sending needs SMTP, which is a different protocol. The envelope icon is drawn for
+this bundle, since IMAP is a protocol without an owner's mark.
 
 ### Publishing Mercury
 

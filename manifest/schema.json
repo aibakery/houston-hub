@@ -265,7 +265,6 @@
       },
       "required": [
         "host",
-        "database",
         "user",
         "password"
       ],
@@ -641,6 +640,48 @@
               }
             }
           }
+        },
+        {
+          "else": {
+            "properties": {
+              "action": {
+                "properties": {
+                  "connection": {
+                    "required": [
+                      "database"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "if": {
+            "properties": {
+              "match": {
+                "properties": {
+                  "protocol": {
+                    "const": "imap"
+                  }
+                },
+                "required": [
+                  "protocol"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "action": {
+                "properties": {
+                  "connection": {
+                    "properties": {
+                      "database": false
+                    }
+                  }
+                }
+              }
+            }
+          }
         }
       ],
       "properties": {
@@ -745,7 +786,8 @@
             "postgres",
             "mysql",
             "clickhouse",
-            "redis"
+            "redis",
+            "imap"
           ],
           "type": "string"
         }

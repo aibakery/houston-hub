@@ -164,7 +164,7 @@ func (b BasicAuth) MarshalJSON() ([]byte, error) {
 type DatabaseConnection struct {
 	Host     string `json:"host"`
 	Port     any    `json:"port,omitempty"`
-	Database string `json:"database"`
+	Database string `json:"database,omitempty"`
 	User     string `json:"user"`
 	Password string `json:"password"`
 	TLS      *TLS   `json:"tls,omitempty"`
