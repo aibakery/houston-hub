@@ -879,8 +879,23 @@ the LinkedIn Page that represents Houston:
 
 An **Invalid scope** error during authorization means the app lacks one of those
 products; a redirect error means the redirect URI differs from the one registered.
-LinkedIn applies its daily API limits to the app as a whole, so every connection
-shares them; the app's **Analytics** tab shows usage.
+
+LinkedIn enforces daily limits per member and per app. Member limits are the same
+as with a connection's own app; app limits are shared by every connection and
+reset daily. The app's **Analytics** tab shows usage against both.
+
+Every connection now acts through Houston's app, so one connection's abuse puts
+all LinkedIn connections at risk: LinkedIn can restrict or revoke the whole app,
+not just the offending member. Houston does not yet limit connector traffic
+itself, so it must add, before broad rollout:
+
+- per-connection caps on writes (posts, image uploads and deletions) well below
+  LinkedIn's member limits, with a minimum spacing between posts so a looping
+  agent cannot publish in bursts;
+- a cap on total writes across connections, kept well below the app limit;
+- refusing further calls for a connection after LinkedIn returns `429`, until its
+  daily window resets, rather than letting agents retry;
+- alerts on connections approaching their caps, and a way to pause one quickly.
 
 The publisher settings form appears once the publication syncs a release that
 declares them; until they are saved, LinkedIn cannot be connected. Connections
