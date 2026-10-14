@@ -36,7 +36,7 @@ end, "listMessages({folder?, from?, to?, cc?, subject?, text?, since?, before?, 
 
 export("getMessages", true, function(input: any): any
 	return command("fetch", options(input))
-end, "getMessages({ids, maxBodyBytes?}) -> messages in the order of ids, each {id, folder, flags, date, receivedAt, size, subject, from, to, cc, bcc, replyTo, messageId, inReplyTo, body, bodyTruncated, attachments={{id, filename, mimeType, size, inline, contentId}}}. 1 to 50 IDs, and IDs × maxBodyBytes at most 3.5 MiB; the whole reply, as JSON, must stay under 4 MiB. An attachment's size is as stored on the server, about a third above the file's size for base64. body is the decoded plain text, else the HTML; maxBodyBytes caps it (default 65536, at most 1048576; 0 skips bodies for a cheap scan) and bodyTruncated reports a cut. flags are IMAP flags such as \\Seen (read), \\Flagged and \\Answered. Reading never marks a message read.")
+end, "getMessages({ids, maxBodyBytes?}) -> messages in the order of ids, each {id, folder, flags, date, receivedAt, size, subject, from, to, cc, bcc, replyTo, messageId, inReplyTo, body, bodyTruncated, attachments={{id, filename, mimeType, size, inline, contentId}}}. 1 to 50 IDs, and IDs × maxBodyBytes at most 3.5 MiB; the whole reply, as JSON, must stay under 4 MiB. An attachment's size is as stored on the server, about a third above the file's size for base64. body is the decoded plain text, else the HTML; maxBodyBytes caps it (default 32768, at most 1048576; 0 skips bodies for a cheap scan) and bodyTruncated reports a cut. flags are IMAP flags such as \\Seen (read), \\Flagged and \\Answered. Reading never marks a message read.")
 
 export("getMessage", true, function(input: any): any
 	local args = options(input)
