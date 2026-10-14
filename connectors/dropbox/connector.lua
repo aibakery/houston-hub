@@ -5,6 +5,7 @@ type Endpoint = {route: string, read: boolean, style: ("download" | "upload")?, 
 local API = "https://api.dropboxapi.com/2/"
 local CONTENT = "https://content.dropboxapi.com/2/"
 local MAX_SAFE_INTEGER = 9007199254740991
+local MAX_UPLOAD_BYTES = 150 * 1024 * 1024 -- Dropbox's limit for one upload request.
 
 local function text(value: any, field: string): string
 	assert(type(value) == "string" and value ~= "", field .. " must be a nonempty string")
@@ -90,7 +91,11 @@ local function download(name: string, endpoint: Endpoint, input: any): Options
 		response.body:close()
 		invalid(name, response, "Dropbox returned no Dropbox-API-Result metadata")
 	end
-	local output = fs.open(path, "w")
+	local opened, output = pcall(function(): File return fs.open(path, "w") end)
+	if not opened then
+		response.body:close()
+		error(output, 0)
+	end
 	output:write(response.body)
 	await(output:close())
 	return {session_path = path, url = await(fs.signedGetUrl(path)), size = await(fs.stat(path)).size, result = result}
@@ -98,16 +103,15 @@ end
 
 local function upload(name: string, endpoint: Endpoint, input: any): any
 	local request, path = content(endpoint, input, {["Content-Type"] = {"application/octet-stream"}})
+	assert(await(fs.stat(path)).size <= MAX_UPLOAD_BYTES, "upload sends at most 150 MiB; larger files are not supported")
 	request.body = fs.open(path, "r")
 	return decode(name, await(http.request(request)))
 end
 
 local CURSOR = "({cursor}) -> the next page."
-local function job(starters: string): string
-	return "({async_job_id}) -> {['.tag']='in_progress'|'complete'|'failed', ...}. Polls " .. starters .. "."
-end
-local function batchJob(starter: string): string
-	return "({async_job_id}) -> {['.tag']='in_progress'|'complete', entries?}. Polls " .. starter .. "; complete.entries holds one result per entry."
+local ENTRIES = " complete.entries holds one result per entry."
+local function job(starters: string, tags: string?): string
+	return "({async_job_id}) -> {['.tag']=" .. (tags or "'in_progress'|'complete'|'failed'") .. ", ...}. Polls " .. starters .. "."
 end
 local endpoints: {[string]: Endpoint} = {
 	-- Account
@@ -152,13 +156,13 @@ local endpoints: {[string]: Endpoint} = {
 	restore = {route = "files/restore", read = false, help = "({path, rev}) -> file metadata. Restores a deleted file or an earlier revision from listRevisions."},
 	moveBatch = {route = "files/move_batch_v2", read = false,
 		help = "({entries={{from_path, to_path}, ...}, autorename?}) -> {['.tag']='async_job_id'|'complete', ...}. Up to 1,000 entries; poll moveBatchCheck."},
-	moveBatchCheck = {route = "files/move_batch/check_v2", read = false, help = batchJob("moveBatch")},
+	moveBatchCheck = {route = "files/move_batch/check_v2", read = false, help = job("moveBatch", "'in_progress'|'complete'") .. ENTRIES},
 	copyBatch = {route = "files/copy_batch_v2", read = false,
 		help = "({entries={{from_path, to_path}, ...}, autorename?}) -> {['.tag']='async_job_id'|'complete', ...}. Up to 1,000 entries; poll copyBatchCheck."},
-	copyBatchCheck = {route = "files/copy_batch/check_v2", read = false, help = batchJob("copyBatch")},
+	copyBatchCheck = {route = "files/copy_batch/check_v2", read = false, help = job("copyBatch", "'in_progress'|'complete'") .. ENTRIES},
 	deleteBatch = {route = "files/delete_batch", read = false,
 		help = "({entries={{path}, ...}}) -> {['.tag']='async_job_id'|'complete', ...}. Up to 1,000 entries; poll deleteBatchCheck."},
-	deleteBatchCheck = {route = "files/delete_batch/check", read = false, help = job("deleteBatch") .. " complete.entries holds one result per entry."},
+	deleteBatchCheck = {route = "files/delete_batch/check", read = false, help = job("deleteBatch") .. ENTRIES},
 
 	-- Shared links
 	listSharedLinks = {route = "sharing/list_shared_links", read = true,
@@ -258,7 +262,7 @@ exports.help = function(): string
 		"Every argument and result is documented by route under User endpoints at https://docs.dropboxapi.com/dropbox-api/api-reference/overview. Union values are a tag string or a table, e.g. mode='overwrite' or mode={['.tag']='update', update='<rev>'}.",
 		"Paths start with '/', are case-insensitive and use '' for the root folder (not '/'). Most routes also accept 'id:...' from metadata, and 'ns:<namespace_id>/...' reaches a team space.",
 		"Lists return one page. While has_more is true, or a sharing list returns a cursor, pass cursor to the matching ...Continue operation; listSharedLinks takes its cursor back and listRevisions pages with before_rev.",
-		"Files move through session paths: downloads save to session_path and return {session_path, url, size, result}, where url is a signed Houston link and result is Dropbox's metadata; upload reads session_path. Never inline file bytes. A transfer must finish within the call's time limit.",
+		"Files move through session paths: downloads save to session_path and return {session_path, url, size, result}, where url is a signed Houston link and result is Dropbox's metadata; upload reads session_path. Never inline file bytes. A transfer must finish within the call's time limit and stops at Houston's 256 MiB file limit, below Dropbox's own limits.",
 		"No hidden paging, polling or retries. Batch, URL-saving and sharing jobs may return an async_job_id: poll the status operation their help names. Errors report the HTTP status and Dropbox's error_summary, e.g. 'Dropbox HTTP 409: path/not_found/..'. A failed or timed-out change may already have happened; check before repeating.",
 		"Connector calls return completed values; do not await them. Example: local page = dropbox.listFolder({path='/Reports', limit=100}); local file = dropbox.download({path=page.entries[1].path_lower, session_path='report.pdf'}); return file.url.",
 	}

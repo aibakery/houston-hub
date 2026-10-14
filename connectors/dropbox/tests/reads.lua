@@ -93,6 +93,8 @@ return {
 		responses = {{status = 409, body = '{"error_summary":"path/not_file/.."}'}}
 		ok, err = pcall(c.download, {path = "/Docs", session_path = "docs"})
 		assert(not ok and string.find(tostring(err), "path/not_file", 1, true), tostring(err))
+		responses = {{headers = {["dropbox-api-result"] = {'{"name":"a"}'}}, body = "bytes"}}
+		assert(not pcall(c.download, {path = "/a", session_path = "../outside"}), "accepted a session path outside the session")
 		before = #requests
 		assert(not pcall(c.download, {path = "/a"}), "download requires a session_path")
 		assert(#requests == before)
