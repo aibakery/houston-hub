@@ -28,7 +28,7 @@ end
 export("listMailFolders", true, function(...: any): any
 	assert(select("#", ...) == 0, "listMailFolders takes no arguments")
 	return command("list", {})
-end, "listMailFolders() -> {{id, name, parentId?, role?, totalEmails?, unreadEmails?}} sorted by id. id is the full folder name, such as 'INBOX' or 'Archive/2026'; role is inbox, sent, drafts, trash, junk, archive or all. parentId may name a container that holds no messages and is not listed. Counts appear when the server reports them in its folder list.")
+end, "listMailFolders() -> {{id, name, parentId?, role?, totalEmails?, unreadEmails?}} sorted by id. id is the full folder name, such as 'INBOX' or 'Archive/2026'; role is inbox, sent, drafts, trash, junk, archive or all. Some servers list containers that hold no messages: use them as parents, not to search. Counts appear when the server reports them in its folder list.")
 
 export("listMessages", true, function(input: any): any
 	return command("search", options(input))
