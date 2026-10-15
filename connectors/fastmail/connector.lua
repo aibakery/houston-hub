@@ -473,7 +473,7 @@ function functions.getAttachments(input: Id | DownloadsOptions, requested: {Down
 		local values = { name = name, type = attachment.mimeType or "application/octet-stream" }
 		local ids = { accountId = s.accountId, blobId = id }
 		local link = string.gsub(template, "{(%w+)}", function(key: any)
-			if ids[key] then return url.segment(ids[key], key) end
+			if key == "accountId" or key == "blobId" then return url.segment(ids[key], key) end
 			return url.encode(values[key] or "")
 		end)
 		jobs[#jobs + 1] = { path = path, size = attachment.size, url = link }
