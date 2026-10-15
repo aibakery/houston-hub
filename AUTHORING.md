@@ -583,7 +583,7 @@ end
 `url.encode(value)` percent-encodes every byte outside RFC 3986's unreserved
 characters; use it for query names and values. `url.segment(value, name?)` encodes
 one path segment and raises `invalid_argument` for an empty value, a dot-only value
-such as `..`, `/`, `\`, `%` or control characters, naming `name` but never echoing
+such as `..`, `/`, `\`, `%`, control characters or invalid UTF-8, naming `name` but never echoing
 the value. Pass every caller-supplied path ID through it, so an ID can never address
 another route, and check provider ID formats (numeric IDs, URIs) before it. To keep
 a connector's own error text, wrap it: `local ok, segment = pcall(url.segment, id)`.
