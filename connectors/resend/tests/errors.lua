@@ -29,9 +29,11 @@ return {
 		upstream(403, '{"statusCode":403,"message":"The acme.com domain is not verified.","name":"validation_error"}', {},
 			{"HTTP 403", "validation_error", "domain is not verified", '"retryable":false'})
 		upstream(401, '{"message":"This API key is restricted to only send emails.","name":"restricted_api_key","statusCode":401}', {},
-			{"HTTP 401", "restricted_api_key", "only send emails"})
+			{"HTTP 401", "restricted_api_key", "only send emails", '"retryable":false'})
 		upstream(400, json.encode({statusCode = 400, name = "validation_error", message = string.rep("x", 5000)}), {},
 			{"HTTP 400", "validation_error"})
+		local ok, err = pcall(function() resend.sendEmail({from = "hello@acme.com", to = "ana@example.com", subject = "Hi", text = "Hello"}) end)
+		assert(not ok and string.find(tostring(err), string.rep("x", 600), 1, true) and not string.find(tostring(err), string.rep("x", 601), 1, true), "message not capped at 600 characters")
 		upstream(429, '{"statusCode":429,"message":"Too many requests.","name":"rate_limit_exceeded"}', {["retry-after"] = {"1"}},
 			{"HTTP 429", "rate_limit_exceeded", "Retry-After: 1", '"retryable":true'})
 		upstream(429, '{"statusCode":429,"message":"You have reached your daily email sending quota.","name":"daily_quota_exceeded"}', {},
@@ -49,8 +51,9 @@ return {
 		status, payload, responseHeaders = 200, '{"object":"attachment","id":"a1","download_url":"https://inbound-cdn.resend.com/t1/attachments/a1?signature=old"}', {}
 		cdnStatus = 403
 		local before = calls
-		local ok, err = pcall(function() resend.getReceivedEmailAttachment({email_id = "r1", attachment_id = "a1", path = "a.pdf"}) end)
+		ok, err = pcall(function() resend.getReceivedEmailAttachment({email_id = "r1", attachment_id = "a1", path = "a.pdf"}) end)
 		assert(not ok and string.find(tostring(err), "HTTP 403", 1, true) and string.find(tostring(err), '"retryable":false', 1, true), tostring(err))
+		assert(not string.find(tostring(err), "signature", 1, true), "error leaked the signed link")
 		assert(calls == before + 2)
 	end,
 }
