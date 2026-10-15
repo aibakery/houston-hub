@@ -4,16 +4,6 @@
 
 local BASE = "https://public-api.granola.ai/v1"
 
-local function scalar(value: any)
-	if type(value) == "boolean" then
-		if value then
-			return "true"
-		end
-		return "false"
-	end
-	return tostring(value)
-end
-
 local function add_query(parts: any,key: any,value: any)
 	if value == nil then
 		return
@@ -24,7 +14,7 @@ local function add_query(parts: any,key: any,value: any)
 		end
 		return
 	end
-	parts[#parts + 1] = url.encode(key) .. "=" .. url.encode(scalar(value))
+	parts[#parts + 1] = url.encode(key) .. "=" .. url.encode(value)
 end
 
 local function query_string(params: any)
