@@ -1097,8 +1097,9 @@ a credential and deletion could revoke the connection's own key; OAuth grants an
 the OAuth endpoints; Inboxes and segment metrics, which are in private beta; the
 deprecated audiences; `GET /usage`, which has no reference page; the `POST /email`
 send aliases; and the SDK-only `x-batch-validation` header. The connection uses API
-keys. Resend also offers OAuth 2.1 with PKCE, `full_access` and `emails:send` scopes, 15-minute access tokens and
-rotating refresh tokens; an OAuth method could later replace pasted keys.
+keys. Resend also offers OAuth 2.1 with PKCE, `full_access` and `emails:send` scopes,
+15-minute access tokens and rotating refresh tokens; an OAuth method could later
+replace pasted keys.
 
 Read-only connections may GET the listed routes except single webhooks, whose
 responses include signing secrets, and single logs, which contain logged request and

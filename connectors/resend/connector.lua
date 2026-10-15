@@ -314,8 +314,8 @@ local function identifier(value: any, field: string): string
 	return encode(value)
 end
 
--- Resend errors are {statusCode, name, message}. Rate limits and in-flight idempotent requests
--- clear on their own; daily and monthly quotas (also HTTP 429) do not.
+-- Resend errors are {statusCode, name, message}. Rate limits, in-flight idempotent requests and
+-- locked resources clear on their own; daily and monthly quotas (also HTTP 429) do not.
 local function failStatus(name: string, response: HttpResponse): never
 	local status = response.statusCode
 	local ok, value = pcall(json.decode, errorBody(response))
@@ -327,7 +327,8 @@ local function failStatus(name: string, response: HttpResponse): never
 	local retry = response.headers["retry-after"]
 	if retry and retry[1] then message ..= "; Retry-After: " .. retry[1] end
 	return houston.fail({operation = name, layer = "upstream", upstream_status = status, message = message,
-		retryable = status >= 500 or code == "rate_limit_exceeded" or code == "concurrent_idempotent_requests" or (status == 429 and code == nil)})
+		retryable = status >= 500 or code == "rate_limit_exceeded" or code == "concurrent_idempotent_requests"
+		or code == "resource_locked" or (status == 429 and code == nil)})
 end
 
 local function decode(name: string, endpoint: Endpoint, response: HttpResponse): any

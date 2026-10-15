@@ -41,6 +41,8 @@ return {
 		upstream(429, "Too Many Requests", {}, {"HTTP 429", '"retryable":true'})
 		upstream(409, '{"statusCode":409,"message":"Same idempotency key is being processed.","name":"concurrent_idempotent_requests"}', {},
 			{"HTTP 409", "concurrent_idempotent_requests", '"retryable":true'})
+		upstream(409, '{"statusCode":409,"message":"Another request is already updating this resource.","name":"resource_locked"}', {},
+			{"HTTP 409", "resource_locked", '"retryable":true'})
 		upstream(409, '{"statusCode":409,"message":"Same idempotency key used with a different payload.","name":"invalid_idempotent_request"}', {},
 			{"HTTP 409", "invalid_idempotent_request", '"retryable":false'})
 		upstream(500, "<html>Internal error</html>", {}, {"HTTP 500", '"retryable":true'})
