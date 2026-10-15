@@ -26,7 +26,7 @@ go run ./tools/validate
 Set `HOUSTON_CLI` to a freshly built Houston runner and put the pinned
 `luau-analyze` on `PATH`; the Go validator runs every resolved behavior fixture
 in the selected bundle. Cal.com, Calendly, Dropbox, Fastmail, Gmail, Google Calendar, Google Drive, IMAP, LinkedIn, Mercury,
-Notion, WooCommerce, X and the ClickHouse, MariaDB, MySQL,
+Notion, Resend, WooCommerce, X and the ClickHouse, MariaDB, MySQL,
 PostgreSQL, Redis and Supabase database connectors are migrated to the current
 runtime; other provider bundles remain available for future migration.
 From the Houston checkout, `go -C tools/runtime run . test-connectors` builds the

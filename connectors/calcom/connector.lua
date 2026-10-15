@@ -1,7 +1,7 @@
 -- Cal.com API v2. Arguments and results keep Cal.com's native camelCase fields.
 type Options = {[string]: any}
 type Endpoint = {
-	method: string, path: string, version: string?, query: {string}?, required: {string}?,
+	method: string, path: string, version: string?, query: {string}?, extra: {string}?, required: {string}?,
 	write: boolean?, body: (boolean | string)?, doc: string, about: string,
 }
 
@@ -209,8 +209,8 @@ local endpoints: {[string]: Endpoint} = {
 	listTimezones = {method = "GET", path = "/v2/timezones", doc = "timezones/get-timezones", query = {"search", "limit"}, about = "Supported time zones."},
 }
 
--- Request layer shared verbatim by the Cal.com and Calendly connectors (tools/validate checks
--- they match). It uses each connector's PROVIDER, DOCS and Endpoint type.
+-- Request layer shared verbatim by the Cal.com, Calendly and Resend connectors (tools/validate
+-- checks they match). It uses each connector's PROVIDER, DOCS and Endpoint type.
 local NULL = json.decode("null")
 local NONE: {string} = table.freeze({})
 
@@ -275,12 +275,15 @@ local function object(name: string, endpoint: Endpoint, response: HttpResponse):
 	return value
 end
 
--- name({path fields, query fields?, ...body}) built from the endpoint itself.
+-- name({path fields, query fields?, extra fields?, ...body}) built from the endpoint itself.
+-- Extra fields are options the connector consumes itself, such as a request header.
 local function signature(endpoint: Endpoint): string
 	local fields: {string} = {}
 	for field in string.gmatch(endpoint.path, "{([%w_]+)}") do table.insert(fields, field) end
-	for _, field in endpoint.query or NONE do
-		table.insert(fields, if table.find(endpoint.required or NONE, field) then field else field .. "?")
+	for _, group in {endpoint.query or NONE, endpoint.extra or NONE} do
+		for _, field in group do
+			table.insert(fields, if table.find(endpoint.required or NONE, field) then field else field .. "?")
+		end
 	end
 	if type(endpoint.body) == "string" then
 		table.insert(fields, endpoint.body)

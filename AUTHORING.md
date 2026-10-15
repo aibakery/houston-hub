@@ -470,7 +470,7 @@ go run ./tools/validate connectors/fastmail
 
 Replace `connectors/fastmail` with the bundle you are authoring. The no-argument
 validator selects the bundles migrated to the current runtime: Cal.com, Calendly, Dropbox, Fastmail, the Google connectors,
-IMAP, LinkedIn, Mercury, Notion, WooCommerce, X
+IMAP, LinkedIn, Mercury, Notion, Resend, WooCommerce, X
 and the database connectors. Other providers will join as they are migrated. An explicit catalog directory validates all its
 bundles.
 
@@ -991,7 +991,7 @@ Read-only connections may GET the listed routes except webhooks, whose responses
 include signing secrets, and may POST only to the routing-form slot calculation,
 which saves nothing.
 
-Bundles cannot share files, so Cal.com and Calendly carry the same request layer:
+Bundles cannot share files, so Cal.com, Calendly and Resend carry the same request layer:
 option and query encoding, error reading, response decoding, and the generation of
 functions and help from each endpoint table. `tools/validate` checks that the copies
 match and that each manifest allows exactly the table's routes, with writes only on
@@ -1073,3 +1073,42 @@ requires to be ASCII: the connector escapes other characters as JSON `\u` escape
 
 Dropbox's icon is the existing blue Dropbox mark, unchanged and shared with Houston's
 app marks through the central vendor-asset registry. Dropbox owns the mark.
+
+### Publishing Resend
+
+Register repository `https://github.com/aibakery/houston-hub`, revision `main`,
+manifest path `connectors/resend/houston.json`. The bundle uses the existing
+manifest v1 and async HTTP/file runtime, including native multipart uploads; no
+publisher settings or provider app are needed. Each connection enters a Resend API
+key, as the [account setup guide](connectors/resend/SETUP.md) describes.
+
+The connector covers 104 operations of Resend's
+[OpenAPI](https://github.com/resend/resend-openapi) 1.5.1 and
+[API reference](https://resend.com/docs/api-reference/introduction), checked on
+2026-10-15: sent and received emails, their attachments, batch and scheduled sends,
+sharing and metrics; domains and domain claims; API key listing; templates;
+contacts, contact imports and their segments and topics; broadcasts with their
+recipients and clicked links; webhooks with their events and replays; segments and
+segment metrics; topics; contact properties; logs; automations and their runs;
+events; and suppressions. Resend's API is unversioned, so there is no version pin.
+
+Omitted on purpose: creating, renaming and deleting API keys, since creation returns
+a credential and deletion could revoke the connection's own key; OAuth grants and
+the OAuth endpoints; Inboxes, which are in private beta; the deprecated audiences;
+`GET /usage`, which has no reference page; the `POST /email` send aliases; and the
+SDK-only `x-batch-validation` header. The connection uses API keys. Resend also offers OAuth
+2.1 with PKCE, `full_access` and `emails:send` scopes, 15-minute access tokens and
+rotating refresh tokens; an OAuth method could later replace pasted keys.
+
+Read-only connections may GET the listed routes except single webhooks, whose
+responses include signing secrets, and single logs, which contain logged request and
+response bodies. The read-only rule also strips method-override headers. A separate
+credential-free rule allows GET on `outbound-cdn.resend.com` and
+`inbound-cdn.resend.com`, the documented hosts of signed attachment links, so the
+connector can save attachments as session files. Resend does not document the host
+of a received email's raw `.eml` link, so the connector returns that link without
+downloading it.
+
+Resend's icon is the official black icon (`resend-icon-black.svg`) from the
+[brand page](https://resend.com/brand), retrieved 2026-10-15, unchanged. Resend
+owns the mark.

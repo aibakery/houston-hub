@@ -120,11 +120,12 @@ func TestCalendlyScopesAndAccessRoutes(t *testing.T) {
 
 // The proxy must allow exactly the routes in each connector's endpoint table, and the
 // writes only on read-write connections. Only GET reads unless an entry sets write.
-func TestSchedulingProxyMatchesEndpointTables(t *testing.T) {
+// Credential-free rules, such as Resend's signed attachment links, are not API routes.
+func TestProxyMatchesEndpointTables(t *testing.T) {
 	const readWrite = `{{ is config.access "read-write" }}`
 	endpoint := regexp.MustCompile(`(?m)^\t\w+ = \{method = "([A-Z]+)", path = "([^"]+)"(.*)$`)
 	override := regexp.MustCompile(`\bwrite = (true|false)\b`)
-	for _, name := range []string{"calcom", "calendly"} {
+	for _, name := range []string{"calcom", "calendly", "resend"} {
 		raw, err := os.ReadFile("../../connectors/" + name + "/connector.lua")
 		if err != nil {
 			t.Fatal(err)
@@ -146,6 +147,9 @@ func TestSchedulingProxyMatchesEndpointTables(t *testing.T) {
 			t.Fatalf("%s: matched %d of %d endpoint entries", name, len(want), entries)
 		}
 		for _, rule := range parseManifest(t, "../../connectors/"+name+"/houston.json").Proxy {
+			if rule.Action.Headers.Set["Authorization"] == "" {
+				continue
+			}
 			for _, method := range rule.Match.Method {
 				for _, path := range rule.Match.Path {
 					got = append(got, method+" "+path+" "+rule.If)
