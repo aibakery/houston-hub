@@ -57,8 +57,8 @@ local function decode(operation: string, response: HttpResponse): any
 	return value
 end
 
-local function call(operation: string, method: string, url: string, body: any?): any
-	return decode(operation, await(http.request({method = method, url = url,
+local function call(operation: string, method: string, href: string, body: any?): any
+	return decode(operation, await(http.request({method = method, url = href,
 		headers = if body ~= nil then {["Content-Type"] = {"application/json"}} else nil,
 		body = if body ~= nil then json.encode(body) else nil})))
 end

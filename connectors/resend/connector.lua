@@ -318,9 +318,9 @@ end
 
 -- Attachment links are signed URLs on Resend's CDN hosts, which receive no API key.
 local function save(name: string, attachment: any, path: string): any
-	local url = attachment.download_url
-	assert(type(url) == "string" and string.match(url, "^https://"), PROVIDER .. " returned no attachment download_url")
-	local response = await(http.request({method = "GET", url = url, headers = {["User-Agent"] = {USER_AGENT}}}))
+	local link = attachment.download_url
+	assert(type(link) == "string" and string.match(link, "^https://"), PROVIDER .. " returned no attachment download_url")
+	local response = await(http.request({method = "GET", url = link, headers = {["User-Agent"] = {USER_AGENT}}}))
 	if response.statusCode ~= 200 then failStatus(name, response) end
 	local file = fs.open(path, "w")
 	file:write(response.body)

@@ -126,10 +126,10 @@ end
 
 exports.downloadFile = function(input: Options): Options
 	local args = options(input)
-	local url, path = text(args.url, "url"), text(args.path, "path")
-	assert(string.sub(url, 1, 8) == "https://", "url must be HTTPS")
+	local link, path = text(args.url, "url"), text(args.path, "path")
+	assert(string.sub(link, 1, 8) == "https://", "url must be HTTPS")
 	-- The manifest restricts this to Notion's download hosts and strips credentials.
-	return saveResponse("downloadFile", await(http.request({method = "GET", url = url})), path)
+	return saveResponse("downloadFile", await(http.request({method = "GET", url = link})), path)
 end
 help.downloadFile = "downloadFile({url, path}) -> {path, url, size}. Stream a fresh Notion signed file/plugin/export URL into a session file. The returned URL is Houston's signed download URL. Only documented Notion storage origins are allowed; external file URLs use caller HTTP instead. Redirects are not followed. A failed transfer can leave a partial destination."
 
