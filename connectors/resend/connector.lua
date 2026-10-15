@@ -265,7 +265,7 @@ local function object(name: string, endpoint: Endpoint, response: HttpResponse):
 end
 
 -- name({path fields, query fields?, extra fields?, ...body}) built from the endpoint itself.
--- Extra fields are options the connector consumes itself, such as a request header.
+-- Extra fields are options the connector's own request consumes, such as a request header.
 local function signature(endpoint: Endpoint): string
 	local fields: {string} = {}
 	for field in string.gmatch(endpoint.path, "{([%w_]+)}") do table.insert(fields, field) end
