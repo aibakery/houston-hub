@@ -14,7 +14,7 @@ activity.
 With read and write access, agents can also send email, one message or up to 100
 at a time, schedule or cancel it, and run broadcasts to a segment of your
 contacts. They can manage contacts and their subscriptions, import contacts from
-a spreadsheet, and create and publish templates. They can also manage domains,
+a CSV file, and create and publish templates. They can also manage domains,
 webhooks, automations and suppressions. Sends, broadcasts and automations reach
 real people, and your Resend plan's sending limits apply.
 

@@ -49,12 +49,14 @@ private beta, in Resend itself. Houston does not expose those settings.
   deleted or mistyped. Create a new key and update the connection.
 - **Requests fail with HTTP 401 `restricted_api_key`.** The key has **Sending
   access**. Create a **Full access** key to read data.
-- **Requests fail with HTTP 403 "API key is not active".** The key is no longer
-  active in Resend. Create a new key and update the connection.
+- **Requests fail with HTTP 403 "API key is not active" or `suspended_api_key`.**
+  The key is no longer active, or Resend suspended it. Create a new key and update
+  the connection, or contact Resend support about a suspension.
 - **Sending fails with HTTP 403.** The sender's domain isn't verified in Resend,
   or you're sending from `onboarding@resend.dev` to someone other than yourself.
 - **Requests fail with HTTP 429.** Resend allows 10 requests per second per team,
-  and the free plan sends 100 emails a day and 3,000 a month. Wait, or check your
-  usage in Resend's [settings](https://resend.com/settings/usage).
+  and the free plan allows 100 emails a day and 3,000 a month, counting received
+  email and each recipient. Wait, or check your usage in Resend's
+  [settings](https://resend.com/settings/usage).
 - **You need to stop access.** Delete the key in Resend, or remove the
   connection in Houston.
