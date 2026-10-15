@@ -22,22 +22,25 @@ func TestSupportedBundles(t *testing.T) {
 	}
 }
 
-// Bundles still on the old synchronous HTTP API fail typecheck, but their fixtures
-// run, so changes to them stay verified until they are migrated.
 func TestUnmigratedBundleFixtures(t *testing.T) {
+	for _, dir := range unmigrated {
+		t.Run(filepath.Base(dir), func(t *testing.T) {
+			if err := validateBundle("../../"+dir, false); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+func TestEveryBundleIsListedOnce(t *testing.T) {
 	entries, err := os.ReadDir("../../connectors")
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, entry := range entries {
-		if !entry.IsDir() || slices.Contains(migrated, "connectors/"+entry.Name()) {
-			continue
+		dir := "connectors/" + entry.Name()
+		if entry.IsDir() && slices.Contains(migrated, dir) == slices.Contains(unmigrated, dir) {
+			t.Errorf("%s must be in exactly one of migrated and unmigrated", dir)
 		}
-		t.Run(entry.Name(), func(t *testing.T) {
-			if err := validateBundle("../../connectors/"+entry.Name(), false); err != nil {
-				t.Fatal(err)
-			}
-		})
 	}
 }
 func TestStandaloneBundleAndPrivateFiles(t *testing.T) {
