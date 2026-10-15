@@ -46,11 +46,10 @@ end, run=function(fastmail)
         await(contents:close())
         assert(requests[4].url=="https://phl-www.fastmailusercontent.com/jmap/download/u1/b1/file%20%2B.txt?type=text%2Fplain")
         for _, path in {false, "mail/dots.bin"} do
-            responses[1]=result("Email/get",{list={json.decode([[{"id":"m1","attachments":[{"blobId":"..","name":"x","type":"text/plain","size":1}]}]])}})
             local sent=#requests
             local ok, err = pcall(fastmail.getAttachment,"m1","..",path or nil)
             assert(not ok and err.code == "invalid_argument" and string.find(err.message, "blobId must be one", 1, true), tostring(err))
-            assert(#requests==sent+1,"a dot-segment blob ID must not reach the download host")
+            assert(#requests==sent,"a dot-segment blob ID must not reach Fastmail")
         end
         local before=#requests
         assert(not pcall(fastmail.getAttachment,"m/1","b1") and #requests==before,"an invalid message ID must not reach Fastmail")
