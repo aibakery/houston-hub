@@ -144,10 +144,11 @@ response Reader to `fs.open(path, "w")` and awaiting the file's final close.
 Reader pipelines use bounded native buffers. `readAll(maxBytes?)` explicitly
 allocates a string, defaults to 8 MiB, and fails and closes its source on overflow.
 HTTP, multipart and compression Readers also offer `readPrefix(maxBytes)`: it returns
-at most `maxBytes` bytes and closes the Reader. Overflow and source errors end the
-prefix early; it fails only when the Reader is closed, cancelled or already in use. Use it for bounded error snippets. Files have no
-`readPrefix`: `await(fd:read(maxBytes))` returns one `{done, data}` chunk of at most
-`maxBytes` bytes.
+at most `maxBytes` bytes and closes the Reader. Longer bodies and source errors end
+the prefix; it fails only when the Reader is closed, cancelled or already in use.
+Use it for bounded error snippets. Files have no `readPrefix`:
+`await(fd:read(maxBytes))` returns one `{done, data}` chunk of at most `maxBytes`
+bytes.
 
 Neither an error nor a timeout rolls back changes the provider has already
 accepted. Do not automatically replay partial batches or ambiguous writes;
