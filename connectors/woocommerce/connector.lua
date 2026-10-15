@@ -124,9 +124,9 @@ local function query(args: Options): string
 				count += 1
 			end
 			assert(count == #value, key .. " must be a dense array")
-			for _, item in ipairs(value) do table.insert(parts, url.encode(key .. "[]") .. "=" .. scalar(item, key)) end
+			for _, item in ipairs(value) do table.insert(parts, key .. "%5B%5D=" .. scalar(item, key)) end
 		else
-			table.insert(parts, url.encode(key) .. "=" .. scalar(value, key))
+			table.insert(parts, key .. "=" .. scalar(value, key))
 		end
 	end
 	return if #parts > 0 then "?" .. table.concat(parts, "&") else ""

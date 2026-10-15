@@ -4,7 +4,6 @@ type Endpoint = {method: string, path: string, read: boolean, query: {string}?, 
 local API = "https://www.googleapis.com/drive/v3"
 local UPLOAD = "https://www.googleapis.com/upload/drive/v3"
 local FOLDER = "application/vnd.google-apps.folder"
-local STAT_QUERY = "?fields=" .. url.encode("id,name,mimeType,size") .. "&supportsAllDrives=true"
 
 -- Request layer shared verbatim by the Google connectors (tools/validate checks they match).
 local function text(value: any, field: string): string
@@ -60,8 +59,8 @@ local function decode(operation: string, response: HttpResponse): any
 	return value
 end
 
-local function call(operation: string, method: string, url: string, body: any?): any
-	return decode(operation, await(http.request({method = method, url = url,
+local function call(operation: string, method: string, href: string, body: any?): any
+	return decode(operation, await(http.request({method = method, url = href,
 		headers = if body ~= nil then {["Content-Type"] = {"application/json"}} else nil,
 		body = if body ~= nil then json.encode(body) else nil})))
 end
@@ -201,7 +200,7 @@ end
 export("statFile", true, function(...: any): {id: string, name: string, isFolder: boolean, size: number?}
 	assert(select("#", ...) == 1, "statFile takes exactly one file ID")
 	local id = text((...), "file ID")
-	local file = call("statFile", "GET", API .. "/files/" .. url.segment(id, "file ID") .. STAT_QUERY)
+	local file = call("statFile", "GET", API .. "/files/" .. url.segment(id, "file ID") .. "?fields=id%2Cname%2CmimeType%2Csize&supportsAllDrives=true")
 	local size = if file.size == nil then nil else tonumber(file.size)
 	if type(file.id) ~= "string" or file.id == "" or type(file.name) ~= "string"
 		or (file.size ~= nil and (size == nil or size < 0 or size % 1 ~= 0 or size > 9007199254740991)) then
