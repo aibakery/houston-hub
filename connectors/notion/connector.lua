@@ -19,20 +19,14 @@ local function options(value: Options?): Options
 	return table.clone(value)
 end
 
-local function encode(value: string): string
-	return (string.gsub(value, "[^A-Za-z0-9%-_%.~]", function(c: string)
-		return string.format("%%%02X", string.byte(c))
-	end))
-end
-
 local function identifier(value: any, field: string): string
 	local id = text(value, field)
-	-- Notion returns URL-encoded property IDs. Decode those once before encoding.
-	if field == "property_id" then
-		id = string.gsub(id, "%%(%x%x)", function(hex: string) return string.char(tonumber(hex, 16) :: number) end)
-	end
+	if field ~= "property_id" then return url.segment(id, field) end
+	-- Notion returns URL-encoded property IDs, which may contain separators and percent signs:
+	-- decode them once, then encode them whole. The manifest declares them opaque.
+	id = string.gsub(id, "%%(%x%x)", function(hex: string) return string.char(tonumber(hex, 16) :: number) end)
 	assert(id ~= "." and id ~= "..", field .. " must not be a dot path segment")
-	return encode(id)
+	return url.encode(id)
 end
 
 local function pageSize(value: any)
@@ -55,17 +49,14 @@ local function queryValue(parts: {string}, key: string, value: any)
 			count += 1
 		end
 		assert(count == #value, key .. " must be a dense array")
-		for _, item in value do table.insert(parts, encode(key .. "[]") .. "=" .. encode(scalar(item))) end
+		for _, item in value do table.insert(parts, url.encode(key .. "[]") .. "=" .. url.encode(scalar(item))) end
 	else
-		table.insert(parts, encode(key) .. "=" .. encode(scalar(value)))
+		table.insert(parts, url.encode(key) .. "=" .. url.encode(scalar(value)))
 	end
 end
 
 local function fail(operation: string, response: HttpResponse): never
-	local chunk = await(response.body:read(4096))
-	response.body:close()
-	local raw = if chunk.done then "" else chunk.data
-	local ok, decoded = pcall(json.decode, raw)
+	local ok, decoded = pcall(json.decode, await(response.body:readPrefix(4096)))
 	local message = "Notion HTTP " .. tostring(response.statusCode)
 	if ok and type(decoded) == "table" then
 		if type(decoded.code) == "string" then message ..= " (" .. decoded.code .. ")" end

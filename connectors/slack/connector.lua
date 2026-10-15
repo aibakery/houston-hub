@@ -1,7 +1,5 @@
 local function encode(value: any)
-    return (string.gsub(tostring(value), "[^A-Za-z0-9%-_%.~]", function(c: any)
-        return string.format("%%%02X", string.byte(c))
-    end))
+    return url.encode(tostring(value))
 end
 
 local function query_string(params: any)

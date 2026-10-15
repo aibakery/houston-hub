@@ -13,5 +13,10 @@ return {
   assert(requests[1].url=="https://api.notion.com/v1/pages/page/properties/f%5C%5C%3Ap")
   c.getPageProperty({page_id="page",property_id="f\\\\:p"})
   assert(requests[2].url==requests[1].url,"encoded and raw Notion property IDs must agree")
+  for _, id in {"..", "p/q", "p%2Fq", "p\\q", ""} do
+   assert(not pcall(c.getPageProperty, {page_id=id,property_id="title"}))
+  end
+  assert(not pcall(c.getPageProperty, {page_id="page",property_id=".."}))
+  assert(#requests==2,"invalid IDs must not reach the network")
  end,
 }

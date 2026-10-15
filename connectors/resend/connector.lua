@@ -208,16 +208,10 @@ local function options(input: Options?): Options
 	return table.clone(input)
 end
 
-local function encode(value: string): string
-	return (string.gsub(value, "[^A-Za-z0-9%-_%.~]", function(c: string)
-		return string.format("%%%02X", string.byte(c))
-	end))
-end
-
 local function scalar(value: any, field: string): string
 	local kind = type(value)
 	assert(kind == "string" or kind == "boolean" or kind == "number", field .. " must be a string, boolean, number or array of those")
-	return encode(tostring(value))
+	return url.encode(tostring(value))
 end
 
 -- Only GET reads unless write says otherwise.
@@ -232,18 +226,9 @@ local function hasBody(endpoint: Endpoint): boolean
 	return endpoint.body ~= false and (endpoint.method == "POST" or endpoint.method == "PATCH" or endpoint.method == "PUT")
 end
 
--- Reads at most 16 KiB of an error body; one read can return any part of it.
+-- Reads at most 16 KiB of an error body and closes it.
 local function errorBody(response: HttpResponse): string
-	local parts: {string} = {}
-	local size, limit = 0, 16 * 1024
-	while size < limit do
-		local chunk = await(response.body:read(limit - size))
-		if chunk.done then break end
-		table.insert(parts, chunk.data)
-		size += #chunk.data
-	end
-	response.body:close()
-	return table.concat(parts)
+	return await(response.body:readPrefix(16 * 1024))
 end
 
 local function fail(name: string, response: HttpResponse, message: string): never
@@ -306,12 +291,12 @@ end
 
 -- IDs are UUIDs, or msg_... for webhook events. Contacts and suppressions also take an email
 -- address, templates an alias and events a name, such as user.created. Each is one encoded
--- path segment, as in Resend's SDK; separators, percent signs, control characters and dot
--- segments are refused.
+-- path segment, as in Resend's SDK; url.segment refuses separators, percent signs, control
+-- characters and dot segments.
 local function identifier(value: any, field: string): string
-	assert(type(value) == "string" and value ~= "" and not string.find(value, "[/\\%%%c]") and not string.match(value, "^%.+$"),
-		field .. " must be an ID, email address, alias or name")
-	return encode(value)
+	local ok, segment = pcall(url.segment, value)
+	assert(ok, field .. " must be an ID, email address, alias or name")
+	return segment
 end
 
 -- Resend errors are {statusCode, name, message}. Rate limits, in-flight idempotent requests and

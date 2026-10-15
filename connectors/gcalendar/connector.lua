@@ -16,12 +16,6 @@ local function options(value: any): Options
 	return table.clone(value)
 end
 
-local function encode(value: string): string
-	return (string.gsub(value, "[^A-Za-z0-9%-_%.~]", function(c: string)
-		return string.format("%%%02X", string.byte(c))
-	end))
-end
-
 -- Moves the named fields from args into a query string; arrays repeat the key.
 local function query(args: Options, names: {string}): string
 	local parts: {string} = {}
@@ -30,16 +24,14 @@ local function query(args: Options, names: {string}): string
 		args[name] = nil
 		for _, item in (if type(value) == "table" then value else {value}) do
 			assert(type(item) == "string" or type(item) == "number" or type(item) == "boolean", name .. " must be a string, number, boolean or an array of them")
-			table.insert(parts, encode(name) .. "=" .. encode(tostring(item)))
+			table.insert(parts, url.encode(name) .. "=" .. url.encode(tostring(item)))
 		end
 	end
 	return if #parts > 0 then "?" .. table.concat(parts, "&") else ""
 end
 
 local function fail(operation: string, response: HttpResponse): never
-	local chunk = await(response.body:read(4096))
-	response.body:close()
-	local ok, decoded = pcall(json.decode, if chunk.done then "" else chunk.data)
+	local ok, decoded = pcall(json.decode, await(response.body:readPrefix(4096)))
 	local problem = if ok and type(decoded) == "table" and type(decoded.error) == "table" then decoded.error else {}
 	local reason = type(problem.errors) == "table" and type(problem.errors[1]) == "table" and problem.errors[1].reason
 	local message = "Google HTTP " .. tostring(response.statusCode)
@@ -78,7 +70,7 @@ local function target(name: string, endpoint: Endpoint, args: Options): string
 		if args[key] == nil then args[key] = value end
 	end
 	local path = string.gsub(endpoint.path, "{(%w+)}", function(field: string)
-		local value = encode(text(args[field], field))
+		local value = url.segment(text(args[field], field), field)
 		args[field] = nil
 		return value
 	end)

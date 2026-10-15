@@ -41,8 +41,8 @@ return {
 
 		local bytes = string.char(0, 255, 13, 10) .. "binary payload"
 		responses = {{body = bytes}, {body = "# Notes"}}
-		local saved = c.downloadFile({fileId = "f/1", path = "downloads/report.bin"})
-		assert(requests[#requests].url == API .. "/files/f%2F1?alt=media&supportsAllDrives=true", requests[#requests].url)
+		local saved = c.downloadFile({fileId = "f:1", path = "downloads/report.bin"})
+		assert(requests[#requests].url == API .. "/files/f%3A1?alt=media&supportsAllDrives=true", requests[#requests].url)
 		assert(saved.path == "downloads/report.bin" and saved.url == "https://houston.test/downloads/report.bin" and saved.size == #bytes)
 		local fd = fs.open("downloads/report.bin", "r")
 		assert(await(fd:readAll()) == bytes)
@@ -53,6 +53,13 @@ return {
 		local ok, err = pcall(c.downloadFile, {fileId = "doc", path = "doc.bin"})
 		assert(not ok and string.find(tostring(err), "fileNotDownloadable", 1, true), tostring(err))
 		assert(not pcall(c.downloadFile, {fileId = "f1"}), "download requires a path")
+		local sent = #requests
+		for _, id in {"f/1", "..", "f%2F1", "f\\1", "f\t1"} do
+			local rejected, problem = pcall(c.downloadFile, {fileId = id, path = "x.bin"})
+			assert(not rejected and problem.code == "invalid_argument" and string.find(problem.message, "fileId must be one", 1, true))
+			assert(not pcall(c.statFile, id))
+		end
+		assert(#requests == sent, "invalid IDs must not reach the network")
 
 		local upload = fs.open("uploads/report.pdf", "w")
 		upload:write(bytes)

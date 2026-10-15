@@ -83,12 +83,6 @@ local function options(input: Options?): Options
 	return table.clone(input)
 end
 
-local function encode(value: string): string
-	return (string.gsub(value, "[^A-Za-z0-9%-_%.~]", function(c: string)
-		return string.format("%%%02X", string.byte(c))
-	end))
-end
-
 -- WooCommerce IDs are nonnegative integers (shipping zone 0 is "rest of the
 -- world"); settings, gateways, tax classes, tools and data use slugs or codes.
 local function identifier(value: any, field: string): string
@@ -112,7 +106,7 @@ local function scalar(value: any, key: string): string
 	local kind = type(value)
 	assert(kind == "string" or kind == "boolean" or (kind == "number" and value == value and math.abs(value) < math.huge),
 		key .. " must be a string, boolean, finite number or array of those")
-	return encode(tostring(value))
+	return url.encode(tostring(value))
 end
 
 -- Arrays use WordPress's key[]=value form; their order is preserved (orderby=include).
@@ -148,18 +142,9 @@ local function header(response: HttpResponse, name: string): string?
 	return if values then values[1] else nil
 end
 
--- Reads at most 16 KiB of an error body; one read can return any part of it.
+-- Reads at most 16 KiB of an error body and closes it.
 local function errorBody(response: HttpResponse): string
-	local parts: {string} = {}
-	local size, limit = 0, 16 * 1024
-	while size < limit do
-		local chunk = await(response.body:read(limit - size))
-		if chunk.done then break end
-		table.insert(parts, chunk.data)
-		size += #chunk.data
-	end
-	response.body:close()
-	return table.concat(parts)
+	return await(response.body:readPrefix(16 * 1024))
 end
 
 local function failStatus(name: string, response: HttpResponse): never

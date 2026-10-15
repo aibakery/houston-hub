@@ -221,16 +221,10 @@ local function options(input: Options?): Options
 	return table.clone(input)
 end
 
-local function encode(value: string): string
-	return (string.gsub(value, "[^A-Za-z0-9%-_%.~]", function(c: string)
-		return string.format("%%%02X", string.byte(c))
-	end))
-end
-
 local function scalar(value: any, field: string): string
 	local kind = type(value)
 	assert(kind == "string" or kind == "boolean" or kind == "number", field .. " must be a string, boolean, number or array of those")
-	return encode(tostring(value))
+	return url.encode(tostring(value))
 end
 
 -- Only GET reads unless write says otherwise.
@@ -245,18 +239,9 @@ local function hasBody(endpoint: Endpoint): boolean
 	return endpoint.body ~= false and (endpoint.method == "POST" or endpoint.method == "PATCH" or endpoint.method == "PUT")
 end
 
--- Reads at most 16 KiB of an error body; one read can return any part of it.
+-- Reads at most 16 KiB of an error body and closes it.
 local function errorBody(response: HttpResponse): string
-	local parts: {string} = {}
-	local size, limit = 0, 16 * 1024
-	while size < limit do
-		local chunk = await(response.body:read(limit - size))
-		if chunk.done then break end
-		table.insert(parts, chunk.data)
-		size += #chunk.data
-	end
-	response.body:close()
-	return table.concat(parts)
+	return await(response.body:readPrefix(16 * 1024))
 end
 
 local function fail(name: string, response: HttpResponse, message: string): never

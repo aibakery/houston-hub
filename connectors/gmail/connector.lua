@@ -19,12 +19,6 @@ local function options(value: any): Options
 	return table.clone(value)
 end
 
-local function encode(value: string): string
-	return (string.gsub(value, "[^A-Za-z0-9%-_%.~]", function(c: string)
-		return string.format("%%%02X", string.byte(c))
-	end))
-end
-
 -- Moves the named fields from args into a query string; arrays repeat the key.
 local function query(args: Options, names: {string}): string
 	local parts: {string} = {}
@@ -33,16 +27,14 @@ local function query(args: Options, names: {string}): string
 		args[name] = nil
 		for _, item in (if type(value) == "table" then value else {value}) do
 			assert(type(item) == "string" or type(item) == "number" or type(item) == "boolean", name .. " must be a string, number, boolean or an array of them")
-			table.insert(parts, encode(name) .. "=" .. encode(tostring(item)))
+			table.insert(parts, url.encode(name) .. "=" .. url.encode(tostring(item)))
 		end
 	end
 	return if #parts > 0 then "?" .. table.concat(parts, "&") else ""
 end
 
 local function fail(operation: string, response: HttpResponse): never
-	local chunk = await(response.body:read(4096))
-	response.body:close()
-	local ok, decoded = pcall(json.decode, if chunk.done then "" else chunk.data)
+	local ok, decoded = pcall(json.decode, await(response.body:readPrefix(4096)))
 	local problem = if ok and type(decoded) == "table" and type(decoded.error) == "table" then decoded.error else {}
 	local reason = type(problem.errors) == "table" and type(problem.errors[1]) == "table" and problem.errors[1].reason
 	local message = "Google HTTP " .. tostring(response.statusCode)
@@ -81,7 +73,7 @@ local function target(name: string, endpoint: Endpoint, args: Options): string
 		if args[key] == nil then args[key] = value end
 	end
 	local path = string.gsub(endpoint.path, "{(%w+)}", function(field: string)
-		local value = encode(text(args[field], field))
+		local value = url.segment(text(args[field], field), field)
 		args[field] = nil
 		return value
 	end)
@@ -242,14 +234,18 @@ local function read(name: string, collection: string, input: any): (any, number)
 	args.id = nil
 	local suffix, limit = readQuery(args)
 	assert(next(args) == nil, name .. " received an unknown option")
-	return call(name, "GET", API .. "/" .. collection .. "/" .. encode(id) .. suffix), limit
+	return call(name, "GET", API .. "/" .. collection .. "/" .. url.segment(id, "id") .. suffix), limit
 end
 
 local function getMessages(input: any): {Options}
 	local args = options(input)
 	local ids = args.ids
 	assert(type(ids) == "table" and #ids >= 1 and #ids <= 100, "ids must be an array of 1 to 100 message IDs")
-	for i, id in ids do text(id, "ids[" .. tostring(i) .. "]") end
+	local segments: {string} = {}
+	for i, id in ids do
+		local field = "ids[" .. tostring(i) .. "]"
+		segments[i] = url.segment(text(id, field), field)
+	end
 	args.ids = nil
 	local suffix, limit = readQuery(args)
 	assert(next(args) == nil, "getMessages received an unknown option")
@@ -258,7 +254,7 @@ local function getMessages(input: any): {Options}
 	for first = 1, #ids, 10 do
 		local pending = {}
 		for i = first, math.min(first + 9, #ids) do
-			table.insert(pending, http.request({method = "GET", url = API .. "/messages/" .. encode(ids[i]) .. suffix}))
+			table.insert(pending, http.request({method = "GET", url = API .. "/messages/" .. segments[i] .. suffix}))
 		end
 		local responses = awaitAll(pending)
 		for i = 1, responses.n do table.insert(out, message(decode("getMessages", responses[i]), limit)) end
@@ -273,7 +269,7 @@ local function getAttachment(input: any): Options
 	local messageId, attachmentId, path = text(args.messageId, "messageId"), text(args.attachmentId, "attachmentId"), text(args.path, "path")
 	args.messageId, args.attachmentId, args.path = nil, nil, nil
 	assert(next(args) == nil, "getAttachment received an unknown option")
-	local response = await(http.request({method = "GET", url = API .. "/messages/" .. encode(messageId) .. "/attachments/" .. encode(attachmentId)}))
+	local response = await(http.request({method = "GET", url = API .. "/messages/" .. url.segment(messageId, "messageId") .. "/attachments/" .. url.segment(attachmentId, "attachmentId")}))
 	if response.statusCode < 200 or response.statusCode >= 300 then fail("getAttachment", response) end
 	local output = fs.open(path, "w")
 	local pending, started, finished = "", false, false
@@ -339,7 +335,7 @@ local function attachment(out: {string}, item: any)
 	local file = fs.open(path, "r")
 	local data = await(file:readAll())
 	await(file:close())
-	local name = if string.match(filename, "^[%w%.%-_ ()]+$") then "filename=\"" .. filename .. "\"" else "filename*=UTF-8''" .. encode(filename)
+	local name = if string.match(filename, "^[%w%.%-_ ()]+$") then "filename=\"" .. filename .. "\"" else "filename*=UTF-8''" .. url.encode(filename)
 	part(out, text(spec.mimeType or "application/octet-stream", "attachment mimeType"), data, "attachment; " .. name)
 end
 
@@ -352,7 +348,7 @@ local function compose(name: string, args: Options): ({string}, string?)
 	local to, cc, subject, threadId, references, inReplyTo = addresses(args.to, "to"), addresses(args.cc, "cc"), args.subject, nil, nil, nil
 	if args.inReplyTo ~= nil then
 		local metadata = {format = "metadata", metadataHeaders = {"From", "Reply-To", "To", "Cc", "Subject", "Message-ID", "References"}}
-		local original = call(name, "GET", API .. "/messages/" .. encode(text(args.inReplyTo, "inReplyTo")) .. query(metadata, {"format", "metadataHeaders"}))
+		local original = call(name, "GET", API .. "/messages/" .. url.segment(text(args.inReplyTo, "inReplyTo"), "inReplyTo") .. query(metadata, {"format", "metadataHeaders"}))
 		local headers = original.payload and original.payload.headers
 		threadId, inReplyTo = original.threadId, header(headers, "message-id")
 		references = if inReplyTo then table.concat({header(headers, "references") or "", inReplyTo}, " ") else nil
@@ -466,7 +462,7 @@ export("updateDraft", false, function(input: any): any
 	local args = options(input)
 	local id = text(args.id, "id")
 	args.id = nil
-	return submit("updateDraft", "PUT", "/drafts/" .. encode(id), args, true)
+	return submit("updateDraft", "PUT", "/drafts/" .. url.segment(id, "id"), args, true)
 end, "updateDraft({id, ...same options as sendMessage}) -> draft. Replaces the draft's whole content.")
 
 exports.help = helpWith({

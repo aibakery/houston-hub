@@ -33,8 +33,8 @@ return {
 		for _, size in {1, 3, 7, 64, 100000} do
 			local reader = chunked(payload, size)
 			responses = {{statusCode = 200, headers = {}, body = reader}}
-			local saved = c.getAttachment({messageId = "m/1", attachmentId = "att-1", path = "files/blob.bin"})
-			assert(requests[#requests].url == "https://gmail.googleapis.com/gmail/v1/users/me/messages/m%2F1/attachments/att-1", requests[#requests].url)
+			local saved = c.getAttachment({messageId = "m:1", attachmentId = "att-1", path = "files/blob.bin"})
+			assert(requests[#requests].url == "https://gmail.googleapis.com/gmail/v1/users/me/messages/m%3A1/attachments/att-1", requests[#requests].url)
 			assert(saved.path == "files/blob.bin" and saved.url == "https://houston.test/files/blob.bin" and saved.size == #binary, "chunk size " .. size)
 			local file = fs.open("files/blob.bin", "r")
 			assert(await(file:readAll()) == binary, "decoded bytes differ for chunk size " .. size)
@@ -49,6 +49,11 @@ return {
 		local count = #requests
 		assert(not pcall(c.getAttachment, {messageId = "m", attachmentId = "a"}), "path is required")
 		assert(not pcall(c.getAttachment, {messageId = "m", attachmentId = "a", path = "x", extra = 1}))
+		for _, id in {"m/1", "..", ".", "m%2F1", "m\\1", "m\n"} do
+			local rejected, problem = pcall(c.getAttachment, {messageId = id, attachmentId = "a", path = "x.bin"})
+			assert(not rejected and problem.code == "invalid_argument" and string.find(problem.message, "messageId must be one", 1, true))
+		end
+		assert(not pcall(c.getAttachment, {messageId = "m", attachmentId = "a/b", path = "x.bin"}))
 		assert(#requests == count and #responses == 0)
 	end,
 }

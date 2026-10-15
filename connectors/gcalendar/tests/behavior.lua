@@ -34,7 +34,7 @@ return {
 		assert(requests[5].method == "DELETE")
 
 		local count = #requests
-		for _, args in {{eventId = ""}, {eventId = 42}, {eventId = "e", unknown = true}, {"e"}} do
+		for _, args in {{eventId = ""}, {eventId = 42}, {eventId = "e", unknown = true}, {"e"}, {eventId = ".."}, {eventId = "e/f"}, {eventId = "e%2Ff"}, {calendarId = "a\\b", eventId = "e"}, {eventId = "e\0"}} do
 			assert(not pcall(c.getEvent, args))
 		end
 		assert(not pcall(c.getEvent, "e"))

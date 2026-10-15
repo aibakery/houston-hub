@@ -15,6 +15,7 @@ return {
             local proxy = {closed = false}
             function proxy:read(max) return native:read(max) end
             function proxy:readAll() error("file/SSE responses must stream, never readAll") end
+            function proxy:readPrefix(max) self.closed = true; return native:readPrefix(max) end
             function proxy:close() self.closed = true; native:close() end
             streamSources[proxy] = native
             return proxy
@@ -76,15 +77,20 @@ return {
         end
         function rejected(fn, fragment)
             local ok, err = pcall(fn)
-            assert(not ok and string.find(tostring(err), fragment, 1, true), tostring(err))
+            local message = if type(err) == "table" then err.message else tostring(err)
+            assert(not ok and string.find(message, fragment, 1, true), message)
         end
     end,
     run = function(notion)
-        queueJSON({object = "file_upload", id = "up/1", status = "uploaded"})
-        local uploaded = notion.sendFileUpload({file_upload_id = "up/1", path = "uploads/report.bin"})
+        for _, id in {"up/1", "..", "up%2F1", "up\\1", ""} do
+            rejected(function() notion.sendFileUpload({file_upload_id = id, path = "uploads/report.bin"}) end, "file_upload_id must be")
+        end
+        assert(#requests == 0, "invalid IDs must not reach the network")
+        queueJSON({object = "file_upload", id = "up 1", status = "uploaded"})
+        local uploaded = notion.sendFileUpload({file_upload_id = "up 1", path = "uploads/report.bin"})
         assert(uploaded.status == "uploaded")
         local req = requests[#requests]
-        assert(req.method == "POST" and req.url == "https://api.notion.com/v1/file_uploads/up%2F1/send")
+        assert(req.method == "POST" and req.url == "https://api.notion.com/v1/file_uploads/up%201/send")
         assert(req.headers["Notion-Version"][1] == "2026-03-11")
         local boundary = string.match(req.headers["Content-Type"][1], "^multipart/form%-data; boundary=(.+)$")
         assert(boundary and req.wire == "--" .. boundary .. '\r\nContent-Disposition: form-data; name="file"; filename="report.bin"\r\nContent-Type: application/octet-stream\r\n\r\n' .. binary .. "\r\n--" .. boundary .. "--\r\n")

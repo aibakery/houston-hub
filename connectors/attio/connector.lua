@@ -5,10 +5,7 @@
 local BASE = "https://api.attio.com/v2"
 
 local function encode(s: any)
-	s = tostring(s)
-	return (string.gsub(s, "[^A-Za-z0-9%-_%.~]", function(c: any)
-		return string.format("%%%02X", string.byte(c))
-	end))
+	return url.encode(tostring(s))
 end
 
 local function scalar(value: any)
