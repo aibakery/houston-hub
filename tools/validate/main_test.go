@@ -2,9 +2,13 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
+
+	"github.com/aibakery/houston-hub/tools/conformance"
 )
 
 func TestSupportedBundles(t *testing.T) {
@@ -16,6 +20,29 @@ func TestSupportedBundles(t *testing.T) {
 			}
 			if count != 1 {
 				t.Fatalf("validated %d bundles, want 1", count)
+			}
+		})
+	}
+}
+
+// Bundles still on the old synchronous HTTP API fail typecheck, but their fixtures
+// run, so changes to them stay verified until they are migrated.
+func TestUnmigratedBundleFixtures(t *testing.T) {
+	entries, err := os.ReadDir("../../connectors")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, entry := range entries {
+		if !entry.IsDir() || slices.Contains(migrated, "connectors/"+entry.Name()) {
+			continue
+		}
+		t.Run(entry.Name(), func(t *testing.T) {
+			m, modules, fixtures, err := loadBundle("../../connectors/" + entry.Name())
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := conformance.Check(context.Background(), "", *m, modules, fixtures); err != nil {
+				t.Fatal(err)
 			}
 		})
 	}
