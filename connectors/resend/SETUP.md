@@ -25,9 +25,9 @@ See Resend's [API key guide](https://resend.com/docs/dashboard/api-keys/introduc
 
 Choose **Read and write** in Houston. Houston removes every sending and editing
 action from read-only connections. Sent email, broadcasts and automations reach
-real people and count toward your plan's quota. Webhooks and the details of
-logged API requests are also available only on read and write connections,
-because they can contain signing secrets and other credentials.
+real people and count toward your plan's quota. A webhook's signing secret and
+the full request and response of a logged API call are also available only on
+read and write connections, because they can contain credentials.
 
 A **Full access** key reaches everything in your Resend team. Grant write access
 only to people who may send email on your behalf.
@@ -49,6 +49,8 @@ private beta, in Resend itself. Houston does not expose those settings.
   deleted or mistyped. Create a new key and update the connection.
 - **Requests fail with HTTP 401 `restricted_api_key`.** The key has **Sending
   access**. Create a **Full access** key to read data.
+- **Requests fail with HTTP 403 "API key is not active".** The key is no longer
+  active in Resend. Create a new key and update the connection.
 - **Sending fails with HTTP 403.** The sender's domain isn't verified in Resend,
   or you're sending from `onboarding@resend.dev` to someone other than yourself.
 - **Requests fail with HTTP 429.** Resend allows 10 requests per second per team,
