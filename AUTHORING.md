@@ -1018,7 +1018,7 @@ include signing secrets, and may POST only to the routing-form slot calculation,
 which saves nothing.
 
 Bundles cannot share files, so Cal.com, Calendly and Resend carry the same request layer:
-option and query encoding, error reading, response decoding, and the generation of
+option and query encoding, upstream failures, response decoding, and the generation of
 functions and help from each endpoint table. `tools/validate` checks that the copies
 match and that each manifest allows exactly the table's routes, with writes only on
 read-write connections.

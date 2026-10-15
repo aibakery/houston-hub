@@ -226,11 +226,6 @@ local function hasBody(endpoint: Endpoint): boolean
 	return endpoint.body ~= false and (endpoint.method == "POST" or endpoint.method == "PATCH" or endpoint.method == "PUT")
 end
 
--- Reads at most 16 KiB of an error body and closes it.
-local function errorBody(response: HttpResponse): string
-	return await(response.body:readPrefix(16 * 1024))
-end
-
 local function fail(name: string, response: HttpResponse, message: string): never
 	return houston.fail({operation = name, layer = "upstream", upstream_status = response.statusCode,
 		retryable = response.statusCode == 429 or response.statusCode >= 500, message = message})
@@ -303,7 +298,7 @@ end
 -- locked resources clear on their own; daily and monthly quotas (also HTTP 429) do not.
 local function failStatus(name: string, response: HttpResponse): never
 	local status = response.statusCode
-	local ok, value = pcall(json.decode, errorBody(response))
+	local ok, value = pcall(json.decode, await(response.body:readPrefix(16 * 1024)))
 	local problem = if ok and type(value) == "table" then value else {}
 	local code = if type(problem.name) == "string" then problem.name else nil
 	local message = PROVIDER .. " HTTP " .. tostring(status)

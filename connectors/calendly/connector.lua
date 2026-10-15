@@ -166,11 +166,6 @@ local function hasBody(endpoint: Endpoint): boolean
 	return endpoint.body ~= false and (endpoint.method == "POST" or endpoint.method == "PATCH" or endpoint.method == "PUT")
 end
 
--- Reads at most 16 KiB of an error body and closes it.
-local function errorBody(response: HttpResponse): string
-	return await(response.body:readPrefix(16 * 1024))
-end
-
 local function fail(name: string, response: HttpResponse, message: string): never
 	return houston.fail({operation = name, layer = "upstream", upstream_status = response.statusCode,
 		retryable = response.statusCode == 429 or response.statusCode >= 500, message = message})
@@ -260,7 +255,7 @@ end
 -- scope adds required_scopes.
 local function failStatus(name: string, response: HttpResponse): never
 	local message = "Calendly HTTP " .. tostring(response.statusCode)
-	local ok, value = pcall(json.decode, errorBody(response))
+	local ok, value = pcall(json.decode, await(response.body:readPrefix(16 * 1024)))
 	if ok and type(value) == "table" then
 		if type(value.title) == "string" then message ..= " (" .. value.title .. ")" end
 		if type(value.message) == "string" then message ..= ": " .. string.sub(value.message, 1, 600) end

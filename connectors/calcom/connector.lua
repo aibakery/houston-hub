@@ -239,11 +239,6 @@ local function hasBody(endpoint: Endpoint): boolean
 	return endpoint.body ~= false and (endpoint.method == "POST" or endpoint.method == "PATCH" or endpoint.method == "PUT")
 end
 
--- Reads at most 16 KiB of an error body and closes it.
-local function errorBody(response: HttpResponse): string
-	return await(response.body:readPrefix(16 * 1024))
-end
-
 local function fail(name: string, response: HttpResponse, message: string): never
 	return houston.fail({operation = name, layer = "upstream", upstream_status = response.statusCode,
 		retryable = response.statusCode == 429 or response.statusCode >= 500, message = message})
@@ -342,7 +337,7 @@ local function errorMessage(status: number, value: any): string
 end
 
 local function failStatus(name: string, response: HttpResponse): never
-	local ok, value = pcall(json.decode, errorBody(response))
+	local ok, value = pcall(json.decode, await(response.body:readPrefix(16 * 1024)))
 	local message = errorMessage(response.statusCode, if ok then value else nil)
 	local retry = response.headers["retry-after"]
 	if retry and retry[1] then message ..= "; Retry-After: " .. retry[1] end
