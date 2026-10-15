@@ -8,12 +8,6 @@ local function encode(s: any)
 	return url.encode(tostring(s))
 end
 
--- Path IDs are one segment: separators, percent signs, control characters and dot
--- segments fail before any request.
-local function segment(s: any)
-	return url.segment(tostring(s))
-end
-
 local function scalar(value: any)
 	if type(value) == "boolean" then
 		if value then
@@ -134,7 +128,7 @@ function functions.getNote(id: any,opts: any)
 	if type(id) ~= "string" or id == "" then
 		error("granola.getNote requires a note id")
 	end
-	return request("GET", "/notes/" .. segment(id), get_note_params(opts), "getNote")
+	return request("GET", "/notes/" .. url.segment(id, "id"), get_note_params(opts), "getNote")
 end
 
 function functions.listFolders(opts: any)
@@ -149,7 +143,7 @@ function functions.getTranscript(id: any,opts: any)
 	if type(id) ~= "string" or id == "" then
 		error("granola.getTranscript requires a note id")
 	end
-	return request("GET", "/notes/" .. segment(id) .. "/transcript", page_params(opts), "getTranscript")
+	return request("GET", "/notes/" .. url.segment(id, "id") .. "/transcript", page_params(opts), "getTranscript")
 end
 
 local operationHelp: {[string]: string} = {
