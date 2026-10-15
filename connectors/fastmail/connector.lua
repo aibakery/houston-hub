@@ -482,10 +482,7 @@ function functions.getAttachments(input: Id | DownloadsOptions, requested: {Down
 	local out = {}
 	for _, job in jobs do
 		local res = await(http.request({ method = "GET", url = job.url }))
-		if res.statusCode < 200 or res.statusCode >= 300 then
-			res.body:close()
-			fail("getAttachment", "Download failed")
-		end
+		if res.statusCode < 200 or res.statusCode >= 300 then upstream("getAttachments", res) end
 		local output = fs.open(job.path, "w")
 		output:write(res.body)
 		await(output:close())
@@ -614,7 +611,8 @@ local function upload_blob(options: UploadOptions): any
 	if type(template) ~= "string" or string.find(template, "{accountId}", 1, true) == nil then
 		return fail(operation, "Fastmail session has no upload URL")
 	end
-	local endpoint = string.gsub(template, "{accountId}", function() return url.segment(s.accountId, "accountId") end)
+	local account = url.segment(s.accountId, "accountId")
+	local endpoint = string.gsub(template, "{accountId}", function() return account end)
 	local stat = await(fs.stat(path))
 	if not stat.isFile then error("fastmail: attachment path must be a file") end
 	local response = await(http.request({

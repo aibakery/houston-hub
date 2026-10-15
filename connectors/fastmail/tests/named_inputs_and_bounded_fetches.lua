@@ -17,6 +17,9 @@ return {
             end
             local response = table.remove(responses, 1)
             assert(response, "unexpected request: " .. request.url)
+            if type(response) == "table" and response.failure then
+                return fixture.operation({statusCode=response.failure, headers={}, body=fixture.reader(response.body)})
+            end
             return fixture.operation({statusCode=200, headers={}, body=fixture.reader(if type(response)=="string" then response else json.encode(response))})
         end}
         fs = fixture.files()
@@ -80,6 +83,9 @@ return {
         }})
         assert(not ok and string.find(tostring(err), "distinct", 1, true))
         assert(#requests == before + 1, "validate every destination before downloading")
+        responses = {result("Email/get", {list = {{id = "m1", attachments = {attachment}}}}), {failure = 503, body = "busy  now"}}
+        ok, err = pcall(fastmail.getAttachments, {messageId = "m1", items = {{id = "blob", path = "mail/b.txt"}}})
+        assert(not ok and string.find(tostring(err), "upstream HTTP 503 busy now", 1, true) and string.find(tostring(err), "\"retryable\":true", 1, true), tostring(err))
 
         responses = {
             result("Mailbox/get", {list = {{id = "in", role = "inbox"}}}),
