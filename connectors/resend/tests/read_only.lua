@@ -80,6 +80,7 @@ return {
 		rejected(function() resend.getEmail({email_id = "a\\b"}) end, "email_id must be an ID")
 		rejected(function() resend.getEmail({email_id = "%2e%2e"}) end, "email_id must be an ID")
 		rejected(function() resend.getEmail({email_id = ""}) end, "email_id must be an ID")
+		rejected(function() resend.getEmail({email_id = "e1\n"}) end, "email_id must be an ID")
 		rejected(function() resend.getEmail({email_id = 42}) end, "email_id must be an ID")
 		rejected(function() resend.listBroadcastRecipients({broadcast_id = "b1"}) end, "type is required")
 		rejected(function() resend.listEmails({bogus = 1}) end, "listEmails has no option bogus")
