@@ -17,7 +17,7 @@ func TestResendAccessRoutes(t *testing.T) {
 			"GET "+api+"/emails?limit=100", "GET "+api+"/emails/e1", "GET "+api+"/emails/receiving/r1/attachments/a1",
 			"GET "+api+"/contacts/ana%2Bnews%40example.com", "GET "+api+"/suppressions/o%27brien%40example.com",
 			"GET "+api+"/webhooks", "GET "+api+"/webhooks/w1/events/msg_1",
-			"GET "+api+"/logs", "GET "+api+"/api-keys", "GET "+api+"/segments/metrics?dimensions=segment")
+			"GET "+api+"/logs", "GET "+api+"/api-keys", "GET "+api+"/segments/s1/contacts")
 		// Webhook and log reads return signing secrets and logged request bodies.
 		assertRoutes(t, r, "re_fixture", access == "read-write",
 			"GET "+api+"/webhooks/w1", "GET "+api+"/logs/l1",

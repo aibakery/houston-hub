@@ -143,8 +143,6 @@ local endpoints: {[string]: Endpoint} = {
 	updateSegment = {method = "PATCH", path = "/segments/{segment_id}", doc = "segments/update-segment", about = "Body {name}."},
 	deleteSegment = {method = "DELETE", path = "/segments/{segment_id}", doc = "segments/delete-segment", about = "Deletes a segment."},
 	listSegmentContacts = {method = "GET", path = "/segments/{segment_id}/contacts", query = PAGE, doc = "segments/list-segment-contacts", about = "Contacts in a segment."},
-	getSegmentMetrics = {method = "GET", path = "/segments/metrics", query = {"metrics", "dimensions", "segment_id"}, doc = "segments/get-segment-metrics",
-		about = "Contact counts as totals, and per segment with dimensions='segment'. Cached up to 15 minutes."},
 
 	createTopic = {method = "POST", path = "/topics", doc = "topics/create-topic",
 		about = "Body {name, default_subscription ('opt_in' or 'opt_out', permanent), description?, visibility? (public or private)}."},

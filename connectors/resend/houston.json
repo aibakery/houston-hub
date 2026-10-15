@@ -79,7 +79,6 @@
           "/events/{identifier}",
           "/logs",
           "/segments",
-          "/segments/metrics",
           "/segments/{segment_id}",
           "/segments/{segment_id}/contacts",
           "/suppressions",

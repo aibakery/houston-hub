@@ -1082,22 +1082,22 @@ manifest v1 and async HTTP/file runtime, including native multipart uploads; no
 publisher settings or provider app are needed. Each connection enters a Resend API
 key, as the [account setup guide](connectors/resend/SETUP.md) describes.
 
-The connector covers 104 operations of Resend's
+The connector covers 103 operations of Resend's
 [OpenAPI](https://github.com/resend/resend-openapi) 1.5.1 and
 [API reference](https://resend.com/docs/api-reference/introduction), checked on
 2026-10-15: sent and received emails, their attachments, batch and scheduled sends,
 sharing and metrics; domains and domain claims; API key listing; templates;
 contacts, contact imports and their segments and topics; broadcasts with their
-recipients and clicked links; webhooks with their events and replays; segments and
-segment metrics; topics; contact properties; logs; automations and their runs;
-events; and suppressions. Resend's API is unversioned, so there is no version pin.
+recipients and clicked links; webhooks with their events and replays; segments;
+topics; contact properties; logs; automations and their runs; events; and
+suppressions. Resend's API is unversioned, so there is no version pin.
 
 Omitted on purpose: creating, renaming and deleting API keys, since creation returns
 a credential and deletion could revoke the connection's own key; OAuth grants and
-the OAuth endpoints; Inboxes, which are in private beta; the deprecated audiences;
-`GET /usage`, which has no reference page; the `POST /email` send aliases; and the
-SDK-only `x-batch-validation` header. The connection uses API keys. Resend also offers OAuth
-2.1 with PKCE, `full_access` and `emails:send` scopes, 15-minute access tokens and
+the OAuth endpoints; Inboxes and segment metrics, which are in private beta; the
+deprecated audiences; `GET /usage`, which has no reference page; the `POST /email`
+send aliases; and the SDK-only `x-batch-validation` header. The connection uses API
+keys. Resend also offers OAuth 2.1 with PKCE, `full_access` and `emails:send` scopes, 15-minute access tokens and
 rotating refresh tokens; an OAuth method could later replace pasted keys.
 
 Read-only connections may GET the listed routes except single webhooks, whose

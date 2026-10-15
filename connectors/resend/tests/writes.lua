@@ -24,7 +24,7 @@ return {
 
 		local count = 0
 		for name in resend do if name ~= "help" then count += 1 end end
-		assert(count == 104, "wrong read-write surface: " .. count)
+		assert(count == 103, "wrong read-write surface: " .. count)
 		assert(resend.getWebhook and resend.getLog and resend.sendEmail and resend.createContactImport)
 
 		-- The idempotency key travels as a header, never in the body.

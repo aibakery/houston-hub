@@ -24,7 +24,7 @@ return {
 
 		local names = {}
 		for name in resend do if name ~= "help" then table.insert(names, name) end end
-		assert(#names == 46, "wrong read-only surface: " .. #names)
+		assert(#names == 45, "wrong read-only surface: " .. #names)
 		for _, name in {"sendEmail", "sendBatchEmails", "updateEmail", "cancelEmail", "shareEmail", "createDomain", "verifyDomain",
 			"createContact", "createContactImport", "addContactToSegment", "sendBroadcast", "createWebhook", "rotateWebhookSigningSecret",
 			"replayWebhookEvent", "sendEvent", "addSuppression", "removeSuppressions", "getWebhook", "getLog"} do
