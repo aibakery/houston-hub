@@ -11,6 +11,7 @@ import (
 	"github.com/aibakery/houston-hub/tools/typecheck"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 )
 
@@ -22,7 +23,7 @@ var migrated = []string{"connectors/fastmail", "connectors/notion", "connectors/
 var unmigrated = []string{"connectors/attio", "connectors/granola", "connectors/slack"}
 
 func main() {
-	roots := migrated
+	roots := append(append([]string{}, migrated...), unmigrated...)
 	if len(os.Args) > 2 {
 		fmt.Fprintln(os.Stderr, "usage: go run ./tools/validate [bundle-or-catalog-directory]")
 		os.Exit(2)
@@ -43,7 +44,7 @@ func main() {
 }
 func validate(root string) (int, error) {
 	if _, err := os.Stat(filepath.Join(root, "houston.json")); err == nil {
-		return 1, validateBundle(root, true)
+		return 1, validateBundle(root, typed(filepath.Base(root)))
 	}
 	entries, err := os.ReadDir(filepath.Join(root, "connectors"))
 	if err != nil {
@@ -54,7 +55,7 @@ func validate(root string) (int, error) {
 		if !entry.IsDir() {
 			continue
 		}
-		if err := validateBundle(filepath.Join(root, "connectors", entry.Name()), true); err != nil {
+		if err := validateBundle(filepath.Join(root, "connectors", entry.Name()), typed(entry.Name())); err != nil {
 			return count, fmt.Errorf("%s: %w", entry.Name(), err)
 		}
 		count++
@@ -64,6 +65,9 @@ func validate(root string) (int, error) {
 	}
 	return count, nil
 }
+
+// typed reports whether a bundle is on the current runtime and so gets type analysis.
+func typed(name string) bool { return !slices.Contains(unmigrated, "connectors/"+name) }
 
 // validateBundle runs every publication check; typed=false skips type analysis for
 // bundles still on the old runtime API.

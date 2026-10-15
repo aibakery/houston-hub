@@ -590,8 +590,9 @@ end
 characters; use it for query names and values. Numbers and booleans render as
 `tostring` does. `url.segment(value, name?)` encodes
 one path segment and raises `invalid_argument` for an empty value, a dot-only value
-such as `..`, `/`, `\`, `%`, control characters, values whose NFKC form contains those
-(such as U+FF0E), invisible format characters or invalid UTF-8, naming `name`
+such as `..` (or only dots and spaces), `/`, `\`, `%`, control characters, values whose
+NFKC form contains those (such as U+FF0E), invisible format characters, best-fit
+separator look-alikes (such as U+00A5) or invalid UTF-8, naming `name`
 but never echoing the value. Pass every caller-supplied path ID through it, or check
 it against a strict format such as `^[%w_%-]+$` or a numeric ID, so an ID cannot add
 path or dot segments. To keep a connector's own error text, wrap it:

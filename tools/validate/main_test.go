@@ -25,7 +25,7 @@ func TestSupportedBundles(t *testing.T) {
 func TestUnmigratedBundleFixtures(t *testing.T) {
 	for _, dir := range unmigrated {
 		t.Run(filepath.Base(dir), func(t *testing.T) {
-			if err := validateBundle("../../"+dir, false); err != nil {
+			if _, err := validate("../../" + dir); err != nil {
 				t.Fatal(err)
 			}
 		})
