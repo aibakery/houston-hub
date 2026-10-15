@@ -456,7 +456,7 @@ function functions.getAttachments(input: Id | DownloadsOptions, requested: {Down
 	local template = s.downloadUrl
 	if type(template) ~= "string" then return fail("getAttachments", "Missing download URL") end
 	-- Placeholders before the query are path segments; the rest are query values.
-	local base, query = string.match(template, "^([^?]*)(.*)$")
+	local base, search = string.match(template, "^([^?]*)(.*)$")
 	local byId = {}
 	for _, item in functions.listAttachments(messageId) do byId[item.id] = item end
 	local jobs, paths = {}, {}
@@ -473,7 +473,7 @@ function functions.getAttachments(input: Id | DownloadsOptions, requested: {Down
 		if not pcall(url.segment, name) then name = "attachment" end
 		local values = { accountId = s.accountId, blobId = id, name = name, type = attachment.mimeType or "application/octet-stream" }
 		local link = string.gsub(base :: string, "{(%w+)}", function(key: any) return url.segment(values[key] or "", key) end)
-			.. string.gsub(query :: string, "{(%w+)}", function(key: any) return url.encode(values[key] or "") end)
+			.. string.gsub(search :: string, "{(%w+)}", function(key: any) return url.encode(values[key] or "") end)
 		jobs[#jobs + 1] = { path = path, size = attachment.size, url = link }
 	end
 	local out = {}
