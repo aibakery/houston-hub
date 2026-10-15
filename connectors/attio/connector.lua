@@ -8,6 +8,12 @@ local function encode(s: any)
 	return url.encode(tostring(s))
 end
 
+-- Path IDs are one segment: separators, percent signs, control characters and dot
+-- segments fail before any request.
+local function segment(s: any)
+	return url.segment(tostring(s))
+end
+
 local function scalar(value: any)
 	if type(value) == "boolean" then
 		if value then
@@ -174,7 +180,7 @@ function functions.queryRecords(object: any,opts: any)
 	if type(object) ~= "string" or object == "" then
 		error("attio.queryRecords requires an object slug or id")
 	end
-	return post("/objects/" .. encode(object) .. "/records/query", query_payload(opts), "queryRecords")
+	return post("/objects/" .. segment(object) .. "/records/query", query_payload(opts), "queryRecords")
 end
 
 function functions.getRecord(object: any,recordId: any)
@@ -188,7 +194,7 @@ function functions.getRecord(object: any,recordId: any)
 	if type(recordId) ~= "string" or recordId == "" then
 		error("attio.getRecord requires a record id")
 	end
-	return get("/objects/" .. encode(object) .. "/records/" .. encode(recordId), nil, "getRecord")
+	return get("/objects/" .. segment(object) .. "/records/" .. segment(recordId), nil, "getRecord")
 end
 
 function functions.searchRecords(query: any,opts: any)
@@ -218,7 +224,7 @@ end
 
 function functions.getNote(noteId: any)
 	noteId = require_id(noteId, "note_id", "attio.getNote requires a note id")
-	return get("/notes/" .. encode(noteId), nil, "getNote")
+	return get("/notes/" .. segment(noteId), nil, "getNote")
 end
 
 function functions.listEmails(opts: any)
@@ -256,7 +262,7 @@ end
 
 function functions.getTask(taskId: any)
 	taskId = require_id(taskId, "task_id", "attio.getTask requires a task id")
-	return get("/tasks/" .. encode(taskId), nil, "getTask")
+	return get("/tasks/" .. segment(taskId), nil, "getTask")
 end
 
 function functions.listThreads(opts: any)
@@ -269,12 +275,12 @@ end
 
 function functions.getThread(threadId: any)
 	threadId = require_id(threadId, "thread_id", "attio.getThread requires a thread id")
-	return get("/threads/" .. encode(threadId), nil, "getThread")
+	return get("/threads/" .. segment(threadId), nil, "getThread")
 end
 
 function functions.getComment(commentId: any)
 	commentId = require_id(commentId, "comment_id", "attio.getComment requires a comment id")
-	return get("/comments/" .. encode(commentId), nil, "getComment")
+	return get("/comments/" .. segment(commentId), nil, "getComment")
 end
 
 function functions.listMeetings(opts: any)
@@ -297,7 +303,7 @@ end
 
 function functions.getMeeting(meetingId: any)
 	meetingId = require_id(meetingId, "meeting_id", "attio.getMeeting requires a meeting id")
-	return get("/meetings/" .. encode(meetingId), nil, "getMeeting")
+	return get("/meetings/" .. segment(meetingId), nil, "getMeeting")
 end
 
 function functions.listCallRecordings(meetingId: any,opts: any)
@@ -309,7 +315,7 @@ function functions.listCallRecordings(meetingId: any,opts: any)
 		error("attio.listCallRecordings requires a meeting id")
 	end
 	return get(
-		"/meetings/" .. encode(meetingId) .. "/call_recordings",
+		"/meetings/" .. segment(meetingId) .. "/call_recordings",
 		pick(opts, { "limit", "offset", "cursor" }),
 		"listCallRecordings"
 	)
@@ -325,7 +331,7 @@ function functions.getCallRecording(meetingId: any,recordingId: any)
 	end
 	recordingId = require_id(recordingId, "call_recording_id", "attio.getCallRecording requires a call recording id")
 	return get(
-		"/meetings/" .. encode(meetingId) .. "/call_recordings/" .. encode(recordingId),
+		"/meetings/" .. segment(meetingId) .. "/call_recordings/" .. segment(recordingId),
 		nil,
 		"getCallRecording"
 	)
@@ -342,7 +348,7 @@ function functions.getList(list: any)
 	if type(list) ~= "string" or list == "" then
 		error("attio.getList requires a list slug or id")
 	end
-	return get("/lists/" .. encode(list), nil, "getList")
+	return get("/lists/" .. segment(list), nil, "getList")
 end
 
 function functions.queryListEntries(list: any,opts: any)
@@ -353,7 +359,7 @@ function functions.queryListEntries(list: any,opts: any)
 	if type(list) ~= "string" or list == "" then
 		error("attio.queryListEntries requires a list slug or id")
 	end
-	return post("/lists/" .. encode(list) .. "/entries/query", query_payload(opts), "queryListEntries")
+	return post("/lists/" .. segment(list) .. "/entries/query", query_payload(opts), "queryListEntries")
 end
 
 function functions.listWorkspaceMembers()
@@ -366,7 +372,7 @@ function functions.getWorkspaceMember(memberId: any)
 		"workspace_member_id",
 		"attio.getWorkspaceMember requires a workspace member id"
 	)
-	return get("/workspace_members/" .. encode(memberId), nil, "getWorkspaceMember")
+	return get("/workspace_members/" .. segment(memberId), nil, "getWorkspaceMember")
 end
 
 function functions.listFiles(opts: any)
@@ -387,7 +393,7 @@ end
 
 function functions.getFile(fileId: any)
 	fileId = require_id(fileId, "file_id", "attio.getFile requires a file id")
-	return get("/files/" .. encode(fileId), nil, "getFile")
+	return get("/files/" .. segment(fileId), nil, "getFile")
 end
 
 function functions.listAttributes(target: any,identifier: any,opts: any)
@@ -406,7 +412,7 @@ function functions.listAttributes(target: any,identifier: any,opts: any)
 		error("attio.listAttributes requires an object or list slug or id")
 	end
 	return get(
-		"/" .. encode(target) .. "/" .. encode(identifier) .. "/attributes",
+		"/" .. segment(target) .. "/" .. segment(identifier) .. "/attributes",
 		pick(opts, { "limit", "offset", "show_archived" }),
 		"listAttributes"
 	)

@@ -8,13 +8,15 @@ return {scenario={["auth_config"]={["token"]="fixture-private-password !@#"},["a
         return {status=200,body=json.encode(response)}
     end}
 end,run=function(c)
-responses={{notes={{id="n1"}},next_cursor="next+1"},{id="n/2",transcript="text"}}
+responses={{notes={{id="n1"}},next_cursor="next+1"},{id="n:2",transcript="text"}}
 local page=c.listNotes({cursor="start+1",created_after="2026-01-02T03:04:05Z"})
 assert(page.next_cursor=="next+1")
 assert(string.find(requests[1].url,"cursor=start%2B1",1,true))
 assert(string.find(requests[1].url,"created_after=2026-01-02",1,true))
-c.getNote("n/2",{includeTranscript=true})
-assert(string.find(requests[2].url,"n%2F2",1,true))
+c.getNote("n:2",{includeTranscript=true})
+assert(string.find(requests[2].url,"n%3A2",1,true))
+local sent=#requests
+assert(not pcall(c.getNote,"n/2") and not pcall(c.getNote,"..") and #requests==sent)
 responses={{status=503,body="upstream unavailable"}}
 assert(not pcall(c.listNotes))
 end}
