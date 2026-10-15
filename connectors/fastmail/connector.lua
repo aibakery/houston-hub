@@ -451,9 +451,12 @@ function functions.getAttachments(input: Id | DownloadsOptions, requested: {Down
 	messageId = id_of(messageId)
 	if type(items) ~= "table" then error("fastmail.getAttachments requires attachment items") end
 	if #items == 0 then return json.decode("[]") end
+	local folder = "attachments/" .. url.segment(messageId, "messageId") .. "/"
 	local s = session()
 	local template = s.downloadUrl
 	if type(template) ~= "string" then return fail("getAttachments", "Missing download URL") end
+	-- Placeholders before the query are path segments; the rest are query values.
+	local base, query = string.match(template, "^([^?]*)(.*)$")
 	local byId = {}
 	for _, item in functions.listAttachments(messageId) do byId[item.id] = item end
 	local jobs, paths = {}, {}
@@ -462,11 +465,12 @@ function functions.getAttachments(input: Id | DownloadsOptions, requested: {Down
 		local attachment = byId[id]
 		if not attachment then error("fastmail: attachment does not belong to this message") end
 		local path = type(item) == "table" and item.path or nil
-		path = path or ("attachments/" .. url.segment(messageId, "messageId") .. "/" .. url.segment(id, "attachment id"))
+		path = path or (folder .. url.segment(id, "attachment id"))
 		if paths[path] then error("fastmail: attachment paths must be distinct") end
 		paths[path] = true
 		local values = { accountId = s.accountId, blobId = id, name = attachment.filename or "attachment", type = attachment.mimeType or "application/octet-stream" }
-		local link = string.gsub(template, "{(%w+)}", function(key: any) return url.encode(values[key] or "") end)
+		local link = string.gsub(base :: string, "{(%w+)}", function(key: any) return url.segment(values[key] or "", key) end)
+			.. string.gsub(query :: string, "{(%w+)}", function(key: any) return url.encode(values[key] or "") end)
 		jobs[#jobs + 1] = { path = path, size = attachment.size, url = link }
 	end
 	local out = {}
