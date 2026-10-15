@@ -465,17 +465,14 @@ function functions.getAttachments(input: Id | DownloadsOptions, requested: {Down
 		local attachment = byId[id]
 		if not attachment then error("fastmail: attachment does not belong to this message") end
 		local path = type(item) == "table" and item.path or nil
-		path = path or (folder .. url.segment(id, "attachment id"))
+		path = path or (folder .. url.segment(id, "blobId"))
 		if paths[path] then error("fastmail: attachment paths must be distinct") end
 		paths[path] = true
-		local values = { accountId = s.accountId, blobId = id, name = attachment.filename or "attachment", type = attachment.mimeType or "application/octet-stream" }
-		local link = string.gsub(base :: string, "{(%w+)}", function(key: any)
-			local ok, segment = pcall(url.segment, values[key] or "", key)
-			-- The name only labels the download; an unsafe one falls back to a plain label.
-			if not ok and key == "name" then return "attachment" end
-			assert(ok, segment)
-			return segment
-		end)
+		-- The name only labels the download; one that is not a safe segment becomes a plain label.
+		local name = attachment.filename or "attachment"
+		if not pcall(url.segment, name) then name = "attachment" end
+		local values = { accountId = s.accountId, blobId = id, name = name, type = attachment.mimeType or "application/octet-stream" }
+		local link = string.gsub(base :: string, "{(%w+)}", function(key: any) return url.segment(values[key] or "", key) end)
 			.. string.gsub(query :: string, "{(%w+)}", function(key: any) return url.encode(values[key] or "") end)
 		jobs[#jobs + 1] = { path = path, size = attachment.size, url = link }
 	end
