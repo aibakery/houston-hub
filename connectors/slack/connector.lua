@@ -1,9 +1,15 @@
+local function encode(value: any)
+    return (string.gsub(tostring(value), "[^A-Za-z0-9%-_%.~]", function(c: any)
+        return string.format("%%%02X", string.byte(c))
+    end))
+end
+
 local function query_string(params: any)
     local parts = {}
     local function add(key: any, value: any)
         if value == nil then return end
         if type(value) == "table" then for _, item in value do add(key, item) end
-        else parts[#parts + 1] = url.encode(key) .. "=" .. url.encode(value) end
+        else parts[#parts + 1] = encode(key) .. "=" .. encode(value) end
     end
     for key, value in params or {} do add(key, value) end
     table.sort(parts)
