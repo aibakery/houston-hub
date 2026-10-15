@@ -200,7 +200,7 @@ end
 export("statFile", true, function(...: any): {id: string, name: string, isFolder: boolean, size: number?}
 	assert(select("#", ...) == 1, "statFile takes exactly one file ID")
 	local id = text((...), "file ID")
-	local file = call("statFile", "GET", API .. "/files/" .. url.segment(id, "file ID") .. "?fields=id%2Cname%2CmimeType%2Csize&supportsAllDrives=true")
+	local file = call("statFile", "GET", API .. "/files/" .. url.segment(id, "file ID") .. "?fields=" .. url.encode("id,name,mimeType,size") .. "&supportsAllDrives=true")
 	local size = if file.size == nil then nil else tonumber(file.size)
 	if type(file.id) ~= "string" or file.id == "" or type(file.name) ~= "string"
 		or (file.size ~= nil and (size == nil or size < 0 or size % 1 ~= 0 or size > 9007199254740991)) then
