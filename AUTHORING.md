@@ -588,8 +588,8 @@ characters; use it for query names and values. `url.segment(value, name?)` encod
 one path segment and raises `invalid_argument` for an empty value, a dot-only value
 such as `..`, `/`, `\`, `%`, control characters or invalid UTF-8, naming `name`
 but never echoing the value. Pass every caller-supplied path ID through it, or check
-it against a strict format such as `^[%w_%-]+$` or a numeric ID, so an ID can never
-address another route. To keep a connector's own error text, wrap it:
+it against a strict format such as `^[%w_%-]+$` or a numeric ID, so an ID cannot add
+path or dot segments. To keep a connector's own error text, wrap it:
 `local ok, segment = pcall(url.segment, id)`.
 Opaque IDs that may contain separators, such as Notion property IDs, use
 `url.encode` and an `opaque_path_parameters` proxy rule instead.
