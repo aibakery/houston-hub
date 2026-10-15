@@ -604,7 +604,7 @@ local function upload_blob(options: UploadOptions): any
 	if type(template) ~= "string" or string.find(template, "{accountId}", 1, true) == nil then
 		return fail(operation, "Fastmail session has no upload URL")
 	end
-	local endpoint = string.gsub(template, "{accountId}", url.encode(tostring(s.accountId)))
+	local endpoint = string.gsub(template, "{accountId}", function() return url.encode(tostring(s.accountId)) end)
 	local stat = await(fs.stat(path))
 	if not stat.isFile then error("fastmail: attachment path must be a file") end
 	local response = await(http.request({
