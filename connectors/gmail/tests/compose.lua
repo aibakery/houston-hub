@@ -104,8 +104,10 @@ return {
 		for _, args in {
 			{subject = "No recipient", text = "x"}, {to = "a@example.com"}, {to = "a@example.com", text = "x", unknown = true},
 			{to = "a@example.com", subject = "Injected\r\nBcc: evil@example.com", text = "x"}, {to = {}, text = "x"},
+			{to = "a@example.com", text = "x", inReplyTo = ".."}, {to = "a@example.com", text = "x", inReplyTo = "o/1"},
 			{to = "a@example.com", text = "x", attachments = {"files/missing.bin"}}, {to = "a@example.com", text = "x", attachments = "files/report.bin"},
 		} do assert(not pcall(c.sendMessage, args)) end
+		for _, id in {"..", "d/1", "d%2F1"} do assert(not pcall(c.updateDraft, {id = id, to = "a@example.com", text = "x"})) end
 		assert(#requests == count and #responses == 0, "invalid messages reached Google")
 	end,
 }
