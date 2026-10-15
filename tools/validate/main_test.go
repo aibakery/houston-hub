@@ -9,9 +9,9 @@ import (
 )
 
 func TestSupportedBundles(t *testing.T) {
-	for _, name := range []string{"fastmail", "notion", "gmail", "gcalendar", "gdrive", "mercury", "x", "linkedin", "calcom", "calendly", "dropbox", "resend", "woocommerce"} {
-		t.Run(name, func(t *testing.T) {
-			count, err := validate("../../connectors/" + name)
+	for _, dir := range migrated {
+		t.Run(filepath.Base(dir), func(t *testing.T) {
+			count, err := validate("../../" + dir)
 			if err != nil {
 				t.Fatal(err)
 			}

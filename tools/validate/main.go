@@ -64,44 +64,19 @@ func validate(root string) (int, error) {
 // validateBundle runs every publication check; typed=false skips type analysis for
 // bundles still on the old runtime API.
 func validateBundle(dir string, typed bool) error {
-	m, modules, fixtures, err := loadBundle(dir)
-	if err != nil {
-		return err
-	}
-	if typed {
-		if err := typecheck.Check(context.Background(), "", *m, modules); err != nil {
-			return err
-		}
-	}
-	if err := conformance.Check(context.Background(), "", *m, modules, fixtures); err != nil {
-		return err
-	}
-	if m.Icon != "" {
-		raw, err := bundleFile(dir, m.Icon)
-		if err != nil {
-			return err
-		}
-		if err := assets.ValidateIcon(m.Icon, raw); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func loadBundle(dir string) (*manifest.Manifest, map[string]string, map[string]string, error) {
 	raw, err := bundleFile(dir, "houston.json")
 	if err != nil {
-		return nil, nil, nil, err
+		return err
 	}
 	m, err := manifest.Parse(raw)
 	if err != nil {
-		return nil, nil, nil, err
+		return err
 	}
 	modules := map[string]string{}
 	fixtures := map[string]string{}
 	for _, file := range m.Files {
 		if _, err := bundleFile(dir, file); err != nil {
-			return nil, nil, nil, fmt.Errorf("entrypoint: %w", err)
+			return fmt.Errorf("entrypoint: %w", err)
 		}
 	}
 	if err := filepath.WalkDir(dir, func(path string, entry os.DirEntry, err error) error {
@@ -126,9 +101,26 @@ func loadBundle(dir string) (*manifest.Manifest, map[string]string, map[string]s
 		}
 		return err
 	}); err != nil {
-		return nil, nil, nil, err
+		return err
 	}
-	return m, modules, fixtures, nil
+	if typed {
+		if err := typecheck.Check(context.Background(), "", *m, modules); err != nil {
+			return err
+		}
+	}
+	if err := conformance.Check(context.Background(), "", *m, modules, fixtures); err != nil {
+		return err
+	}
+	if m.Icon != "" {
+		raw, err := bundleFile(dir, m.Icon)
+		if err != nil {
+			return err
+		}
+		if err := assets.ValidateIcon(m.Icon, raw); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 func luaFile(name string) bool { ext := filepath.Ext(name); return ext == ".lua" || ext == ".luau" }
 
