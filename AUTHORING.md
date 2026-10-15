@@ -122,7 +122,7 @@ request completes within the invocation, including uploads and downloads.
 
 Each exported operation runs in a fresh connector VM and returns completed plain
 data. Connectors and caller scripts share `http.request`, `fs`, `compression`,
-`await`, and `awaitAll`. A request starts immediately and its operation settles
+`url`, `await`, and `awaitAll`. A request starts immediately and its operation settles
 when final headers and a body Reader are available. `await` retrieves the result;
 it does not start or rerun work. A local session cache lasts only for that
 invocation. No background work continues through another invocation.
@@ -143,6 +143,8 @@ file size. Upload with `body = fs.open(path, "r")`; download by writing the
 response Reader to `fs.open(path, "w")` and awaiting the file's final close.
 Reader pipelines use bounded native buffers. `readAll(maxBytes?)` explicitly
 allocates a string, defaults to 8 MiB, and fails and closes its source on overflow.
+`readPrefix(maxBytes)` returns at most `maxBytes` bytes, never fails on overflow,
+and closes the Reader: use it for bounded error snippets.
 
 Neither an error nor a timeout rolls back changes the provider has already
 accepted. Do not automatically replay partial batches or ambiguous writes;
@@ -543,17 +545,25 @@ semantics visible instead of building a generic SDK framework.
 ```lua
 local function responseJSON(response: HttpResponse, operation: string): any
     if response.statusCode < 200 or response.statusCode >= 300 then
-        local chunk = await(response.body:read(512))
-        response.body:close()
+        local snippet = await(response.body:readPrefix(512))
         return houston.fail({
             operation = operation,
             layer = "upstream",
             upstream_status = response.statusCode,
             retryable = response.statusCode == 429 or response.statusCode >= 500,
-            message = if chunk.done then "Provider request failed" else chunk.data,
+            message = if snippet == "" then "Provider request failed" else snippet,
         })
     end
     return json.decode(await(response.body:readAll()))
+end
+
+local function getItem(id: string, opts: {fields: string?}?)
+    local query = if opts and opts.fields then "?fields=" .. url.encode(opts.fields) else ""
+    local response = await(http.request({
+        method = "GET",
+        url = "https://api.example.com/items/" .. url.segment(id, "id") .. query,
+    }))
+    return responseJSON(response, "getItem")
 end
 
 local function listItems(opts: {cursor: string?}?)
@@ -570,9 +580,19 @@ local function listItems(opts: {cursor: string?}?)
 end
 ```
 
+`url.encode(value)` percent-encodes every byte outside RFC 3986's unreserved
+characters; use it for query names and values. `url.segment(value, name?)` encodes
+one path segment and raises `invalid_argument` for an empty value, a dot-only value
+such as `..`, `/`, `\`, `%` or control characters, naming `name` but never echoing
+the value. Pass every caller-supplied path ID through it, so an ID can never address
+another route, and check provider ID formats (numeric IDs, URIs) before it. To keep
+a connector's own error text, wrap it: `local ok, segment = pcall(url.segment, id)`.
+Opaque IDs that may contain separators, such as Notion property IDs, use
+`url.encode` and an `opaque_path_parameters` proxy rule instead.
+
 Production helpers should also validate provider-specific error envelopes and
 mutation confirmations, and catch malformed JSON where a structured error helps.
-Keep error snippets bounded and avoid including secrets or signed URLs. Classifying
+Keep error snippets bounded with `readPrefix` and avoid including secrets or signed URLs. Classifying
 an error as retryable does not retry it: callers must verify ambiguous writes
 before repeating them. Do not automatically collect every page into memory.
 
