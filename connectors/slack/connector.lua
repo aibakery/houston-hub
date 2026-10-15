@@ -28,18 +28,18 @@ end
 
 local function request(method: any,params: any,write: any)
 	params = params or {}
-	local url = BASE .. method
+	local target = BASE .. method
 	local body, headers
 	if write then
 		body = json.encode(params)
 		headers = { ["Content-Type"] = "application/json; charset=utf-8" }
 	else
 		local query = query_string(params)
-		if query ~= "" then url ..= "?" .. query end
+		if query ~= "" then target ..= "?" .. query end
 	end
 	local response = http.request({
 		method = if write then "POST" else "GET",
-		url = url,
+		url = target,
 		body = body,
 		headers = headers,
 	})
