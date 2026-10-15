@@ -455,6 +455,7 @@ function functions.getAttachments(input: Id | DownloadsOptions, requested: {Down
 	local s = session()
 	local template = s.downloadUrl
 	if type(template) ~= "string" then return fail("getAttachments", "Missing download URL") end
+	local account = url.segment(s.accountId, "accountId")
 	local byId = {}
 	for _, item in functions.listAttachments(messageId) do byId[item.id] = item end
 	local jobs, paths = {}, {}
@@ -463,20 +464,17 @@ function functions.getAttachments(input: Id | DownloadsOptions, requested: {Down
 		local attachment = byId[id]
 		if not attachment then error("fastmail: attachment does not belong to this message") end
 		local path = type(item) == "table" and item.path or nil
-		path = path or (folder .. url.segment(id, "blobId"))
+		local blob = url.segment(id, "blobId")
+		path = path or (folder .. blob)
 		if paths[path] then error("fastmail: attachment paths must be distinct") end
 		paths[path] = true
 		-- Placeholders are filled by name, wherever the server puts them. IDs must be safe path
 		-- segments; the name only labels the download, so an unsafe one becomes a plain label.
 		-- Fastmail puts {type}, which contains a slash, in the query.
-		local name = attachment.filename or "attachment"
-		if not pcall(url.segment, name) then name = "attachment" end
-		local values = { name = name, type = attachment.mimeType or "application/octet-stream" }
-		local ids = { accountId = s.accountId, blobId = id }
-		local link = string.gsub(template, "{(%w+)}", function(key: any)
-			if key == "accountId" or key == "blobId" then return url.segment(ids[key], key) end
-			return url.encode(values[key] or "")
-		end)
+		local ok, name = pcall(url.segment, attachment.filename or "attachment")
+		local values = { accountId = account, blobId = blob, name = if ok then name else "attachment",
+			type = url.encode(attachment.mimeType or "application/octet-stream") }
+		local link = string.gsub(template, "{(%w+)}", function(key: any) return values[key] or "" end)
 		jobs[#jobs + 1] = { path = path, size = attachment.size, url = link }
 	end
 	local out = {}
