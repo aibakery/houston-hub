@@ -110,7 +110,7 @@ local endpoints: {[string]: Endpoint} = {
 	updateBroadcast = {method = "PATCH", path = "/broadcasts/{broadcast_id}", doc = "broadcasts/update-broadcast", about = "Body: the createBroadcast fields to change, for a draft."},
 	deleteBroadcast = {method = "DELETE", path = "/broadcasts/{broadcast_id}", doc = "broadcasts/delete-broadcast", about = "Deletes a draft or scheduled broadcast; a scheduled one is then not sent."},
 	sendBroadcast = {method = "POST", path = "/broadcasts/{broadcast_id}/send", doc = "broadcasts/send-broadcast",
-		about = "Body {scheduled_at?}. Emails the segment's contacts, except unsubscribed ones, now or at scheduled_at. Only broadcasts created through the API can be sent."},
+		about = "Body {scheduled_at?}. Emails the segment's contacts, except unsubscribed ones and, with topic_id, those opted out of the topic, now or at scheduled_at. Only broadcasts created through the API can be sent."},
 	cancelBroadcast = {method = "POST", path = "/broadcasts/{broadcast_id}/cancel", body = false, doc = "broadcasts/cancel-broadcast",
 		about = "Cancels a queued or scheduled broadcast; emails already sent stay sent."},
 	duplicateBroadcast = {method = "POST", path = "/broadcasts/{broadcast_id}/duplicate", body = false, doc = "broadcasts/duplicate-broadcast",
