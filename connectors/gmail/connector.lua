@@ -242,9 +242,9 @@ local function getMessages(input: any): {Options}
 	local ids = args.ids
 	assert(type(ids) == "table" and #ids >= 1 and #ids <= 100, "ids must be an array of 1 to 100 message IDs")
 	local segments: {string} = {}
-	for i, id in ids do
+	for i = 1, #ids do
 		local field = "ids[" .. tostring(i) .. "]"
-		segments[i] = url.segment(text(id, field), field)
+		segments[i] = url.segment(text(ids[i], field), field)
 	end
 	args.ids = nil
 	local suffix, limit = readQuery(args)
