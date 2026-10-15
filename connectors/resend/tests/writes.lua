@@ -109,6 +109,10 @@ return {
 		part('Content-Disposition: form-data; name="on_conflict"', "\r\n\r\nupsert\r\n")
 		part('Content-Disposition: form-data; name="segments"', '[{"id":"s1"}]')
 		assert(string.find(req.body, '"first_name":"first_name"', 1, true) and not string.find(req.body, 'name="path"', 1, true))
+		-- Plain form values are sent as given, not URL-encoded.
+		resend.createContactImport({path = "imports/contacts.csv", column_map = '{"email":"Email Address"}', on_conflict = "skip"})
+		assert(string.find(last().body, '\r\n\r\n{"email":"Email Address"}\r\n', 1, true), last().body)
+		rejected(function() resend.createContactImport({path = "imports/contacts.csv", on_conflict = json.decode("null")}) end, "on_conflict must be a string, number, boolean, object or array")
 		rejected(function() resend.createContactImport({column_map = {email = "email"}}) end, "path is required")
 		rejected(function() resend.createContactImport({path = "imports/missing.csv"}) end, "path imports/missing.csv is not a session file")
 	end,

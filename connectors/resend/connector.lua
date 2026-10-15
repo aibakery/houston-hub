@@ -356,8 +356,10 @@ local function upload(args: Options, path: string): (any, string)
 	table.sort(fields)
 	local parts: {any} = {}
 	for _, field in fields do
-		local value = args[field]
-		table.insert(parts, {name = field, body = if type(value) == "table" then json.encode(value) else scalar(value, field)})
+		local value, kind = args[field], type(args[field])
+		assert(value ~= NULL and (kind == "string" or kind == "number" or kind == "boolean" or kind == "table"),
+			field .. " must be a string, number, boolean, object or array")
+		table.insert(parts, {name = field, body = if kind == "table" then json.encode(value) else tostring(value)})
 	end
 	table.insert(parts, {name = "file", filename = string.match(path, "[^/]+$"), contentType = "text/csv", body = fs.open(path, "r")})
 	return http.multipart(parts)
