@@ -452,8 +452,11 @@ function functions.getAttachments(input: Id | DownloadsOptions, requested: {Down
 	if type(items) ~= "table" then error("fastmail.getAttachments requires attachment items") end
 	if #items == 0 then return json.decode("[]") end
 	local folder = "attachments/" .. url.segment(messageId, "messageId") .. "/"
-	local blobs = {}
-	for index, item in items do blobs[index] = url.segment(id_of(item), "blobId") end
+	local ids, blobs = {}, {}
+	for index, item in items do
+		ids[index] = id_of(item)
+		blobs[index] = url.segment(ids[index], "blobId")
+	end
 	local s = session()
 	local template = s.downloadUrl
 	if type(template) ~= "string" then return fail("getAttachments", "Missing download URL") end
@@ -462,7 +465,7 @@ function functions.getAttachments(input: Id | DownloadsOptions, requested: {Down
 	for _, item in functions.listAttachments(messageId) do byId[item.id] = item end
 	local jobs, paths = {}, {}
 	for index, item in items do
-		local id = id_of(item)
+		local id = ids[index]
 		local attachment = byId[id]
 		if not attachment then error("fastmail: attachment does not belong to this message") end
 		local path = type(item) == "table" and item.path or nil
@@ -471,14 +474,10 @@ function functions.getAttachments(input: Id | DownloadsOptions, requested: {Down
 		if paths[path] then error("fastmail: attachment paths must be distinct") end
 		paths[path] = true
 		-- Placeholders are filled by name, wherever the server puts them. IDs must be safe path
-		-- segments; the name only labels the download, so one the proxy would refuse (a
-		-- separator, percent sign, control character or dot segment) becomes a plain label.
-		-- Fastmail puts {type}, which contains a slash, in the query.
-		local name: string = if type(attachment.filename) == "string" then attachment.filename else ""
-		if name == "" or string.find(name, "[/\\%%%c]") or string.match(name, "^%.+$") then
-			name = "attachment"
-		end
-		local values = { accountId = account, blobId = blob, name = url.encode(name),
+		-- segments; the name only labels the download, so one url.segment refuses becomes a
+		-- plain label. Fastmail puts {type}, which contains a slash, in the query.
+		local ok, name = pcall(url.segment, attachment.filename or "attachment")
+		local values = { accountId = account, blobId = blob, name = if ok then name else "attachment",
 			type = url.encode(if type(attachment.mimeType) == "string" then attachment.mimeType else "application/octet-stream") }
 		local link = string.gsub(template, "{(%w+)}", function(key: any) return values[key] or "" end)
 		jobs[#jobs + 1] = { path = path, size = attachment.size, url = link }
