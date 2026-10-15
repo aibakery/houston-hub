@@ -61,8 +61,7 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 		local value = if field == "id" then id(args[field], field) else text(args[field], field)
 		if field == "username" then assert(#value <= 15 and string.match(value, "^[A-Za-z0-9_]+$"), "username must be an X handle without @") end
 		args[field] = nil
-		-- Both path fields, id and username, are strict formats that need no encoding.
-		return value
+		return url.segment(value, field)
 	end)
 	local query: {string} = {}
 	local function take(field: string, default: any, csv: boolean?)
