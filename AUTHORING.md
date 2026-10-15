@@ -146,8 +146,8 @@ allocates a string, defaults to 8 MiB, and fails and closes its source on overfl
 HTTP, multipart and compression Readers also offer `readPrefix(maxBytes)`: it returns
 at most `maxBytes` bytes and closes the Reader. Longer bodies and source errors end
 the prefix. It fails when the Reader is closed, cancelled (including an await
-timeout) or already in use, when the limit is invalid, or when the invocation's
-read budget refuses the call.
+timeout) or already in use, when the limit is invalid (the Reader then stays open,
+so pass a constant), or when the invocation's read budget refuses the call.
 Use it for bounded error snippets. Files have no `readPrefix`:
 `await(fd:read(maxBytes))` returns one `{done, data}` chunk of at most `maxBytes`
 bytes.
