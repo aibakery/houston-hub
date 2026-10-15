@@ -35,9 +35,9 @@ local function pageSize(value: any)
 	end
 end
 
-local function scalar(value: any): string
+local function scalar(value: any): string | number | boolean
 	assert(type(value) == "string" or type(value) == "boolean" or (type(value) == "number" and value == value and math.abs(value) < math.huge), "query values must be strings, booleans or finite numbers")
-	return tostring(value)
+	return value
 end
 
 local function queryValue(parts: {string}, key: string, value: any)
