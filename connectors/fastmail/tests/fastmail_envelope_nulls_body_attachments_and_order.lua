@@ -51,7 +51,11 @@ end, run=function(fastmail)
             assert(not pcall(fastmail.getAttachment,"m1","..",path or nil))
             assert(#requests==sent+1,"a dot-segment blob ID must not reach the download host")
         end
-        assert(not pcall(fastmail.getAttachment,"m/1","b1") and #requests==6,"an invalid message ID must not reach Fastmail")
+        local before=#requests
+        assert(not pcall(fastmail.getAttachment,"m/1","b1") and #requests==before,"an invalid message ID must not reach Fastmail")
+        responses[1]=result("Email/get",{list={json.decode([[{"id":"m1","attachments":[{"blobId":"b2","name":"50% plan/v2.pdf","type":"application/pdf","size":123}]}]])}})
+        fastmail.getAttachment("m1","b2","mail/plan.pdf")
+        assert(requests[#requests].url=="https://phl-www.fastmailusercontent.com/jmap/download/u1/b2/attachment?type=application%2Fpdf",requests[#requests].url)
         local ids={}
         for i=1,51 do ids[i]="m"..i end
         assert(not pcall(fastmail.getMessages,ids))

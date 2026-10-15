@@ -469,7 +469,13 @@ function functions.getAttachments(input: Id | DownloadsOptions, requested: {Down
 		if paths[path] then error("fastmail: attachment paths must be distinct") end
 		paths[path] = true
 		local values = { accountId = s.accountId, blobId = id, name = attachment.filename or "attachment", type = attachment.mimeType or "application/octet-stream" }
-		local link = string.gsub(base :: string, "{(%w+)}", function(key: any) return url.segment(values[key] or "", key) end)
+		local link = string.gsub(base :: string, "{(%w+)}", function(key: any)
+			local ok, segment = pcall(url.segment, values[key] or "", key)
+			-- The name only labels the download; an unsafe one falls back to a plain label.
+			if not ok and key == "name" then return "attachment" end
+			assert(ok, segment)
+			return segment
+		end)
 			.. string.gsub(query :: string, "{(%w+)}", function(key: any) return url.encode(values[key] or "") end)
 		jobs[#jobs + 1] = { path = path, size = attachment.size, url = link }
 	end
@@ -608,7 +614,7 @@ local function upload_blob(options: UploadOptions): any
 	if type(template) ~= "string" or string.find(template, "{accountId}", 1, true) == nil then
 		return fail(operation, "Fastmail session has no upload URL")
 	end
-	local endpoint = string.gsub(template, "{accountId}", function() return url.encode(s.accountId) end)
+	local endpoint = string.gsub(template, "{accountId}", function() return url.segment(s.accountId, "accountId") end)
 	local stat = await(fs.stat(path))
 	if not stat.isFile then error("fastmail: attachment path must be a file") end
 	local response = await(http.request({
