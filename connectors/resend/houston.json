@@ -1,0 +1,271 @@
+{
+  "schema_version": 1,
+  "name": "Resend",
+  "files": [
+    "connector.lua"
+  ],
+  "icon": "icon.svg",
+  "config": {
+    "access": {
+      "default": "read-only",
+      "label": "Access",
+      "options": [
+        {
+          "label": "Read-only",
+          "value": "read-only"
+        },
+        {
+          "label": "Read and write",
+          "value": "read-write"
+        }
+      ],
+      "type": "string"
+    }
+  },
+  "auth": {
+    "api_key": {
+      "type": "manual",
+      "label": "API key",
+      "config": {
+        "token": {
+          "label": "API key",
+          "required": true,
+          "type": "secret"
+        }
+      }
+    }
+  },
+  "proxy": [
+    {
+      "match": {
+        "protocol": "http",
+        "host": [
+          "api.resend.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/api-keys",
+          "/automations",
+          "/automations/{automation_id}",
+          "/automations/{automation_id}/runs",
+          "/automations/{automation_id}/runs/{run_id}",
+          "/broadcasts",
+          "/broadcasts/{broadcast_id}",
+          "/broadcasts/{broadcast_id}/clicked-links",
+          "/broadcasts/{broadcast_id}/recipients",
+          "/contact-properties",
+          "/contact-properties/{property_id}",
+          "/contacts",
+          "/contacts/imports",
+          "/contacts/imports/{import_id}",
+          "/contacts/{contact_id}",
+          "/contacts/{contact_id}/segments",
+          "/contacts/{contact_id}/topics",
+          "/domains",
+          "/domains/{domain_id}",
+          "/domains/{domain_id}/claim",
+          "/emails",
+          "/emails/metrics",
+          "/emails/receiving",
+          "/emails/receiving/{email_id}",
+          "/emails/receiving/{email_id}/attachments",
+          "/emails/receiving/{email_id}/attachments/{attachment_id}",
+          "/emails/{email_id}",
+          "/emails/{email_id}/attachments",
+          "/emails/{email_id}/attachments/{attachment_id}",
+          "/events",
+          "/events/{identifier}",
+          "/logs",
+          "/segments",
+          "/segments/{segment_id}",
+          "/segments/{segment_id}/contacts",
+          "/suppressions",
+          "/suppressions/{suppression}",
+          "/templates",
+          "/templates/{template_id}",
+          "/topics",
+          "/topics/{topic_id}",
+          "/webhooks",
+          "/webhooks/{webhook_id}/events",
+          "/webhooks/{webhook_id}/events/{event_id}",
+          "/webhooks/{webhook_id}/events/{event_id}/attempts"
+        ]
+      },
+      "action": {
+        "headers": {
+          "remove": [
+            "X-HTTP-Method-Override",
+            "X-HTTP-Method",
+            "X-Method-Override"
+          ],
+          "set": {
+            "Authorization": "Bearer {{auth.api_key.token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "api.resend.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/logs/{log_id}",
+          "/webhooks/{webhook_id}"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.api_key.token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "api.resend.com"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/automations",
+          "/automations/{automation_id}/duplicate",
+          "/automations/{automation_id}/stop",
+          "/broadcasts",
+          "/broadcasts/{broadcast_id}/cancel",
+          "/broadcasts/{broadcast_id}/duplicate",
+          "/broadcasts/{broadcast_id}/send",
+          "/contact-properties",
+          "/contacts",
+          "/contacts/imports",
+          "/contacts/{contact_id}/segments/{segment_id}",
+          "/domains",
+          "/domains/claim",
+          "/domains/{domain_id}/claim/verify",
+          "/domains/{domain_id}/verify",
+          "/emails",
+          "/emails/batch",
+          "/emails/{email_id}/cancel",
+          "/emails/{email_id}/share",
+          "/events",
+          "/events/send",
+          "/segments",
+          "/suppressions",
+          "/suppressions/batch/add",
+          "/suppressions/batch/remove",
+          "/templates",
+          "/templates/{template_id}/duplicate",
+          "/templates/{template_id}/publish",
+          "/topics",
+          "/webhooks",
+          "/webhooks/{webhook_id}/events/{event_id}/replay",
+          "/webhooks/{webhook_id}/signing-secret/rotate"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.api_key.token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "api.resend.com"
+        ],
+        "method": [
+          "PATCH"
+        ],
+        "path": [
+          "/automations/{automation_id}",
+          "/broadcasts/{broadcast_id}",
+          "/contact-properties/{property_id}",
+          "/contacts/{contact_id}",
+          "/contacts/{contact_id}/topics",
+          "/domains/{domain_id}",
+          "/emails/{email_id}",
+          "/events/{identifier}",
+          "/segments/{segment_id}",
+          "/templates/{template_id}",
+          "/topics/{topic_id}",
+          "/webhooks/{webhook_id}"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.api_key.token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "api.resend.com"
+        ],
+        "method": [
+          "DELETE"
+        ],
+        "path": [
+          "/automations/{automation_id}",
+          "/broadcasts/{broadcast_id}",
+          "/contact-properties/{property_id}",
+          "/contacts/{contact_id}",
+          "/contacts/{contact_id}/segments/{segment_id}",
+          "/domains/{domain_id}",
+          "/events/{identifier}",
+          "/segments/{segment_id}",
+          "/suppressions/{suppression}",
+          "/templates/{template_id}",
+          "/topics/{topic_id}",
+          "/webhooks/{webhook_id}"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.api_key.token}}"
+          }
+        }
+      }
+    },
+    {
+      "match": {
+        "protocol": "http",
+        "host": [
+          "outbound-cdn.resend.com",
+          "inbound-cdn.resend.com"
+        ],
+        "method": [
+          "GET"
+        ]
+      },
+      "action": {
+        "headers": {
+          "remove": [
+            "Authorization"
+          ]
+        }
+      }
+    }
+  ]
+}
