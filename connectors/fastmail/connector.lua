@@ -482,7 +482,7 @@ function functions.getAttachments(input: Id | DownloadsOptions, requested: {Down
 	local out = {}
 	for _, job in jobs do
 		local res = await(http.request({ method = "GET", url = job.url }))
-		if res.statusCode < 200 or res.statusCode >= 300 then upstream("getAttachments", res) end
+		if res.statusCode < 200 or res.statusCode >= 300 then upstream("getAttachment", res) end
 		local output = fs.open(job.path, "w")
 		output:write(res.body)
 		await(output:close())
