@@ -455,8 +455,6 @@ function functions.getAttachments(input: Id | DownloadsOptions, requested: {Down
 	local s = session()
 	local template = s.downloadUrl
 	if type(template) ~= "string" then return fail("getAttachments", "Missing download URL") end
-	-- Placeholders before the query are path segments; the rest are query values.
-	local base, search = string.match(template, "^([^?]*)(.*)$")
 	local byId = {}
 	for _, item in functions.listAttachments(messageId) do byId[item.id] = item end
 	local jobs, paths = {}, {}
@@ -468,12 +466,16 @@ function functions.getAttachments(input: Id | DownloadsOptions, requested: {Down
 		path = path or (folder .. url.segment(id, "blobId"))
 		if paths[path] then error("fastmail: attachment paths must be distinct") end
 		paths[path] = true
-		-- The name only labels the download; one that is not a safe segment becomes a plain label.
+		-- RFC 8620 lets the server place each placeholder anywhere. IDs must be safe path
+		-- segments; the name only labels the download, so an unsafe one becomes a plain label.
 		local name = attachment.filename or "attachment"
 		if not pcall(url.segment, name) then name = "attachment" end
-		local values = { accountId = s.accountId, blobId = id, name = name, type = attachment.mimeType or "application/octet-stream" }
-		local link = string.gsub(base :: string, "{(%w+)}", function(key: any) return url.segment(values[key] or "", key) end)
-			.. string.gsub(search :: string, "{(%w+)}", function(key: any) return url.encode(values[key] or "") end)
+		local values = { name = name, type = attachment.mimeType or "application/octet-stream" }
+		local ids = { accountId = s.accountId, blobId = id }
+		local link = string.gsub(template, "{(%w+)}", function(key: any)
+			if ids[key] then return url.segment(ids[key], key) end
+			return url.encode(values[key] or "")
+		end)
 		jobs[#jobs + 1] = { path = path, size = attachment.size, url = link }
 	end
 	local out = {}
