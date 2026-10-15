@@ -2,17 +2,14 @@ package main
 
 import (
 	"bytes"
-	"context"
 	"os"
 	"path/filepath"
 	"slices"
 	"testing"
-
-	"github.com/aibakery/houston-hub/tools/conformance"
 )
 
 func TestSupportedBundles(t *testing.T) {
-	for _, name := range []string{"fastmail", "notion", "gmail", "gcalendar", "gdrive", "mercury", "x", "linkedin", "calcom", "calendly", "dropbox", "resend"} {
+	for _, name := range []string{"fastmail", "notion", "gmail", "gcalendar", "gdrive", "mercury", "x", "linkedin", "calcom", "calendly", "dropbox", "resend", "woocommerce"} {
 		t.Run(name, func(t *testing.T) {
 			count, err := validate("../../connectors/" + name)
 			if err != nil {
@@ -37,11 +34,7 @@ func TestUnmigratedBundleFixtures(t *testing.T) {
 			continue
 		}
 		t.Run(entry.Name(), func(t *testing.T) {
-			m, modules, fixtures, err := loadBundle("../../connectors/" + entry.Name())
-			if err != nil {
-				t.Fatal(err)
-			}
-			if err := conformance.Check(context.Background(), "", *m, modules, fixtures); err != nil {
+			if err := validateBundle("../../connectors/"+entry.Name(), false); err != nil {
 				t.Fatal(err)
 			}
 		})

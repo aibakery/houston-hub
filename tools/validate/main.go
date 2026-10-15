@@ -39,7 +39,7 @@ func main() {
 }
 func validate(root string) (int, error) {
 	if _, err := os.Stat(filepath.Join(root, "houston.json")); err == nil {
-		return 1, validateBundle(root)
+		return 1, validateBundle(root, true)
 	}
 	entries, err := os.ReadDir(filepath.Join(root, "connectors"))
 	if err != nil {
@@ -50,7 +50,7 @@ func validate(root string) (int, error) {
 		if !entry.IsDir() {
 			continue
 		}
-		if err := validateBundle(filepath.Join(root, "connectors", entry.Name())); err != nil {
+		if err := validateBundle(filepath.Join(root, "connectors", entry.Name()), true); err != nil {
 			return count, fmt.Errorf("%s: %w", entry.Name(), err)
 		}
 		count++
@@ -60,13 +60,18 @@ func validate(root string) (int, error) {
 	}
 	return count, nil
 }
-func validateBundle(dir string) error {
+
+// validateBundle runs every publication check; typed=false skips type analysis for
+// bundles still on the old runtime API.
+func validateBundle(dir string, typed bool) error {
 	m, modules, fixtures, err := loadBundle(dir)
 	if err != nil {
 		return err
 	}
-	if err := typecheck.Check(context.Background(), "", *m, modules); err != nil {
-		return err
+	if typed {
+		if err := typecheck.Check(context.Background(), "", *m, modules); err != nil {
+			return err
+		}
 	}
 	if err := conformance.Check(context.Background(), "", *m, modules, fixtures); err != nil {
 		return err
