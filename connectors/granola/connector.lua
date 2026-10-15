@@ -36,14 +36,14 @@ local function query_string(params: any)
 end
 
 local function request(method: any,path: any,params: any,operation: any)
-	local url = BASE .. path
+	local target = BASE .. path
 	local qs = query_string(params)
 	if qs ~= "" then
-		url = url .. "?" .. qs
+		target = target .. "?" .. qs
 	end
 	local response = http.request({
 		method = method,
-		url = url,
+		url = target,
 	})
 	if response.status < 200 or response.status >= 300 then
 		houston.fail({operation = operation, layer = "upstream", upstream_status = response.status,
