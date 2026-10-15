@@ -80,7 +80,7 @@ return {
 		assert(start.method == "PATCH" and string.find(start.url, "/upload/drive/v3/files/up?", 1, true) and start.body == "{}", start.body)
 		responses = {{}}
 		assert(not pcall(c.uploadFile, {path = "uploads/report.pdf"}), "upload without a session URL")
-		local sent = #requests
+		sent = #requests
 		for _, id in {"..", "up/1", "up%2F1"} do assert(not pcall(c.uploadFile, {path = "uploads/report.pdf", fileId = id})) end
 		assert(#requests == sent, "invalid file IDs must not reach Google")
 
