@@ -106,7 +106,7 @@ local function scalar(value: any, key: string): string
 	local kind = type(value)
 	assert(kind == "string" or kind == "boolean" or (kind == "number" and value == value and math.abs(value) < math.huge),
 		key .. " must be a string, boolean, finite number or array of those")
-	return url.encode(tostring(value))
+	return url.encode(value)
 end
 
 -- Arrays use WordPress's key[]=value form; their order is preserved (orderby=include).
@@ -126,7 +126,7 @@ local function query(args: Options): string
 			assert(count == #value, key .. " must be a dense array")
 			for _, item in ipairs(value) do table.insert(parts, url.encode(key .. "[]") .. "=" .. scalar(item, key)) end
 		else
-			table.insert(parts, key .. "=" .. scalar(value, key))
+			table.insert(parts, url.encode(key) .. "=" .. scalar(value, key))
 		end
 	end
 	return if #parts > 0 then "?" .. table.concat(parts, "&") else ""
@@ -142,14 +142,9 @@ local function header(response: HttpResponse, name: string): string?
 	return if values then values[1] else nil
 end
 
--- Reads at most 16 KiB of an error body and closes it.
-local function errorBody(response: HttpResponse): string
-	return await(response.body:readPrefix(16 * 1024))
-end
-
 local function failStatus(name: string, response: HttpResponse): never
 	local message = "WooCommerce HTTP " .. tostring(response.statusCode)
-	local ok, value = pcall(json.decode, errorBody(response))
+	local ok, value = pcall(json.decode, await(response.body:readPrefix(16 * 1024)))
 	if ok and type(value) == "table" then
 		if type(value.code) == "string" then message ..= " (" .. value.code .. ")" end
 		if type(value.message) == "string" then message ..= ": " .. string.sub(value.message, 1, 600) end
