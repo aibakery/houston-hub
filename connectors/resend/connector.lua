@@ -307,11 +307,12 @@ end
 -- End of the shared request layer.
 
 -- IDs are UUIDs, or msg_... for webhook events. Contacts and suppressions also take an email
--- address, templates an alias and events a name, such as user.created.
+-- address, templates an alias and events a name, such as user.created. Each is one encoded
+-- path segment, as in Resend's SDK; separators, percent signs and dot segments are refused.
 local function identifier(value: any, field: string): string
-	assert(type(value) == "string" and string.match(value, "^[%w%._%-@+]+$") and not string.match(value, "^%.+$"),
+	assert(type(value) == "string" and value ~= "" and not string.find(value, "[/\\%%]") and not string.match(value, "^%.+$"),
 		field .. " must be an ID, email address, alias or name")
-	return value
+	return encode(value)
 end
 
 -- Resend errors are {statusCode, name, message}. Rate limits and in-flight idempotent requests

@@ -67,7 +67,7 @@ return {
 		resend.verifyDomain({domain_id = "d1"})
 		assert(last().url == API .. "/domains/d1/verify" and last().body == nil)
 		resend.addContactToSegment({contact_id = "ana@example.com", segment_id = "s1"})
-		assert(last().method == "POST" and last().url == API .. "/contacts/ana@example.com/segments/s1" and last().body == nil)
+		assert(last().method == "POST" and last().url == API .. "/contacts/ana%40example.com/segments/s1" and last().body == nil)
 
 		resend.updateEmail({email_id = "e1", scheduled_at = "2026-10-20T09:00:00Z"})
 		assert(last().method == "PATCH" and last().body == '{"scheduled_at":"2026-10-20T09:00:00Z"}', last().body)
