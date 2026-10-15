@@ -4,10 +4,6 @@
 
 local BASE = "https://api.attio.com/v2"
 
-local function encode(s: any)
-	return url.encode(tostring(s))
-end
-
 local function scalar(value: any)
 	if type(value) == "boolean" then
 		if value then
@@ -28,7 +24,7 @@ local function add_query(parts: any,key: any,value: any)
 		end
 		return
 	end
-	parts[#parts + 1] = encode(key) .. "=" .. encode(scalar(value))
+	parts[#parts + 1] = url.encode(key) .. "=" .. url.encode(scalar(value))
 end
 
 local function query_string(params: any)

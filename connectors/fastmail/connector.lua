@@ -462,11 +462,11 @@ function functions.getAttachments(input: Id | DownloadsOptions, requested: {Down
 		local attachment = byId[id]
 		if not attachment then error("fastmail: attachment does not belong to this message") end
 		local path = type(item) == "table" and item.path or nil
-		path = path or ("attachments/" .. url.encode(tostring(messageId)) .. "/" .. url.encode(tostring(id)))
+		path = path or ("attachments/" .. url.encode(messageId) .. "/" .. url.encode(id))
 		if paths[path] then error("fastmail: attachment paths must be distinct") end
 		paths[path] = true
 		local values = { accountId = s.accountId, blobId = id, name = attachment.filename or "attachment", type = attachment.mimeType or "application/octet-stream" }
-		local link = string.gsub(template, "{(%w+)}", function(key: any) return url.encode(tostring(values[key] or "")) end)
+		local link = string.gsub(template, "{(%w+)}", function(key: any) return url.encode(values[key] or "") end)
 		jobs[#jobs + 1] = { path = path, size = attachment.size, url = link }
 	end
 	local out = {}
@@ -604,7 +604,7 @@ local function upload_blob(options: UploadOptions): any
 	if type(template) ~= "string" or string.find(template, "{accountId}", 1, true) == nil then
 		return fail(operation, "Fastmail session has no upload URL")
 	end
-	local endpoint = string.gsub(template, "{accountId}", function() return url.encode(tostring(s.accountId)) end)
+	local endpoint = string.gsub(template, "{accountId}", function() return url.encode(s.accountId) end)
 	local stat = await(fs.stat(path))
 	if not stat.isFile then error("fastmail: attachment path must be a file") end
 	local response = await(http.request({

@@ -584,7 +584,8 @@ end
 ```
 
 `url.encode(value)` percent-encodes every byte outside RFC 3986's unreserved
-characters; use it for query names and values. `url.segment(value, name?)` encodes
+characters; use it for query names and values. Numbers and booleans render as
+`tostring` does. `url.segment(value, name?)` encodes
 one path segment and raises `invalid_argument` for an empty value, a dot-only value
 such as `..`, `/`, `\`, `%`, control characters or invalid UTF-8, naming `name`
 but never echoing the value. Pass every caller-supplied path ID through it, or check

@@ -37,7 +37,7 @@ local function queryValue(value: any, field: string, spec: Query): string
 		text(value, field)
 	end
 	if spec.enum then assert(table.find(spec.enum, value), field .. " has an unsupported value") end
-	return url.encode(tostring(value))
+	return url.encode(value)
 end
 
 local function fail(name: string, response: HttpResponse): never

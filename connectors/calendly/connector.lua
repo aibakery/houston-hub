@@ -151,7 +151,7 @@ end
 local function scalar(value: any, field: string): string
 	local kind = type(value)
 	assert(kind == "string" or kind == "boolean" or kind == "number", field .. " must be a string, boolean, number or array of those")
-	return url.encode(tostring(value))
+	return url.encode(value)
 end
 
 -- Only GET reads unless write says otherwise.

@@ -24,7 +24,7 @@ local function query(args: Options, names: {string}): string
 		args[name] = nil
 		for _, item in (if type(value) == "table" then value else {value}) do
 			assert(type(item) == "string" or type(item) == "number" or type(item) == "boolean", name .. " must be a string, number, boolean or an array of them")
-			table.insert(parts, url.encode(name) .. "=" .. url.encode(tostring(item)))
+			table.insert(parts, url.encode(name) .. "=" .. url.encode(item))
 		end
 	end
 	return if #parts > 0 then "?" .. table.concat(parts, "&") else ""
