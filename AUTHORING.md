@@ -146,8 +146,9 @@ allocates a string, defaults to 8 MiB, and fails and closes its source on overfl
 HTTP, multipart and compression Readers also offer `readPrefix(maxBytes)`: it returns
 at most `maxBytes` bytes and closes the Reader. Longer bodies and source errors end
 the prefix. It fails when the Reader is closed, cancelled (including an await
-timeout) or already in use, when the limit is invalid (the Reader then stays open,
-so pass a constant), or when the invocation's read budget refuses the call.
+timeout) or already in use, when the limit is not a positive integer (the Reader
+then stays open, so pass a constant), or when a limit above 128 MiB or the
+invocation's read budget refuses the call (the Reader is then closed).
 Use it for bounded error snippets. Files have no `readPrefix`:
 `await(fd:read(maxBytes))` returns one `{done, data}` chunk of at most `maxBytes`
 bytes.
@@ -590,9 +591,9 @@ end
 characters; use it for query names and values. Numbers and booleans render as
 `tostring` does. `url.segment(value, name?)` encodes
 one path segment and raises `invalid_argument` for an empty value, a dot-only value
-such as `..` (or only dots and spaces), `/`, `\`, `%`, control characters, values whose
+such as `..` (or only dots and spaces, also before a `;`, `?` or `#`), `/`, `\`, `%`, control characters, values whose
 NFKC form contains those (such as U+FF0E), invisible format characters, best-fit
-separator look-alikes (such as U+00A5) or invalid UTF-8, naming `name`
+separator look-alikes (such as U+00A5), invalid UTF-8 or more than 16 KiB, naming `name`
 but never echoing the value. Pass every caller-supplied path ID through it, or check
 it against a strict format such as `^[%w_%-]+$` or a numeric ID, so an ID cannot add
 path or dot segments. To keep a connector's own error text, wrap it:
