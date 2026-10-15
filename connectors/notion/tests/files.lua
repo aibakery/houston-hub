@@ -77,7 +77,7 @@ return {
         end
         function rejected(fn, fragment)
             local ok, err = pcall(fn)
-            local message = if type(err) == "table" then err.message else tostring(err)
+            local message = tostring(if type(err) == "table" then err.message or err else err)
             assert(not ok and string.find(message, fragment, 1, true), message)
         end
     end,
