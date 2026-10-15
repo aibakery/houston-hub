@@ -462,7 +462,7 @@ function functions.getAttachments(input: Id | DownloadsOptions, requested: {Down
 		local attachment = byId[id]
 		if not attachment then error("fastmail: attachment does not belong to this message") end
 		local path = type(item) == "table" and item.path or nil
-		path = path or ("attachments/" .. url.encode(messageId) .. "/" .. url.encode(id))
+		path = path or ("attachments/" .. url.segment(messageId, "messageId") .. "/" .. url.segment(id, "attachment id"))
 		if paths[path] then error("fastmail: attachment paths must be distinct") end
 		paths[path] = true
 		local values = { accountId = s.accountId, blobId = id, name = attachment.filename or "attachment", type = attachment.mimeType or "application/octet-stream" }
