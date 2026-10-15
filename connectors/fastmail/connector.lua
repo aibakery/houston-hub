@@ -466,8 +466,9 @@ function functions.getAttachments(input: Id | DownloadsOptions, requested: {Down
 		path = path or (folder .. url.segment(id, "blobId"))
 		if paths[path] then error("fastmail: attachment paths must be distinct") end
 		paths[path] = true
-		-- RFC 8620 lets the server place each placeholder anywhere. IDs must be safe path
+		-- Placeholders are filled by name, wherever the server puts them. IDs must be safe path
 		-- segments; the name only labels the download, so an unsafe one becomes a plain label.
+		-- Fastmail puts {type}, which contains a slash, in the query.
 		local name = attachment.filename or "attachment"
 		if not pcall(url.segment, name) then name = "attachment" end
 		local values = { name = name, type = attachment.mimeType or "application/octet-stream" }
