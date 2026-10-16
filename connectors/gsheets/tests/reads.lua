@@ -30,7 +30,7 @@ return {
 
 		responses = {'{"spreadsheetId":"s1","valueRanges":[{"range":"Sheet1!A1:B2","values":[["a"]]},{"range":"Totals!C3"}]}', '{"spreadsheetId":"s1"}'}
 		local batch = c.batchGetValues({spreadsheetId = "s1", ranges = {"Sheet1!A1:B2", "Totals!C3"}, valueRenderOption = "FORMULA"})
-		assert(batch.valueRanges[1].values[1][1] == "a" and batch.valueRanges[2].values == nil)
+		assert(batch.valueRanges[1].values[1][1] == "a" and json.encode(batch.valueRanges[2].values) == "[]")
 		assert(requests[4].url == API .. "s1/values:batchGet?ranges=Sheet1%21A1%3AB2&ranges=Totals%21C3&valueRenderOption=FORMULA", requests[4].url)
 		local none = c.batchGetValues({spreadsheetId = "s1", ranges = "Q2/Q3!A1"})
 		assert(json.encode(none.valueRanges) == "[]" and requests[5].url == API .. "s1/values:batchGet?ranges=Q2%2FQ3%21A1", requests[5].url)
@@ -69,6 +69,8 @@ return {
 		end
 		assert(not pcall(c.getValues, "s1"))
 		assert(not pcall(c.batchGetValues, {spreadsheetId = "s1"}), "batchGetValues requires ranges")
+		assert(not pcall(c.batchGetValues, {spreadsheetId = "s1", ranges = {}}))
+		assert(not pcall(c.batchGetValues, {spreadsheetId = "s1", ranges = ""}))
 		assert(not pcall(c.getSpreadsheet, {spreadsheetId = "s1", includeGridData = true}))
 		assert(#requests == sent, "invalid input reached Google")
 		assert(#responses == 0)

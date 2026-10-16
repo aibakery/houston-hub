@@ -52,6 +52,8 @@ return {
 
 		local count = #requests
 		assert(not pcall(c.updateValues, {spreadsheetId = "s1", range = "A1"}), "updateValues requires values")
+		assert(not pcall(c.updateValues, {spreadsheetId = "s1", range = "A1", values = json.decode("null")}))
+		assert(not pcall(c.updateValues, {spreadsheetId = "s1", range = "A1", values = {}}))
 		assert(not pcall(c.appendValues, {spreadsheetId = "s1", range = "Log/2026!A:D", values = {{1}}}))
 		assert(not pcall(c.batchUpdateValues, {spreadsheetId = "s1"}))
 		assert(not pcall(c.batchClearValues, {spreadsheetId = "s1"}))
