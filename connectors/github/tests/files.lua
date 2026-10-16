@@ -122,7 +122,7 @@ return {
 		redirect("https://api.github.com/repositories/1/tarball/main")
 		assert(rejected(function() github.downloadTarball({owner = "o", repo = "old", ref = "main", save_as = "old.tar.gz"}) end, "renamed or transferred") == 1)
 		respond(200, '[{"name":"a.md","download_url":"https://raw.githubusercontent.com/o/r/main/a.md?token=SIGNED"}]', {["content-type"] = {"application/json; charset=utf-8"}})
-		assert(rejected(function() github.getContent({owner = "o", repo = "r", path = "docs", save_as = "docs.bin"}) end, "is a directory") == 1)
+		assert(rejected(function() github.getContent({owner = "o", repo = "r", path = "docs", save_as = "docs.bin"}) end, "directory or submodule") == 1)
 		assert(not string.find(contents("docs.bin"), "SIGNED", 1, true), "saved a directory listing with signed links")
 		respond(202, "")
 		assert(rejected(function() github.getContent({owner = "o", repo = "r", path = "a.bin", save_as = "a.bin"}) end, "GitHub HTTP 202") == 1)

@@ -92,6 +92,7 @@ return {
 		github.getTree({owner = "o", repo = "r", tree_sha = "main", recursive = false})
 		assert(last().url == API .. "/repos/o/r/git/trees/main", "GitHub treats any recursive value as true: " .. last().url)
 		github.getTree({owner = "o", repo = "r", tree_sha = "feature/x"})
+		rejected(function() github.getTree({owner = "o", repo = "r", tree_sha = "main", recursive = "false"}) end, "recursive must be true or false")
 		assert(last().url == API .. "/repos/o/r/git/trees/feature%2Fx", last().url)
 		github.listNotifications({all = true})
 		assert(last().url == API .. "/notifications?all=true")

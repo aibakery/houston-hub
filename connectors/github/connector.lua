@@ -364,10 +364,10 @@ local function save(name: string, first: HttpResponse, output: any, destination:
 		end
 		response = await(http.request({method = "GET", url = location[1], headers = {["User-Agent"] = {"Houston"}}}))
 	elseif first.statusCode == 200 and kind and string.find(kind[1], "application/json", 1, true) == 1 then
-		-- A directory answers with its JSON listing even when raw bytes are requested.
+		-- Directories and submodules answer with JSON even when raw bytes are requested.
 		first.body:close()
 		return houston.fail({operation = name, layer = "upstream", upstream_status = 200, retryable = false,
-			message = "The path is a directory; call getContent without save_as to list it"})
+			message = "The path is a directory or submodule; call getContent without save_as to inspect it"})
 	end
 	if response.statusCode ~= 200 then fail(name, response) end
 	output:write(response.body)
@@ -399,7 +399,10 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 		args.format = nil
 	end
 	-- getTree recurses for any recursive value, false included.
-	if name == "getTree" and args.recursive == false then args.recursive = nil end
+	if name == "getTree" and args.recursive ~= nil then
+		assert(type(args.recursive) == "boolean", "recursive must be true or false")
+		if not args.recursive then args.recursive = nil end
+	end
 	local query: {string} = {}
 	for _, field in endpoint.query or NONE do
 		if args[field] ~= nil then table.insert(query, field .. "=" .. scalar(args[field], field)) end
