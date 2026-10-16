@@ -304,8 +304,20 @@ local function fail(name: string, response: HttpResponse): never
 		retryable = status == 429 or status >= 500 or (status == 403 and (exhausted or retryAfter ~= nil)), message = message})
 end
 
+-- Private file links carry a short-lived token usable outside Houston; keep the link, drop the token.
+local function unsign(value: any)
+	if type(value) ~= "table" then return end
+	for key, child in value do
+		if key == "download_url" and type(child) == "string" then
+			value[key] = string.match(child, "^[^?]*")
+		else
+			unsign(child)
+		end
+	end
+end
+
 local function decode(name: string, response: HttpResponse): any
-	if response.statusCode == 204 or response.statusCode == 205 then
+	if response.statusCode == 204 then
 		response.body:close()
 		return {success = true}
 	end
@@ -315,6 +327,7 @@ local function decode(name: string, response: HttpResponse): any
 		return houston.fail({operation = name, layer = "upstream", upstream_status = response.statusCode, retryable = false,
 			message = "GitHub returned invalid JSON"})
 	end
+	unsign(value)
 	return value
 end
 
@@ -428,7 +441,7 @@ exports.help = function(): string
 		"GitHub REST API " .. VERSION .. ". Each function takes one options object with GitHub's snake_case names (? marks optional); writes also take the JSON body fields listed after Body. Results are GitHub's JSON unchanged; 204 replies return {success=true}. Connector calls return completed values: use them directly, without await. In bodies, json.decode('[]') is an empty array and json.decode('null') clears a field.",
 		"Start with github.getAuthenticatedUser().login, github.listMyRepos({sort='pushed', per_page=20}) or github.searchIssues({q='is:pr is:open author:@me'}). branch, ref, path, tag, tree_sha and basehead may contain slashes (ref='heads/feature/x', path='src/main.go').",
 		"Lists return one page: page? means per_page (1..100, default 30) and page (from 1); a shorter page is the last. Search returns {total_count, incomplete_results, items}: at most 1,000 results and 30 requests per minute (searchCode 10).",
-		"Files: getContent returns base64 content; save_as='name' saves raw bytes as a session file instead. save_as functions return {path, size, url}; search large logs with fs.grep. getCommit, compareCommits and getPull take format='diff' or 'patch' and return that text, without paging. To commit several files, chain createBlob, createTree, createGitCommit and updateRef.",
+		"Files: getContent returns base64 content; save_as='name' saves raw bytes as a session file instead. download_url links lose their private-repository token, so fetch private files with save_as. save_as functions return {path, size, url}; search large logs with fs.grep. getCommit, compareCommits and getPull take format='diff' or 'patch' and return that text, without paging. To commit several files, chain createBlob, createTree, createGitCommit and updateRef.",
 		"Access: GitHub enforces the token's permissions and repository selection; Connect with GitHub reaches public data and repositories where Houston's GitHub App is installed. A 403 or 404 may mean missing access; errors give GitHub's message, needed permissions and rate-limit resets. Read-only connections omit writes. Notifications need a classic token; check runs and suites need a classic token or Connect with GitHub.",
 		"Writes can notify people and trigger workflows. No automatic retries: after a timeout or 5xx, read the resource again before repeating a write. Repository deletion, settings administration, secrets, webhooks, deploy keys and GraphQL are not exposed.",
 	}

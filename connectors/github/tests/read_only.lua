@@ -57,6 +57,11 @@ return {
 		payload = '{"total_count":0,"incomplete_results":false,"items":[]}'
 		assert(json.encode(github.searchCode({q = "fetchUser"}).items) == "[]")
 
+		payload = '[{"name":"a.md","download_url":"https://raw.githubusercontent.com/o/r/main/a.md?token=SIGNED"},{"name":"b","download_url":null}]'
+		local listing = github.getContent({owner = "o", repo = "r", path = "docs"})
+		assert(listing[1].download_url == "https://raw.githubusercontent.com/o/r/main/a.md" and listing[2].download_url == NULL, "signed download_url leaked")
+		payload = '{"name":"README.md","download_url":"https://raw.githubusercontent.com/o/r/main/README.md?token=SIGNED","_links":{"self":"x"}}'
+		assert(github.getReadme({owner = "o", repo = "r"}).download_url == "https://raw.githubusercontent.com/o/r/main/README.md")
 		payload = '{"name":"feature/x"}'
 		github.getBranch({owner = "o", repo = "r", branch = "feature/x"})
 		assert(last().url == API .. "/repos/o/r/branches/feature%2Fx", last().url)
