@@ -264,7 +264,11 @@ local function segment(value: any, field: string): string
 	end
 	if OPAQUE[field] then
 		local raw = text(value, field)
-		for _, part in string.split(raw, "/") do assert(part ~= "" and part ~= "." and part ~= "..", field .. " must not contain empty, . or .. segments") end
+		-- The proxy decodes escapes and rejects traversal; fail here first, before any request.
+		assert(not string.find(raw, "%%%x%x"), field .. " must not contain percent escapes")
+		for _, part in string.split(string.gsub(raw, "\\", "/"), "/") do
+			assert(part ~= "" and part ~= "." and part ~= "..", field .. " must not contain empty, . or .. segments")
+		end
 		return url.encode(raw)
 	end
 	-- workflow_id is a numeric ID or a file name.
