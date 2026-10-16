@@ -38,6 +38,8 @@ return {
 		local balances = c.listBalances({profileId = "202", types = {"STANDARD", "SAVINGS"}})
 		assert(balances[1].amount.value == 12.5 and balances[1].name == json.decode("null"))
 		get(api .. "/v4/profiles/202/balances?types=STANDARD%2CSAVINGS")
+		c.listBalances({profileId = 202, types = "STANDARD,SAVINGS"})
+		get(api .. "/v4/profiles/202/balances?types=STANDARD%2CSAVINGS")
 		payload = "[]"
 		assert(json.encode(c.listBalances({profileId = 202, types = "STANDARD"})) == "[]", "empty balance array lost")
 		get(api .. "/v4/profiles/202/balances?types=STANDARD")
@@ -120,6 +122,10 @@ return {
 			function() c.getAccountRequirements({quoteId = quote, originatorLegalEntityType = "COMPANY"}) end,
 			function() c.listActivities({profileId = 202, status = "DONE"}) end,
 			function() c.listTransfers({status = {[1] = "a", [3] = "b"}}) end,
+			function() c.listTransfers({profile = 0}) end,
+			function() c.listRecipients({profileId = 0}) end,
+			function() c.listBalances({profileId = 202, types = "STANDARD,"}) end,
+			function() c.listBalances({profileId = 202, types = "STANDARD,CHECKING"}) end,
 			function() c.getMe({idempotenceUuid = quote}) end,
 			function() c.listTransfers({status = "a\nb"}) end,
 			function() c.downloadTransferReceipt({transferId = 1}) end,

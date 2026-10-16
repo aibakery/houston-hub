@@ -2,7 +2,7 @@
 type Options = {[string]: any}
 type Query = {type: "string" | "integer" | "boolean" | "list", minimum: number?, maximum: number?, enum: {string}?}
 type Endpoint = {
-	method: string, path: string, query: {[string]: Query}?, required: {string}?, kind: "download"?,
+	method: string, path: string, query: {[string]: Query}?, required: {string}?, oneOf: {string}?, kind: "download"?,
 	idempotence: boolean?, merge: boolean?, minor: boolean?, about: string,
 }
 
@@ -34,7 +34,7 @@ local endpoints: {[string]: Endpoint} = {
 		about = "Array of mid-market rates {rate, source, target, time}; time for one historic rate, or from/to/group for history."},
 	listCurrencies = {method = "GET", path = "/v1/currencies", about = "Array of currencies Wise supports, with codes, names and symbols."},
 	listTransfers = {method = "GET", path = "/v1/transfers",
-		query = {profile = {type = "integer"}, status = {type = "list"}, sourceCurrency = {type = "string"}, targetCurrency = {type = "string"}, createdDateStart = {type = "string"}, createdDateEnd = {type = "string"}, limit = {type = "integer", minimum = 1}, offset = {type = "integer", minimum = 0}},
+		query = {profile = {type = "integer", minimum = 1}, status = {type = "list"}, sourceCurrency = {type = "string"}, targetCurrency = {type = "string"}, createdDateStart = {type = "string"}, createdDateEnd = {type = "string"}, limit = {type = "integer", minimum = 1}, offset = {type = "integer", minimum = 0}},
 		about = "Array of transfers. Pass profile: Wise defaults to the personal profile. Filter by status list, currencies and createdDateStart/End; page with limit and offset."},
 	getTransfer = {method = "GET", path = "/v1/transfers/{transferId}", about = "One transfer with status, amounts, rate and reference."},
 	downloadTransferReceipt = {method = "GET", path = "/v1/transfers/{transferId}/receipt.pdf", kind = "download", about = "Save the transfer receipt PDF to path."},
@@ -43,12 +43,12 @@ local endpoints: {[string]: Endpoint} = {
 		query = {originatorLegalEntityType = LEGAL_ENTITY, addressRequired = {type = "boolean"}},
 		about = "Array of recipient forms (type, fields with keys, validation and refreshRequirementsOnChange) for a quote's route."},
 	listRecipients = {method = "GET", path = "/v2/accounts",
-		query = {profileId = {type = "integer"}, currency = {type = "string"}, type = {type = "string"}, active = {type = "boolean"}, ownedByCustomer = {type = "boolean"}, size = {type = "integer", minimum = 1, maximum = 20}, seekPosition = {type = "integer"}, sort = {type = "string"}},
+		query = {profileId = {type = "integer", minimum = 1}, currency = {type = "string"}, type = {type = "string"}, active = {type = "boolean"}, ownedByCustomer = {type = "boolean"}, size = {type = "integer", minimum = 1, maximum = 20}, seekPosition = {type = "integer"}, sort = {type = "string"}},
 		about = "{content, size, seekPositionForNext, ...} of recipient accounts. Pass profileId: Wise defaults to the personal profile; size 1..20, pass seekPositionForNext as seekPosition for the next page."},
 	getRecipient = {method = "GET", path = "/v2/accounts/{accountId}", about = "One recipient account."},
 	getBatchGroup = {method = "GET", path = "/v3/profiles/{profileId}/batch-groups/{batchGroupId}", about = "One batch group with status, version and transferIds."},
 
-	createQuote = {method = "POST", path = "/v3/profiles/{profileId}/quotes", required = {"sourceCurrency", "targetCurrency"},
+	createQuote = {method = "POST", path = "/v3/profiles/{profileId}/quotes", required = {"sourceCurrency", "targetCurrency"}, oneOf = {"sourceAmount", "targetAmount"},
 		about = "Price a transfer or conversion; exactly one of sourceAmount or targetAmount; optional targetAccount, payOut, preferredPayIn. Moves no money."},
 	updateQuote = {method = "PATCH", path = "/v3/profiles/{profileId}/quotes/{quoteId}", merge = true,
 		about = "Attach targetAccount (and payOut) to a quote, refreshing fees and paymentOptions."},
@@ -84,6 +84,7 @@ local NONE: {string} = table.freeze({})
 local NO_QUERY: {[string]: Query} = table.freeze({})
 local ORIGIN = "https://" .. config.api_host
 local FORMATS = table.freeze({"pdf", "csv", "xlsx", "xml", "mt940", "qif"})
+local UUID_FIELDS = table.freeze({"customerTransactionId", "quoteUuid", "quoteId"})
 local UUID = "^%x%x%x%x%x%x%x%x%-%x%x%x%x%-%x%x%x%x%-%x%x%x%x%-%x%x%x%x%x%x%x%x%x%x%x%x$"
 
 local function text(value: any, field: string): string
@@ -122,16 +123,16 @@ local function queryValue(value: any, field: string, spec: Query): string
 		assert(type(value) == "boolean", field .. " must be a boolean")
 		return tostring(value)
 	end
-	local values: {string} = {}
-	if spec.type == "list" and type(value) == "table" then
-		assert(#value > 0, field .. " must be a nonempty list")
-		for index, item in value do
-			assert(type(index) == "number" and index % 1 == 0 and index >= 1 and index <= #value, field .. " must be a dense array")
-			table.insert(values, text(item, field))
+	local items: any = {value}
+	if spec.type == "list" then
+		items = if type(value) == "string" then string.split(value, ",") else value
+		assert(type(items) == "table" and #items > 0, field .. " must be a nonempty list")
+		for index in items do
+			assert(type(index) == "number" and index % 1 == 0 and index >= 1 and index <= #items, field .. " must be a dense array")
 		end
-	else
-		table.insert(values, text(value, field))
 	end
+	local values: {string} = {}
+	for _, item in items do table.insert(values, text(item, field)) end
 	if spec.enum then
 		for _, item in values do assert(table.find(spec.enum, item), field .. " must be one of " .. table.concat(spec.enum, ", ")) end
 	end
@@ -227,11 +228,15 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 		local extra = next(args)
 		assert(extra == nil, name .. " does not accept option " .. tostring(extra))
 	else
-		if name == "createQuote" then
-			assert((args.sourceAmount == nil) ~= (args.targetAmount == nil), "createQuote needs exactly one of sourceAmount or targetAmount")
+		if endpoint.oneOf then
+			local present = 0
+			for _, field in endpoint.oneOf do
+				if args[field] ~= nil and args[field] ~= NULL then present += 1 end
+			end
+			assert(present == 1, name .. " needs exactly one of " .. table.concat(endpoint.oneOf, " or "))
 		end
-		if args.customerTransactionId ~= nil then
-			uuid(args.customerTransactionId, "customerTransactionId")
+		for _, field in UUID_FIELDS do
+			if args[field] ~= nil then uuid(args[field], field) end
 		end
 		headers["Content-Type"] = {if endpoint.merge then "application/merge-patch+json" else "application/json"}
 		body = json.encode(args)

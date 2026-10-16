@@ -45,6 +45,8 @@ return {
 
 		c.createQuote({profileId = 202, sourceCurrency = "EUR", targetCurrency = "GBP", sourceAmount = 100, payOut = "BALANCE"})
 		sent("POST", api .. "/v3/profiles/202/quotes", {sourceCurrency = "EUR", targetCurrency = "GBP", sourceAmount = 100, payOut = "BALANCE"})
+		c.createQuote({profileId = 202, sourceCurrency = "EUR", targetCurrency = "GBP", sourceAmount = json.decode("null"), targetAmount = 10})
+		sent("POST", api .. "/v3/profiles/202/quotes", {sourceCurrency = "EUR", targetCurrency = "GBP", sourceAmount = json.decode("null"), targetAmount = 10})
 		c.updateQuote({profileId = 202, quoteId = quote, targetAccount = 55, payOut = "BANK_TRANSFER"})
 		sent("PATCH", api .. "/v3/profiles/202/quotes/" .. quote, {targetAccount = 55, payOut = "BANK_TRANSFER"}, "application/merge-patch+json")
 		payload = "[]"
@@ -108,6 +110,9 @@ return {
 			function() c.createQuote({profileId = 202, sourceCurrency = "EUR", targetCurrency = "GBP"}) end,
 			function() c.createQuote({profileId = 202, sourceCurrency = "EUR", targetCurrency = "GBP", sourceAmount = 1, targetAmount = 1}) end,
 			function() c.createQuote({sourceCurrency = "EUR", targetCurrency = "GBP", sourceAmount = 1}) end,
+			function() c.createQuote({profileId = 202, sourceCurrency = "EUR", targetCurrency = "GBP", sourceAmount = json.decode("null")}) end,
+			function() c.createTransfer({targetAccount = 55, quoteUuid = "quote-1", customerTransactionId = tx}) end,
+			function() c.createBalanceMovement({profileId = 202, quoteId = "quote-1", idempotenceUuid = tx}) end,
 			function() c.createTransfer({targetAccount = 55, quoteUuid = quote}) end,
 			function() c.createTransfer({targetAccount = 55, quoteUuid = quote, customerTransactionId = "payment-1"}) end,
 			function() c.createBatchTransfer({profileId = 202, batchGroupId = group, targetAccount = 55, quoteUuid = quote, customerTransactionId = json.decode("null")}) end,
