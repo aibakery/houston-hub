@@ -81,7 +81,8 @@ return {
 
 		for _, location in {"https://evil.example/x", "https://productionresultssa1.blob.core.windows.net.evil.example/x",
 			"http://codeload.github.com/o/r", "https://api.github.com/repositories/1/tarball/main",
-			"https://gist.githubusercontent.com/o/1/raw", "https://evil.actions.githubusercontent.com.example/x"} do
+			"https://gist.githubusercontent.com/o/1/raw", "https://evil.actions.githubusercontent.com.example/x",
+			"https://evil.blob.core.windows.net/x", "https://a.b.actions.githubusercontent.com/x"} do
 			redirect(location)
 			local sentRequests = rejected(function() github.downloadZipball({owner = "o", repo = "r", ref = "main", save_as = "src.zip"}) end,
 				"redirected the download to an unexpected host")
@@ -122,6 +123,18 @@ return {
 		respond(200, "blob\0raw")
 		github.getBlob({owner = "o", repo = "r", file_sha = "3a0f86fb8db8eea7ccbb9a95f325ddbedfb25e15", save_as = "blob.bin"})
 		assert(requests[#requests].headers.Accept[1] == "application/vnd.github.raw+json" and contents("blob.bin") == "blob\0raw")
+		for _, code in {301, 307} do
+			respond(code, "", {location = {signed}})
+			respond(200, "moved")
+			github.downloadZipball({owner = "o", repo = "r", ref = "main", save_as = "moved.zip"})
+			assert(requests[#requests].url == signed and contents("moved.zip") == "moved", "did not follow " .. code)
+		end
+		respond(202, "")
+		assert(rejected(function() github.getContent({owner = "o", repo = "r", path = "a.bin", save_as = "a.bin"}) end, "GitHub HTTP 202") == 1)
+		respond(201, '{"id":9}')
+		github.uploadReleaseAsset({owner = "o", repo = "r", release_id = 42, name = "raw.bin", file = "build/app.zip"})
+		assert(requests[#requests].headers["Content-Type"][1] == "application/octet-stream")
+		await(requests[#requests].body:close())
 		assert(rejected(function() github.uploadReleaseAsset({owner = "o", repo = "r", release_id = 42, file = "build/app.zip"}) end, "name is required") == 0)
 	end,
 }

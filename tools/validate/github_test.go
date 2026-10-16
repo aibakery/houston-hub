@@ -2,7 +2,13 @@ package main
 
 import (
 	"net/http"
+	"os"
+	"regexp"
+	"slices"
+	"strings"
 	"testing"
+
+	"github.com/aibakery/houston-hub/manifest"
 )
 
 func TestGitHubAuthenticationAndAccessRoutes(t *testing.T) {
@@ -61,5 +67,70 @@ func TestGitHubAuthenticationAndAccessRoutes(t *testing.T) {
 				}
 			}
 		}
+	}
+}
+
+// Each endpoint's credential rule must use its host, and slash-capable parameters
+// (Lua's OPAQUE set) must be opaque; signed downloads have one credential-free rule.
+func TestGitHubRulesMatchEndpointHostsAndOpaqueParameters(t *testing.T) {
+	raw, err := os.ReadFile("../../connectors/github/connector.lua")
+	if err != nil {
+		t.Fatal(err)
+	}
+	lua := string(raw)
+	opaque := map[string]bool{}
+	set := regexp.MustCompile(`local OPAQUE = table\.freeze\(\{([^}]*)\}\)`).FindStringSubmatch(lua)
+	if set == nil {
+		t.Fatal("OPAQUE set not found")
+	}
+	for _, m := range regexp.MustCompile(`(\w+) = true`).FindAllStringSubmatch(set[1], -1) {
+		opaque[m[1]] = true
+	}
+	entry := regexp.MustCompile(`(?ms)^\t\w+ = \{method = "([A-Z]+)", path = "([^"]+)"(.*?)about = "[^"]*"\},$`)
+	param := regexp.MustCompile(`\{(\w+)\}`)
+	var want, got []string
+	for _, m := range entry.FindAllStringSubmatch(lua, -1) {
+		host := "api.github.com"
+		if strings.Contains(m[3], "upload = true") {
+			host = "uploads.github.com"
+		}
+		var names []string
+		for _, p := range param.FindAllStringSubmatch(m[2], -1) {
+			if opaque[p[1]] {
+				names = append(names, p[1])
+			}
+		}
+		slices.Sort(names)
+		want = append(want, m[1]+" "+host+" "+m[2]+" "+strings.Join(names, ","))
+	}
+	if entries := strings.Count(lua, "= {method = "); len(want) != entries {
+		t.Fatalf("matched %d of %d endpoint entries", len(want), entries)
+	}
+	var free []manifest.Proxy
+	for _, rule := range parseManifest(t, "../../connectors/github/houston.json").Proxy {
+		if rule.Action.Headers.Set["Authorization"] == "" {
+			free = append(free, rule)
+			continue
+		}
+		names := slices.Clone(rule.Match.OpaquePathParameters)
+		slices.Sort(names)
+		for _, host := range rule.Match.Host {
+			for _, method := range rule.Match.Method {
+				for _, path := range rule.Match.Path {
+					got = append(got, method+" "+host+" "+path+" "+strings.Join(names, ","))
+				}
+			}
+		}
+	}
+	slices.Sort(want)
+	slices.Sort(got)
+	if !slices.Equal(got, want) {
+		t.Errorf("proxy routes %v, endpoint table %v", got, want)
+	}
+	hosts := []string{"codeload.github.com", "release-assets.githubusercontent.com", "objects.githubusercontent.com",
+		"objects-origin.githubusercontent.com", "github-releases.githubusercontent.com", "*.actions.githubusercontent.com", "*.blob.core.windows.net"}
+	if len(free) != 1 || !slices.Equal(free[0].Match.Host, hosts) || !slices.Equal(free[0].Match.Method, []string{"GET"}) ||
+		!slices.Equal(free[0].Action.Headers.Remove, []string{"Authorization"}) {
+		t.Fatalf("credential-free download rules %+v", free)
 	}
 }

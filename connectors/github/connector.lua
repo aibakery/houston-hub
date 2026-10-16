@@ -274,7 +274,7 @@ local function segment(value: any, field: string): string
 	-- workflow_id is a numeric ID or a file name.
 	if type(value) == "number" and value % 1 == 0 and value >= 1 and value < 2 ^ 53 then value = string.format("%d", value) end
 	local ok, result = pcall(url.segment, value, field)
-	assert(ok and type(value) == "string", field .. " must be a GitHub name or SHA")
+	assert(ok, field .. " must be a GitHub name or SHA")
 	return result
 end
 

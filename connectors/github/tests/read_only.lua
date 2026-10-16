@@ -23,6 +23,9 @@ return {
 		local names = {}
 		for name in github do if name ~= "help" then table.insert(names, name) end end
 		assert(#names == 84, "wrong read-only surface: " .. #names)
+		for _, name in names do
+			assert(string.match(name, "^get") or string.match(name, "^list") or string.match(name, "^search") or string.match(name, "^compare") or string.match(name, "^download"), "read-only exports a write: " .. name)
+		end
 		for _, name in {"createIssue", "updateIssue", "createIssueComment", "createPull", "mergePull", "putFile", "deleteFile", "createRef",
 			"deleteRef", "createRelease", "uploadReleaseAsset", "dispatchWorkflow", "cancelWorkflowRun", "createGist", "markThreadDone", "updateRepo",
 			"generateReleaseNotes", "removeAssignees"} do
@@ -124,5 +127,13 @@ return {
 		rejected(function() github.getPull({owner = "o", repo = "r", pull_number = 1, format = "html"}) end, "format must be 'diff' or 'patch'")
 		rejected(function() github.getRepo({owner = "o", repo = "r", format = "diff"}) end, "getRepo has no option format")
 		rejected(function() github.getRepo("o/r") end, "opts must be an object")
+		rejected(function() github.getWorkflow({owner = "o", repo = "r", workflow_id = true}) end, "workflow_id must be a GitHub name or SHA")
+		rejected(function() github.getIssue({owner = "o", repo = "r", issue_number = 2 ^ 53}) end, "issue_number must be a positive integer")
+		rejected(function() github.getReadme({owner = "o", repo = "r", ref = {"main"}}) end, "ref must be a string")
+		payload = "{}"
+		github.getReadme({owner = "o", repo = "r", ref = "v1.0"})
+		assert(last().url == API .. "/repos/o/r/readme?ref=v1.0")
+		payload = "diff"
+		assert(github.compareCommits({owner = "o", repo = "r", basehead = "a...b", format = "diff"}) == "diff" and last().headers.Accept[1] == "application/vnd.github.diff")
 	end,
 }

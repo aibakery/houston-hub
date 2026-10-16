@@ -106,6 +106,11 @@ return {
 		rejected(function() github.putFile({owner = "o", repo = "r", path = "a.md", message = "m"}) end, "content is required")
 		rejected(function() github.deleteFile({owner = "o", repo = "r", path = "a.md", message = "m"}) end, "sha is required")
 		rejected(function() github.updateRef({owner = "o", repo = "r", ref = "heads/../main", sha = "c"}) end, "ref must not contain empty, . or .. segments")
+		rejected(function() github.mergeBranch({owner = "o", repo = "r", base = "main"}) end, "head is required")
+		rejected(function() github.createPullReviewComment({owner = "o", repo = "r", pull_number = 5, body = "x", path = "a.go"}) end, "commit_id is required")
+		payload = '{"number":5}'
+		github.removeRequestedReviewers({owner = "o", repo = "r", pull_number = 5, reviewers = {"hubot"}})
+		sent("DELETE", API .. "/repos/o/r/pulls/5/requested_reviewers", '{"reviewers":["hubot"]}')
 		rejected(function() github.deleteIssueComment({owner = "o", repo = "r", comment_id = 1, body = "x"}) end, "deleteIssueComment has no option body")
 	end,
 }

@@ -34,6 +34,9 @@ return {
 		upstream(429, '{"message":"Too many requests"}', {}, {"HTTP 429", '"retryable":true'})
 		upstream(502, "<html>Bad gateway</html>", {}, {"HTTP 502", '"retryable":true'})
 		upstream(400, json.encode({message = string.rep("x", 5000)}), {}, {"HTTP 400", string.rep("x", 600)}, string.rep("x", 601))
+		upstream(422, json.encode({message = "Validation Failed", errors = {{code = string.rep("e", 5000)}}}), {["retry-after"] = {string.rep("9", 500)}},
+			{"Validation Failed", string.rep("e", 500)}, string.rep("e", 601))
+		upstream(403, '{"message":"slow down"}', {["retry-after"] = {string.rep("9", 500)}}, {"retry after " .. string.rep("9", 200) .. "s"}, string.rep("9", 201))
 		upstream(201, "<html>Maintenance</html>", {}, {"invalid JSON"})
 		upstream(201, "", {}, {"invalid JSON"})
 	end,
