@@ -356,15 +356,22 @@ end
 local function save(name: string, first: HttpResponse, output: any, destination: string): any
 	local response = first
 	local location = first.headers.location
+	local target = if location then location[1] else nil
 	local kind = first.headers["content-type"]
-	if first.statusCode >= 300 and first.statusCode < 400 and location then
-		if string.find(location[1], "https://api.github.com/", 1, true) == 1 then fail(name, first) end
+	if first.statusCode >= 300 and first.statusCode < 400 and target then
+		if string.find(target, "https://api.github.com/", 1, true) == 1 then fail(name, first) end
 		first.body:close()
-		if not allowedDownload(location[1]) then
+		if not allowedDownload(target) then
 			return houston.fail({operation = name, layer = "upstream", upstream_status = first.statusCode, retryable = false,
 				message = "GitHub redirected the download to an unexpected host"})
 		end
-		response = await(http.request({method = "GET", url = location[1], headers = {["User-Agent"] = {"Houston"}}}))
+		response = await(http.request({method = "GET", url = target, headers = {["User-Agent"] = {"Houston"}}}))
+		if response.statusCode ~= 200 then
+			-- Signed links expire within minutes; a new call fetches a fresh one.
+			response.body:close()
+			return houston.fail({operation = name, layer = "upstream", upstream_status = response.statusCode, retryable = true,
+				message = "The signed download link failed with HTTP " .. tostring(response.statusCode) .. "; call again for a fresh link"})
+		end
 	elseif first.statusCode == 200 and kind and string.find(kind[1], "application/json", 1, true) == 1 then
 		-- Directories and submodules answer with JSON even when raw bytes are requested.
 		first.body:close()
