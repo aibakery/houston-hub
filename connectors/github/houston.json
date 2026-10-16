@@ -125,7 +125,6 @@
           "/repos/{owner}/{repo}/forks",
           "/repos/{owner}/{repo}/git/blobs/{file_sha}",
           "/repos/{owner}/{repo}/git/commits/{commit_sha}",
-          "/repos/{owner}/{repo}/git/trees/{tree_sha}",
           "/repos/{owner}/{repo}/issues",
           "/repos/{owner}/{repo}/issues/{issue_number}",
           "/repos/{owner}/{repo}/issues/{issue_number}/comments",
@@ -292,6 +291,30 @@
         ],
         "path": [
           "/repos/{owner}/{repo}/releases/tags/{tag}"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token || auth.token.token}}"
+          }
+        }
+      },
+      "match": {
+        "host": [
+          "api.github.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "opaque_path_parameters": [
+          "tree_sha"
+        ],
+        "path": [
+          "/repos/{owner}/{repo}/git/trees/{tree_sha}"
         ],
         "protocol": "http"
       }

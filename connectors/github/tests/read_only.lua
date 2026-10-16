@@ -78,6 +78,8 @@ return {
 		assert(last().url == API .. "/repos/o/r/actions/workflows/161335/runs?status=failure", last().url)
 		github.getTree({owner = "o", repo = "r", tree_sha = "main", recursive = true})
 		assert(last().url == API .. "/repos/o/r/git/trees/main?recursive=true")
+		github.getTree({owner = "o", repo = "r", tree_sha = "feature/x"})
+		assert(last().url == API .. "/repos/o/r/git/trees/feature%2Fx", last().url)
 		github.listNotifications({all = true})
 		assert(last().url == API .. "/notifications?all=true")
 

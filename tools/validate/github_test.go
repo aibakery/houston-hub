@@ -29,7 +29,7 @@ func TestGitHubAuthenticationAndAccessRoutes(t *testing.T) {
 				"GET "+api+"/user", "GET "+api+"/repos/o/r/issues?state=open", "GET "+api+"/repos/o/r/branches/feature%2Fx",
 				"GET "+api+"/repos/o/r/contents/src%2Fmain.go?ref=release%2F1", "GET "+api+"/repos/o/r/compare/main...feature%2Fx",
 				"GET "+api+"/repos/o/r/commits/feature%2Fx/check-runs", "GET "+api+"/repos/o/r/git/ref/heads%2Ffeature%2Fx",
-				"GET "+api+"/repos/o/r/releases/tags/app%2Fv1", "GET "+api+"/search/code?q=x", "GET "+api+"/repos/o/r/actions/jobs/1/logs")
+				"GET "+api+"/repos/o/r/releases/tags/app%2Fv1", "GET "+api+"/repos/o/r/git/trees/feature%2Fx", "GET "+api+"/search/code?q=x", "GET "+api+"/repos/o/r/actions/jobs/1/logs")
 			assertRoutes(t, r, "fixture-token", access == "read-write",
 				"POST "+api+"/repos/o/r/issues", "PATCH "+api+"/repos/o/r/pulls/1", "PUT "+api+"/repos/o/r/pulls/1/merge",
 				"PUT "+api+"/repos/o/r/contents/docs%2Fa.md", "DELETE "+api+"/repos/o/r/contents/docs%2Fa.md",

@@ -242,8 +242,8 @@ local endpoints: {[string]: Endpoint} = {
 local NULL = json.decode("null")
 local NONE: {string} = table.freeze({})
 
--- Branch, ref, path, tag, compare and label values may contain slashes; GitHub accepts them encoded.
-local OPAQUE = table.freeze({branch = true, ref = true, path = true, basehead = true, tag = true, name = true})
+-- Branch, ref, path, tag, tree, compare and label values may contain slashes; GitHub accepts them encoded.
+local OPAQUE = table.freeze({branch = true, ref = true, path = true, basehead = true, tag = true, name = true, tree_sha = true})
 local DOWNLOAD_HOSTS = table.freeze({"codeload.github.com", "release-assets.githubusercontent.com", "objects.githubusercontent.com",
 	"objects-origin.githubusercontent.com", "github-releases.githubusercontent.com"})
 
@@ -430,7 +430,7 @@ end
 exports.help = function(): string
 	local lines = {
 		"GitHub REST API " .. VERSION .. ". Each function takes one options object with GitHub's snake_case names (? marks optional); writes also take the JSON body fields listed after Body. Results are GitHub's JSON unchanged; 204 replies return {success=true}. Connector calls return completed values: use them directly, without await. In bodies, json.decode('[]') is an empty array and json.decode('null') clears a field.",
-		"Start with github.getAuthenticatedUser().login, github.listMyRepos({sort='pushed', per_page=20}) or github.searchIssues({q='is:pr is:open author:@me'}). branch, ref, path, tag and basehead may contain slashes (ref='heads/feature/x', path='src/main.go').",
+		"Start with github.getAuthenticatedUser().login, github.listMyRepos({sort='pushed', per_page=20}) or github.searchIssues({q='is:pr is:open author:@me'}). branch, ref, path, tag, tree_sha and basehead may contain slashes (ref='heads/feature/x', path='src/main.go').",
 		"Lists return one page: page? means per_page (1..100, default 30) and page (from 1); a shorter page is the last. Search returns {total_count, incomplete_results, items}: at most 1,000 results and 30 requests per minute (searchCode 10).",
 		"Files: getContent returns base64 content; save_as='name' saves raw bytes as a session file instead. save_as functions return {path, size, url}; search large logs with fs.grep. getCommit, compareCommits and getPull take format='diff' or 'patch' and return that text. To commit several files, chain createBlob, createTree, createGitCommit and updateRef.",
 		"Access: GitHub enforces the token's permissions and repository selection; Connect with GitHub reaches public data and repositories where Houston's GitHub App is installed. A 403 or 404 may mean missing access; errors give GitHub's message, needed permissions and rate-limit resets. Read-only connections omit writes and graphql. Notifications need a classic token.",

@@ -611,7 +611,7 @@ environments, Pages, and issue dependencies and sub-issue writes.
 
 Credentials go only to the listed routes on `api.github.com` and the release asset
 upload route on `uploads.github.com`; writes require read-write access. Branch,
-ref, path, tag, compare and label values travel as single encoded path segments
+ref, path, tag, tree, compare and label values travel as single encoded path segments
 through opaque-parameter rules, which GitHub accepts and which keep them from
 reaching sub-resources. A credential-free GET rule serves signed download
 redirects: `codeload.github.com` for archives, release asset storage on
