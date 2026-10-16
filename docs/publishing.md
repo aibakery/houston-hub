@@ -564,8 +564,9 @@ App**, preferably owned by Houston's organization:
 2. Under **Webhook**, clear **Active**; Houston does not receive GitHub events.
 3. Set **Repository permissions**: Actions, Administration, Commit statuses,
    Contents, Issues, Pull requests and Workflows to **Read and write**; Checks and
-   Metadata to **Read-only**. Set **Organization permissions → Members** to
-   **Read-only**, and **Account permissions**: Email addresses **Read-only** and
+   Metadata to **Read-only**; Discussions to **Read and write** for GraphQL. Set
+   **Organization permissions**: Members **Read-only** and Projects **Read and
+   write**, and **Account permissions**: Email addresses **Read-only** and
    Gists **Read and write**.
 4. Under **Where can this GitHub App be installed?**, choose **Any account**, then
    **Create GitHub App**.
@@ -578,11 +579,13 @@ on their accounts and organizations after authorizing it; SETUP links to the
 installation settings. GitHub App permissions are fixed per app, so read-only
 connections hold upstream tokens that could write: Houston enforces read-only with
 GET-only proxy routes and read-only exports. Requests with user tokens count against
-each user's hourly limit (5,000 requests, higher on Enterprise Cloud). Sign-in uses
+each user's hourly limit (5,000 requests, or 15,000 when an Enterprise Cloud
+organization owns the app). Sign-in uses
 PKCE and `Accept: application/json` for token replies, which otherwise arrive
 form-encoded. Access tokens last 8 hours and refresh tokens about 6 months, rotating
-on every refresh. GitHub ignores OAuth scopes for GitHub Apps, so the method requests
-none and the token reply's empty `scope` is accepted.
+on every refresh. GitHub Apps support only the `offline_access` scope, and the token reply's
+`scope` is empty: requesting it would fail Houston's granted-scope check, so the
+method requests none and relies on the app's expiring tokens.
 
 The connector covers 147 REST operations and the GraphQL endpoint, checked on
 2026-10-16 against GitHub's [REST OpenAPI

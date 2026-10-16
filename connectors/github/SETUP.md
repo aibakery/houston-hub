@@ -34,8 +34,8 @@ Choose **Personal access token** and paste a token created as follows.
    **Commit statuses**, **Contents**, **Issues** and **Pull requests**, set to
    **Read-only** for a read-only connection or **Read and write** otherwise
    (**Metadata** is added as read-only automatically). For read and write, also add
-   **Workflows** to edit workflow files and **Administration** to create, fork or
-   update repositories.
+   **Workflows** to edit workflow files, and **Administration** and **Repository
+   creation** to create, fork or update repositories.
 5. Optionally add **Members** (read-only) under **Organization permissions**, and
    **Email addresses** (read-only) and **Gists** (read and write) under **Account
    permissions**.
@@ -45,7 +45,8 @@ Choose **Personal access token** and paste a token created as follows.
 tick `repo`, `workflow`, `read:org`, `gist`, `notifications` and `user:email`.
 Classic tokens reach every repository you can access, and `repo` always allows
 writes on GitHub's side; Houston still blocks writes on a read-only connection.
-Notifications are only available with classic tokens.
+Notifications are only available with classic tokens, and check runs need a
+classic token or **Connect with GitHub**: fine-grained tokens cannot read them.
 
 ### Troubleshooting
 
