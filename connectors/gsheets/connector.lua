@@ -132,7 +132,7 @@ local endpoints: {[string]: Endpoint} = {
 		help = "updateValues({spreadsheetId, range, values, valueInputOption?, majorDimension?, includeValuesInResponse?}) -> {spreadsheetId, updatedRange, updatedRows, updatedColumns, updatedCells}. Writes values from range's top-left cell, e.g. range='Sheet1!B2', values={{42}}."},
 	appendValues = {method = "POST", path = "/spreadsheets/{spreadsheetId}/values/{range}:append", read = false, body = true, defaults = RAW, required = {"values"},
 		query = {"valueInputOption", "insertDataOption", "includeValuesInResponse", "responseValueRenderOption", "responseDateTimeRenderOption"},
-		help = "appendValues({spreadsheetId, range, values, valueInputOption?, insertDataOption?}) -> {spreadsheetId, tableRange, updates}. Adds rows after the table Google finds in range, e.g. range='Log!A:D', values={{'2026-10-16', 'paid', 120}}. insertDataOption='INSERT_ROWS' inserts rows rather than filling the empty cells below (OVERWRITE, the default). Repeating it adds the rows again."},
+		help = "appendValues({spreadsheetId, range, values, valueInputOption?, insertDataOption?}) -> {spreadsheetId, tableRange, updates}. Adds rows after the table Google finds in range, e.g. range='Log!A:D', values={{'2026-10-16', 'paid', 120}}, valueInputOption='USER_ENTERED' to store the date as a date. insertDataOption='INSERT_ROWS' inserts rows rather than filling the empty cells below (OVERWRITE, the default). Repeating it adds the rows again."},
 	clearValues = {method = "POST", path = "/spreadsheets/{spreadsheetId}/values/{range}:clear", read = false, body = true,
 		help = "clearValues({spreadsheetId, range}) -> {spreadsheetId, clearedRange}. Clears values and keeps formatting."},
 	batchUpdateValues = {method = "POST", path = "/spreadsheets/{spreadsheetId}/values:batchUpdate", read = false, body = true, defaults = RAW, required = {"data"},
@@ -174,13 +174,13 @@ end
 
 local overview = {
 	"Google Sheets API v4. Operations take one named options object with Google's camelCase fields and return Google's JSON unchanged. Calls return completed values: use instance.getValues(...) directly, without await.",
-	"spreadsheetId is the ID or the spreadsheet's https://docs.google.com/spreadsheets/d/<id>/edit URL. This connector cannot search for files: ask for the URL, or find the ID with the Google Drive connector (listFiles with q=\"mimeType = 'application/vnd.google-apps.spreadsheet'\").",
-	"Ranges use A1 notation: 'Sheet1!B2', 'Sheet1!A1:C10', 'Sheet1!A:A', a whole tab 'Sheet1' or a named range. Quote tab names with spaces or punctuation, doubling apostrophes: \"'Q1 Sales'!A1\". Without a tab, a range means the first visible tab. getValues, updateValues, appendValues and clearValues put the range in the URL path, so it cannot contain / or %; use the batch operations for such tab names.",
-	"values are rows of cells (majorDimension='COLUMNS' gives columns). Trailing empty rows and cells are omitted; values is [] for an empty range. valueRenderOption is FORMATTED_VALUE (default, as displayed), UNFORMATTED_VALUE (numbers as numbers) or FORMULA.",
+	"spreadsheetId is the ID or the spreadsheet's https://docs.google.com/spreadsheets/d/<id>/edit URL. This connector cannot search for files: ask for the URL, or find the ID with the Google Drive connector (listFiles with q=\"mimeType = 'application/vnd.google-apps.spreadsheet' and trashed = false\"). Excel files opened in Sheets are refused with HTTP 400 until saved as Google Sheets (File > Save as Google Sheets).",
+	"Ranges use A1 notation: 'Sheet1!B2', 'Sheet1!A1:C10', 'Sheet1!A:A', a whole tab 'Sheet1' or a named range. Quote tab names with spaces or punctuation, and tab names that look like cells, doubling apostrophes: \"'Q1 Sales'!A1\", \"'Q1'!A1\". Without a tab, a range means the first visible tab. Operations taking one range put it in the URL path, so it cannot contain /, \\ or % or their look-alikes: use the batch operations or a named range for such tab names.",
+	"values are rows of cells (majorDimension='COLUMNS' gives columns). Trailing empty rows and cells are omitted; values is [] for an empty range. valueRenderOption is FORMATTED_VALUE (default, as displayed), UNFORMATTED_VALUE (numbers as numbers; dates as serial numbers unless dateTimeRenderOption='FORMATTED_STRING') or FORMULA.",
+	"Google allows about 60 reads per minute per user; HTTP 429 errors are retryable after a pause. No hidden paging or retries. Errors report the HTTP status and Google's message.",
 }
 if config.access == "read-write" then
-	table.insert(overview, "Writes default to valueInputOption='RAW', storing values exactly as given; pass 'USER_ENTERED' to parse numbers, dates and formulas as if typed. In values, json null leaves a cell unchanged and '' clears it.")
+	table.insert(overview, "Writes default to valueInputOption='RAW', storing values exactly as given, so '2026-10-16' stays text; pass 'USER_ENTERED' to parse numbers, dates and formulas as if typed. In values, json null leaves a cell unchanged and '' clears it. Google allows about 60 writes per minute per user. A failed or timed-out write may already have succeeded: read the range before repeating it.")
 end
-table.insert(overview, "Google allows about 60 reads and 60 writes per minute per user; HTTP 429 errors are retryable after a pause. No hidden paging or retries. Errors report the HTTP status and Google's message. A failed or timed-out write may already have succeeded: read the range before repeating it.")
 exports.help = helpWith(overview)
 return exports

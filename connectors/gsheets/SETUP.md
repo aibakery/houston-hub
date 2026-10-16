@@ -24,3 +24,5 @@ your other Google services.
 - An agent that cannot open a spreadsheet may be using a link from **Publish to
   the web**. Share the spreadsheet's normal link instead, from the address bar
   while it is open.
+- Excel files stored in Drive open in Sheets but cannot be read by agents.
+  Convert one with **File > Save as Google Sheets** and share the new link.

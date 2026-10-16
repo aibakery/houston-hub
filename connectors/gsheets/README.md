@@ -10,7 +10,7 @@ spreadsheets.
   numbers or as formulas.
 - See a spreadsheet's tabs, their sizes and its named ranges.
 - With **Read and write** access: write and clear cells, add rows to logs and
-  tables, create spreadsheets, and add, rename, sort or format tabs.
+  tables, create spreadsheets, and add or rename tabs, sort data and format cells.
 
 Agents work with a spreadsheet when you share its link. To let them search your
 Drive for spreadsheets, also connect Google Drive. Read-only access cannot
