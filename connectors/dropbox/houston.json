@@ -28,7 +28,8 @@
     "path_access": {
       "type": "string",
       "label": "Folder access JSON",
-      "description": "Map existing folder paths to read-only or read-write. Unlisted folders are denied; the most specific folder rule wins. Example: {\"/Finance\":\"read-only\",\"/Incoming\":\"read-write\"}.",
+      "description": "Replace the example paths with existing Dropbox folders. Unlisted folders are denied; the most specific folder rule wins.",
+      "default": "{\n  \"/Finance\": \"read-only\",\n  \"/Incoming\": \"read-write\"\n}",
       "required": true,
       "if": "{{ is config.access \"custom\" }}",
       "multiline": true,

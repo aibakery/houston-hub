@@ -6,7 +6,7 @@ you decide which folders it can reach. Creating one is free and takes a few minu
 1. In Houston, add the Dropbox connector and choose the access level:
    - **Read-only** to let agents browse and download without changing anything.
    - **Read and write** to also let agents upload, organize and share files.
-   - **Custom folder access** to enter a JSON object mapping existing folders to
+   - **Custom folder access** to edit the prefilled JSON mapping existing folders to
      `read-only` or `read-write`, for example
      `{"/Finance":"read-only","/Incoming":"read-write"}`. Everything else is
      denied. A more specific subfolder rule overrides its parent.
