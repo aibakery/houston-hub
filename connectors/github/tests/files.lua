@@ -117,6 +117,8 @@ return {
 			github.downloadZipball({owner = "o", repo = "r", ref = "main", save_as = "moved.zip"})
 			assert(requests[#requests].url == signed and contents("moved.zip") == "moved", "did not follow " .. code)
 		end
+		respond(301, '{"message":"Moved Permanently","url":"https://api.github.com/repositories/1/tarball/main"}', {location = {"https://api.github.com/repositories/1/tarball/main"}})
+		assert(rejected(function() github.downloadTarball({owner = "o", repo = "old", ref = "main", save_as = "old.tar.gz"}) end, "renamed or transferred") == 1)
 		respond(202, "")
 		assert(rejected(function() github.getContent({owner = "o", repo = "r", path = "a.bin", save_as = "a.bin"}) end, "GitHub HTTP 202") == 1)
 	end,

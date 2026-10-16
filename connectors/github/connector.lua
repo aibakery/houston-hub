@@ -299,6 +299,8 @@ local function fail(name: string, response: HttpResponse): never
 	local exhausted = header(response, "x-ratelimit-remaining") == "0"
 	if retryAfter then message ..= "; retry after " .. retryAfter .. "s" end
 	if exhausted then message ..= "; rate limit resets at " .. (header(response, "x-ratelimit-reset") or "?") .. " (Unix time)" end
+	-- Renamed or transferred repositories redirect to /repositories/<id>, which no rule allows.
+	if response.statusCode == 301 or response.statusCode == 307 then message ..= "; the repository was renamed or transferred: use its new owner and name" end
 	local accepted = header(response, "x-accepted-github-permissions")
 	if accepted then message ..= "; needs permissions " .. accepted end
 	local status = response.statusCode
@@ -347,8 +349,9 @@ end
 local function save(name: string, first: HttpResponse, output: any, destination: string): any
 	local response = first
 	if first.statusCode == 301 or first.statusCode == 302 or first.statusCode == 307 then
-		first.body:close()
 		local location = first.headers.location
+		if first.statusCode ~= 302 and location and string.find(location[1], "https://api.github.com/", 1, true) == 1 then fail(name, first) end
+		first.body:close()
 		if location == nil or not allowedDownload(location[1]) then
 			return houston.fail({operation = name, layer = "upstream", upstream_status = first.statusCode, retryable = false,
 				message = "GitHub redirected the download to an unexpected host"})
