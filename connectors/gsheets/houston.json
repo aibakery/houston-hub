@@ -1,0 +1,164 @@
+{
+  "schema_version": 1,
+  "name": "Google Sheets",
+  "files": [
+    "connector.lua"
+  ],
+  "icon": "icon.svg",
+  "config": {
+    "access": {
+      "type": "string",
+      "label": "Access",
+      "default": "read-only",
+      "options": [
+        {
+          "label": "Read-only",
+          "value": "read-only"
+        },
+        {
+          "label": "Read and write",
+          "value": "read-write"
+        }
+      ]
+    }
+  },
+  "auth": {
+    "oauth": {
+      "type": "oauth2",
+      "label": "Connect with Google",
+      "authorize_url": "https://accounts.google.com/o/oauth2/v2/auth",
+      "token_url": "https://oauth2.googleapis.com/token",
+      "client_id": "{{publisher.client_id}}",
+      "client_secret": "{{publisher.client_secret}}",
+      "client_auth": "body",
+      "pkce": "S256",
+      "require_refresh": true,
+      "authorize_params": {
+        "access_type": "offline",
+        "include_granted_scopes": "false",
+        "prompt": "consent"
+      },
+      "scopes": [
+        {
+          "values": [
+            "https://www.googleapis.com/auth/userinfo.email"
+          ]
+        },
+        {
+          "if": "{{ is config.access \"read-only\" }}",
+          "values": [
+            "https://www.googleapis.com/auth/spreadsheets.readonly"
+          ]
+        },
+        {
+          "if": "{{ is config.access \"read-write\" }}",
+          "values": [
+            "https://www.googleapis.com/auth/spreadsheets"
+          ]
+        }
+      ],
+      "account": {
+        "method": "GET",
+        "url": "https://www.googleapis.com/oauth2/v2/userinfo",
+        "headers": {
+          "Authorization": {
+            "value": "Bearer {{auth.oauth.access_token}}"
+          }
+        },
+        "label": "/email"
+      }
+    }
+  },
+  "publisher": {
+    "client_id": {
+      "type": "string",
+      "label": "Google OAuth client ID",
+      "required": true,
+      "order": 1
+    },
+    "client_secret": {
+      "type": "secret",
+      "label": "Google OAuth client secret",
+      "required": true,
+      "order": 2
+    }
+  },
+  "proxy": [
+    {
+      "match": {
+        "protocol": "http",
+        "host": [
+          "sheets.googleapis.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/v4/spreadsheets/{spreadsheetId}",
+          "/v4/spreadsheets/{spreadsheetId}/values/{range}",
+          "/v4/spreadsheets/{spreadsheetId}/values:batchGet"
+        ]
+      },
+      "action": {
+        "headers": {
+          "remove": [
+            "X-HTTP-Method-Override",
+            "X-HTTP-Method",
+            "X-Method-Override"
+          ],
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "sheets.googleapis.com"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/v4/spreadsheets",
+          "/v4/spreadsheets/{spreadsheetId}",
+          "/v4/spreadsheets/{spreadsheetId}/values/{range}",
+          "/v4/spreadsheets/{spreadsheetId}/values:batchUpdate",
+          "/v4/spreadsheets/{spreadsheetId}/values:batchClear"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "sheets.googleapis.com"
+        ],
+        "method": [
+          "PUT"
+        ],
+        "path": [
+          "/v4/spreadsheets/{spreadsheetId}/values/{range}"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      }
+    }
+  ]
+}
