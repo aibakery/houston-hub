@@ -1,5 +1,5 @@
 return {
-	scenario = {config = {client_id = "fixture-app-key", client_secret = "fixture-private-secret"}, auth_method = "oauth", auth_config = {}, caller_access = "read-write"},
+	scenario = {publisher = {client_id = "fixture-app-key", client_secret = "fixture-private-secret"}, auth_method = "oauth", auth_config = {}, caller_access = "read-write"},
 	config = {access = "custom", path_access = '{"/Reports":"read-only","/Incoming":"read-write","/Incoming/Approved":"read-only","/Équipe":"read-write","/Incoming/k":"read-only"}'},
 	configure = function()
 		requests, responses, metadataOverride = {}, {}, nil

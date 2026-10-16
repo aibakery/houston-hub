@@ -41,6 +41,7 @@ These are recommendations, not additional contribution requirements.
 
 - [connectors/](connectors/): provider manifests, Lua implementations, icons and tests.
 - [AUTHORING.md](AUTHORING.md): create, validate and publish connectors, with runtime examples.
+- [Provider publishing notes](docs/publishing.md): provider app setup, release requirements and icon attribution.
 - [docs/](docs/): Lua practices and [provider operation reference](docs/connectors/).
 - [tools/](tools/): the public validator and its reusable typecheck/conformance packages.
 - [manifest/](manifest/): shared manifest parser and generated schema used by Houston.

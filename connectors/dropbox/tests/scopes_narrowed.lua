@@ -1,5 +1,5 @@
 return {
-	scenario = {config = {client_id = "fixture-app-key", client_secret = "fixture-private-secret"}, auth_method = "oauth", granted_scopes = {"files.content.read","sharing.write",}},
+	scenario = {publisher = {client_id = "fixture-app-key", client_secret = "fixture-private-secret"}, auth_method = "oauth", granted_scopes = {"files.content.read","sharing.write",}},
 	config = {access = "read-only"},
 	run = function(c)
 		local expected = {}
