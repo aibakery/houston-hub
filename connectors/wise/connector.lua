@@ -6,7 +6,6 @@ type Endpoint = {
 	idempotence: boolean?, merge: boolean?, minor: boolean?, safe: boolean?, about: string,
 }
 
-local STATEMENT = "/v1/profiles/{profileId}/balance-statements/{balanceId}/statement"
 local STATEMENT_QUERY: {[string]: Query} = {currency = {type = "string"}, intervalStart = {type = "string"}, intervalEnd = {type = "string"},
 	type = {type = "string", enum = {"COMPACT", "FLAT"}}, statementLocale = {type = "string"}}
 local LEGAL_ENTITY: Query = {type = "string", enum = {"PRIVATE", "BUSINESS"}}
@@ -19,10 +18,10 @@ local endpoints: {[string]: Endpoint} = {
 		about = "Array of balances with amount, reservedAmount, cashAmount and totalWorth per currency; types required, e.g. {'STANDARD','SAVINGS'}. Unpaginated."},
 	getBalance = {method = "GET", path = "/v4/profiles/{profileId}/balances/{balanceId}", about = "One balance."},
 	getTotalFunds = {method = "GET", path = "/v1/profiles/{profileId}/total-funds/{currency}", about = "Total worth and available funds across balances, valued in currency."},
-	getBalanceStatement = {method = "GET", path = STATEMENT .. ".json", required = {"currency", "intervalStart", "intervalEnd"},
+	getBalanceStatement = {method = "GET", path = "/v1/profiles/{profileId}/balance-statements/{balanceId}/statement.json", required = {"currency", "intervalStart", "intervalEnd"},
 		query = STATEMENT_QUERY,
 		about = "Statement JSON with transactions, start/end balances and query. ISO-8601 UTC interval of at most 469 days. Needs strong customer authentication outside the US, CA, AU, NZ, SG and MY."},
-	downloadBalanceStatement = {method = "GET", path = STATEMENT .. ".{format}", kind = "download", required = {"currency", "intervalStart", "intervalEnd"},
+	downloadBalanceStatement = {method = "GET", path = "/v1/profiles/{profileId}/balance-statements/{balanceId}/statement.{format}", kind = "download", required = {"currency", "intervalStart", "intervalEnd"},
 		query = STATEMENT_QUERY,
 		about = "Save a statement file to path; format pdf, csv, xlsx, xml (CAMT.053), mt940 or qif. Same interval and authentication limits as getBalanceStatement."},
 	listAccountDetails = {method = "GET", path = "/v1/profiles/{profileId}/account-details", about = "Array of receiving bank details (account numbers, IBANs, routing codes) per currency."},
@@ -150,7 +149,8 @@ local function fail(name: string, endpoint: Endpoint, response: HttpResponse, de
 	if detail then
 		message ..= ": " .. detail
 	else
-		local raw = await(response.body:readPrefix(8192))
+		local read, prefix = pcall(function() return await(response.body:readPrefix(8192)) end)
+		local raw = if read then prefix else ""
 		local ok, body = pcall(json.decode, raw)
 		local parts: {string} = {}
 		if ok and type(body) == "table" then
@@ -249,8 +249,8 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 	if destination then
 		local media = string.lower(header(response, "content-type") or "")
 		if string.find(media, "json", 1, true) or string.find(media, "html", 1, true) then
-			response.body:close()
-			fail(name, endpoint, response, "Wise returned " .. media .. " instead of a file")
+			local ok, snippet = pcall(function() return await(response.body:readPrefix(200)) end)
+			fail(name, endpoint, response, "Wise returned " .. media .. " instead of a file: " .. (if ok then snippet else ""))
 		end
 		local output = fs.open(destination, "w")
 		output:write(response.body)
@@ -258,7 +258,12 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 		return {path = destination, size = await(fs.stat(destination)).size, url = await(fs.signedGetUrl(destination))}
 	end
 	local read, raw = pcall(function() return await(response.body:readAll()) end)
-	if not read then fail(name, endpoint, response, "the response exceeded 8 MiB; narrow the interval or page size") end
+	if not read then
+		if type(raw) == "table" and raw.code == "limit_exceeded" then
+			fail(name, endpoint, response, "the response exceeded 8 MiB; narrow the interval or page size")
+		end
+		error(raw, 0)
+	end
 	if endpoint.method ~= "GET" and string.match(raw, "^%s*$") then return {success = true} end
 	local decoded, value = pcall(json.decode, raw)
 	if not decoded or type(value) ~= "table" or not string.match(raw, "^%s*[%[{]") then
@@ -280,14 +285,15 @@ exports.help = function(): string
 		"Wise Platform API (legacy v1-v4 paths) on " .. config.api_host .. ". Call functions directly, e.g. wise.listProfiles(); do not await connector calls. Each takes one options object with Wise's native names: {placeholders} in the route are required, query options are listed per function, and remaining options of POST/PATCH calls form the JSON body unchanged. Results are Wise's JSON unchanged (some are arrays). Reference: https://docs.wise.com/api-reference .",
 		"Start with listProfiles() and pick the PERSONAL or BUSINESS profile id. Ids for profiles, balances, transfers and recipients are integers; quote and batch group ids are UUID strings. Amounts are decimal major units (12.5 = 12.50), not cents. Dates are ISO-8601, e.g. '2026-10-01T00:00:00Z'.",
 		"Paging: listActivities returns cursor, passed back as nextCursor until null (size 1..100); listTransfers uses limit and offset; listRecipients uses size 1..20 and seekPositionForNext -> seekPosition. Other lists are unpaginated. No automatic paging or retries.",
-		"Downloads stream to a session file and return {path,url,size}; url is Houston's signed link. Failed transfers can leave partial files.",
+		"Downloads stream to a session file and return {path,url,size}; url is Houston's signed link. A download that fails while streaming can leave a partial file.",
 		"Personal API tokens: Wise documents them for business accounts, and a token created as read only rejects writes. Balance statements (and, with write access, funding) need strong customer authentication (SCA) except for accounts based in the US, Canada, Australia, New Zealand, Singapore and Malaysia; elsewhere these calls fail with a 403 naming SCA, which this connector cannot complete, and the owner must finish the step in the Wise app or website. Do not retry them. Card details, webhooks, profile/KYC changes and recipient deletion are not available here.",
 	}
 	if config.access == "read-write" then
 		table.insert(lines, "Sending money: createQuote({profileId,sourceCurrency,targetCurrency,sourceAmount}) -> getAccountRequirements({quoteId}) -> createRecipient or listRecipients -> updateQuote({profileId,quoteId,targetAccount}) -> validateTransferRequirements -> createTransfer({targetAccount,quoteUuid,customerTransactionId,details={reference=...}}) -> fundTransfer({profileId,transferId,type='BALANCE'}). Quotes expire (expirationTime). Funding moves money and can be irreversible; confirm amount, currency and recipient with the user first. cancelTransfer works only while the status is incoming_payment_waiting. Business accounts with payment approvals enabled in Wise settings cannot create transfers through the API (missing approval error).")
+		table.insert(lines, "Write errors: a 5xx is retryable only for calls that create nothing (createQuote, refreshAccountRequirements, validateTransferRequirements); otherwise inspect the transfer or balance before repeating. A write answered with an empty body returns {success=true}.")
 		table.insert(lines, "Idempotency: createTransfer and createBatchTransfer require customerTransactionId, and createBalance and createBalanceMovement require idempotenceUuid (sent as X-idempotence-uuid). Each must be a new UUID kept with the intended action; reuse it only to retry that same action after a timeout, never for a different payment. Inspect listTransfers or getTransfer before retrying an ambiguous write.")
 	end
-	table.insert(lines, "Errors report HTTP status, Wise's errors (code, message, path), Retry-After and x-trace-id. A 429 means Wise did not process the request and is retryable after Retry-After, as is a 5xx on a read or on a call that creates nothing (createQuote, refreshAccountRequirements, validateTransferRequirements); other write failures are not, so inspect the transfer or balance before repeating a write. A write answered with an empty body returns {success=true}. Wise rate-limits each user to about 100 requests per second and 900 per minute.")
+	table.insert(lines, "Errors report HTTP status, Wise's errors (code, message, path), Retry-After and x-trace-id. A 429 means Wise did not process the request and is retryable after Retry-After, as is a 5xx on a read. Wise rate-limits each user to about 100 requests per second and 900 per minute.")
 	local names: {string} = {}
 	for name in exports do if name ~= "help" then table.insert(names, name) end end
 	table.sort(names)

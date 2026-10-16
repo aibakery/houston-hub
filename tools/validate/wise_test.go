@@ -25,7 +25,6 @@ func TestWiseAccessRoutes(t *testing.T) {
 				"GET "+api+"/v1/profiles/1/balance-statements/2/statement.mt940", "GET "+api+"/v1/transfers?profile=1",
 				"GET "+api+"/v1/transfers/9/receipt.pdf", "GET "+api+"/v3/profiles/1/quotes/"+quote,
 				"GET "+api+"/v1/quotes/"+quote+"/account-requirements", "GET "+api+"/v2/accounts?profileId=1", "GET "+api+"/v1/rates")
-			writes := 0
 			for _, rule := range m.Proxy {
 				for _, method := range rule.Match.Method {
 					for _, path := range rule.Match.Path {
@@ -34,13 +33,9 @@ func TestWiseAccessRoutes(t *testing.T) {
 							assertRoutes(t, r, "wise_fixture", true, route)
 							continue
 						}
-						writes++
 						assertRoutes(t, r, "wise_fixture", access == "read-write", route)
 					}
 				}
-			}
-			if writes != 15 {
-				t.Fatalf("checked %d write routes, want 15", writes)
 			}
 			assertRoutes(t, r, "wise_fixture", false,
 				"GET "+other+"/v2/profiles", "POST "+api+"/oauth/token", "GET "+api+"/v1/user/pin",

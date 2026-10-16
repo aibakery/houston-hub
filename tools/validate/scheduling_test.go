@@ -121,18 +121,21 @@ func TestCalendlyScopesAndAccessRoutes(t *testing.T) {
 // The proxy must allow exactly the routes in each connector's endpoint table, and the
 // writes only on read-write connections. Only GET reads unless an entry sets write.
 // Credential-free rules, such as Resend's signed attachment links, are not API routes.
+// A {format} placeholder expands to the connector's FORMATS list (Wise statements).
 func TestProxyMatchesEndpointTables(t *testing.T) {
 	const readWrite = `{{ is config.access "read-write" }}`
 	endpoint := regexp.MustCompile(`(?m)^\t\w+ = \{method = "([A-Z]+)", path = "([^"]+)"(.*)$`)
 	override := regexp.MustCompile(`\bwrite = (true|false)\b`)
-	for _, name := range []string{"calcom", "calendly", "resend", "stripe"} {
+	formats := regexp.MustCompile(`local FORMATS = table\.freeze\(\{([^}]*)\}\)`)
+	for _, name := range []string{"calcom", "calendly", "resend", "stripe", "wise"} {
 		raw, err := os.ReadFile("../../connectors/" + name + "/connector.lua")
 		if err != nil {
 			t.Fatal(err)
 		}
 		lua := string(raw)
 		var want, got []string
-		for _, match := range endpoint.FindAllStringSubmatch(lua, -1) {
+		matches := endpoint.FindAllStringSubmatch(lua, -1)
+		for _, match := range matches {
 			write := match[1] != "GET"
 			if flag := override.FindStringSubmatch(match[3]); flag != nil {
 				write = flag[1] == "true"
@@ -141,10 +144,23 @@ func TestProxyMatchesEndpointTables(t *testing.T) {
 			if write {
 				gate = readWrite
 			}
-			want = append(want, match[1]+" "+match[2]+" "+gate)
+			paths := []string{match[2]}
+			if strings.Contains(match[2], "{format}") {
+				list := formats.FindStringSubmatch(lua)
+				if list == nil {
+					t.Fatalf("%s: {format} without FORMATS", name)
+				}
+				paths = nil
+				for _, format := range strings.Split(list[1], ",") {
+					paths = append(paths, strings.Replace(match[2], "{format}", strings.Trim(format, ` "`), 1))
+				}
+			}
+			for _, path := range paths {
+				want = append(want, match[1]+" "+path+" "+gate)
+			}
 		}
-		if entries := strings.Count(lua, "= {method = "); len(want) != entries {
-			t.Fatalf("%s: matched %d of %d endpoint entries", name, len(want), entries)
+		if entries := strings.Count(lua, "= {method = "); len(matches) != entries {
+			t.Fatalf("%s: matched %d of %d endpoint entries", name, len(matches), entries)
 		}
 		for _, rule := range parseManifest(t, "../../connectors/"+name+"/houston.json").Proxy {
 			if rule.Action.Headers.Set["Authorization"] == "" {

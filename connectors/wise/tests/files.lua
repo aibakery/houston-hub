@@ -41,7 +41,7 @@ return {
 		status = 200
 		responseHeaders = {["content-type"] = {"application/json;charset=UTF-8"}}
 		ok, err = pcall(c.downloadTransferReceipt, {transferId = 9001, path = "denied.pdf"})
-		assert(not ok and string.find(tostring(err), "instead of a file", 1, true), tostring(err))
+		assert(not ok and string.find(tostring(err), "instead of a file", 1, true) and string.find(tostring(err), "BUSINESS", 1, true), tostring(err))
 		assert(await(fs.stat("denied.pdf")).size == 4, "error page replaced an existing file")
 		responseHeaders = {}
 
