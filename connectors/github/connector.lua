@@ -287,7 +287,8 @@ local function header(response: HttpResponse, name: string): string?
 end
 
 -- GitHub errors are {message, documentation_url?, errors?: [{resource, field, code, message?}], status}.
--- Primary rate limits answer 403 or 429 with x-ratelimit-remaining 0; secondary ones add retry-after.
+-- Primary rate limits answer 403 or 429 with x-ratelimit-remaining 0; secondary ones may add
+-- retry-after, and otherwise only say so in the message.
 local function fail(name: string, response: HttpResponse): never
 	local message = "GitHub HTTP " .. tostring(response.statusCode)
 	local ok, value = pcall(json.decode, await(response.body:readPrefix(16 * 1024)))
@@ -297,6 +298,7 @@ local function fail(name: string, response: HttpResponse): never
 	end
 	local retryAfter = header(response, "retry-after")
 	local exhausted = header(response, "x-ratelimit-remaining") == "0"
+	local secondary = string.find(message, "secondary rate limit", 1, true) ~= nil
 	if retryAfter then message ..= "; retry after " .. retryAfter .. "s" end
 	if exhausted then message ..= "; rate limit resets at " .. (header(response, "x-ratelimit-reset") or "?") .. " (Unix time)" end
 	-- Renamed or transferred repositories redirect to /repositories/<id>, which no rule allows.
@@ -308,7 +310,7 @@ local function fail(name: string, response: HttpResponse): never
 	if accepted then message ..= "; needs permissions " .. accepted end
 	local status = response.statusCode
 	return houston.fail({operation = name, layer = "upstream", upstream_status = status,
-		retryable = status == 429 or status >= 500 or (status == 403 and (exhausted or retryAfter ~= nil)), message = message})
+		retryable = status == 429 or status >= 500 or (status == 403 and (exhausted or secondary or retryAfter ~= nil)), message = message})
 end
 
 -- Private file links carry a short-lived token usable outside Houston; keep the link, drop the token.
