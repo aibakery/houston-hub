@@ -46,7 +46,7 @@ return {
 		c.createQuote({profileId = 202, sourceCurrency = "EUR", targetCurrency = "GBP", sourceAmount = 100, payOut = "BALANCE"})
 		sent("POST", api .. "/v3/profiles/202/quotes", {sourceCurrency = "EUR", targetCurrency = "GBP", sourceAmount = 100, payOut = "BALANCE"})
 		c.createQuote({profileId = 202, sourceCurrency = "EUR", targetCurrency = "GBP", sourceAmount = json.decode("null"), targetAmount = 10})
-		sent("POST", api .. "/v3/profiles/202/quotes", {sourceCurrency = "EUR", targetCurrency = "GBP", sourceAmount = json.decode("null"), targetAmount = 10})
+		sent("POST", api .. "/v3/profiles/202/quotes", {sourceCurrency = "EUR", targetCurrency = "GBP", targetAmount = 10})
 		c.updateQuote({profileId = 202, quoteId = quote, targetAccount = 55, payOut = "BANK_TRANSFER"})
 		sent("PATCH", api .. "/v3/profiles/202/quotes/" .. quote, {targetAccount = 55, payOut = "BANK_TRANSFER"}, "application/merge-patch+json")
 		payload = "[]"

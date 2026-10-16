@@ -6,6 +6,7 @@ type Endpoint = {
 	idempotence: boolean?, merge: boolean?, minor: boolean?, safe: boolean?, about: string,
 }
 
+local SCA = "Needs strong customer authentication except for accounts based in the US, Canada, Australia, New Zealand, Singapore and Malaysia; elsewhere it fails with a 403 naming SCA, which this connector cannot complete, so the owner must finish the step in the Wise app or website. Do not retry it."
 local STATEMENT_QUERY: {[string]: Query} = {currency = {type = "string"}, intervalStart = {type = "string"}, intervalEnd = {type = "string"},
 	type = {type = "string", enum = {"COMPACT", "FLAT"}}, statementLocale = {type = "string"}}
 local LEGAL_ENTITY: Query = {type = "string", enum = {"PRIVATE", "BUSINESS"}}
@@ -20,7 +21,7 @@ local endpoints: {[string]: Endpoint} = {
 	getTotalFunds = {method = "GET", path = "/v1/profiles/{profileId}/total-funds/{currency}", about = "Total worth and available funds across balances, valued in currency."},
 	getBalanceStatement = {method = "GET", path = "/v1/profiles/{profileId}/balance-statements/{balanceId}/statement.json", required = {"currency", "intervalStart", "intervalEnd"},
 		query = STATEMENT_QUERY,
-		about = "Statement JSON with transactions, start/end balances and query. ISO-8601 UTC interval of at most 469 days. Needs strong customer authentication outside the US, CA, AU, NZ, SG and MY."},
+		about = "Statement JSON with transactions, start/end balances and query. ISO-8601 UTC interval of at most 469 days. " .. SCA},
 	downloadBalanceStatement = {method = "GET", path = "/v1/profiles/{profileId}/balance-statements/{balanceId}/statement.{format}", kind = "download", required = {"currency", "intervalStart", "intervalEnd"},
 		query = STATEMENT_QUERY,
 		about = "Save a statement file to path; format pdf, csv, xlsx, xml (CAMT.053), mt940 or qif. Same interval and authentication limits as getBalanceStatement."},
@@ -32,18 +33,18 @@ local endpoints: {[string]: Endpoint} = {
 		query = {source = {type = "string"}, target = {type = "string"}, time = {type = "string"}, from = {type = "string"}, to = {type = "string"}, group = {type = "string", enum = {"day", "hour", "minute"}}},
 		about = "Array of mid-market rates {rate, source, target, time}; time for one historic rate, or from/to/group for history."},
 	listCurrencies = {method = "GET", path = "/v1/currencies", about = "Array of currencies Wise supports, with codes, names and symbols."},
-	listTransfers = {method = "GET", path = "/v1/transfers",
+	listTransfers = {method = "GET", path = "/v1/transfers", required = {"profile"},
 		query = {profile = {type = "integer", minimum = 1}, status = {type = "list"}, sourceCurrency = {type = "string"}, targetCurrency = {type = "string"}, createdDateStart = {type = "string"}, createdDateEnd = {type = "string"}, limit = {type = "integer", minimum = 1}, offset = {type = "integer", minimum = 0}},
-		about = "Array of transfers. Pass profile: Wise defaults to the personal profile. Filter by status list, currencies and createdDateStart/End; page with limit and offset."},
+		about = "Array of transfers for profile (required here because Wise would default to the personal profile). Filter by status list, currencies and createdDateStart/End; page with limit and offset."},
 	getTransfer = {method = "GET", path = "/v1/transfers/{transferId}", about = "One transfer with status, amounts, rate and reference."},
 	downloadTransferReceipt = {method = "GET", path = "/v1/transfers/{transferId}/receipt.pdf", kind = "download", about = "Save the transfer receipt PDF to path."},
 	getQuote = {method = "GET", path = "/v3/profiles/{profileId}/quotes/{quoteId}", about = "One quote with paymentOptions, fees, rate and expirationTime."},
 	getAccountRequirements = {method = "GET", path = "/v1/quotes/{quoteId}/account-requirements", minor = true,
 		query = {originatorLegalEntityType = LEGAL_ENTITY, addressRequired = {type = "boolean"}},
 		about = "Array of recipient forms (type, fields with keys, validation and refreshRequirementsOnChange) for a quote's route."},
-	listRecipients = {method = "GET", path = "/v2/accounts",
+	listRecipients = {method = "GET", path = "/v2/accounts", required = {"profileId"},
 		query = {profileId = {type = "integer", minimum = 1}, currency = {type = "string"}, type = {type = "string"}, active = {type = "boolean"}, ownedByCustomer = {type = "boolean"}, size = {type = "integer", minimum = 1, maximum = 20}, seekPosition = {type = "integer"}, sort = {type = "string"}},
-		about = "{content, size, seekPositionForNext, ...} of recipient accounts. Pass profileId: Wise defaults to the personal profile; size 1..20, pass seekPositionForNext as seekPosition for the next page."},
+		about = "{content, size, seekPositionForNext, ...} of recipient accounts for profileId (required here because Wise would default to the personal profile); size 1..20, pass seekPositionForNext as seekPosition for the next page."},
 	getRecipient = {method = "GET", path = "/v2/accounts/{accountId}", about = "One recipient account."},
 	getBatchGroup = {method = "GET", path = "/v3/profiles/{profileId}/batch-groups/{batchGroupId}", about = "One batch group with status, version and transferIds."},
 
@@ -62,7 +63,7 @@ local endpoints: {[string]: Endpoint} = {
 		about = "Create an unfunded transfer from a quote; customerTransactionId is your UUID idempotency key; details holds reference and requirements."},
 	cancelTransfer = {method = "PUT", path = "/v1/transfers/{transferId}/cancel", about = "Cancel a transfer while its status is incoming_payment_waiting; later states fail with 409."},
 	fundTransfer = {method = "POST", path = "/v3/profiles/{profileId}/transfers/{transferId}/payments", required = {"type"},
-		about = "Pay a transfer from your balance: {type='BALANCE'}. Moves money. Needs strong customer authentication outside the US, CA, AU, NZ, SG and MY. Check the returned status: REJECTED carries errorCode."},
+		about = "Pay a transfer from your balance: {type='BALANCE'}. Moves money. Check the returned status: REJECTED carries errorCode. " .. SCA},
 	createBalance = {method = "POST", path = "/v4/profiles/{profileId}/balances", required = {"currency", "type", "idempotenceUuid"}, idempotence = true,
 		about = "Open a STANDARD balance or a SAVINGS jar (name required for jars)."},
 	deleteBalance = {method = "DELETE", path = "/v4/profiles/{profileId}/balances/{balanceId}", about = "Close an empty balance; its receiving bank details are deactivated and may not be restorable."},
@@ -135,12 +136,12 @@ local function queryValue(value: any, field: string, spec: Query): string
 	end
 	local values: {string} = {}
 	for _, item in items do
-		table.insert(values, text(if type(item) == "string" then string.match(item, "^%s*(.-)%s*$") else item, field))
+		table.insert(values, url.encode(text(if spec.type == "list" and type(item) == "string" then string.match(item, "^ *(.-) *$") else item, field)))
 	end
 	if spec.enum then
 		for _, item in values do assert(table.find(spec.enum, item), field .. " must be one of " .. table.concat(spec.enum, ", ")) end
 	end
-	return url.encode(table.concat(values, ","))
+	return table.concat(values, ",")
 end
 
 local function header(response: HttpResponse, name: string): string?
@@ -247,6 +248,9 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 			if args[field] ~= nil and args[field] ~= NULL then uuid(args[field], field) end
 		end
 		headers["Content-Type"] = {if endpoint.merge then "application/merge-patch+json" else "application/json"}
+		for _, field in endpoint.oneOf or NONE do
+			if args[field] == NULL then args[field] = nil end
+		end
 		body = json.encode(args)
 	end
 	local response = await(http.request({method = endpoint.method, url = ORIGIN .. path, headers = headers, body = body}))
@@ -268,8 +272,8 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 		if endpoint.method ~= "GET" then
 			fail(name, endpoint, response, "Wise accepted the request but its response could not be read (" .. code .. "); check the result before repeating it")
 		end
-		if code == "limit_exceeded" then fail(name, endpoint, response, "the response exceeded 8 MiB; narrow the interval or page size") end
-		error(raw, 0)
+		fail(name, endpoint, response, if code == "limit_exceeded" then "the response exceeded 8 MiB; narrow the interval or page size"
+			else "reading the response failed (" .. code .. ")")
 	end
 	if endpoint.method ~= "GET" and string.match(raw, "^%s*$") then return {success = true} end
 	local decoded, value = pcall(json.decode, raw)
@@ -293,11 +297,14 @@ exports.help = function(): string
 		"Start with listProfiles() and pick the PERSONAL or BUSINESS profile id. Ids for profiles, balances, transfers and recipients are integers; quote and batch group ids are UUID strings. Amounts are decimal major units (12.5 = 12.50), not cents. Dates are ISO-8601, e.g. '2026-10-01T00:00:00Z'.",
 		"Paging: listActivities returns cursor, passed back as nextCursor until null (size 1..100); listTransfers uses limit and offset; listRecipients uses size 1..20 and seekPositionForNext -> seekPosition. Other lists are unpaginated. No automatic paging or retries.",
 		"Downloads stream to a session file and return {path,url,size}; url is Houston's signed link. A download that fails while streaming can leave a partial file.",
-		"Personal API tokens: Wise documents them for business accounts, and a token created as read only rejects writes. Balance statements (and, with write access, funding) need strong customer authentication (SCA) except for accounts based in the US, Canada, Australia, New Zealand, Singapore and Malaysia; elsewhere these calls fail with a 403 naming SCA, which this connector cannot complete, and the owner must finish the step in the Wise app or website. Do not retry them. Card details, webhooks, profile/KYC changes and recipient deletion are not available here.",
+		"Personal API tokens: Wise documents them for business accounts, and a token created as read only rejects writes. Balance statements (and, with write access, funding): " .. SCA .. " Card details, webhooks, profile/KYC changes and recipient deletion are not available here.",
 	}
 	if config.access == "read-write" then
 		table.insert(lines, "Sending money: createQuote({profileId,sourceCurrency,targetCurrency,sourceAmount}) -> getAccountRequirements({quoteId}) -> createRecipient or listRecipients -> updateQuote({profileId,quoteId,targetAccount}) -> validateTransferRequirements -> createTransfer({targetAccount,quoteUuid,customerTransactionId,details={reference=...}}) -> fundTransfer({profileId,transferId,type='BALANCE'}). Quotes expire (expirationTime). Funding moves money and can be irreversible; confirm amount, currency and recipient with the user first. cancelTransfer works only while the status is incoming_payment_waiting. Business accounts with payment approvals enabled in Wise settings cannot create transfers through the API (missing approval error).")
-		table.insert(lines, "Write errors: a 5xx is retryable only for calls that move no money (createQuote, refreshAccountRequirements, validateTransferRequirements); otherwise inspect the transfer or balance before repeating. A write answered with an empty body returns {success=true}.")
+		local safe: {string} = {}
+		for name, endpoint in endpoints do if endpoint.safe then table.insert(safe, name) end end
+		table.sort(safe)
+		table.insert(lines, "Write errors: a 5xx is retryable only for calls that move no money (" .. table.concat(safe, ", ") .. "); otherwise inspect the transfer or balance before repeating. A write answered with an empty body returns {success=true}.")
 		table.insert(lines, "Idempotency: createTransfer and createBatchTransfer require customerTransactionId, and createBalance and createBalanceMovement require idempotenceUuid (sent as X-idempotence-uuid). Each must be a new UUID kept with the intended action; reuse it only to retry that same action after a timeout, never for a different payment. Inspect listTransfers or getTransfer before retrying an ambiguous write.")
 	end
 	table.insert(lines, "Errors report HTTP status, Wise's errors (code, message, path), Retry-After and x-trace-id. A 429 means Wise did not process the request and is retryable after Retry-After, as is a 5xx on a read. Wise rate-limits each user to about 100 requests per second and 900 per minute.")

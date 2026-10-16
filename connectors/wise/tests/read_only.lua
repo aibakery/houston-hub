@@ -37,11 +37,11 @@ return {
 		payload = '[{"id":1,"currency":"EUR","type":"STANDARD","amount":{"value":12.5,"currency":"EUR"},"name":null}]'
 		local balances = c.listBalances({profileId = "202", types = {"STANDARD", "SAVINGS"}})
 		assert(balances[1].amount.value == 12.5 and balances[1].name == json.decode("null"))
-		get(api .. "/v4/profiles/202/balances?types=STANDARD%2CSAVINGS")
+		get(api .. "/v4/profiles/202/balances?types=STANDARD,SAVINGS")
 		c.listBalances({profileId = 202, types = "STANDARD,SAVINGS"})
-		get(api .. "/v4/profiles/202/balances?types=STANDARD%2CSAVINGS")
+		get(api .. "/v4/profiles/202/balances?types=STANDARD,SAVINGS")
 		c.listBalances({profileId = 202, types = " STANDARD , SAVINGS"})
-		get(api .. "/v4/profiles/202/balances?types=STANDARD%2CSAVINGS")
+		get(api .. "/v4/profiles/202/balances?types=STANDARD,SAVINGS")
 		payload = "[]"
 		assert(json.encode(c.listBalances({profileId = 202, types = "STANDARD"})) == "[]", "empty balance array lost")
 		get(api .. "/v4/profiles/202/balances?types=STANDARD")
@@ -82,7 +82,7 @@ return {
 		assert(c.listTransfers({profile = 202})[1].targetValue == 10.5)
 		payload = "[]"
 		assert(json.encode(c.listTransfers({profile = 202, status = {"incoming_payment_waiting", "processing"}, limit = 20, offset = 0})) == "[]")
-		get(api .. "/v1/transfers?limit=20&offset=0&profile=202&status=incoming_payment_waiting%2Cprocessing")
+		get(api .. "/v1/transfers?limit=20&offset=0&profile=202&status=incoming_payment_waiting,processing")
 		payload = '{"id":2147483648,"status":"outgoing_payment_sent"}'
 		assert(c.getTransfer({transferId = 2147483648}).id == 2147483648)
 		get(api .. "/v1/transfers/2147483648")
@@ -121,8 +121,8 @@ return {
 			function() c.getBalanceStatement({profileId = 202, balanceId = 1, currency = "EUR", intervalStart = "x"}) end,
 			function() c.listActivities({profileId = 202, size = 101}) end,
 			function() c.listActivities({profileId = 202, ["_method"] = "POST"}) end,
-			function() c.listRecipients({size = 21}) end,
-			function() c.listRecipients({active = "true"}) end,
+			function() c.listRecipients({profileId = 202, size = 21}) end,
+			function() c.listRecipients({profileId = 202, active = "true"}) end,
 			function() c.getQuote({profileId = 202, quoteId = "../../me"}) end,
 			function() c.getRates({group = "week"}) end,
 			function() c.getProfile({profileId = "12345678901234567"}) end,
@@ -130,14 +130,16 @@ return {
 			function() c.getBalanceStatement({profileId = 202, balanceId = 1, currency = "EUR", intervalStart = "a", intervalEnd = "b", type = "DETAILED"}) end,
 			function() c.getAccountRequirements({quoteId = quote, originatorLegalEntityType = "COMPANY"}) end,
 			function() c.listActivities({profileId = 202, status = "DONE"}) end,
-			function() c.listTransfers({status = {[1] = "a", [3] = "b"}}) end,
+			function() c.listTransfers({profile = 202, status = {[1] = "a", [3] = "b"}}) end,
 			function() c.listTransfers({profile = 0}) end,
-			function() c.listTransfers({status = {"a", nil, "c"}}) end,
+			function() c.listTransfers({status = "processing"}) end,
+			function() c.listRecipients({currency = "EUR"}) end,
+			function() c.listTransfers({profile = 202, status = {"a", nil, "c"}}) end,
 			function() c.listRecipients({profileId = 0}) end,
 			function() c.listBalances({profileId = 202, types = "STANDARD,"}) end,
 			function() c.listBalances({profileId = 202, types = "STANDARD,CHECKING"}) end,
 			function() c.getMe({idempotenceUuid = quote}) end,
-			function() c.listTransfers({status = "a\nb"}) end,
+			function() c.listTransfers({profile = 202, status = "a\nb"}) end,
 			function() c.downloadTransferReceipt({transferId = 1}) end,
 		} do assert(not pcall(call), "invalid request accepted") end
 		assert(#requests == before, "invalid input reached the network")
