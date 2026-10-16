@@ -49,6 +49,9 @@ return {
 		assert(opts.owner == "octo-org" and opts.per_page == 50, "caller options were modified")
 		assert(#issues == 1 and issues[1].number == 7 and json.encode(issues[1].labels) == "[]")
 
+		status, payload = 204, ""
+		assert(json.encode(github.listContributors({owner = "o", repo = "empty"})) == "[]", "an empty 204 list is an array")
+		status = 200
 		payload = "[]"
 		local empty = github.listPulls({owner = "o", repo = "r"})
 		assert(last().url == API .. "/repos/o/r/pulls" and json.encode(empty) == "[]")
