@@ -122,7 +122,7 @@ request completes within the invocation, including uploads and downloads.
 
 Each exported operation runs in a fresh connector VM and returns completed plain
 data. Connectors and caller scripts share `http.request`, `fs`, `compression`,
-`await`, and `awaitAll`. A request starts immediately and its operation settles
+`url`, `await`, and `awaitAll`. A request starts immediately and its operation settles
 when final headers and a body Reader are available. `await` retrieves the result;
 it does not start or rerun work. A local session cache lasts only for that
 invocation. No background work continues through another invocation.
@@ -143,6 +143,15 @@ file size. Upload with `body = fs.open(path, "r")`; download by writing the
 response Reader to `fs.open(path, "w")` and awaiting the file's final close.
 Reader pipelines use bounded native buffers. `readAll(maxBytes?)` explicitly
 allocates a string, defaults to 8 MiB, and fails and closes its source on overflow.
+HTTP, multipart and compression Readers also offer `readPrefix(maxBytes)`: it returns
+at most `maxBytes` bytes and closes the Reader. Longer bodies and source errors end
+the prefix. It fails when the Reader is closed, cancelled (including an await
+timeout) or already in use, when the limit is not a positive integer (the Reader
+then stays open, so pass a constant), or when a limit above 128 MiB or the
+invocation's read budget refuses the call (the Reader is then closed).
+Use it for bounded error snippets. Files have no `readPrefix`:
+`await(fd:read(maxBytes))` returns one `{done, data}` chunk of at most `maxBytes`
+bytes.
 
 Neither an error nor a timeout rolls back changes the provider has already
 accepted. Do not automatically replay partial batches or ambiguous writes;
@@ -543,17 +552,25 @@ semantics visible instead of building a generic SDK framework.
 ```lua
 local function responseJSON(response: HttpResponse, operation: string): any
     if response.statusCode < 200 or response.statusCode >= 300 then
-        local chunk = await(response.body:read(512))
-        response.body:close()
+        local snippet = await(response.body:readPrefix(512))
         return houston.fail({
             operation = operation,
             layer = "upstream",
             upstream_status = response.statusCode,
             retryable = response.statusCode == 429 or response.statusCode >= 500,
-            message = if chunk.done then "Provider request failed" else chunk.data,
+            message = if snippet == "" then "Provider request failed" else snippet,
         })
     end
     return json.decode(await(response.body:readAll()))
+end
+
+local function getItem(id: string, opts: {fields: string?}?)
+    local query = if opts and opts.fields then "?fields=" .. url.encode(opts.fields) else ""
+    local response = await(http.request({
+        method = "GET",
+        url = "https://api.example.com/items/" .. url.segment(id, "id") .. query,
+    }))
+    return responseJSON(response, "getItem")
 end
 
 local function listItems(opts: {cursor: string?}?)
@@ -570,11 +587,26 @@ local function listItems(opts: {cursor: string?}?)
 end
 ```
 
+`url.encode(value)` percent-encodes every byte outside RFC 3986's unreserved
+characters; use it for query names and values. Numbers and booleans render as
+`tostring` does. `url.segment(value, name?)` encodes
+one path segment and raises `invalid_argument` for an empty value, a dot-only value
+such as `..` (or only dots and spaces, also before a `;`, `?` or `#`), `/`, `\`, `%`, control characters, values whose
+NFKC form contains those (such as U+FF0E), invisible format characters, best-fit
+separator look-alikes (such as U+00A5), invalid UTF-8 or more than 16 KiB, naming `name`
+but never echoing the value. Pass every caller-supplied path ID through it, or check
+it against a strict format such as `^[%w_%-]+$` or a numeric ID, so an ID cannot add
+path or dot segments. To keep a connector's own error text, wrap it:
+`local ok, segment = pcall(url.segment, id)`.
+Opaque IDs that may contain separators, such as Notion property IDs, use
+`url.encode` and an `opaque_path_parameters` proxy rule instead.
+
 Production helpers should also validate provider-specific error envelopes and
 mutation confirmations, and catch malformed JSON where a structured error helps.
-Keep error snippets bounded and avoid including secrets or signed URLs. Classifying
-an error as retryable does not retry it: callers must verify ambiguous writes
-before repeating them. Do not automatically collect every page into memory.
+Keep error snippets bounded with `readPrefix` and avoid including secrets or signed
+URLs. Classifying an error as retryable does not retry it: callers must verify
+ambiguous writes before repeating them. Do not automatically collect every page
+into memory.
 
 JSON null is a truthy sentinel; a plain empty table is an object. Preserve the
 provider's distinction between omission, explicit null and an empty array:
@@ -992,7 +1024,7 @@ include signing secrets, and may POST only to the routing-form slot calculation,
 which saves nothing.
 
 Bundles cannot share files, so Cal.com, Calendly and Resend carry the same request layer:
-option and query encoding, error reading, response decoding, and the generation of
+option and query encoding, upstream failures, response decoding, and the generation of
 functions and help from each endpoint table. `tools/validate` checks that the copies
 match and that each manifest allows exactly the table's routes, with writes only on
 read-write connections.

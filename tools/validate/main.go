@@ -11,14 +11,19 @@ import (
 	"github.com/aibakery/houston-hub/tools/typecheck"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 )
 
 // Bundles migrated to the current runtime. Pass a directory to validate another.
 var migrated = []string{"connectors/fastmail", "connectors/notion", "connectors/gmail", "connectors/gcalendar", "connectors/gdrive", "connectors/mercury", "connectors/x", "connectors/linkedin", "connectors/clickhouse", "connectors/mariadb", "connectors/mysql", "connectors/postgres", "connectors/redis", "connectors/imap", "connectors/supabase", "connectors/woocommerce", "connectors/calcom", "connectors/calendly", "connectors/dropbox", "connectors/resend"}
 
+// Bundles still on the old synchronous HTTP API: they fail type analysis, but their
+// fixtures run. Every bundle belongs to exactly one of these lists.
+var unmigrated = []string{"connectors/attio", "connectors/granola", "connectors/slack"}
+
 func main() {
-	roots := migrated
+	roots := append(append([]string{}, migrated...), unmigrated...)
 	if len(os.Args) > 2 {
 		fmt.Fprintln(os.Stderr, "usage: go run ./tools/validate [bundle-or-catalog-directory]")
 		os.Exit(2)
@@ -39,7 +44,7 @@ func main() {
 }
 func validate(root string) (int, error) {
 	if _, err := os.Stat(filepath.Join(root, "houston.json")); err == nil {
-		return 1, validateBundle(root)
+		return 1, validateBundle(root, typed(filepath.Base(root)))
 	}
 	entries, err := os.ReadDir(filepath.Join(root, "connectors"))
 	if err != nil {
@@ -50,7 +55,7 @@ func validate(root string) (int, error) {
 		if !entry.IsDir() {
 			continue
 		}
-		if err := validateBundle(filepath.Join(root, "connectors", entry.Name())); err != nil {
+		if err := validateBundle(filepath.Join(root, "connectors", entry.Name()), typed(entry.Name())); err != nil {
 			return count, fmt.Errorf("%s: %w", entry.Name(), err)
 		}
 		count++
@@ -60,7 +65,13 @@ func validate(root string) (int, error) {
 	}
 	return count, nil
 }
-func validateBundle(dir string) error {
+
+// typed reports whether a bundle is on the current runtime and so gets type analysis.
+func typed(name string) bool { return !slices.Contains(unmigrated, "connectors/"+name) }
+
+// validateBundle runs every publication check; typed=false skips type analysis for
+// bundles still on the old runtime API.
+func validateBundle(dir string, typed bool) error {
 	raw, err := bundleFile(dir, "houston.json")
 	if err != nil {
 		return err
@@ -100,8 +111,10 @@ func validateBundle(dir string) error {
 	}); err != nil {
 		return err
 	}
-	if err := typecheck.Check(context.Background(), "", *m, modules); err != nil {
-		return err
+	if typed {
+		if err := typecheck.Check(context.Background(), "", *m, modules); err != nil {
+			return err
+		}
 	}
 	if err := conformance.Check(context.Background(), "", *m, modules, fixtures); err != nil {
 		return err

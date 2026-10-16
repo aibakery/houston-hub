@@ -1,15 +1,9 @@
-local function encode(value: any)
-    return (string.gsub(tostring(value), "[^A-Za-z0-9%-_%.~]", function(c: any)
-        return string.format("%%%02X", string.byte(c))
-    end))
-end
-
 local function query_string(params: any)
     local parts = {}
     local function add(key: any, value: any)
         if value == nil then return end
         if type(value) == "table" then for _, item in value do add(key, item) end
-        else parts[#parts + 1] = encode(key) .. "=" .. encode(value) end
+        else parts[#parts + 1] = url.encode(key) .. "=" .. url.encode(value) end
     end
     for key, value in params or {} do add(key, value) end
     table.sort(parts)
@@ -34,18 +28,18 @@ end
 
 local function request(method: any,params: any,write: any)
 	params = params or {}
-	local url = BASE .. method
+	local target = BASE .. method
 	local body, headers
 	if write then
 		body = json.encode(params)
 		headers = { ["Content-Type"] = "application/json; charset=utf-8" }
 	else
 		local query = query_string(params)
-		if query ~= "" then url ..= "?" .. query end
+		if query ~= "" then target ..= "?" .. query end
 	end
 	local response = http.request({
 		method = if write then "POST" else "GET",
-		url = url,
+		url = target,
 		body = body,
 		headers = headers,
 	})

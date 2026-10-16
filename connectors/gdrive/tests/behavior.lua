@@ -41,8 +41,8 @@ return {
 
 		local bytes = string.char(0, 255, 13, 10) .. "binary payload"
 		responses = {{body = bytes}, {body = "# Notes"}}
-		local saved = c.downloadFile({fileId = "f/1", path = "downloads/report.bin"})
-		assert(requests[#requests].url == API .. "/files/f%2F1?alt=media&supportsAllDrives=true", requests[#requests].url)
+		local saved = c.downloadFile({fileId = "f:1", path = "downloads/report.bin"})
+		assert(requests[#requests].url == API .. "/files/f%3A1?alt=media&supportsAllDrives=true", requests[#requests].url)
 		assert(saved.path == "downloads/report.bin" and saved.url == "https://houston.test/downloads/report.bin" and saved.size == #bytes)
 		local fd = fs.open("downloads/report.bin", "r")
 		assert(await(fd:readAll()) == bytes)
@@ -53,6 +53,13 @@ return {
 		local ok, err = pcall(c.downloadFile, {fileId = "doc", path = "doc.bin"})
 		assert(not ok and string.find(tostring(err), "fileNotDownloadable", 1, true), tostring(err))
 		assert(not pcall(c.downloadFile, {fileId = "f1"}), "download requires a path")
+		local sent = #requests
+		for _, id in {"f/1", "..", "f%2F1", "f\\1", "f\t1"} do
+			local rejected, problem = pcall(c.downloadFile, {fileId = id, path = "x.bin"})
+			assert(not rejected and problem.code == "invalid_argument" and string.find(problem.message, "fileId must be one", 1, true))
+			assert(not pcall(c.statFile, id))
+		end
+		assert(#requests == sent, "invalid IDs must not reach the network")
 
 		local upload = fs.open("uploads/report.pdf", "w")
 		upload:write(bytes)
@@ -73,6 +80,9 @@ return {
 		assert(start.method == "PATCH" and string.find(start.url, "/upload/drive/v3/files/up?", 1, true) and start.body == "{}", start.body)
 		responses = {{}}
 		assert(not pcall(c.uploadFile, {path = "uploads/report.pdf"}), "upload without a session URL")
+		sent = #requests
+		for _, id in {"..", "up/1", "up%2F1"} do assert(not pcall(c.uploadFile, {path = "uploads/report.pdf", fileId = id})) end
+		assert(#requests == sent, "invalid file IDs must not reach Google")
 
 		responses = {{body = '{"id":"moved"}'}, {status = 204}}
 		c.updateFile({fileId = "f1", addParents = "dir", name = "Renamed"})

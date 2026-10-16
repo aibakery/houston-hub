@@ -29,12 +29,6 @@ local function id(value: any, field: string): string
 	return result
 end
 
-local function encode(value: string): string
-	return (string.gsub(value, "[^A-Za-z0-9%-_%.~]", function(c: string)
-		return string.format("%%%02X", string.byte(c))
-	end))
-end
-
 local function list(value: any, field: string): {string}
 	assert(type(value) == "table", field .. " must be an array")
 	local count = 0
@@ -67,7 +61,7 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 		local value = if field == "id" then id(args[field], field) else text(args[field], field)
 		if field == "username" then assert(#value <= 15 and string.match(value, "^[A-Za-z0-9_]+$"), "username must be an X handle without @") end
 		args[field] = nil
-		return encode(value)
+		return url.segment(value, field)
 	end)
 	local query: {string} = {}
 	local function take(field: string, default: any, csv: boolean?)
@@ -76,7 +70,7 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 		if value == nil then value = default end
 		if value == nil then return end
 		if csv and type(value) == "table" then value = table.concat(list(value, field), ",") end
-		table.insert(query, encode(field) .. "=" .. encode(text(value, field)))
+		table.insert(query, url.encode(field) .. "=" .. url.encode(text(value, field)))
 	end
 	if endpoint.kind == "batch" then
 		local ids = list(args.ids, "ids")

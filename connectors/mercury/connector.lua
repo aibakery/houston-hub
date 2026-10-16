@@ -20,16 +20,10 @@ local function options(input: Options?): Options
 	return table.clone(input)
 end
 
-local function encode(value: string): string
-	return (string.gsub(value, "[^A-Za-z0-9%-_%.~]", function(c: string)
-		return string.format("%%%02X", string.byte(c))
-	end))
-end
-
 local function identifier(value: any, field: string): string
 	local id = text(value, field)
 	assert(string.match(id, "^[%w%-_]+$"), field .. " must be an ID, not a URL or path")
-	return encode(id)
+	return id
 end
 
 local function queryValue(value: any, field: string, spec: Query): string
@@ -43,13 +37,11 @@ local function queryValue(value: any, field: string, spec: Query): string
 		text(value, field)
 	end
 	if spec.enum then assert(table.find(spec.enum, value), field .. " has an unsupported value") end
-	return encode(tostring(value))
+	return url.encode(value)
 end
 
 local function fail(name: string, response: HttpResponse): never
-	local chunk = await(response.body:read(4096))
-	response.body:close()
-	local ok, value = pcall(json.decode, if chunk.done then "" else chunk.data)
+	local ok, value = pcall(json.decode, await(response.body:readPrefix(4096)))
 	local message = "Mercury HTTP " .. tostring(response.statusCode)
 	if ok and type(value) == "table" then
 		local detail = value.message or value.error
@@ -120,7 +112,7 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 	local query: {string} = {}
 	for field, spec in endpoint.query do
 		if args[field] ~= nil then
-			table.insert(query, encode(field) .. "=" .. queryValue(args[field], field, spec))
+			table.insert(query, url.encode(field) .. "=" .. queryValue(args[field], field, spec))
 			args[field] = nil
 		end
 	end

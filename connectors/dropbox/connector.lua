@@ -30,9 +30,7 @@ local function headerJSON(value: Options): string
 end
 
 local function fail(operation: string, response: HttpResponse): never
-	local chunk = await(response.body:read(4096))
-	response.body:close()
-	local raw = if chunk.done then "" else chunk.data
+	local raw = await(response.body:readPrefix(4096))
 	-- Route errors are JSON with an error_summary such as "path/not_found/.."; bad input is plain text.
 	local ok, decoded = pcall(json.decode, raw)
 	local problem = if ok and type(decoded) == "table" then decoded else {}

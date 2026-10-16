@@ -89,6 +89,7 @@ return {
 			function() return c.getMessage({}) end, function() return c.getMessage("m1") end, function() return c.getMessage({id = "m1", format = "raw"}) end,
 			function() return c.getMessage({id = "m1", maxBodyBytes = -1}) end, function() return c.getMessage({id = "m1", extra = true}) end,
 			function() return c.getMessages({ids = {}}) end, function() return c.getMessages({ids = {"a", ""}}) end,
+			function() return c.getMessage({id = ".."}) end, function() return c.getMessage({id = "m/1"}) end, function() return c.getMessages({ids = {"a", "b%2Fc"}}) end, function() return c.getMessages({ids = {"a", nil, "c"}}) end,
 			function() return c.listMessages({unknown = 1}) end,
 		} do assert(not pcall(call)) end
 		assert(#requests == count, "invalid input reached Google")

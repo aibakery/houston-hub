@@ -4,13 +4,14 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 )
 
 func TestSupportedBundles(t *testing.T) {
-	for _, name := range []string{"fastmail", "notion", "gmail", "gcalendar", "gdrive", "mercury", "x", "linkedin", "calcom", "calendly", "dropbox", "resend"} {
-		t.Run(name, func(t *testing.T) {
-			count, err := validate("../../connectors/" + name)
+	for _, dir := range migrated {
+		t.Run(filepath.Base(dir), func(t *testing.T) {
+			count, err := validate("../../" + dir)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -18,6 +19,28 @@ func TestSupportedBundles(t *testing.T) {
 				t.Fatalf("validated %d bundles, want 1", count)
 			}
 		})
+	}
+}
+
+func TestUnmigratedBundleFixtures(t *testing.T) {
+	for _, dir := range unmigrated {
+		t.Run(filepath.Base(dir), func(t *testing.T) {
+			if _, err := validate("../../" + dir); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+func TestEveryBundleIsListedOnce(t *testing.T) {
+	entries, err := os.ReadDir("../../connectors")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, entry := range entries {
+		dir := "connectors/" + entry.Name()
+		if entry.IsDir() && slices.Contains(migrated, dir) == slices.Contains(unmigrated, dir) {
+			t.Errorf("%s must be in exactly one of migrated and unmigrated", dir)
+		}
 	}
 }
 func TestStandaloneBundleAndPrivateFiles(t *testing.T) {

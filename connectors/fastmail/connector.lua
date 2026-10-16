@@ -72,12 +72,6 @@ type IdentityOptions = {identityId: string?, from: string?}
 type UploadOptions = {path: string, mimeType: string, operation: string}
 type SubmitOptions = {operation: string, identity: Identity, fields: any}
 
-local function encode(value: string): string
-	return (string.gsub(tostring(value), "[^A-Za-z0-9%-_%.~]", function(c: any)
-		return string.format("%%%02X", string.byte(c))
-	end))
-end
-
 local function fail(operation: string, message: string): never
 	error(json.encode({ connector = "fastmail", operation = operation, layer = "upstream", message = message, retryable = false }))
 end
@@ -90,12 +84,11 @@ end
 
 local function upstream(operation: string, response: HttpResponse)
 	local status = response.statusCode
-	local chunk = await(response.body:read(ERROR_SNIPPET_BYTES))
-	response.body:close()
+	local body = await(response.body:readPrefix(ERROR_SNIPPET_BYTES))
 	houston.fail({
 		operation = operation, layer = "upstream", upstream_status = status,
 		retryable = status == 429 or status == 502 or status == 503 or status == 504,
-		message = "upstream HTTP " .. tostring(status) .. " " .. snippet(if chunk.done then "" else chunk.data),
+		message = "upstream HTTP " .. tostring(status) .. " " .. snippet(body),
 	})
 end
 
@@ -458,31 +451,41 @@ function functions.getAttachments(input: Id | DownloadsOptions, requested: {Down
 	messageId = id_of(messageId)
 	if type(items) ~= "table" then error("fastmail.getAttachments requires attachment items") end
 	if #items == 0 then return json.decode("[]") end
+	local folder = "attachments/" .. url.segment(messageId, "messageId") .. "/"
+	local ids, blobs = {}, {}
+	for index, item in items do
+		ids[index] = id_of(item)
+		blobs[index] = url.segment(ids[index], "blobId")
+	end
 	local s = session()
 	local template = s.downloadUrl
 	if type(template) ~= "string" then return fail("getAttachments", "Missing download URL") end
+	local account = url.segment(s.accountId, "accountId")
 	local byId = {}
 	for _, item in functions.listAttachments(messageId) do byId[item.id] = item end
 	local jobs, paths = {}, {}
-	for _, item in items do
-		local id = id_of(item)
+	for index, item in items do
+		local id = ids[index]
 		local attachment = byId[id]
 		if not attachment then error("fastmail: attachment does not belong to this message") end
 		local path = type(item) == "table" and item.path or nil
-		path = path or ("attachments/" .. encode(messageId) .. "/" .. encode(id))
+		local blob = blobs[index]
+		path = path or (folder .. blob)
 		if paths[path] then error("fastmail: attachment paths must be distinct") end
 		paths[path] = true
-		local values = { accountId = s.accountId, blobId = id, name = attachment.filename or "attachment", type = attachment.mimeType or "application/octet-stream" }
-		local url = string.gsub(template, "{(%w+)}", function(key: any) return encode(values[key] or "") end)
-		jobs[#jobs + 1] = { path = path, size = attachment.size, url = url }
+		-- Placeholders are filled by name, wherever the server puts them. IDs must be safe path
+		-- segments; the name only labels the download, so one url.segment refuses becomes a
+		-- plain label. Fastmail puts {type}, which contains a slash, in the query.
+		local ok, name = pcall(url.segment, attachment.filename or "attachment")
+		local values = { accountId = account, blobId = blob, name = if ok then name else "attachment",
+			type = url.encode(if type(attachment.mimeType) == "string" then attachment.mimeType else "application/octet-stream") }
+		local link = string.gsub(template, "{(%w+)}", function(key: any) return values[key] or "" end)
+		jobs[#jobs + 1] = { path = path, size = attachment.size, url = link }
 	end
 	local out = {}
 	for _, job in jobs do
 		local res = await(http.request({ method = "GET", url = job.url }))
-		if res.statusCode < 200 or res.statusCode >= 300 then
-			res.body:close()
-			fail("getAttachment", "Download failed")
-		end
+		if res.statusCode < 200 or res.statusCode >= 300 then upstream("getAttachment", res) end
 		local output = fs.open(job.path, "w")
 		output:write(res.body)
 		await(output:close())
@@ -611,11 +614,12 @@ local function upload_blob(options: UploadOptions): any
 	if type(template) ~= "string" or string.find(template, "{accountId}", 1, true) == nil then
 		return fail(operation, "Fastmail session has no upload URL")
 	end
-	local url = string.gsub(template, "{accountId}", encode(s.accountId))
+	local account = url.segment(s.accountId, "accountId")
+	local endpoint = string.gsub(template, "{accountId}", function() return account end)
 	local stat = await(fs.stat(path))
 	if not stat.isFile then error("fastmail: attachment path must be a file") end
 	local response = await(http.request({
-		method = "POST", url = url, body = fs.open(path, "r"), headers = { ["Content-Type"] = { mime } },
+		method = "POST", url = endpoint, body = fs.open(path, "r"), headers = { ["Content-Type"] = { mime } },
 	}))
 	if response.statusCode < 200 or response.statusCode >= 300 then
 		upstream(operation, response)

@@ -4,23 +4,6 @@
 
 local BASE = "https://public-api.granola.ai/v1"
 
-local function encode(s: any)
-	s = tostring(s)
-	return (string.gsub(s, "[^A-Za-z0-9%-_%.~]", function(c: any)
-		return string.format("%%%02X", string.byte(c))
-	end))
-end
-
-local function scalar(value: any)
-	if type(value) == "boolean" then
-		if value then
-			return "true"
-		end
-		return "false"
-	end
-	return tostring(value)
-end
-
 local function add_query(parts: any,key: any,value: any)
 	if value == nil then
 		return
@@ -31,7 +14,7 @@ local function add_query(parts: any,key: any,value: any)
 		end
 		return
 	end
-	parts[#parts + 1] = encode(key) .. "=" .. encode(scalar(value))
+	parts[#parts + 1] = url.encode(key) .. "=" .. url.encode(value)
 end
 
 local function query_string(params: any)
@@ -53,14 +36,14 @@ local function query_string(params: any)
 end
 
 local function request(method: any,path: any,params: any,operation: any)
-	local url = BASE .. path
+	local target = BASE .. path
 	local qs = query_string(params)
 	if qs ~= "" then
-		url = url .. "?" .. qs
+		target = target .. "?" .. qs
 	end
 	local response = http.request({
 		method = method,
-		url = url,
+		url = target,
 	})
 	if response.status < 200 or response.status >= 300 then
 		houston.fail({operation = operation, layer = "upstream", upstream_status = response.status,
@@ -131,7 +114,7 @@ function functions.getNote(id: any,opts: any)
 	if type(id) ~= "string" or id == "" then
 		error("granola.getNote requires a note id")
 	end
-	return request("GET", "/notes/" .. encode(id), get_note_params(opts), "getNote")
+	return request("GET", "/notes/" .. url.segment(id, "id"), get_note_params(opts), "getNote")
 end
 
 function functions.listFolders(opts: any)
@@ -146,7 +129,7 @@ function functions.getTranscript(id: any,opts: any)
 	if type(id) ~= "string" or id == "" then
 		error("granola.getTranscript requires a note id")
 	end
-	return request("GET", "/notes/" .. encode(id) .. "/transcript", page_params(opts), "getTranscript")
+	return request("GET", "/notes/" .. url.segment(id, "id") .. "/transcript", page_params(opts), "getTranscript")
 end
 
 local operationHelp: {[string]: string} = {

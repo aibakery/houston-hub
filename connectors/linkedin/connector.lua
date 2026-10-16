@@ -38,9 +38,7 @@ local function send(operation: string, request: HttpRequest): HttpResponse
 	local response = await(http.request(request))
 	if response.statusCode >= 200 and response.statusCode < 300 then return response end
 	-- LinkedIn errors are small JSON objects: keep only their code and message.
-	local chunk = await(response.body:read(4096))
-	response.body:close()
-	local ok, body = pcall(json.decode, if chunk.done then "" else chunk.data)
+	local ok, body = pcall(json.decode, await(response.body:readPrefix(4096)))
 	local message = "LinkedIn HTTP " .. tostring(response.statusCode)
 	if ok and type(body) == "table" then
 		if type(body.code) == "string" then message ..= " (" .. body.code .. ")" end
@@ -120,7 +118,7 @@ local function deletePost(id: string): {id: string}
 	local urn = text(id, "id")
 	assert(string.match(urn, "^urn:li:share:%d+$") or string.match(urn, "^urn:li:ugcPost:%d+$"),
 		"id must be a post URN such as urn:li:share:123")
-	rest("deletePost", "DELETE", "/rest/posts/" .. (string.gsub(urn, ":", "%%3A"))).body:close()
+	rest("deletePost", "DELETE", "/rest/posts/" .. url.segment(urn, "id")).body:close()
 	return {id = urn}
 end
 

@@ -208,16 +208,10 @@ local function options(input: Options?): Options
 	return table.clone(input)
 end
 
-local function encode(value: string): string
-	return (string.gsub(value, "[^A-Za-z0-9%-_%.~]", function(c: string)
-		return string.format("%%%02X", string.byte(c))
-	end))
-end
-
 local function scalar(value: any, field: string): string
 	local kind = type(value)
 	assert(kind == "string" or kind == "boolean" or kind == "number", field .. " must be a string, boolean, number or array of those")
-	return encode(tostring(value))
+	return url.encode(value)
 end
 
 -- Only GET reads unless write says otherwise.
@@ -230,20 +224,6 @@ end
 -- (no body) or names the one option to send.
 local function hasBody(endpoint: Endpoint): boolean
 	return endpoint.body ~= false and (endpoint.method == "POST" or endpoint.method == "PATCH" or endpoint.method == "PUT")
-end
-
--- Reads at most 16 KiB of an error body; one read can return any part of it.
-local function errorBody(response: HttpResponse): string
-	local parts: {string} = {}
-	local size, limit = 0, 16 * 1024
-	while size < limit do
-		local chunk = await(response.body:read(limit - size))
-		if chunk.done then break end
-		table.insert(parts, chunk.data)
-		size += #chunk.data
-	end
-	response.body:close()
-	return table.concat(parts)
 end
 
 local function fail(name: string, response: HttpResponse, message: string): never
@@ -306,19 +286,19 @@ end
 
 -- IDs are UUIDs, or msg_... for webhook events. Contacts and suppressions also take an email
 -- address, templates an alias and events a name, such as user.created. Each is one encoded
--- path segment, as in Resend's SDK; separators, percent signs, control characters and dot
--- segments are refused.
+-- path segment, as in Resend's SDK; url.segment refuses separators, percent signs, control
+-- characters and dot segments.
 local function identifier(value: any, field: string): string
-	assert(type(value) == "string" and value ~= "" and not string.find(value, "[/\\%%%c]") and not string.match(value, "^%.+$"),
-		field .. " must be an ID, email address, alias or name")
-	return encode(value)
+	local ok, segment = pcall(url.segment, value)
+	assert(ok, field .. " must be an ID, email address, alias or name")
+	return segment
 end
 
 -- Resend errors are {statusCode, name, message}. Rate limits, in-flight idempotent requests and
 -- locked resources clear on their own; daily and monthly quotas (also HTTP 429) do not.
 local function failStatus(name: string, response: HttpResponse): never
 	local status = response.statusCode
-	local ok, value = pcall(json.decode, errorBody(response))
+	local ok, value = pcall(json.decode, await(response.body:readPrefix(16 * 1024)))
 	local problem = if ok and type(value) == "table" then value else {}
 	local code = if type(problem.name) == "string" then problem.name else nil
 	local message = PROVIDER .. " HTTP " .. tostring(status)
@@ -338,9 +318,9 @@ end
 
 -- Attachment links are signed URLs on Resend's CDN hosts, which receive no API key.
 local function save(name: string, attachment: any, path: string): any
-	local url = attachment.download_url
-	assert(type(url) == "string" and string.match(url, "^https://"), PROVIDER .. " returned no attachment download_url")
-	local response = await(http.request({method = "GET", url = url, headers = {["User-Agent"] = {USER_AGENT}}}))
+	local link = attachment.download_url
+	assert(type(link) == "string" and string.match(link, "^https://"), PROVIDER .. " returned no attachment download_url")
+	local response = await(http.request({method = "GET", url = link, headers = {["User-Agent"] = {USER_AGENT}}}))
 	if response.statusCode ~= 200 then failStatus(name, response) end
 	local file = fs.open(path, "w")
 	file:write(response.body)

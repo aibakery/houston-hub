@@ -26,7 +26,7 @@ type Readable = {
     read: (Readable, number) -> Operation<ReadResult>,
     readAll: (Readable, number?) -> Operation<string>,
 }
-type StreamReader = Readable & {close: (Readable) -> ()}
+type StreamReader = Readable & {close: (Readable) -> (), readPrefix: (Readable, number) -> Operation<string>}
 type Reader = StreamReader | File
 type ByteSource = string | Reader
 type Writer = {write: (Writer, ByteSource) -> Operation<number>}
@@ -46,6 +46,7 @@ local await: <T>(Operation<T>, number?) -> T = nil :: any
 local awaitAll: ({Operation<any>}, number?) -> PackedResults<any> = nil :: any
 local http: {request: (HttpRequest) -> Operation<HttpResponse>,multipart: ({MultipartPart}) -> (StreamReader,string)} = nil :: any
 local compression: {gzip:(Reader)->StreamReader,gunzip:(Reader)->StreamReader} = nil :: any
+local url: {encode:(string | number | boolean)->string,segment:(string,string?)->string} = nil :: any
 type DbParam = string | number | boolean
 type DbQuery = {sql:string,params:({DbParam} | {[string]:DbParam})?,maxRows:number?,readOnly:boolean?}
 type DbResult = {columns:{string},rows:{{[string]:any}},truncated:boolean,affectedRows:number?,lastInsertId:number?}

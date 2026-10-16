@@ -18,12 +18,6 @@ local function options(value: any): Options
 	return table.clone(value)
 end
 
-local function encode(value: string): string
-	return (string.gsub(value, "[^A-Za-z0-9%-_%.~]", function(c: string)
-		return string.format("%%%02X", string.byte(c))
-	end))
-end
-
 -- Moves the named fields from args into a query string; arrays repeat the key.
 local function query(args: Options, names: {string}): string
 	local parts: {string} = {}
@@ -32,16 +26,14 @@ local function query(args: Options, names: {string}): string
 		args[name] = nil
 		for _, item in (if type(value) == "table" then value else {value}) do
 			assert(type(item) == "string" or type(item) == "number" or type(item) == "boolean", name .. " must be a string, number, boolean or an array of them")
-			table.insert(parts, encode(name) .. "=" .. encode(tostring(item)))
+			table.insert(parts, url.encode(name) .. "=" .. url.encode(item))
 		end
 	end
 	return if #parts > 0 then "?" .. table.concat(parts, "&") else ""
 end
 
 local function fail(operation: string, response: HttpResponse): never
-	local chunk = await(response.body:read(4096))
-	response.body:close()
-	local ok, decoded = pcall(json.decode, if chunk.done then "" else chunk.data)
+	local ok, decoded = pcall(json.decode, await(response.body:readPrefix(4096)))
 	local problem = if ok and type(decoded) == "table" and type(decoded.error) == "table" then decoded.error else {}
 	local reason = type(problem.errors) == "table" and type(problem.errors[1]) == "table" and problem.errors[1].reason
 	local message = "Google HTTP " .. tostring(response.statusCode)
@@ -67,8 +59,8 @@ local function decode(operation: string, response: HttpResponse): any
 	return value
 end
 
-local function call(operation: string, method: string, url: string, body: any?): any
-	return decode(operation, await(http.request({method = method, url = url,
+local function call(operation: string, method: string, href: string, body: any?): any
+	return decode(operation, await(http.request({method = method, url = href,
 		headers = if body ~= nil then {["Content-Type"] = {"application/json"}} else nil,
 		body = if body ~= nil then json.encode(body) else nil})))
 end
@@ -80,7 +72,7 @@ local function target(name: string, endpoint: Endpoint, args: Options): string
 		if args[key] == nil then args[key] = value end
 	end
 	local path = string.gsub(endpoint.path, "{(%w+)}", function(field: string)
-		local value = encode(text(args[field], field))
+		local value = url.segment(text(args[field], field), field)
 		args[field] = nil
 		return value
 	end)
@@ -187,8 +179,8 @@ local function upload(input: any): any
 	local contentType = text(args.contentType or "application/octet-stream", "contentType")
 	args.path, args.fileId, args.contentType = nil, nil, nil
 	if fileId == nil and args.name == nil then args.name = string.match(path, "[^/]+$") end
-	local url = UPLOAD .. "/files" .. (if fileId then "/" .. encode(fileId) else "") .. "?uploadType=resumable&supportsAllDrives=true&fields=" .. encode(FILE_FIELDS)
-	local session = await(http.request({method = if fileId then "PATCH" else "POST", url = url, body = json.encode(args),
+	local start = UPLOAD .. "/files" .. (if fileId then "/" .. url.segment(fileId, "fileId") else "") .. "?uploadType=resumable&supportsAllDrives=true&fields=" .. url.encode(FILE_FIELDS)
+	local session = await(http.request({method = if fileId then "PATCH" else "POST", url = start, body = json.encode(args),
 		headers = {["Content-Type"] = {"application/json; charset=UTF-8"}, ["X-Upload-Content-Type"] = {contentType}}}))
 	if session.statusCode < 200 or session.statusCode >= 300 then fail("uploadFile", session) end
 	session.body:close()
@@ -208,7 +200,7 @@ end
 export("statFile", true, function(...: any): {id: string, name: string, isFolder: boolean, size: number?}
 	assert(select("#", ...) == 1, "statFile takes exactly one file ID")
 	local id = text((...), "file ID")
-	local file = call("statFile", "GET", API .. "/files/" .. encode(id) .. "?fields=id%2Cname%2CmimeType%2Csize&supportsAllDrives=true")
+	local file = call("statFile", "GET", API .. "/files/" .. url.segment(id, "file ID") .. "?fields=id%2Cname%2CmimeType%2Csize&supportsAllDrives=true")
 	local size = if file.size == nil then nil else tonumber(file.size)
 	if type(file.id) ~= "string" or file.id == "" or type(file.name) ~= "string"
 		or (file.size ~= nil and (size == nil or size < 0 or size % 1 ~= 0 or size > 9007199254740991)) then
