@@ -633,28 +633,6 @@
     {
       "action": {
         "headers": {
-          "set": {
-            "Authorization": "Bearer {{auth.oauth.access_token || auth.token.token}}"
-          }
-        }
-      },
-      "if": "{{ is config.access \"read-write\" }}",
-      "match": {
-        "host": [
-          "uploads.github.com"
-        ],
-        "method": [
-          "POST"
-        ],
-        "path": [
-          "/repos/{owner}/{repo}/releases/{release_id}/assets"
-        ],
-        "protocol": "http"
-      }
-    },
-    {
-      "action": {
-        "headers": {
           "remove": [
             "Authorization"
           ]

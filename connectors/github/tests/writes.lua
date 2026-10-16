@@ -39,7 +39,7 @@ return {
 
 		local names = {}
 		for name in github do if name ~= "help" then table.insert(names, name) end end
-		assert(#names == 144, "wrong read-write surface: " .. #names)
+		assert(#names == 143, "wrong read-write surface: " .. #names)
 
 		payload = '{"number":12,"title":"Crash","labels":[{"name":"bug"}]}'
 		local issue = github.createIssue({owner = "o", repo = "r", title = "Crash", body = "Steps", labels = {"bug"}})

@@ -27,7 +27,7 @@ return {
 			assert(string.match(name, "^get") or string.match(name, "^list") or string.match(name, "^search") or string.match(name, "^compare") or string.match(name, "^download"), "read-only exports a write: " .. name)
 		end
 		for _, name in {"createIssue", "updateIssue", "createIssueComment", "createPull", "mergePull", "putFile", "deleteFile", "createRef",
-			"deleteRef", "createRelease", "uploadReleaseAsset", "dispatchWorkflow", "cancelWorkflowRun", "createGist", "markThreadDone", "updateRepo",
+			"deleteRef", "createRelease", "dispatchWorkflow", "cancelWorkflowRun", "createGist", "markThreadDone", "updateRepo",
 			"generateReleaseNotes", "removeAssignees"} do
 			assert(github[name] == nil, "read-only leaked " .. name)
 		end

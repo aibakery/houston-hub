@@ -588,7 +588,7 @@ on every refresh. GitHub Apps support only the `offline_access` scope, and the t
 `scope` is empty: requesting it would fail Houston's granted-scope check, so the
 method requests none and relies on the app's expiring tokens.
 
-The connector covers 146 REST operations, checked on
+The connector covers 145 REST operations, checked on
 2026-10-16 against GitHub's [REST OpenAPI
 description](https://github.com/github/rest-api-description) 1.1.4 at commit
 `798498bd`: users, organizations, teams and app installations; repositories,
@@ -612,11 +612,12 @@ responses contain plaintext secrets; Codespaces, Copilot and packages; GitHub Ap
 installation token and credential revocation endpoints; and check run writes,
 which require installation tokens. Not yet covered: issue and repository events,
 commit and gist comments, other reactions, stars and subscriptions, deployments and
-environments, Pages, and issue dependencies and sub-issue writes.
+environments, Pages, and issue dependencies and sub-issue writes. Release asset
+uploads wait for a runtime change: GitHub requires `Content-Length`, which Houston
+does not yet send for streamed file bodies.
 
-Credentials go only to the listed routes on `api.github.com` and the release asset
-upload route on `uploads.github.com`; writes require read-write access. Branch,
-ref, path, tag, tree, compare and label values travel as single encoded path segments
+Credentials go only to the listed routes on `api.github.com`; writes require
+read-write access. Branch, ref, path, tag, tree, compare and label values travel as single encoded path segments
 through opaque-parameter rules, which GitHub accepts and which keep them from
 reaching sub-resources. A credential-free GET rule serves signed download
 redirects: `codeload.github.com` for archives, release asset storage on
@@ -630,7 +631,7 @@ for private repositories carries a signed token usable outside Houston.
 
 This is a new registration with no existing connections. Fixtures cover both
 methods and access levels, routes, opaque encoding, bodies, downloads through
-redirects, uploads and error mapping; GitHub App sign-in, token refresh, paging and
+redirects and error mapping; GitHub App sign-in, token refresh, paging and
 a disposable write remain to verify live, as does the SETUP install route. Encoded
 `%2F` branch, ref, path and compare values were checked with unauthenticated
 requests on public repositories.

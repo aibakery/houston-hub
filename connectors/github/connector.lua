@@ -1,10 +1,9 @@
 -- GitHub REST API, version 2026-03-10. Arguments and results keep GitHub's native field names.
 type Options = {[string]: any}
 type Endpoint = {method: string, path: string, query: {string}?, required: {string}?, body: boolean?, save: string?,
-	diff: boolean?, upload: boolean?, auth: string?, about: string}
+	diff: boolean?, auth: string?, about: string}
 
 local API = "https://api.github.com"
-local UPLOADS = "https://uploads.github.com"
 local VERSION = "2026-03-10"
 local JSON = "application/vnd.github+json"
 
@@ -183,8 +182,6 @@ local endpoints: {[string]: Endpoint} = {
 	listReleaseAssets = {method = "GET", path = "/repos/{owner}/{repo}/releases/{release_id}/assets", query = {"per_page", "page"}, about = ""},
 	getReleaseAsset = {method = "GET", path = "/repos/{owner}/{repo}/releases/assets/{asset_id}", save = "application/octet-stream",
 		about = "Asset metadata; save_as saves the asset's bytes as a session file."},
-	uploadReleaseAsset = {method = "POST", path = "/repos/{owner}/{repo}/releases/{release_id}/assets", query = {"name", "label"}, required = {"name", "file"},
-		upload = true, about = "Uploads a session file as asset name; content_type defaults to application/octet-stream."},
 	deleteReleaseAsset = {method = "DELETE", path = "/repos/{owner}/{repo}/releases/assets/{asset_id}", about = ""},
 
 	listWorkflows = {method = "GET", path = "/repos/{owner}/{repo}/actions/workflows", query = {"per_page", "page"}, about = "{total_count, workflows}."},
@@ -391,26 +388,18 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 		args[field] = nil
 	end
 	if #query > 0 then path ..= "?" .. table.concat(query, "&") end
-	local origin = API
-	local upload: string? = nil
-	local body: any = nil
-	if endpoint.upload then
-		origin = UPLOADS
-		upload = text(args.file, "file")
-		headers["Content-Type"] = {text(args.content_type or "application/octet-stream", "content_type")}
-		args.file, args.content_type = nil, nil
-	elseif endpoint.body or endpoint.method == "POST" or endpoint.method == "PATCH" or endpoint.method == "PUT" then
+	local body: string? = nil
+	if endpoint.body or endpoint.method == "POST" or endpoint.method == "PATCH" or endpoint.method == "PUT" then
 		headers["Content-Type"] = {"application/json"}
 		body = json.encode(args)
 		args = {}
 	end
 	local unknown = next(args)
 	assert(unknown == nil, name .. " has no option " .. tostring(unknown))
-	-- Open session files before the request, so a bad path never reaches GitHub; close them on failure.
-	local file: any = nil
-	if upload then file = await(fs.open(upload, "r")) elseif destination then file = await(fs.open(destination, "w")) end
+	-- Open the destination before the request, so a bad path never reaches GitHub; close it on failure.
+	local file: any = if destination then await(fs.open(destination, "w")) else nil
 	local ok, result = pcall(function(): any
-		local response = await(http.request({method = endpoint.method, url = origin .. path, headers = headers, body = if upload then file else body}))
+		local response = await(http.request({method = endpoint.method, url = API .. path, headers = headers, body = body}))
 		if destination then return save(name, response, file, destination) end
 		if response.statusCode < 200 or response.statusCode >= 300 then fail(name, response) end
 		if format then return await(response.body:readAll()) end
@@ -445,7 +434,6 @@ local function signature(endpoint: Endpoint): string
 	end
 	if endpoint.save then table.insert(fields, if table.find(required, "save_as") then "save_as" else "save_as?") end
 	if endpoint.diff then table.insert(fields, "format?") end
-	if endpoint.upload then table.insert(fields, "file, content_type?") end
 	return "({" .. table.concat(fields, ", ") .. "})"
 end
 

@@ -40,8 +40,7 @@ func TestGitHubAuthenticationAndAccessRoutes(t *testing.T) {
 				"POST "+api+"/repos/o/r/issues", "PATCH "+api+"/repos/o/r/pulls/1", "PUT "+api+"/repos/o/r/pulls/1/merge",
 				"PUT "+api+"/repos/o/r/contents/docs%2Fa.md", "DELETE "+api+"/repos/o/r/contents/docs%2Fa.md",
 				"PATCH "+api+"/repos/o/r/git/refs/heads%2Fx", "DELETE "+api+"/repos/o/r/git/refs/heads%2Fx",
-				"DELETE "+api+"/repos/o/r/issues/1/labels/area%2Fui", "POST "+api+"/repos/o/r/branches/old%2Fname/rename",
-				"POST https://uploads.github.com/repos/o/r/releases/1/assets?name=a.zip")
+				"DELETE "+api+"/repos/o/r/issues/1/labels/area%2Fui", "POST "+api+"/repos/o/r/branches/old%2Fname/rename")
 			// Repository deletion, administration, secrets and credential endpoints stay denied.
 			assertRoutes(t, r, "fixture-token", false,
 				"DELETE "+api+"/repos/o/r", "PATCH "+api+"/repos/o/r", "POST "+api+"/graphql", "GET "+api+"/repos/o/r/actions/secrets", "GET "+api+"/repos/o/r/actions/secrets/public-key",
@@ -50,7 +49,7 @@ func TestGitHubAuthenticationAndAccessRoutes(t *testing.T) {
 				"GET "+api+"/authorizations", "POST https://github.com/login/oauth/access_token", "GET https://api.github.com.evil.test/user",
 				"GET "+api+"/repos/o/r/contents/%2e%2e%2fsecrets", "GET "+api+"/repos/o/r/branches/a%2F..%2F..%2Fhooks",
 				"GET "+api+"/repos/o/r/issues/1%2F..%2F2", "POST "+api+"/repos/o/r/branches/a/protection",
-				"PATCH "+api+"/repos/o/r/issues/1/labels/x", "GET "+api+"/repos/o/r/git/refs/heads", "GET https://uploads.github.com/repos/o/r/releases/1/assets",
+				"PATCH "+api+"/repos/o/r/issues/1/labels/x", "GET "+api+"/repos/o/r/git/refs/heads", "GET https://uploads.github.com/repos/o/r/releases/1/assets", "POST https://uploads.github.com/repos/o/r/releases/1/assets?name=a.zip",
 				"POST https://codeload.github.com/o/r/legacy.tar.gz/main")
 			// Signed downloads never receive the token.
 			for _, url := range []string{"https://codeload.github.com/o/r/legacy.tar.gz/refs/heads/feature/x?token=SIGNED",
@@ -90,10 +89,6 @@ func TestGitHubRulesMatchEndpointHostsAndOpaqueParameters(t *testing.T) {
 	param := regexp.MustCompile(`\{(\w+)\}`)
 	var want, got []string
 	for _, m := range entry.FindAllStringSubmatch(lua, -1) {
-		host := "api.github.com"
-		if strings.Contains(m[3], "upload = true") {
-			host = "uploads.github.com"
-		}
 		var names []string
 		for _, p := range param.FindAllStringSubmatch(m[2], -1) {
 			if opaque[p[1]] {
@@ -101,7 +96,7 @@ func TestGitHubRulesMatchEndpointHostsAndOpaqueParameters(t *testing.T) {
 			}
 		}
 		slices.Sort(names)
-		want = append(want, m[1]+" "+host+" "+m[2]+" "+strings.Join(names, ","))
+		want = append(want, m[1]+" api.github.com "+m[2]+" "+strings.Join(names, ","))
 	}
 	if entries := strings.Count(lua, "= {method = "); len(want) != entries {
 		t.Fatalf("matched %d of %d endpoint entries", len(want), entries)

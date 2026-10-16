@@ -41,7 +41,7 @@ return {
 
 		local names = {}
 		for name in github do if name ~= "help" then table.insert(names, name) end end
-		assert(#names == 142, "wrong surface for Connect with GitHub: " .. #names)
+		assert(#names == 141, "wrong surface for Connect with GitHub: " .. #names)
 		for _, name in {"listNotifications", "markNotificationsRead", "markThreadRead", "markThreadDone"} do
 			assert(github[name] == nil, "GitHub App tokens cannot use " .. name)
 		end
@@ -100,23 +100,7 @@ return {
 		end
 		assert(rejected(function() github.getRepo({owner = "o", repo = "r", save_as = "repo.json"}) end, "getRepo has no option save_as") == 0)
 
-		local file = fs.open("build/app.zip", "w")
-		file:write("PK\3\4payload")
-		await(file:close())
-		respond(201, '{"id":8,"name":"app.zip","state":"uploaded"}')
-		local uploaded = github.uploadReleaseAsset({owner = "o", repo = "r", release_id = 42, name = "app v1.zip", label = "App", file = "build/app.zip",
-			content_type = "application/zip"})
-		local req = requests[#requests]
-		assert(req.method == "POST" and req.url == "https://uploads.github.com/repos/o/r/releases/42/assets?name=app%20v1.zip&label=App", req.url)
-		assert(req.headers["Content-Type"][1] == "application/zip" and req.headers.Authorization == nil)
-		local chunk = await(req.body:read(1024))
-		assert(chunk.data == "PK\3\4payload")
-		await(req.body:close())
-		assert(uploaded.state == "uploaded")
-		assert(rejected(function() github.uploadReleaseAsset({owner = "o", repo = "r", release_id = 42, name = "x", file = "missing.zip"}) end, "") == 0)
 		admissionFailure = true
-		assert(rejected(function() github.uploadReleaseAsset({owner = "o", repo = "r", release_id = 42, name = "x", file = "build/app.zip"}) end, "HTTP admission failed") == 0)
-		assert(not pcall(function() await(opened[#opened]:read(1)) end), "a failed upload left its file open")
 		assert(rejected(function() github.downloadTarball({owner = "o", repo = "r", ref = "main", save_as = "z.tar.gz"}) end, "HTTP admission failed") == 0)
 		assert(not pcall(function() opened[#opened]:write("x") end), "a failed download left its file open")
 		admissionFailure = false
@@ -135,10 +119,5 @@ return {
 		end
 		respond(202, "")
 		assert(rejected(function() github.getContent({owner = "o", repo = "r", path = "a.bin", save_as = "a.bin"}) end, "GitHub HTTP 202") == 1)
-		respond(201, '{"id":9}')
-		github.uploadReleaseAsset({owner = "o", repo = "r", release_id = 42, name = "raw.bin", file = "build/app.zip"})
-		assert(requests[#requests].headers["Content-Type"][1] == "application/octet-stream")
-		await(requests[#requests].body:close())
-		assert(rejected(function() github.uploadReleaseAsset({owner = "o", repo = "r", release_id = 42, file = "build/app.zip"}) end, "name is required") == 0)
 	end,
 }
