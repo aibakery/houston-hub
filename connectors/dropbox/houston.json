@@ -7,9 +7,8 @@
   "icon": "icon.svg",
   "config": {
     "access": {
-      "type": "string",
-      "label": "Access",
       "default": "read-only",
+      "label": "Access",
       "options": [
         {
           "label": "Read-only",
@@ -23,45 +22,64 @@
           "label": "Custom folder access",
           "value": "custom"
         }
-      ]
-    },
-    "path_access": {
-      "type": "string",
-      "label": "Folder access JSON",
-      "description": "Replace the example paths with existing Dropbox folders. Unlisted folders are denied; the most specific folder rule wins.",
-      "default": "{\n  \"/Finance\": \"read-only\",\n  \"/Incoming\": \"read-write\"\n}",
-      "required": true,
-      "if": "{{ is config.access \"custom\" }}",
-      "multiline": true,
-      "format": "json"
+      ],
+      "type": "string"
     },
     "client_id": {
-      "type": "string",
+      "if": "{{ is config.own_app true }}",
       "label": "Dropbox app key",
+      "order": 3,
       "required": true,
-      "order": 1
+      "type": "string"
     },
     "client_secret": {
-      "type": "secret",
+      "if": "{{ is config.own_app true }}",
       "label": "Dropbox app secret",
+      "order": 4,
       "required": true,
-      "order": 2
+      "type": "secret"
+    },
+    "own_app": {
+      "default": false,
+      "label": "Use your own Dropbox app",
+      "order": 2,
+      "type": "boolean"
+    },
+    "path_access": {
+      "default": "{\n  \"/Finance\": \"read-only\",\n  \"/Incoming\": \"read-write\"\n}",
+      "description": "Unlisted folders are denied; the most specific rule wins.",
+      "format": "json",
+      "if": "{{ is config.access \"custom\" }}",
+      "label": "Folder access JSON",
+      "multiline": true,
+      "order": 1,
+      "required": true,
+      "type": "string"
     }
   },
   "auth": {
     "oauth": {
-      "type": "oauth2",
-      "label": "Connect with Dropbox",
-      "authorize_url": "https://www.dropbox.com/oauth2/authorize",
-      "token_url": "https://api.dropboxapi.com/oauth2/token",
-      "client_id": "{{config.client_id}}",
-      "client_secret": "{{config.client_secret}}",
-      "client_auth": "body",
-      "pkce": "S256",
-      "require_refresh": true,
+      "account": {
+        "headers": {
+          "Authorization": {
+            "value": "Bearer {{auth.oauth.access_token}}"
+          }
+        },
+        "label": "/email",
+        "method": "POST",
+        "url": "https://api.dropboxapi.com/2/users/get_current_account"
+      },
       "authorize_params": {
         "token_access_type": "offline"
       },
+      "authorize_url": "https://www.dropbox.com/oauth2/authorize",
+      "client_auth": "body",
+      "client_id": "{{publisher.client_id}}",
+      "client_secret": "{{publisher.client_secret}}",
+      "if": "{{ is config.own_app false }}",
+      "label": "Connect with Dropbox",
+      "pkce": "S256",
+      "require_refresh": true,
       "scopes": [
         {
           "values": [
@@ -87,22 +105,83 @@
           ]
         }
       ],
+      "token_url": "https://api.dropboxapi.com/oauth2/token",
+      "type": "oauth2"
+    },
+    "own_app": {
       "account": {
-        "method": "POST",
-        "url": "https://api.dropboxapi.com/2/users/get_current_account",
         "headers": {
           "Authorization": {
-            "value": "Bearer {{auth.oauth.access_token}}"
+            "value": "Bearer {{auth.own_app.access_token}}"
           }
         },
-        "label": "/email"
-      }
+        "label": "/email",
+        "method": "POST",
+        "url": "https://api.dropboxapi.com/2/users/get_current_account"
+      },
+      "authorize_params": {
+        "token_access_type": "offline"
+      },
+      "authorize_url": "https://www.dropbox.com/oauth2/authorize",
+      "client_auth": "body",
+      "client_id": "{{config.client_id}}",
+      "client_secret": "{{config.client_secret}}",
+      "if": "{{ is config.own_app true }}",
+      "label": "Connect with your Dropbox app",
+      "order": 1,
+      "pkce": "S256",
+      "require_refresh": true,
+      "scopes": [
+        {
+          "values": [
+            "account_info.read",
+            "files.metadata.read",
+            "files.content.read",
+            "sharing.read",
+            "file_requests.read"
+          ]
+        },
+        {
+          "if": "{{ is config.access \"read-write\" }}",
+          "values": [
+            "files.content.write",
+            "sharing.write",
+            "file_requests.write"
+          ]
+        },
+        {
+          "if": "{{ is config.access \"custom\" }}",
+          "values": [
+            "files.content.write"
+          ]
+        }
+      ],
+      "token_url": "https://api.dropboxapi.com/oauth2/token",
+      "type": "oauth2"
+    }
+  },
+  "publisher": {
+    "client_id": {
+      "label": "Dropbox app key",
+      "order": 1,
+      "type": "string"
+    },
+    "client_secret": {
+      "label": "Dropbox app secret",
+      "order": 2,
+      "type": "secret"
     }
   },
   "proxy": [
     {
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token || auth.own_app.access_token}}"
+          }
+        }
+      },
       "match": {
-        "protocol": "http",
         "host": [
           "api.dropboxapi.com",
           "content.dropboxapi.com"
@@ -112,14 +191,8 @@
         ],
         "path": [
           "/2/*"
-        ]
-      },
-      "action": {
-        "headers": {
-          "set": {
-            "Authorization": "Bearer {{auth.oauth.access_token}}"
-          }
-        }
+        ],
+        "protocol": "http"
       }
     }
   ]

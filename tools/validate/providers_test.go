@@ -61,6 +61,9 @@ func TestEveryProviderAuthenticationAndTransport(t *testing.T) {
 				if provider == "slack" {
 					config["workspace_id"] = "T_SYNTHETIC"
 				}
+				if provider == "dropbox" && method == "own_app" {
+					config["own_app"] = true
+				}
 				if m.Proxy[0].Match.Protocol != "http" {
 					config["host"] = "database.example.com"
 					switch provider {
