@@ -22,13 +22,13 @@ return {
 
 		local names = {}
 		for name in github do if name ~= "help" then table.insert(names, name) end end
-		assert(#names == 86, "wrong read-only surface: " .. #names)
+		assert(#names == 84, "wrong read-only surface: " .. #names)
 		for _, name in {"createIssue", "updateIssue", "createIssueComment", "createPull", "mergePull", "putFile", "deleteFile", "createRef",
 			"deleteRef", "createRelease", "uploadReleaseAsset", "dispatchWorkflow", "cancelWorkflowRun", "createGist", "markThreadDone", "updateRepo",
 			"generateReleaseNotes", "removeAssignees"} do
 			assert(github[name] == nil, "read-only leaked " .. name)
 		end
-		assert(github.listNotifications ~= nil, "token connections list notifications")
+		assert(github.listNotifications ~= nil and github.listInstallations == nil, "token connections list notifications, not app installations")
 		assert(#requests == 0, "initialization reached GitHub")
 
 		payload = '{"login":"octocat","id":1,"name":null}'

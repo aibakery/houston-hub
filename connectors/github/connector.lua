@@ -1,7 +1,7 @@
 -- GitHub REST API, version 2026-03-10. Arguments and results keep GitHub's native field names.
 type Options = {[string]: any}
 type Endpoint = {method: string, path: string, query: {string}?, required: {string}?, body: boolean?, save: string?,
-	diff: boolean?, upload: boolean?, classic: boolean?, about: string}
+	diff: boolean?, upload: boolean?, auth: string?, about: string}
 
 local API = "https://api.github.com"
 local UPLOADS = "https://uploads.github.com"
@@ -16,9 +16,9 @@ local endpoints: {[string]: Endpoint} = {
 	getUser = {method = "GET", path = "/users/{username}", about = "A user or organization profile."},
 	listEmails = {method = "GET", path = "/user/emails", query = {"per_page", "page"}, about = "Your email addresses, including private ones."},
 	getRateLimit = {method = "GET", path = "/rate_limit", about = "Remaining quota per resource (core, search, graphql...); reading it costs none."},
-	listInstallations = {method = "GET", path = "/user/installations", query = {"per_page", "page"},
-		about = "With Connect with GitHub: where Houston's app is installed, {total_count, installations}."},
-	listInstallationRepos = {method = "GET", path = "/user/installations/{installation_id}/repositories", query = {"per_page", "page"},
+	listInstallations = {method = "GET", path = "/user/installations", query = {"per_page", "page"}, auth = "oauth",
+		about = "Where Houston's app is installed, {total_count, installations}."},
+	listInstallationRepos = {method = "GET", path = "/user/installations/{installation_id}/repositories", query = {"per_page", "page"}, auth = "oauth",
 		about = "{total_count, repositories} you can access in one installation."},
 	listMyOrgs = {method = "GET", path = "/user/orgs", query = {"per_page", "page"}, about = "Organizations you belong to."},
 	getOrg = {method = "GET", path = "/orgs/{org}", about = ""},
@@ -230,11 +230,11 @@ local endpoints: {[string]: Endpoint} = {
 	updateGist = {method = "PATCH", path = "/gists/{gist_id}", about = "Body {description?, files?}; a file set to json.decode('null') is deleted."},
 	deleteGist = {method = "DELETE", path = "/gists/{gist_id}", about = ""},
 
-	listNotifications = {method = "GET", path = "/notifications", query = {"all", "participating", "since", "before", "per_page", "page"}, classic = true,
+	listNotifications = {method = "GET", path = "/notifications", query = {"all", "participating", "since", "before", "per_page", "page"}, auth = "token",
 		about = "Unread notification threads; all=true includes read ones."},
-	markNotificationsRead = {method = "PUT", path = "/notifications", classic = true, about = "Body {last_read_at?, read?}."},
-	markThreadRead = {method = "PATCH", path = "/notifications/threads/{thread_id}", classic = true, about = ""},
-	markThreadDone = {method = "DELETE", path = "/notifications/threads/{thread_id}", classic = true, about = "Marks a thread as done."},
+	markNotificationsRead = {method = "PUT", path = "/notifications", auth = "token", about = "Body {last_read_at?, read?}."},
+	markThreadRead = {method = "PATCH", path = "/notifications/threads/{thread_id}", auth = "token", about = ""},
+	markThreadDone = {method = "DELETE", path = "/notifications/threads/{thread_id}", auth = "token", about = "Marks a thread as done."},
 }
 local NULL = json.decode("null")
 local NONE: {string} = table.freeze({})
@@ -426,7 +426,7 @@ end
 local exports: {[string]: any} = {}
 for name, endpoint in endpoints do
 	local enabled = endpoint.method == "GET" or config.access == "read-write"
-	if endpoint.classic and auth.method ~= "token" then enabled = false end
+	if endpoint.auth and endpoint.auth ~= auth.method then enabled = false end
 	if enabled then exports[name] = function(args: Options?): any return request(name, endpoint, args) end end
 end
 
@@ -455,7 +455,7 @@ exports.help = function(): string
 		"Start with github.getAuthenticatedUser().login, github.listMyRepos({sort='pushed', per_page=20}) or github.searchIssues({q='is:pr is:open author:@me'}). branch, ref, path, tag, tree_sha and basehead may contain slashes (ref='heads/feature/x', path='src/main.go').",
 		"Lists return one page: page? means per_page (1..100, default 30) and page (from 1); a shorter page is the last. JSON and text results over 8 MiB fail; use save_as or smaller pages. Search returns {total_count, incomplete_results, items}: at most 1,000 results and 30 requests per minute (searchCode 10).",
 		"Files: getContent returns base64 content; save_as='name' saves raw bytes as a session file instead. download_url links lose their private-repository token, so fetch private files with save_as. save_as functions return {path, size, url}; search large logs with fs.grep. getCommit, compareCommits and getPull take format='diff' or 'patch' and return that text, without paging. To commit several files, chain createBlob, createTree, createGitCommit and updateRef.",
-		"Access: GitHub enforces the token's permissions and repository selection; Connect with GitHub reaches public data and repositories where Houston's GitHub App is installed. A 403 or 404 may mean missing access; errors give GitHub's message, needed permissions and rate-limit resets. Read-only connections omit writes. Notifications need a classic token; check runs and suites need a classic token or Connect with GitHub.",
+		"Access: GitHub enforces the token's permissions and repository selection; Connect with GitHub reaches public data and repositories where Houston's GitHub App is installed. A 403 or 404 may mean missing access; errors give GitHub's message, needed permissions and rate-limit resets. Read-only connections omit writes. Notifications need a classic token and installation lists Connect with GitHub; check runs and suites need a classic token or Connect with GitHub.",
 		"Writes can notify people and trigger workflows. No automatic retries: after a timeout or 5xx, read the resource again before repeating a write. Repository deletion, settings administration, secrets, webhooks, deploy keys and GraphQL are not exposed.",
 	}
 	local names: {string} = {}
