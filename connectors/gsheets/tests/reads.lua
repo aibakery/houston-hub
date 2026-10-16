@@ -38,16 +38,17 @@ return {
 		responses = {'{"range":"\'10/16\'!A1"}', '{"range":"\'100%\'!A1"}', '{"range":"Sheet1!A1"}'}
 		c.getValues({spreadsheetId = "s1", range = "'10/16'!A1"})
 		assert(requests[6].url == API .. "s1/values/%2710%2F16%27%21A1", requests[6].url)
-		c.getValues({spreadsheetId = "s1", range = "'100%'!A1"})
-		assert(requests[7].url == API .. "s1/values/%27100%25%27%21A1", requests[7].url)
+		c.getValues({spreadsheetId = "s1", range = "'\u{26A0}\u{FE0F} 100%'!A1"})
+		assert(requests[7].url == API .. "s1/values/%27%E2%9A%A0%EF%B8%8F%20100%25%27%21A1", requests[7].url)
 		c.getValues({spreadsheetId = "https://docs.google.com/a/example.com/spreadsheets/d/s1/edit", range = "Sheet1!A1"})
 		assert(requests[8].url == API .. "s1/values/Sheet1%21A1", requests[8].url)
 
 		local fields = "spreadsheetId,spreadsheetUrl,properties(title,locale,timeZone),sheets.properties,namedRanges"
-		responses = {'{"spreadsheetId":"s1","sheets":[{"properties":{"sheetId":0,"title":"Sheet1"}}]}', '{"spreadsheetId":"s1"}'}
-		assert(c.getSpreadsheet({spreadsheetId = "s1"}).sheets[1].properties.title == "Sheet1")
+		responses = {'{"spreadsheetId":"s1","sheets":[{"properties":{"sheetId":0,"title":"Sheet1"}}]}', '{"spreadsheetId":"s1","namedRanges":[{"name":"Totals"}]}'}
+		local info = c.getSpreadsheet({spreadsheetId = "s1"})
+		assert(info.sheets[1].properties.title == "Sheet1" and json.encode(info.namedRanges) == "[]")
 		assert(requests[9].url == API .. "s1?fields=" .. url.encode(fields), requests[9].url)
-		c.getSpreadsheet({spreadsheetId = "s1", fields = "sheets(data(rowData(values(note))))", ranges = {"A1:B2"}})
+		assert(c.getSpreadsheet({spreadsheetId = "s1", fields = "sheets(data(rowData(values(note))))", ranges = {"A1:B2"}}).namedRanges[1].name == "Totals")
 		assert(requests[10].url == API .. "s1?fields=sheets%28data%28rowData%28values%28note%29%29%29%29&ranges=A1%3AB2", requests[10].url)
 		for _, req in requests do
 			assert(req.method == "GET" and req.body == nil, req.method .. " " .. req.url)
@@ -58,11 +59,6 @@ return {
 		local invalid = {
 			{spreadsheetId = "s1"},
 			{spreadsheetId = "s1", range = ""},
-			{spreadsheetId = "s1", range = "\u{FF0E}\u{FF0E}/x!A1"},
-			{spreadsheetId = "s1", range = "../drive!A1"},
-			{spreadsheetId = "s1", range = "a\\b!A1"},
-			{spreadsheetId = "s1", range = "a\u{200B}b!A1"},
-			{spreadsheetId = "s1", range = "a\nb!A1"},
 			{spreadsheetId = "..", range = "A1"},
 			{spreadsheetId = "s/1", range = "A1"},
 			{spreadsheetId = "https://docs.google.com/spreadsheets/d/e/2PACX-1vT/pubhtml", range = "A1"},

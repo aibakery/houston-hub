@@ -122,9 +122,9 @@ local RAW = {valueInputOption = "RAW"}
 local APPEND_QUERY = table.clone(WRITE_QUERY)
 table.insert(APPEND_QUERY, "insertDataOption")
 local endpoints: {[string]: Endpoint} = {
-	getSpreadsheet = {method = "GET", path = "/spreadsheets/{spreadsheetId}", read = true, defaults = {fields = SPREADSHEET_FIELDS},
+	getSpreadsheet = {method = "GET", path = "/spreadsheets/{spreadsheetId}", read = true, defaults = {fields = SPREADSHEET_FIELDS}, list = "namedRanges",
 		query = {"fields", "ranges", "excludeTablesInBandedRanges"},
-		help = "getSpreadsheet({spreadsheetId, fields?, ranges?}) -> {spreadsheetId, spreadsheetUrl, properties, sheets=[{properties={sheetId, title, index, gridProperties={rowCount, columnCount, ...}}}], namedRanges?}. Lists the tabs and their sizes. fields is a Google field mask: e.g. fields='sheets(data(rowData(values(formattedValue,note,hyperlink))))' with ranges={'Sheet1!A1:C3'} reads cell notes and links. Always pass ranges with data fields: responses over 8 MiB fail."},
+		help = "getSpreadsheet({spreadsheetId, fields?, ranges?}) -> {spreadsheetId, spreadsheetUrl, properties, sheets=[{properties={sheetId, title, index, gridProperties={rowCount, columnCount, ...}}}], namedRanges}. Lists the tabs and their sizes; namedRanges is [] when there are none. fields is a Google field mask: e.g. fields='sheets(data(rowData(values(formattedValue,note,hyperlink))))' with ranges={'Sheet1!A1:C3'} reads cell notes and links. Always pass ranges with data fields: responses over 8 MiB fail."},
 	getValues = {method = "GET", path = "/spreadsheets/{spreadsheetId}/values/{range}", read = true, list = "values", query = READ_QUERY,
 		help = "getValues({spreadsheetId, range, valueRenderOption?, dateTimeRenderOption?, majorDimension?}) -> {range, majorDimension, values}. One cell: getValues({spreadsheetId=..., range='Sheet1!B2'}).values[1] is {'42'}, or nil when B2 is empty."},
 	batchGetValues = {method = "GET", path = "/spreadsheets/{spreadsheetId}/values:batchGet", read = true, list = "valueRanges", required = {"ranges"},
@@ -158,15 +158,11 @@ local function spreadsheetId(value: any): any
 end
 
 local NONE: {string} = table.freeze({})
--- Ranges are opaque path segments (the proxy allows encoded / and %), so tab names like '10/16' work.
--- Each part between slashes still passes url.segment's checks, refusing dot-only, look-alike and invisible parts.
+-- Ranges are opaque path segments: the proxy allows encoded / and % but refuses dot segments
+-- and control bytes, so any tab name, such as '10/16' or one with emoji, works.
 local function withRange(endpoint: Endpoint, args: Options): Endpoint
 	if not string.find(endpoint.path, "{range}", 1, true) then return endpoint end
-	local raw = text(args.range, "range")
-	for part in string.gmatch(raw .. "/", "([^/]*)/") do
-		assert(pcall(url.segment, (string.gsub(part, "%%", "_"))), "range must not contain empty, dot-only, control or invisible parts between slashes")
-	end
-	local range = url.encode(raw)
+	local range = url.encode(text(args.range, "range"))
 	args.range = nil
 	local resolved = table.clone(endpoint)
 	resolved.path = string.gsub(endpoint.path, "{range}", function(): string return range end)
@@ -201,7 +197,7 @@ local overview = {
 	"Google allows about 60 reads per minute per user; HTTP 429 errors are retryable after a pause. No hidden paging or retries. Errors report the HTTP status and Google's message.",
 }
 if config.access == "read-write" then
-	table.insert(overview, "Writes default to valueInputOption='RAW', storing values exactly as given, so '2026-10-16' stays text; pass 'USER_ENTERED' to parse numbers, dates and formulas as if typed. In values, json null leaves a cell unchanged and '' clears it. An empty Luau table encodes as a JSON object, which Google rejects: write an empty row or array as json.decode('[]'). Google allows about 60 writes per minute per user. A failed or timed-out write may already have succeeded: read the range before repeating it.")
+	table.insert(overview, "Writes default to valueInputOption='RAW', storing values exactly as given, so '2026-10-16' stays text; pass 'USER_ENTERED' to parse numbers, dates and formulas as if typed. In values, json null leaves a cell unchanged and '' clears it. An empty Luau table encodes as a JSON object, which Google rejects: write an empty row or array as json.decode('[]'). Request bodies over 8 MiB fail: write large tables in row blocks. Google allows about 60 writes per minute per user. A failed or timed-out write may already have succeeded: read the range before repeating it.")
 end
 exports.help = helpWith(overview)
 return exports
