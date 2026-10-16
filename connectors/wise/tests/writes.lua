@@ -66,6 +66,8 @@ return {
 		payload = '{"id":9001,"status":"cancelled"}'
 		c.cancelTransfer({transferId = 9001})
 		sent("PUT", api .. "/v1/transfers/9001/cancel", nil)
+		payload = ""
+		assert(c.cancelTransfer({transferId = 9001}).success == true, "empty write response reported as failure")
 		payload = '{"type":"BALANCE","status":"REJECTED","errorCode":"transfer.insufficient_funds"}'
 		local funded = c.fundTransfer({profileId = 202, transferId = 9001, type = "BALANCE"})
 		assert(funded.status == "REJECTED" and funded.errorCode == "transfer.insufficient_funds", "funding result changed")

@@ -4,10 +4,11 @@ return {
 		requests = {}
 		fs = fixture.files()
 		status = 200
+		responseHeaders = {}
 		stream = nil
 		http = {request = function(req)
 			table.insert(requests, req)
-			return fixture.operation({statusCode = status, headers = {}, body = stream or fixture.reader('[{"id":101,"type":"BUSINESS"}]')})
+			return fixture.operation({statusCode = status, headers = responseHeaders, body = stream or fixture.reader('[{"id":101,"type":"BUSINESS"}]')})
 		end}
 	end,
 	run = function(c)
@@ -37,6 +38,12 @@ return {
 		local ok, err = pcall(c.downloadTransferReceipt, {transferId = 9001, path = "denied.pdf"})
 		assert(not ok and string.find(tostring(err), "HTTP 403", 1, true), tostring(err))
 		assert(await(fs.stat("denied.pdf")).size == 4, "failed download truncated an existing file")
+		status = 200
+		responseHeaders = {["content-type"] = {"application/json;charset=UTF-8"}}
+		ok, err = pcall(c.downloadTransferReceipt, {transferId = 9001, path = "denied.pdf"})
+		assert(not ok and string.find(tostring(err), "instead of a file", 1, true), tostring(err))
+		assert(await(fs.stat("denied.pdf")).size == 4, "error page replaced an existing file")
+		responseHeaders = {}
 
 		local before = #requests
 		for _, call in {

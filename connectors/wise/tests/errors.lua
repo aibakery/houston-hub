@@ -36,8 +36,10 @@ return {
 		local item = {code = long, message = long, path = long}
 		fails(400, json.encode({errors = {item, item, item, item, item, item}, error = long, error_description = long, message = long}), {["retry-after"] = {long}, ["x-trace-id"] = {long}}, {"HTTP 400"})
 		fails(500, string.rep("X", 100000), {["x-2fa-approval-result"] = {"REJECTED"}}, {"HTTP 500", '"retryable":false'}, nil, true)
-		fails(200, "not json", {}, {"invalid JSON response", '"retryable":false'})
+		fails(200, "not json", {}, {"accepted the request but returned an invalid JSON response", "check the result", '"retryable":false'})
+		fails(422, '{"title":"Invalid","detail":"targetAccount not found"}', {}, {"HTTP 422", "targetAccount not found"})
+		fails(400, '{"errors":[{"arguments":["9001"]}]}', {}, {"HTTP 400: {", "9001"}, "; ;")
 		fails(201, '"text"', {}, {"invalid JSON response"})
-		fails(200, "", {}, {"invalid JSON response"})
+		fails(200, "", {}, {"Wise returned an invalid JSON response"}, nil, true)
 	end,
 }

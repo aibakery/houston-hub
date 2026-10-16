@@ -524,8 +524,10 @@ balance movements. Errors are bounded, include Wise's error items, `Retry-After`
 and `x-trace-id`, and no operation is retried automatically. Only 429s and read
 5xx responses are marked retryable: Wise says a 5xx does not prove a write
 failed, so writes report them as not retryable. Downloads open their session
-file only after a successful response, so a failed download leaves an existing
-file untouched.
+file only after a successful, non-JSON, non-HTML response, so an error leaves an
+existing file untouched; a stream that fails after Wise starts sending the file
+can leave it partial. A write answered with an empty 2xx body returns
+`{success=true}` instead of an error that could prompt a repeat.
 
 This is a new registration with no existing connections. Local fixtures cover
 both access levels, both environments, every route, downloads and error mapping.

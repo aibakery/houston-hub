@@ -66,7 +66,7 @@ local endpoints: {[string]: Endpoint} = {
 		about = "Pay a transfer from your balance: {type='BALANCE'}. Moves money. Needs strong customer authentication outside the US, CA, AU, NZ, SG and MY. Check the returned status: REJECTED carries errorCode."},
 	createBalance = {method = "POST", path = "/v4/profiles/{profileId}/balances", required = {"currency", "type", "idempotenceUuid"}, idempotence = true,
 		about = "Open a STANDARD balance or a SAVINGS jar (name required for jars)."},
-	deleteBalance = {method = "DELETE", path = "/v4/profiles/{profileId}/balances/{balanceId}", about = "Close an empty balance; its receiving bank details are deactivated and may not be restorable. Returns {success=true}."},
+	deleteBalance = {method = "DELETE", path = "/v4/profiles/{profileId}/balances/{balanceId}", about = "Close an empty balance; its receiving bank details are deactivated and may not be restorable."},
 	createBalanceMovement = {method = "POST", path = "/v2/profiles/{profileId}/balance-movements", required = {"idempotenceUuid"}, idempotence = true,
 		about = "Convert between your balances with {quoteId} (a quote with payOut BALANCE), or move between a balance and a jar with {amount={value,currency}, sourceBalanceId, targetBalanceId}. Moves money."},
 	createBatchGroup = {method = "POST", path = "/v3/profiles/{profileId}/batch-groups", required = {"name", "sourceCurrency"},
@@ -154,22 +154,21 @@ local function fail(name: string, endpoint: Endpoint, response: HttpResponse, de
 		local parts: {string} = {}
 		if ok and type(body) == "table" then
 			if type(body.errors) == "table" then
-				for index, item in body.errors do
-					if type(index) == "number" and type(item) == "table" then
+				for _, item in body.errors do
+					if type(item) == "table" then
 						local entry: {string} = {}
 						for _, key in {"code", "message", "path"} do
 							if type(item[key]) == "string" then table.insert(entry, key .. "=" .. string.sub(item[key], 1, 200)) end
 						end
-						table.insert(parts, table.concat(entry, " "))
+						if #entry > 0 then table.insert(parts, table.concat(entry, " ")) end
 					end
 				end
 			end
 			for _, key in {"error", "error_description", "message"} do
 				if type(body[key]) == "string" then table.insert(parts, string.sub(body[key], 1, 200)) end
 			end
-		elseif raw ~= "" then
-			table.insert(parts, string.sub(raw, 1, 200))
 		end
+		if #parts == 0 and raw ~= "" then table.insert(parts, string.sub(raw, 1, 200)) end
 		if #parts > 0 then message ..= ": " .. string.sub(table.concat(parts, "; "), 1, 1000) end
 	end
 	if sca then
@@ -240,16 +239,28 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 	local response = await(http.request({method = endpoint.method, url = ORIGIN .. path, headers = headers, body = body}))
 	if response.statusCode < 200 or response.statusCode >= 300 then fail(name, endpoint, response) end
 	if destination then
+		local media = string.lower(header(response, "content-type") or "")
+		if string.find(media, "json", 1, true) or string.find(media, "html", 1, true) then
+			response.body:close()
+			fail(name, endpoint, response, "Wise returned " .. media .. " instead of a file")
+		end
 		local output = fs.open(destination, "w")
-		output:write(response.body)
-		await(output:close())
+		local ok, err = pcall(function()
+			output:write(response.body)
+			await(output:close())
+		end)
+		if not ok then
+			pcall(function() await(output:close()) end)
+			error(err, 0)
+		end
 		return {path = destination, size = await(fs.stat(destination)).size, url = await(fs.signedGetUrl(destination))}
 	end
 	local raw = await(response.body:readAll())
-	if endpoint.method == "DELETE" and string.match(raw, "^%s*$") then return {success = true} end
+	if endpoint.method ~= "GET" and string.match(raw, "^%s*$") then return {success = true} end
 	local decoded, value = pcall(json.decode, raw)
 	if not decoded or type(value) ~= "table" or not string.match(raw, "^%s*[%[{]") then
-		fail(name, endpoint, response, "Wise returned an invalid JSON response")
+		fail(name, endpoint, response, if endpoint.method == "GET" then "Wise returned an invalid JSON response"
+			else "Wise accepted the request but returned an invalid JSON response; check the result before repeating it")
 	end
 	return value
 end
@@ -273,7 +284,7 @@ exports.help = function(): string
 		table.insert(lines, "Sending money: createQuote({profileId,sourceCurrency,targetCurrency,sourceAmount}) -> getAccountRequirements({quoteId}) -> createRecipient or listRecipients -> updateQuote({profileId,quoteId,targetAccount}) -> validateTransferRequirements -> createTransfer({targetAccount,quoteUuid,customerTransactionId,details={reference=...}}) -> fundTransfer({profileId,transferId,type='BALANCE'}). Quotes expire (expirationTime). Funding moves money and can be irreversible; confirm amount, currency and recipient with the user first. cancelTransfer works only while the status is incoming_payment_waiting. Business accounts with payment approvals enabled in Wise settings cannot create transfers through the API (missing approval error).")
 		table.insert(lines, "Idempotency: createTransfer and createBatchTransfer require customerTransactionId, and createBalance and createBalanceMovement require idempotenceUuid (sent as X-idempotence-uuid). Each must be a new UUID kept with the intended action; reuse it only to retry that same action after a timeout, never for a different payment. Inspect listTransfers or getTransfer before retrying an ambiguous write.")
 	end
-	table.insert(lines, "Errors report HTTP status, Wise's errors (code, message, path), Retry-After and x-trace-id. 429s and 5xx on reads are marked retryable; write failures never are, so inspect the transfer or balance before repeating a write. Wise rate-limits each user to about 100 requests per second and 900 per minute.")
+	table.insert(lines, "Errors report HTTP status, Wise's errors (code, message, path), Retry-After and x-trace-id. A 429 means Wise did not process the request and is retryable after Retry-After, as is a 5xx on a read; other write failures are not, so inspect the transfer or balance before repeating a write. A write answered with an empty body returns {success=true}. Wise rate-limits each user to about 100 requests per second and 900 per minute.")
 	local names: {string} = {}
 	for name in exports do if name ~= "help" then table.insert(names, name) end end
 	table.sort(names)
