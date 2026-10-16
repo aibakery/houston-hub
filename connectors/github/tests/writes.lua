@@ -97,6 +97,9 @@ return {
 		sent("DELETE", API .. "/repos/o/r/issues/comments/77")
 		assert(github.markThreadDone({thread_id = 1}).success == true)
 		sent("DELETE", API .. "/notifications/threads/1")
+		status, payload = 205, ""
+		assert(github.markThreadRead({thread_id = "1"}).success == true)
+		sent("PATCH", API .. "/notifications/threads/1", "{}")
 
 		payload = '{"id":3,"files":{"a.md":{"content":"x"}}}'
 		github.updateGist({gist_id = "aa5a315d61ae9438b18d", files = {["old.md"] = NULL, ["a.md"] = {content = "x"}}})
