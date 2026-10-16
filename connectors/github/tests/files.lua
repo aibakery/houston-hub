@@ -5,7 +5,16 @@ return {
 		requests = {}
 		responses = {}
 		fs = fixture.files()
+		opened = {}
+		local open = fs.open
+		fs.open = function(path, mode)
+			local file = open(path, mode)
+			table.insert(opened, file)
+			return file
+		end
+		admissionFailure = false
 		http = {request = function(req)
+			if admissionFailure then error("HTTP admission failed") end
 			table.insert(requests, req)
 			local next = table.remove(responses, 1) or {statusCode = 200, headers = {}, body = "{}"}
 			return fixture.operation({statusCode = next.statusCode, headers = next.headers, body = fixture.reader(next.body)})
@@ -85,6 +94,9 @@ return {
 		respond(403, "<Error>AuthenticationFailed</Error>")
 		assert(rejected(function() github.downloadTarball({owner = "o", repo = "r", ref = "main", save_as = "y.tar.gz"}) end, "GitHub HTTP 403") == 2)
 		assert(rejected(function() github.downloadTarball({owner = "o", repo = "r", ref = "main"}) end, "save_as is required") == 0)
+		for _, bad in {"../x.tar.gz", "/etc/x"} do
+			assert(rejected(function() github.downloadTarball({owner = "o", repo = "r", ref = "main", save_as = bad}) end, "") == 0, "invalid save_as reached GitHub")
+		end
 		assert(rejected(function() github.getRepo({owner = "o", repo = "r", save_as = "repo.json"}) end, "getRepo has no option save_as") == 0)
 
 		local file = fs.open("build/app.zip", "w")
@@ -101,6 +113,12 @@ return {
 		await(req.body:close())
 		assert(uploaded.state == "uploaded")
 		assert(rejected(function() github.uploadReleaseAsset({owner = "o", repo = "r", release_id = 42, name = "x", file = "missing.zip"}) end, "") == 0)
+		admissionFailure = true
+		assert(rejected(function() github.uploadReleaseAsset({owner = "o", repo = "r", release_id = 42, name = "x", file = "build/app.zip"}) end, "HTTP admission failed") == 0)
+		assert(not pcall(function() await(opened[#opened]:read(1)) end), "a failed upload left its file open")
+		assert(rejected(function() github.downloadTarball({owner = "o", repo = "r", ref = "main", save_as = "z.tar.gz"}) end, "HTTP admission failed") == 0)
+		assert(not pcall(function() opened[#opened]:write("x") end), "a failed download left its file open")
+		admissionFailure = false
 		assert(rejected(function() github.uploadReleaseAsset({owner = "o", repo = "r", release_id = 42, file = "build/app.zip"}) end, "name is required") == 0)
 	end,
 }

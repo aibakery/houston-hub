@@ -340,7 +340,7 @@ local function allowedDownload(location: string): boolean
 end
 
 -- Archives, assets and logs redirect to a signed URL, fetched without credentials.
-local function save(name: string, first: HttpResponse, destination: string): any
+local function save(name: string, first: HttpResponse, output: any, destination: string): any
 	local response = first
 	if first.statusCode == 301 or first.statusCode == 302 or first.statusCode == 307 then
 		first.body:close()
@@ -352,7 +352,6 @@ local function save(name: string, first: HttpResponse, destination: string): any
 		response = await(http.request({method = "GET", url = location[1], headers = {["User-Agent"] = {"Houston"}}}))
 	end
 	if response.statusCode ~= 200 then fail(name, response) end
-	local output = fs.open(destination, "w")
 	output:write(response.body)
 	await(output:close())
 	return {path = destination, size = await(fs.stat(destination)).size, url = await(fs.signedGetUrl(destination))}
@@ -402,12 +401,21 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 	end
 	local unknown = next(args)
 	assert(unknown == nil, name .. " has no option " .. tostring(unknown))
-	if upload then body = await(fs.open(upload, "r")) end
-	local response = await(http.request({method = endpoint.method, url = origin .. path, headers = headers, body = body}))
-	if destination then return save(name, response, destination) end
-	if response.statusCode < 200 or response.statusCode >= 300 then fail(name, response) end
-	if format then return await(response.body:readAll()) end
-	return decode(name, response)
+	-- Open session files before the request, so a bad path never reaches GitHub; close them on failure.
+	local file: any = nil
+	if upload then file = await(fs.open(upload, "r")) elseif destination then file = await(fs.open(destination, "w")) end
+	local ok, result = pcall(function(): any
+		local response = await(http.request({method = endpoint.method, url = origin .. path, headers = headers, body = if upload then file else body}))
+		if destination then return save(name, response, file, destination) end
+		if response.statusCode < 200 or response.statusCode >= 300 then fail(name, response) end
+		if format then return await(response.body:readAll()) end
+		return decode(name, response)
+	end)
+	if not ok then
+		if file then pcall(function() await(file:close()) end) end
+		error(result, 0)
+	end
+	return result
 end
 
 local exports: {[string]: any} = {}
