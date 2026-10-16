@@ -503,7 +503,7 @@ go run ./tools/validate connectors/fastmail
 
 Replace `connectors/fastmail` with the bundle you are authoring. The no-argument
 validator selects the bundles migrated to the current runtime: Cal.com, Calendly, Dropbox, Fastmail, the Google connectors,
-IMAP, LinkedIn, Mercury, Notion, Resend, WooCommerce, X
+IMAP, LinkedIn, Mercury, Notion, Resend, Stripe, WooCommerce, X
 and the database connectors. Other providers will join as they are migrated. An explicit catalog directory validates all its
 bundles.
 
@@ -1216,3 +1216,60 @@ downloading it.
 Resend's icon is the official black icon (`resend-icon-black.svg`) from the
 [brand page](https://resend.com/brand), retrieved 2026-10-15, unchanged. Resend
 owns the mark.
+
+### Publishing Stripe
+
+Register repository `https://github.com/aibakery/houston-hub`, revision `main`,
+manifest `connectors/stripe/houston.json`. No publisher settings or OAuth app are
+needed. The bundle uses the current async HTTP/file runtime without runtime
+changes. Connections use their own restricted or secret key; the [setup
+guide](connectors/stripe/SETUP.md) describes permissions and live/test selection.
+
+Coverage was checked on 2026-10-16 against Stripe's [public
+OpenAPI](https://github.com/stripe/openapi/blob/cb82ea31b088e117b40b9187a01b08b140f0aeb0/openapi/spec3.json),
+version `2026-09-30.endive`. The 69 operations cover account and balance reads,
+balance transactions, customers and customer search, products, prices, payment
+intents, charges, refunds, subscriptions, invoices and invoice items, payment
+methods, payouts, disputes, events, Checkout and billing portal sessions, and
+files. These are a selected public API surface, not every Stripe endpoint. Omitted:
+API v2, Connect account administration and per-request account selection, OAuth,
+API key management, webhook management/receiving, raw card collection, Identity,
+Issuing, Treasury, Tax and other product families. Deprecated direct charge
+creation/capture is replaced by PaymentIntents. Search beyond customers and
+additional nested resource operations are not yet exposed.
+
+Both Lua requests and proxy injection pin `Stripe-Version: 2026-09-30.endive`.
+The proxy injects credentials only into explicit routes on `api.stripe.com` and
+`files.stripe.com`; POST/DELETE rules require read-write access and all rules
+remove account/context and method override headers. Files stream through native
+multipart and Reader/File APIs; content downloads use a fixed Stripe Files route,
+not a caller URL. Other provider URLs, including invoice PDFs, are returned
+unchanged. Read-only JSON responses recursively remove fields named `client_secret`,
+`confirmation_secret`, `client_token` and `secret`, including fields inside
+metadata, expansions and event payloads. These credentials can authorize payment
+or setup outside Houston, so they cannot cross the read-only export boundary.
+Other values and read-write responses are preserved. Hosted payment links remain
+sensitive. Requests validate generic
+form structure, path IDs, paging bounds and unconditional required fields; Stripe
+validates resource-specific types and conditional alternatives. Errors are bounded,
+include Stripe diagnostic headers, and honor `Stripe-Should-Retry`; no operation
+is automatically retried.
+
+There was no Stripe Lua bundle in this catalog, so this introduces a new
+registration without migrating existing connection settings. Local runtime fixtures
+cover access, form encoding, mutation routes, upstream errors and streamed file
+transfers. Live key permissions, sandbox/live behavior and a disposable provider
+write remain for the registering user to verify.
+
+Atlas is separate from this payments API. No documented self-service Atlas API
+was found in the public spec or [Atlas documentation](https://docs.stripe.com/atlas).
+[Incorporation documents](https://docs.stripe.com/atlas/incorporation-documents)
+are accessed through the Atlas Dashboard. The official [Pilot Atlas partner
+app](https://marketplace.stripe.com/apps/atlas-perks-by-pilot) shows a partner-only
+integration and Atlas company-information permission; it does not supply a public
+endpoint/authentication contract. Do not substitute Payments Accounts or Files
+for Atlas records. A separate Atlas connector requires supported partner access
+and documentation, so no placeholder Atlas bundle is published.
+
+The Stripe icon is the existing approved app mark, copied byte-identically from
+Houston's `app/internal/web/static/marks/stripe.svg`. Stripe owns the mark.

@@ -30,6 +30,7 @@ func TestEveryProviderAuthenticationAndTransport(t *testing.T) {
 		"calcom":      {"GET", "https://api.cal.com/v2/me"},
 		"calendly":    {"GET", "https://api.calendly.com/users/me"},
 		"resend":      {"GET", "https://api.resend.com/domains"},
+		"stripe":      {"GET", "https://api.stripe.com/v1/balance"},
 	}
 	for _, path := range paths {
 		provider := filepath.Base(filepath.Dir(path))

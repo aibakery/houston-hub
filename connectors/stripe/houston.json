@@ -1,0 +1,242 @@
+{
+  "auth": {
+    "token": {
+      "config": {
+        "token": {
+          "label": "Restricted or secret API key",
+          "required": true,
+          "type": "secret"
+        }
+      },
+      "label": "Stripe API key",
+      "type": "manual"
+    }
+  },
+  "config": {
+    "access": {
+      "default": "read-only",
+      "label": "Access",
+      "options": [
+        {
+          "label": "Read-only",
+          "value": "read-only"
+        },
+        {
+          "label": "Read and write",
+          "value": "read-write"
+        }
+      ],
+      "type": "string"
+    }
+  },
+  "files": [
+    "connector.lua"
+  ],
+  "icon": "icon.svg",
+  "name": "Stripe",
+  "proxy": [
+    {
+      "action": {
+        "headers": {
+          "remove": [
+            "X-HTTP-Method-Override",
+            "Stripe-Account",
+            "Stripe-Context"
+          ],
+          "set": {
+            "Authorization": "Bearer {{auth.token.token}}",
+            "Stripe-Version": "2026-09-30.endive"
+          }
+        }
+      },
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "host": [
+          "api.stripe.com"
+        ],
+        "method": [
+          "DELETE"
+        ],
+        "path": [
+          "/v1/customers/{customer_id}",
+          "/v1/invoices/{invoice_id}",
+          "/v1/subscriptions/{subscription_id}"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "remove": [
+            "X-HTTP-Method-Override",
+            "Stripe-Account",
+            "Stripe-Context"
+          ],
+          "set": {
+            "Authorization": "Bearer {{auth.token.token}}",
+            "Stripe-Version": "2026-09-30.endive"
+          }
+        }
+      },
+      "match": {
+        "host": [
+          "api.stripe.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/v1/account",
+          "/v1/balance",
+          "/v1/balance_transactions",
+          "/v1/balance_transactions/{balance_transaction_id}",
+          "/v1/charges",
+          "/v1/charges/{charge_id}",
+          "/v1/checkout/sessions",
+          "/v1/checkout/sessions/{session_id}",
+          "/v1/customers",
+          "/v1/customers/search",
+          "/v1/customers/{customer_id}",
+          "/v1/disputes",
+          "/v1/disputes/{dispute_id}",
+          "/v1/events",
+          "/v1/events/{event_id}",
+          "/v1/files",
+          "/v1/files/{file_id}",
+          "/v1/invoices",
+          "/v1/invoices/{invoice_id}",
+          "/v1/invoices/{invoice_id}/lines",
+          "/v1/payment_intents",
+          "/v1/payment_intents/{payment_intent_id}",
+          "/v1/payment_methods",
+          "/v1/payment_methods/{payment_method_id}",
+          "/v1/payouts",
+          "/v1/payouts/{payout_id}",
+          "/v1/prices",
+          "/v1/prices/{price_id}",
+          "/v1/products",
+          "/v1/products/{product_id}",
+          "/v1/refunds",
+          "/v1/refunds/{refund_id}",
+          "/v1/subscriptions",
+          "/v1/subscriptions/{subscription_id}"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "remove": [
+            "X-HTTP-Method-Override",
+            "Stripe-Account",
+            "Stripe-Context"
+          ],
+          "set": {
+            "Authorization": "Bearer {{auth.token.token}}",
+            "Stripe-Version": "2026-09-30.endive"
+          }
+        }
+      },
+      "match": {
+        "host": [
+          "files.stripe.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/v1/files/{file_id}/contents"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "remove": [
+            "X-HTTP-Method-Override",
+            "Stripe-Account",
+            "Stripe-Context"
+          ],
+          "set": {
+            "Authorization": "Bearer {{auth.token.token}}",
+            "Stripe-Version": "2026-09-30.endive"
+          }
+        }
+      },
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "host": [
+          "api.stripe.com"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/v1/billing_portal/sessions",
+          "/v1/checkout/sessions",
+          "/v1/checkout/sessions/{session_id}/expire",
+          "/v1/customers",
+          "/v1/customers/{customer_id}",
+          "/v1/disputes/{dispute_id}",
+          "/v1/invoiceitems",
+          "/v1/invoices",
+          "/v1/invoices/{invoice_id}",
+          "/v1/invoices/{invoice_id}/finalize",
+          "/v1/invoices/{invoice_id}/pay",
+          "/v1/invoices/{invoice_id}/send",
+          "/v1/invoices/{invoice_id}/void",
+          "/v1/payment_intents",
+          "/v1/payment_intents/{payment_intent_id}",
+          "/v1/payment_intents/{payment_intent_id}/cancel",
+          "/v1/payment_intents/{payment_intent_id}/capture",
+          "/v1/payment_intents/{payment_intent_id}/confirm",
+          "/v1/payment_methods/{payment_method_id}/attach",
+          "/v1/payment_methods/{payment_method_id}/detach",
+          "/v1/payouts",
+          "/v1/payouts/{payout_id}/cancel",
+          "/v1/prices",
+          "/v1/prices/{price_id}",
+          "/v1/products",
+          "/v1/products/{product_id}",
+          "/v1/refunds",
+          "/v1/refunds/{refund_id}",
+          "/v1/subscriptions",
+          "/v1/subscriptions/{subscription_id}"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "remove": [
+            "X-HTTP-Method-Override",
+            "Stripe-Account",
+            "Stripe-Context"
+          ],
+          "set": {
+            "Authorization": "Bearer {{auth.token.token}}",
+            "Stripe-Version": "2026-09-30.endive"
+          }
+        }
+      },
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "host": [
+          "files.stripe.com"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/v1/files"
+        ],
+        "protocol": "http"
+      }
+    }
+  ],
+  "schema_version": 1
+}
