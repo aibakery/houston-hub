@@ -25,27 +25,36 @@ func TestGoogleSheetsScopesAndRoutes(t *testing.T) {
 		r.Context.Auth["oauth"]["access_token"] = "fixture-token"
 		assertRoutes(t, r, "fixture-token", true,
 			"GET "+api+"/s1?fields=sheets.properties", "GET "+api+"/s1/values/%27Q1%20Sales%27%21B2",
-			"GET "+api+"/s1/values:batchGet?ranges=Q2%2FQ3%21A1")
+			"GET "+api+"/s1/values:batchGet?ranges=Q2%2FQ3%21A1", "GET "+api+"/s1/values/%2710%2F16%27%21A1",
+			"GET "+api+"/s1/values/%27100%25%27%21A1")
 		assertRoutes(t, r, "fixture-token", access == "read-write",
 			"POST "+api, "POST "+api+"/s1:batchUpdate", "PUT "+api+"/s1/values/Sheet1%21B2?valueInputOption=RAW",
 			"POST "+api+"/s1/values/Log%21A%3AD:append?valueInputOption=RAW", "POST "+api+"/s1/values/A1:clear",
-			"POST "+api+"/s1/values:batchUpdate", "POST "+api+"/s1/values:batchClear")
+			"POST "+api+"/s1/values:batchUpdate", "POST "+api+"/s1/values:batchClear",
+			"PUT "+api+"/s1/values/%27Q2%2FQ3%27%21B2", "POST "+api+"/s1/values/%27Log%2F2026%27%21A%3AD:append")
 		// The token stays off Google's OAuth endpoints, other Google APIs, lookalike hosts and unused methods.
 		assertRoutes(t, r, "fixture-token", false,
 			"POST https://oauth2.googleapis.com/token", "GET https://www.googleapis.com/drive/v3/files",
 			"GET https://sheets.googleapis.com/v4/spreadsheets", "GET https://sheets.googleapis.com.evil.test/v4/spreadsheets/s1",
 			"GET https://sheets.googleapis.com/v3/spreadsheets/s1", "DELETE "+api+"/s1", "PATCH "+api+"/s1/values/A1",
 			"GET "+api+"/s1/developerMetadata/1", "POST "+api+"/s1/developerMetadata:search", "POST "+api+"/s1/sheets/0:copyTo",
-			"POST "+api+"/s1/values:batchUpdateByDataFilter", "GET "+api+"/s1/values/%2e%2e/x", "GET "+api+"/s1/values/A%2FB")
+			"POST "+api+"/s1/values:batchUpdateByDataFilter", "GET "+api+"/s1/values/%2e%2e/x",
+			// Ranges may carry encoded separators, but never traversal or an encoded spreadsheet ID.
+			"GET "+api+"/s1/values/%2e%2e%2F%2e%2e%2Fdrive", "GET "+api+"/s1/values/%252e%252e%252Fx", "GET "+api+"/s1%2F..%2Fx/values/A1")
 
-		// Reads cannot be turned into writes with a method override.
-		recipe, err := r.Proxy.HTTPRecipe("GET", api+"/s1", nil)
-		if err != nil {
-			t.Fatal(err)
-		}
-		headers, err := recipe.Prepare(r.Context, http.Header{"X-HTTP-Method-Override": {"POST"}})
-		if err != nil || headers.Get("X-HTTP-Method-Override") != "" {
-			t.Fatalf("method override kept: %v %v", headers, err)
+		// No request can change its method with an override header.
+		for _, route := range [][2]string{{"GET", api + "/s1"}, {"GET", api + "/s1/values/A1"}, {"POST", api + "/s1:batchUpdate"}, {"PUT", api + "/s1/values/A1"}} {
+			recipe, err := r.Proxy.HTTPRecipe(route[0], route[1], nil)
+			if err != nil {
+				if route[0] == "GET" || access == "read-write" {
+					t.Fatal(err)
+				}
+				continue
+			}
+			headers, err := recipe.Prepare(r.Context, http.Header{"X-HTTP-Method-Override": {"DELETE"}, "X-HTTP-Method": {"DELETE"}, "X-Method-Override": {"DELETE"}})
+			if err != nil || headers.Get("X-HTTP-Method-Override")+headers.Get("X-HTTP-Method")+headers.Get("X-Method-Override") != "" {
+				t.Fatalf("%s %s kept a method override: %v %v", route[0], route[1], headers, err)
+			}
 		}
 	}
 }

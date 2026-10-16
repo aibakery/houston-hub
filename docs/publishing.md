@@ -60,8 +60,9 @@ which select ranges by tags an app attached and whose POST reads need the write 
 and `sheets.copyTo`, which `batchUpdate`'s `duplicateSheet` covers inside a
 spreadsheet. The Sheets scopes cannot list or search files, so callers pass a
 spreadsheet ID or URL, or find it through Google Drive. Read-only connections, and
-read-only callers of read-write ones, may only GET the three read routes, with
-method-override headers removed; writes POST or PUT the listed routes. Proxy paths match
+read-only callers of read-write ones, may only GET the three read routes; writes POST
+or PUT the listed routes, and every rule removes method-override headers. The `{range}`
+segment is an opaque path parameter, so tab names may contain `/` or `%`. Proxy paths match
 whole segments, so the write rule's `{spreadsheetId}` also admits other `:verb` routes,
 such as the read-only `getByDataFilter`, which the connector never calls. Writes default
 to `valueInputOption=RAW`, so text that looks like a formula stays text unless the

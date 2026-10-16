@@ -95,8 +95,36 @@
         ],
         "path": [
           "/v4/spreadsheets/{spreadsheetId}",
-          "/v4/spreadsheets/{spreadsheetId}/values/{range}",
           "/v4/spreadsheets/{spreadsheetId}/values:batchGet"
+        ]
+      },
+      "action": {
+        "headers": {
+          "remove": [
+            "X-HTTP-Method-Override",
+            "X-HTTP-Method",
+            "X-Method-Override"
+          ],
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      }
+    },
+    {
+      "match": {
+        "protocol": "http",
+        "host": [
+          "sheets.googleapis.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/v4/spreadsheets/{spreadsheetId}/values/{range}"
+        ],
+        "opaque_path_parameters": [
+          "range"
         ]
       },
       "action": {
@@ -125,13 +153,17 @@
         "path": [
           "/v4/spreadsheets",
           "/v4/spreadsheets/{spreadsheetId}",
-          "/v4/spreadsheets/{spreadsheetId}/values/{range}",
           "/v4/spreadsheets/{spreadsheetId}/values:batchUpdate",
           "/v4/spreadsheets/{spreadsheetId}/values:batchClear"
         ]
       },
       "action": {
         "headers": {
+          "remove": [
+            "X-HTTP-Method-Override",
+            "X-HTTP-Method",
+            "X-Method-Override"
+          ],
           "set": {
             "Authorization": "Bearer {{auth.oauth.access_token}}"
           }
@@ -146,14 +178,23 @@
           "sheets.googleapis.com"
         ],
         "method": [
+          "POST",
           "PUT"
         ],
         "path": [
           "/v4/spreadsheets/{spreadsheetId}/values/{range}"
+        ],
+        "opaque_path_parameters": [
+          "range"
         ]
       },
       "action": {
         "headers": {
+          "remove": [
+            "X-HTTP-Method-Override",
+            "X-HTTP-Method",
+            "X-Method-Override"
+          ],
           "set": {
             "Authorization": "Bearer {{auth.oauth.access_token}}"
           }

@@ -40,6 +40,10 @@ return {
 		assert(c.appendValues({spreadsheetId = "s1", range = "Log!A:D", values = {{"2026-10-16", "paid", 120}}, insertDataOption = "INSERT_ROWS"}).updates.updatedRows == 1)
 		sent("POST", API .. "/s1/values/Log%21A%3AD:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS", '{"values":[["2026-10-16","paid",120]]}')
 
+		responses = {'{"spreadsheetId":"s1"}'}
+		c.appendValues({spreadsheetId = "s1", range = "'Log/2026'!A:D", values = {{1}}})
+		sent("POST", API .. "/s1/values/%27Log%2F2026%27%21A%3AD:append?valueInputOption=RAW", '{"values":[[1]]}')
+
 		responses = {'{"spreadsheetId":"s1","clearedRange":"Sheet1!A2:D1000"}'}
 		assert(c.clearValues({spreadsheetId = "s1", range = "Sheet1!A2:D"}).clearedRange == "Sheet1!A2:D1000")
 		sent("POST", API .. "/s1/values/Sheet1%21A2%3AD:clear", "{}")
@@ -65,7 +69,7 @@ return {
 		assert(not pcall(c.updateValues, {spreadsheetId = "s1", range = "A1", values = {}}))
 		assert(not pcall(c.updateValues, {spreadsheetId = "s1", range = "A1", values = "42"}))
 		assert(not pcall(c.batchUpdate, {spreadsheetId = "s1", requests = {addSheet = {}}}))
-		assert(not pcall(c.appendValues, {spreadsheetId = "s1", range = "Log/2026!A:D", values = {{1}}}))
+		assert(not pcall(c.createSpreadsheet, {spreadsheetId = "s1", properties = {title = "Copy"}}), "createSpreadsheet assigns the ID")
 		assert(not pcall(c.batchUpdateValues, {spreadsheetId = "s1"}))
 		assert(not pcall(c.batchClearValues, {spreadsheetId = "s1"}))
 		assert(not pcall(c.batchUpdate, {spreadsheetId = "s1"}))

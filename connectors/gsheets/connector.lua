@@ -119,6 +119,8 @@ local SPREADSHEET_FIELDS = "spreadsheetId,spreadsheetUrl,properties(title,locale
 local READ_QUERY = {"majorDimension", "valueRenderOption", "dateTimeRenderOption"}
 local WRITE_QUERY = {"valueInputOption", "includeValuesInResponse", "responseValueRenderOption", "responseDateTimeRenderOption"}
 local RAW = {valueInputOption = "RAW"}
+local APPEND_QUERY = table.clone(WRITE_QUERY)
+table.insert(APPEND_QUERY, "insertDataOption")
 local endpoints: {[string]: Endpoint} = {
 	getSpreadsheet = {method = "GET", path = "/spreadsheets/{spreadsheetId}", read = true, defaults = {fields = SPREADSHEET_FIELDS},
 		query = {"fields", "ranges", "excludeTablesInBandedRanges"},
@@ -126,12 +128,11 @@ local endpoints: {[string]: Endpoint} = {
 	getValues = {method = "GET", path = "/spreadsheets/{spreadsheetId}/values/{range}", read = true, list = "values", query = READ_QUERY,
 		help = "getValues({spreadsheetId, range, valueRenderOption?, dateTimeRenderOption?, majorDimension?}) -> {range, majorDimension, values}. One cell: getValues({spreadsheetId=..., range='Sheet1!B2'}).values[1] is {'42'}, or nil when B2 is empty."},
 	batchGetValues = {method = "GET", path = "/spreadsheets/{spreadsheetId}/values:batchGet", read = true, list = "valueRanges", required = {"ranges"},
-		query = {"ranges", "majorDimension", "valueRenderOption", "dateTimeRenderOption"},
+		query = {"ranges", table.unpack(READ_QUERY)},
 		help = "batchGetValues({spreadsheetId, ranges={'Sheet1!A1:B2', 'Totals!C3'}, valueRenderOption?, dateTimeRenderOption?, majorDimension?}) -> {spreadsheetId, valueRanges=[{range, majorDimension, values}]}. Reads several ranges in one request, in the order given; an empty range has values=[]."},
 	updateValues = {method = "PUT", path = "/spreadsheets/{spreadsheetId}/values/{range}", read = false, body = true, defaults = RAW, query = WRITE_QUERY, required = {"values"},
 		help = "updateValues({spreadsheetId, range, values, valueInputOption?, majorDimension?, includeValuesInResponse?}) -> {spreadsheetId, updatedRange, updatedRows, updatedColumns, updatedCells}. Writes values from range's top-left cell, e.g. range='Sheet1!B2', values={{42}}."},
-	appendValues = {method = "POST", path = "/spreadsheets/{spreadsheetId}/values/{range}:append", read = false, body = true, defaults = RAW, required = {"values"},
-		query = {"valueInputOption", "insertDataOption", "includeValuesInResponse", "responseValueRenderOption", "responseDateTimeRenderOption"},
+	appendValues = {method = "POST", path = "/spreadsheets/{spreadsheetId}/values/{range}:append", read = false, body = true, defaults = RAW, required = {"values"}, query = APPEND_QUERY,
 		help = "appendValues({spreadsheetId, range, values, valueInputOption?, insertDataOption?}) -> {spreadsheetId, tableRange, updates}. Adds rows after the table Google finds in range, e.g. range='Log!A:D', values={{'2026-10-16', 'paid', 120}}, valueInputOption='USER_ENTERED' to store the date as a date. insertDataOption='INSERT_ROWS' inserts rows rather than filling the empty cells below (OVERWRITE, the default). Repeating it adds the rows again."},
 	clearValues = {method = "POST", path = "/spreadsheets/{spreadsheetId}/values/{range}:clear", read = false, body = true,
 		help = "clearValues({spreadsheetId, range}) -> {spreadsheetId, clearedRange}. Clears values and keeps formatting."},
@@ -150,21 +151,35 @@ local function spreadsheetId(value: any): any
 	if type(value) ~= "string" then return value end
 	local rest = string.match(value, "^https://docs%.google%.com/spreadsheets/d/(.*)$")
 		or string.match(value, "^https://docs%.google%.com/spreadsheets/u/%d+/d/(.*)$")
+		or string.match(value, "^https://docs%.google%.com/a/[^/]+/spreadsheets/d/(.*)$")
 	local id: string = if rest then string.match(rest, "^[^/?#]*") or "" else value
 	assert(string.match(id, "^[%w_%-]+$") and id ~= "e", "spreadsheetId must be a spreadsheet ID or its https://docs.google.com/spreadsheets/d/<id> URL")
 	return id
 end
 
 local NONE: {string} = table.freeze({})
+-- Ranges are opaque path segments (the proxy allows encoded / and %), so tab names like '10/16' work.
+local function withRange(endpoint: Endpoint, args: Options): Endpoint
+	if not string.find(endpoint.path, "{range}", 1, true) then return endpoint end
+	local range = url.encode(text(args.range, "range"))
+	args.range = nil
+	local resolved = table.clone(endpoint)
+	resolved.path = string.gsub(endpoint.path, "{range}", function(): string return range end)
+	return resolved
+end
 for name, endpoint in endpoints do
 	export(name, endpoint.read, function(input: any): any
 		local args = options(input)
-		args.spreadsheetId = spreadsheetId(args.spreadsheetId)
+		if string.find(endpoint.path, "{spreadsheetId}", 1, true) then
+			args.spreadsheetId = spreadsheetId(args.spreadsheetId)
+		else
+			assert(args.spreadsheetId == nil, name .. " assigns the spreadsheetId")
+		end
 		for _, field in endpoint.required or NONE do
 			local value = args[field]
 			assert(type(value) == "table" and value[1] ~= nil, name .. " requires " .. field .. " as a nonempty array")
 		end
-		local result = invoke(name, endpoint, args)
+		local result = invoke(name, withRange(endpoint, args), args)
 		for _, range in result.valueRanges or NONE do
 			if range.values == nil then range.values = json.decode("[]") end
 		end
@@ -175,7 +190,7 @@ end
 local overview = {
 	"Google Sheets API v4. Operations take one named options object with Google's camelCase fields and return Google's JSON unchanged. Calls return completed values: use instance.getValues(...) directly, without await.",
 	"spreadsheetId is the ID or the spreadsheet's https://docs.google.com/spreadsheets/d/<id>/edit URL. This connector cannot search for files: ask for the URL, or find the ID with the Google Drive connector (listFiles with q=\"mimeType = 'application/vnd.google-apps.spreadsheet' and trashed = false\"). Excel files opened in Sheets are refused with HTTP 400 until saved as Google Sheets (File > Save as Google Sheets).",
-	"Ranges use A1 notation: 'Sheet1!B2', 'Sheet1!A1:C10', 'Sheet1!A:A', a whole tab 'Sheet1' or a named range. Quote tab names with spaces or punctuation, and tab names that look like cells, doubling apostrophes: \"'Q1 Sales'!A1\", \"'Q1'!A1\". Without a tab, a range means the first visible tab. Operations taking one range put it in the URL path, so it cannot contain /, \\ or % or their look-alikes: use the batch operations or a named range for such tab names.",
+	"Ranges use A1 notation: 'Sheet1!B2', 'Sheet1!A1:C10', 'Sheet1!A:A', a whole tab 'Sheet1' or a named range. Quote tab names with spaces or punctuation, and tab names that look like cells, doubling apostrophes: \"'Q1 Sales'!A1\", \"'Q1'!A1\". Without a tab, a range means the first visible tab.",
 	"values are rows of cells (majorDimension='COLUMNS' gives columns). Trailing empty rows and cells are omitted; values is [] for an empty range. valueRenderOption is FORMATTED_VALUE (default, as displayed), UNFORMATTED_VALUE (numbers as numbers; dates as serial numbers unless dateTimeRenderOption='FORMATTED_STRING') or FORMULA.",
 	"Google allows about 60 reads per minute per user; HTTP 429 errors are retryable after a pause. No hidden paging or retries. Errors report the HTTP status and Google's message.",
 }
