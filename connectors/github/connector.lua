@@ -414,7 +414,7 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 	end
 	local unknown = next(args)
 	assert(unknown == nil, name .. " has no option " .. tostring(unknown))
-	local call: HttpRequest = {method = endpoint.method, url = API .. path, headers = headers, body = body}
+	local call: HttpRequest = {url = API .. path, method = endpoint.method, headers = headers, body = body}
 	if destination == nil then
 		local response = await(http.request(call))
 		if response.statusCode < 200 or response.statusCode >= 300 then fail(name, response) end
