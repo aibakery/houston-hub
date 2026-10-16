@@ -127,7 +127,7 @@ local endpoints: {[string]: Endpoint} = {
 		help = "getValues({spreadsheetId, range, valueRenderOption?, dateTimeRenderOption?, majorDimension?}) -> {range, majorDimension, values}. One cell: getValues({spreadsheetId=..., range='Sheet1!B2'}).values[1] is {'42'}, or nil when B2 is empty."},
 	batchGetValues = {method = "GET", path = "/spreadsheets/{spreadsheetId}/values:batchGet", read = true, list = "valueRanges", required = {"ranges"},
 		query = {"ranges", "majorDimension", "valueRenderOption", "dateTimeRenderOption"},
-		help = "batchGetValues({spreadsheetId, ranges={'Sheet1!A1:B2', 'Totals!C3'}, valueRenderOption?, dateTimeRenderOption?, majorDimension?}) -> {spreadsheetId, valueRanges=[{range, majorDimension, values?}]}. Reads several ranges in one request, in the order given; an empty range has values=[]."},
+		help = "batchGetValues({spreadsheetId, ranges={'Sheet1!A1:B2', 'Totals!C3'}, valueRenderOption?, dateTimeRenderOption?, majorDimension?}) -> {spreadsheetId, valueRanges=[{range, majorDimension, values}]}. Reads several ranges in one request, in the order given; an empty range has values=[]."},
 	updateValues = {method = "PUT", path = "/spreadsheets/{spreadsheetId}/values/{range}", read = false, body = true, defaults = RAW, query = WRITE_QUERY, required = {"values"},
 		help = "updateValues({spreadsheetId, range, values, valueInputOption?, majorDimension?, includeValuesInResponse?}) -> {spreadsheetId, updatedRange, updatedRows, updatedColumns, updatedCells}. Writes values from range's top-left cell, e.g. range='Sheet1!B2', values={{42}}."},
 	appendValues = {method = "POST", path = "/spreadsheets/{spreadsheetId}/values/{range}:append", read = false, body = true, defaults = RAW, required = {"values"},
