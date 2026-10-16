@@ -260,13 +260,15 @@ local function segment(value: any, field: string): string
 		return string.format("%d", number)
 	end
 	if OPAQUE[field] then
-		local raw = text(value, field)
-		-- The proxy decodes escapes and rejects traversal; fail here first, before any request.
-		assert(not string.find(raw, "%%%x%x"), field .. " must not contain percent escapes")
-		for _, part in string.split(string.gsub(raw, "\\", "/"), "/") do
-			assert(part ~= "" and part ~= "." and part ~= "..", field .. " must not contain empty, . or .. segments")
+		-- Each part passes url.segment (no dot, backslash, percent or look-alike traversal), so the
+		-- proxy's opaque check never has to refuse it; the slashes travel encoded.
+		local parts: {string} = {}
+		for _, part in string.split(text(value, field), "/") do
+			local ok, encoded = pcall(url.segment, part)
+			assert(ok, field .. " must be slash-separated names without empty, . or .. parts, backslashes or percent signs")
+			table.insert(parts, encoded)
 		end
-		return url.encode(raw)
+		return table.concat(parts, "%2F")
 	end
 	-- workflow_id is a numeric ID or a file name.
 	if type(value) == "number" and value % 1 == 0 and value >= 1 and value < 2 ^ 53 then value = string.format("%d", value) end
@@ -462,7 +464,7 @@ end
 exports.help = function(): string
 	local lines = {
 		"GitHub REST API " .. VERSION .. ". Each function takes one options object with GitHub's snake_case names (? marks optional); writes also take the JSON body fields listed after Body. Results are GitHub's JSON unchanged; write replies without a body return {success=true}. Connector calls return completed values: use them directly, without await. In bodies, json.decode('[]') is an empty array and json.decode('null') clears a field.",
-		"Start with github.getAuthenticatedUser().login, github.listMyRepos({sort='pushed', per_page=20}) or github.searchIssues({q='is:pr is:open author:@me'}). branch, ref, path, tag, tree_sha, basehead and label name may contain slashes (ref='heads/feature/x', path='src/main.go'), but not percent escapes such as %20.",
+		"Start with github.getAuthenticatedUser().login, github.listMyRepos({sort='pushed', per_page=20}) or github.searchIssues({q='is:pr is:open author:@me'}). branch, ref, path, tag, tree_sha, basehead and label name may contain slashes (ref='heads/feature/x', path='src/main.go'), but not percent signs or backslashes.",
 		"Lists return one page: page? means per_page (1..100, default 30) and page (from 1); a shorter page is the last. JSON and text results over 8 MiB fail; use save_as or smaller pages. Search returns {total_count, incomplete_results, items}: at most 1,000 results and 30 requests per minute (searchCode 10).",
 		"Files: getContent returns base64 content; save_as='name' saves raw bytes as a session file instead. download_url links lose their private-repository token, so fetch private files with save_as. save_as functions return {path, size, url} and overwrite that session file, even when the download fails; search large logs with fs.grep. getCommit, compareCommits and getPull take format='diff' or 'patch' and return that text, without paging. To commit several files, chain createBlob, createTree, createGitCommit and updateRef.",
 		"Access: GitHub enforces the token's permissions and repository selection; Connect with GitHub reaches public data and repositories where Houston's GitHub App is installed. A 403 or 404 may mean missing access; errors give GitHub's message, needed permissions and rate-limit resets. Read-only connections omit writes. Notifications need a classic token and installation lists Connect with GitHub; check runs and suites need a classic token or Connect with GitHub.",
