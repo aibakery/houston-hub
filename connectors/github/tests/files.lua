@@ -119,6 +119,9 @@ return {
 		assert(rejected(function() github.downloadTarball({owner = "o", repo = "r", ref = "main", save_as = "z.tar.gz"}) end, "HTTP admission failed") == 0)
 		assert(not pcall(function() opened[#opened]:write("x") end), "a failed download left its file open")
 		admissionFailure = false
+		respond(200, "blob\0raw")
+		github.getBlob({owner = "o", repo = "r", file_sha = "3a0f86fb8db8eea7ccbb9a95f325ddbedfb25e15", save_as = "blob.bin"})
+		assert(requests[#requests].headers.Accept[1] == "application/vnd.github.raw+json" and contents("blob.bin") == "blob\0raw")
 		assert(rejected(function() github.uploadReleaseAsset({owner = "o", repo = "r", release_id = 42, file = "build/app.zip"}) end, "name is required") == 0)
 	end,
 }
