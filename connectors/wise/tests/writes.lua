@@ -58,6 +58,10 @@ return {
 		assert(c.createRecipient(recipient).id == 55)
 		sent("POST", api .. "/v1/accounts", recipient)
 		assert(recipient.profile == 202 and recipient.details.IBAN == "DE89370400440532013000", "input mutated")
+		payload = '[{"type":"transfer","fields":[{"name":"Reference","group":[{"key":"reference","required":false}]}]}]'
+		assert(c.validateTransferRequirements({targetAccount = 55, quoteUuid = quote})[1].fields[1].group[1].key == "reference")
+		payload = "[]"
+		assert(json.encode(c.validateTransferRequirements({targetAccount = 55, quoteUuid = quote, details = {reference = "Invoice 7"}})) == "[]")
 		payload = "[]"
 		c.validateTransferRequirements({targetAccount = 55, quoteUuid = quote, details = {reference = "Invoice 7"}})
 		sent("POST", api .. "/v1/transfer-requirements", {targetAccount = 55, quoteUuid = quote, details = {reference = "Invoice 7"}})
@@ -111,6 +115,7 @@ return {
 			function() c.createQuote({profileId = 202, sourceCurrency = "EUR", targetCurrency = "GBP", sourceAmount = 1, targetAmount = 1}) end,
 			function() c.createQuote({sourceCurrency = "EUR", targetCurrency = "GBP", sourceAmount = 1}) end,
 			function() c.createQuote({profileId = 202, sourceCurrency = "EUR", targetCurrency = "GBP", sourceAmount = json.decode("null")}) end,
+			function() c.createQuote({profileId = 202, sourceCurrency = "EUR", targetCurrency = "GBP", sourceAmount = ""}) end,
 			function() c.createTransfer({targetAccount = 55, quoteUuid = "quote-1", customerTransactionId = tx}) end,
 			function() c.createBalanceMovement({profileId = 202, quoteId = "quote-1", idempotenceUuid = tx}) end,
 			function() c.createTransfer({targetAccount = 55, quoteUuid = quote}) end,

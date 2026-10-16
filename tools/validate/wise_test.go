@@ -11,9 +11,8 @@ var wisePlaceholder = regexp.MustCompile(`\{\w+\}`)
 func TestWiseAccessRoutes(t *testing.T) {
 	m := parseManifest(t, "../../connectors/wise/houston.json")
 	const quote = "2d0b3b6e-6f1c-4c43-9c6a-1b6a0f4f3a10"
-	for _, host := range []string{"api.wise.com", "api.wise-sandbox.com"} {
-		other := map[string]string{"api.wise.com": "https://api.wise-sandbox.com", "api.wise-sandbox.com": "https://api.wise.com"}[host]
-		api := "https://" + host
+	for _, hosts := range [][2]string{{"api.wise.com", "api.wise-sandbox.com"}, {"api.wise-sandbox.com", "api.wise.com"}} {
+		host, api, other := hosts[0], "https://"+hosts[0], "https://"+hosts[1]
 		for _, access := range []string{"read-only", "read-write"} {
 			r, err := m.Resolve(nil, map[string]any{"access": access, "api_host": host}, map[string]any{"token": "wise_fixture"}, "token")
 			if err != nil {

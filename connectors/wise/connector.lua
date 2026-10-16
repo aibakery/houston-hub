@@ -3,7 +3,7 @@ type Options = {[string]: any}
 type Query = {type: "string" | "integer" | "boolean" | "list", minimum: number?, maximum: number?, enum: {string}?}
 type Endpoint = {
 	method: string, path: string, query: {[string]: Query}?, required: {string}?, oneOf: {string}?, kind: "download"?,
-	idempotence: boolean?, merge: boolean?, minor: boolean?, about: string,
+	idempotence: boolean?, merge: boolean?, minor: boolean?, safe: boolean?, about: string,
 }
 
 local STATEMENT = "/v1/profiles/{profileId}/balance-statements/{balanceId}/statement"
@@ -48,16 +48,16 @@ local endpoints: {[string]: Endpoint} = {
 	getRecipient = {method = "GET", path = "/v2/accounts/{accountId}", about = "One recipient account."},
 	getBatchGroup = {method = "GET", path = "/v3/profiles/{profileId}/batch-groups/{batchGroupId}", about = "One batch group with status, version and transferIds."},
 
-	createQuote = {method = "POST", path = "/v3/profiles/{profileId}/quotes", required = {"sourceCurrency", "targetCurrency"}, oneOf = {"sourceAmount", "targetAmount"},
+	createQuote = {method = "POST", path = "/v3/profiles/{profileId}/quotes", required = {"sourceCurrency", "targetCurrency"}, oneOf = {"sourceAmount", "targetAmount"}, safe = true,
 		about = "Price a transfer or conversion; exactly one of sourceAmount or targetAmount; optional targetAccount, payOut, preferredPayIn. Moves no money."},
 	updateQuote = {method = "PATCH", path = "/v3/profiles/{profileId}/quotes/{quoteId}", merge = true,
 		about = "Attach targetAccount (and payOut) to a quote, refreshing fees and paymentOptions."},
-	refreshAccountRequirements = {method = "POST", path = "/v1/quotes/{quoteId}/account-requirements", minor = true,
+	refreshAccountRequirements = {method = "POST", path = "/v1/quotes/{quoteId}/account-requirements", minor = true, safe = true,
 		query = {originatorLegalEntityType = LEGAL_ENTITY},
 		about = "Send a partial recipient body to get updated forms when a field has refreshRequirementsOnChange. Creates nothing."},
 	createRecipient = {method = "POST", path = "/v1/accounts", required = {"profile", "accountHolderName", "currency", "type", "details"},
 		about = "Create a recipient account; type and details follow getAccountRequirements. ownedByCustomer marks your own account."},
-	validateTransferRequirements = {method = "POST", path = "/v1/transfer-requirements", required = {"targetAccount", "quoteUuid"},
+	validateTransferRequirements = {method = "POST", path = "/v1/transfer-requirements", required = {"targetAccount", "quoteUuid"}, safe = true,
 		about = "Array of extra transfer fields (reference, transferPurpose, sourceOfFunds) needed for this quote and recipient. Creates nothing."},
 	createTransfer = {method = "POST", path = "/v1/transfers", required = {"targetAccount", "quoteUuid", "customerTransactionId"},
 		about = "Create an unfunded transfer from a quote; customerTransactionId is your UUID idempotency key; details holds reference and requirements."},
@@ -146,7 +146,7 @@ end
 
 local function fail(name: string, endpoint: Endpoint, response: HttpResponse, detail: string?): never
 	local message = "Wise HTTP " .. response.statusCode
-	local sca = header(response, "x-2fa-approval-result")
+	local sca = if response.statusCode == 403 then header(response, "x-2fa-approval-result") else nil
 	if detail then
 		message ..= ": " .. detail
 	else
@@ -181,7 +181,11 @@ local function fail(name: string, endpoint: Endpoint, response: HttpResponse, de
 		if value then message ..= "; " .. key .. "=" .. value end
 	end
 	return houston.fail({operation = name, layer = "upstream", upstream_status = response.statusCode,
-		retryable = sca == nil and (response.statusCode == 429 or (response.statusCode >= 500 and endpoint.method == "GET")), message = message})
+		retryable = sca == nil and (response.statusCode == 429 or (response.statusCode >= 500 and (endpoint.method == "GET" or endpoint.safe == true))), message = message})
+end
+
+local function present(value: any): boolean
+	return value ~= nil and value ~= NULL and value ~= ""
 end
 
 -- Cancelling (PUT) and closing a balance (DELETE) take no body.
@@ -198,9 +202,7 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 		args[field] = nil
 		return value
 	end)
-	for _, field in endpoint.required or NONE do
-		assert(args[field] ~= nil and args[field] ~= NULL and args[field] ~= "", field .. " is required")
-	end
+	for _, field in endpoint.required or NONE do assert(present(args[field]), field .. " is required") end
 	local headers: HttpHeaders = {Accept = {"application/json"}}
 	if endpoint.minor then headers["Accept-Minor-Version"] = {"1"} end
 	assert(endpoint.idempotence or args.idempotenceUuid == nil, name .. " does not accept idempotenceUuid")
@@ -229,11 +231,11 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 		assert(extra == nil, name .. " does not accept option " .. tostring(extra))
 	else
 		if endpoint.oneOf then
-			local present = 0
+			local count = 0
 			for _, field in endpoint.oneOf do
-				if args[field] ~= nil and args[field] ~= NULL then present += 1 end
+				if present(args[field]) then count += 1 end
 			end
-			assert(present == 1, name .. " needs exactly one of " .. table.concat(endpoint.oneOf, " or "))
+			assert(count == 1, name .. " needs exactly one of " .. table.concat(endpoint.oneOf, " or "))
 		end
 		for _, field in UUID_FIELDS do
 			if args[field] ~= nil then uuid(args[field], field) end
@@ -249,13 +251,16 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 			response.body:close()
 			fail(name, endpoint, response, "Wise returned " .. media .. " instead of a file")
 		end
-		local output = fs.open(destination, "w")
+		local output: File? = nil
 		local ok, err = pcall(function()
-			output:write(response.body)
-			await(output:close())
+			local file = fs.open(destination, "w")
+			output = file
+			file:write(response.body)
+			await(file:close())
 		end)
 		if not ok then
-			pcall(function() await(output:close()) end)
+			pcall(function() response.body:close() end)
+			if output then pcall(function() await((output :: File):close()) end) end
 			error(err, 0)
 		end
 		return {path = destination, size = await(fs.stat(destination)).size, url = await(fs.signedGetUrl(destination))}
@@ -289,7 +294,7 @@ exports.help = function(): string
 		table.insert(lines, "Sending money: createQuote({profileId,sourceCurrency,targetCurrency,sourceAmount}) -> getAccountRequirements({quoteId}) -> createRecipient or listRecipients -> updateQuote({profileId,quoteId,targetAccount}) -> validateTransferRequirements -> createTransfer({targetAccount,quoteUuid,customerTransactionId,details={reference=...}}) -> fundTransfer({profileId,transferId,type='BALANCE'}). Quotes expire (expirationTime). Funding moves money and can be irreversible; confirm amount, currency and recipient with the user first. cancelTransfer works only while the status is incoming_payment_waiting. Business accounts with payment approvals enabled in Wise settings cannot create transfers through the API (missing approval error).")
 		table.insert(lines, "Idempotency: createTransfer and createBatchTransfer require customerTransactionId, and createBalance and createBalanceMovement require idempotenceUuid (sent as X-idempotence-uuid). Each must be a new UUID kept with the intended action; reuse it only to retry that same action after a timeout, never for a different payment. Inspect listTransfers or getTransfer before retrying an ambiguous write.")
 	end
-	table.insert(lines, "Errors report HTTP status, Wise's errors (code, message, path), Retry-After and x-trace-id. A 429 means Wise did not process the request and is retryable after Retry-After, as is a 5xx on a read; other write failures are not, so inspect the transfer or balance before repeating a write. A write answered with an empty body returns {success=true}. Wise rate-limits each user to about 100 requests per second and 900 per minute.")
+	table.insert(lines, "Errors report HTTP status, Wise's errors (code, message, path), Retry-After and x-trace-id. A 429 means Wise did not process the request and is retryable after Retry-After, as is a 5xx on a read or on a call that creates nothing (createQuote, refreshAccountRequirements, validateTransferRequirements); other write failures are not, so inspect the transfer or balance before repeating a write. A write answered with an empty body returns {success=true}. Wise rate-limits each user to about 100 requests per second and 900 per minute.")
 	local names: {string} = {}
 	for name in exports do if name ~= "help" then table.insert(names, name) end end
 	table.sort(names)

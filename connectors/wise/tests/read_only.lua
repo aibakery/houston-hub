@@ -50,6 +50,9 @@ return {
 		get(api .. "/v1/profiles/202/total-funds/GBP")
 		c.getBalanceStatement({profileId = 202, balanceId = 1, currency = "EUR", intervalStart = "2026-01-01T00:00:00.000Z", intervalEnd = "2026-02-01T00:00:00.000Z", type = "COMPACT"})
 		get(api .. "/v1/profiles/202/balance-statements/1/statement.json?currency=EUR&intervalEnd=2026-02-01T00%3A00%3A00.000Z&intervalStart=2026-01-01T00%3A00%3A00.000Z&type=COMPACT")
+		payload = '[{"id":1,"currency":{"code":"EUR"},"receiveOptions":[]}]'
+		local details = c.listAccountDetails({profileId = 202})
+		assert(details[1].currency.code == "EUR" and json.encode(details[1].receiveOptions) == "[]")
 		payload = "[]"
 		assert(json.encode(c.listAccountDetails({profileId = 202})) == "[]")
 		get(api .. "/v1/profiles/202/account-details")
@@ -65,10 +68,14 @@ return {
 		payload = '[{"rate":1.16,"source":"EUR","target":"USD","time":"2026-10-16T10:00:00+0000"}]'
 		assert(c.getRates({source = "EUR", target = "USD", from = "2026-10-01", to = "2026-10-16", group = "day"})[1].rate == 1.16)
 		get(api .. "/v1/rates?from=2026-10-01&group=day&source=EUR&target=USD&to=2026-10-16")
+		payload = "[]"
+		assert(json.encode(c.getRates({source = "EUR", target = "XXX"})) == "[]", "empty rate array lost")
 		payload = '[{"code":"EUR","symbol":"€","name":"Euro","countryKeywords":[]}]'
 		local currencies = c.listCurrencies()
 		assert(currencies[1].symbol == "€" and json.encode(currencies[1].countryKeywords) == "[]")
 		get(api .. "/v1/currencies")
+		payload = "[]"
+		assert(json.encode(c.listCurrencies()) == "[]", "empty currency array lost")
 		payload = '[{"id":9001,"status":"processing","targetValue":10.5}]'
 		assert(c.listTransfers({profile = 202})[1].targetValue == 10.5)
 		payload = "[]"

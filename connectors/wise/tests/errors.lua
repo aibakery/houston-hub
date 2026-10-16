@@ -35,7 +35,11 @@ return {
 		local long = string.rep("y", 250)
 		local item = {code = long, message = long, path = long}
 		fails(400, json.encode({errors = {item, item, item, item, item, item}, error = long, error_description = long, message = long}), {["retry-after"] = {long}, ["x-trace-id"] = {long}}, {"HTTP 400"})
-		fails(500, string.rep("X", 100000), {["x-2fa-approval-result"] = {"REJECTED"}}, {"HTTP 500", '"retryable":false'}, nil, true)
+		fails(500, string.rep("X", 100000), {["x-2fa-approval-result"] = {"APPROVED"}}, {"HTTP 500", '"retryable":true'}, "strong customer authentication", true)
+		fails(400, '{"errors":[{"code":"balance.insufficient"}]}', {["x-2fa-approval-result"] = {"APPROVED"}}, {"HTTP 400", "balance.insufficient", '"retryable":false'}, "strong customer authentication")
+		status, payload, responseHeaders = 503, "Unavailable", {}
+		local ok, err = pcall(c.createQuote, {profileId = 202, sourceCurrency = "EUR", targetCurrency = "GBP", sourceAmount = 1})
+		assert(not ok and string.find(tostring(err), '"retryable":true', 1, true), "a quote 5xx should be retryable: " .. tostring(err))
 		fails(200, "not json", {}, {"accepted the request but returned an invalid JSON response", "check the result", '"retryable":false'})
 		fails(422, '{"title":"Invalid","detail":"targetAccount not found"}', {}, {"HTTP 422", "targetAccount not found"})
 		fails(400, '{"errors":[{"arguments":["9001"]}]}', {}, {"HTTP 400: {", "9001"}, "; ;")
