@@ -330,6 +330,41 @@
               "display": false
             }
           }
+        },
+        {
+          "if": {
+            "required": [
+              "multiline"
+            ]
+          },
+          "then": {
+            "properties": {
+              "display": {
+                "const": "plain"
+              },
+              "options": false,
+              "type": {
+                "const": "string"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "format"
+            ]
+          },
+          "then": {
+            "properties": {
+              "multiline": {
+                "const": true
+              }
+            },
+            "required": [
+              "multiline"
+            ]
+          }
         }
       ],
       "properties": {
@@ -347,6 +382,13 @@
           "enum": [
             "plain",
             "masked"
+          ],
+          "type": "string"
+        },
+        "format": {
+          "description": "Syntax highlighting only; the string value is preserved and connectors validate its meaning.",
+          "enum": [
+            "json"
           ],
           "type": "string"
         },
@@ -373,6 +415,9 @@
         },
         "minimum": {
           "type": "number"
+        },
+        "multiline": {
+          "type": "boolean"
         },
         "options": {
           "items": {

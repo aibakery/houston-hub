@@ -39,6 +39,8 @@ type Field struct {
 	MaxLength   *int64   `json:"max_length,omitempty"`
 	Order       int64    `json:"order,omitempty"`
 	Display     string   `json:"display,omitempty"`
+	Multiline   bool     `json:"multiline,omitempty"`
+	Format      string   `json:"format,omitempty"`
 }
 type Option struct {
 	Value string `json:"value"`

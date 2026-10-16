@@ -18,8 +18,21 @@
         {
           "label": "Read and write",
           "value": "read-write"
+        },
+        {
+          "label": "Custom folder access",
+          "value": "custom"
         }
       ]
+    },
+    "path_access": {
+      "type": "string",
+      "label": "Folder access JSON",
+      "description": "Map existing folder paths to read-only or read-write. Unlisted folders are denied; the most specific folder rule wins. Example: {\"/Finance\":\"read-only\",\"/Incoming\":\"read-write\"}.",
+      "required": true,
+      "if": "{{ is config.access \"custom\" }}",
+      "multiline": true,
+      "format": "json"
     },
     "client_id": {
       "type": "string",
@@ -64,6 +77,12 @@
             "files.content.write",
             "sharing.write",
             "file_requests.write"
+          ]
+        },
+        {
+          "if": "{{ is config.access \"custom\" }}",
+          "values": [
+            "files.content.write"
           ]
         }
       ],

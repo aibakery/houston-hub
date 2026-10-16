@@ -13,6 +13,7 @@ func TestReservedAccessFieldUsesCanonicalCallerPolicy(t *testing.T) {
 	}{
 		{"default", `{"type":"string","label":"Access","default":"read-only","options":[{"value":"read-only","label":"Read"},{"value":"read-write","label":"Read and write"}]}`, true},
 		{"absent default", `{"type":"string","label":"Access"}`, true},
+		{"custom policy", `{"type":"string","label":"Access","default":"custom","options":[{"value":"read-only","label":"Read"},{"value":"read-write","label":"Write"},{"value":"custom","label":"Folders"}]}`, true},
 		{"secret", `{"type":"secret","label":"Access"}`, false},
 		{"other default", `{"type":"string","label":"Access","default":"write"}`, false},
 		{"other option", `{"type":"string","label":"Access","options":[{"value":"administrator","label":"Admin"}]}`, false},

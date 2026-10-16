@@ -90,6 +90,12 @@ func validateField(f Field) error {
 	if f.Display != "" && (f.Type != "string" || len(f.Options) > 0 || (f.Display != "plain" && f.Display != "masked")) {
 		return fmt.Errorf("display requires string without options")
 	}
+	if f.Multiline && (f.Type != "string" || f.Display == "masked" || len(f.Options) > 0) {
+		return fmt.Errorf("multiline requires an unmasked string without options")
+	}
+	if f.Format != "" && (f.Format != "json" || !f.Multiline) {
+		return fmt.Errorf("format must be json and requires multiline")
+	}
 	if f.Options != nil {
 		if f.Type != "string" || len(f.Options) == 0 {
 			return fmt.Errorf("options requires nonempty string options")
@@ -167,12 +173,12 @@ func (m *Manifest) Validate() error {
 		if access.Type != "string" || access.If != "" {
 			return fmt.Errorf("config.access must be an unconditional string field")
 		}
-		if access.Default != nil && access.Default != "read-only" && access.Default != "read-write" {
-			return fmt.Errorf("config.access default must be read-only or read-write")
+		if access.Default != nil && access.Default != "read-only" && access.Default != "read-write" && access.Default != "custom" {
+			return fmt.Errorf("config.access default must be read-only, read-write, or custom")
 		}
 		for _, option := range access.Options {
-			if option.Value != "read-only" && option.Value != "read-write" {
-				return fmt.Errorf("config.access options must be read-only or read-write")
+			if option.Value != "read-only" && option.Value != "read-write" && option.Value != "custom" {
+				return fmt.Errorf("config.access options must be read-only, read-write, or custom")
 			}
 		}
 		if err := ValidateValue(access, "read-only"); err != nil {
@@ -595,6 +601,17 @@ func checkPresence(data []byte) error {
 				continue
 			}
 			t, _ := f["type"].(string)
+			if _, ok := f["multiline"]; ok {
+				if t != "string" || f["display"] == "masked" {
+					return fmt.Errorf("multiline requires an unmasked string without options")
+				}
+				if _, ok := f["options"]; ok {
+					return fmt.Errorf("multiline forbidden with options")
+				}
+			}
+			if value, ok := f["format"]; ok && (value != "json" || f["multiline"] != true) {
+				return fmt.Errorf("format must be json and requires multiline")
+			}
 			for _, k := range []string{"placeholder", "min_length", "max_length"} {
 				if _, ok := f[k]; ok && t != "string" && t != "secret" {
 					return fmt.Errorf("%s forbidden for %s", k, t)

@@ -23,6 +23,7 @@ type Scenario struct {
 	AuthMethod    string         `json:"auth_method"`
 	AuthConfig    map[string]any `json:"auth_config"`
 	GrantedScopes []string       `json:"granted_scopes"`
+	CallerAccess  string         `json:"caller_access"`
 }
 type metadata struct {
 	Scenario Scenario       `json:"scenario"`
@@ -94,6 +95,23 @@ func Check(ctx context.Context, binary string, m manifest.Manifest, modules, fix
 		for key, value := range meta.Config {
 			scenario.Config[key] = value
 		}
+		callerAccess := scenario.CallerAccess
+		if callerAccess != "" {
+			if callerAccess != "read-only" && callerAccess != "read-write" {
+				return fmt.Errorf("fixture %s caller_access must be read-only or read-write", name)
+			}
+			field, declared := m.Config["access"]
+			configured, present := scenario.Config["access"]
+			if !present {
+				configured = field.Default
+			}
+			if configured != "read-write" && configured != "custom" {
+				callerAccess = "read-only"
+			}
+			if declared && configured != "custom" {
+				scenario.Config["access"] = callerAccess
+			}
+		}
 		resolved, err := m.Resolve(scenario.Publisher, scenario.Config, scenario.AuthConfig, scenario.AuthMethod)
 		if err != nil {
 			return fmt.Errorf("fixture %s settings: %w", name, err)
@@ -103,6 +121,9 @@ func Check(ctx context.Context, binary string, m manifest.Manifest, modules, fix
 		}
 		input := map[string]any{"files": m.Files, "modules": modules, "config": resolved.PublicConfig, "protocol": m.Proxy[resolved.ProxyIndices[0]].Match.Protocol, "args": []any{}}
 		input["auth"] = m.DiscoveryAuth(scenario.AuthMethod, scenario.GrantedScopes)
+		if callerAccess != "" {
+			input["access"] = callerAccess
+		}
 		var output struct {
 			Type    string   `json:"type"`
 			Exports []string `json:"exports"`

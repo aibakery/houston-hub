@@ -61,6 +61,7 @@ func Schema() ([]byte, error) {
 	enum := func(n, k string, values ...string) { p := props(n)[k].(map[string]any); p["enum"] = values }
 	enum("Field", "type", "string", "boolean", "integer", "number", "secret")
 	enum("Field", "display", "plain", "masked")
+	enum("Field", "format", "json")
 	enum("AuthMethod", "type", "manual", "oauth2")
 	enum("AuthMethod", "client_auth", "basic", "body", "none")
 	enum("AuthMethod", "token_encoding", "form", "json")
@@ -129,6 +130,13 @@ func Schema() ([]byte, error) {
 	def("AuthMethod")["allOf"] = []any{map[string]any{"if": condition("type", "manual"), "then": manual, "else": oauth}, map[string]any{"if": condition("type", "oauth2"), "then": map[string]any{"if": condition("client_auth", "none"), "then": map[string]any{"properties": map[string]any{"client_secret": false, "pkce": map[string]any{"const": "S256"}}}, "else": map[string]any{"required": []string{"client_secret"}}}}}
 	def("BasicAuth")["oneOf"] = []any{map[string]any{"maxProperties": 0}, map[string]any{"required": []string{"username", "password"}}}
 	def("ResponseCheck")["allOf"] = []any{map[string]any{"if": condition("op", "equals"), "then": map[string]any{"required": []string{"value"}}, "else": forbid("value")}}
-	def("Field")["allOf"] = []any{map[string]any{"if": condition("type", "secret"), "then": forbid("default", "display", "options")}, map[string]any{"if": map[string]any{"properties": map[string]any{"type": map[string]any{"enum": []string{"string", "secret"}}}}, "then": forbid("minimum", "maximum"), "else": forbid("placeholder", "min_length", "max_length", "options", "display")}, map[string]any{"if": map[string]any{"required": []string{"options"}}, "then": forbid("display")}}
+	def("Field")["allOf"] = []any{
+		map[string]any{"if": condition("type", "secret"), "then": forbid("default", "display", "options")},
+		map[string]any{"if": map[string]any{"properties": map[string]any{"type": map[string]any{"enum": []string{"string", "secret"}}}}, "then": forbid("minimum", "maximum"), "else": forbid("placeholder", "min_length", "max_length", "options", "display")},
+		map[string]any{"if": map[string]any{"required": []string{"options"}}, "then": forbid("display")},
+		map[string]any{"if": map[string]any{"required": []string{"multiline"}}, "then": map[string]any{"properties": map[string]any{"type": map[string]any{"const": "string"}, "options": false, "display": map[string]any{"const": "plain"}}}},
+		map[string]any{"if": map[string]any{"required": []string{"format"}}, "then": map[string]any{"required": []string{"multiline"}, "properties": map[string]any{"multiline": map[string]any{"const": true}}}},
+	}
+	props("Field")["format"].(map[string]any)["description"] = "Syntax highlighting only; the string value is preserved and connectors validate its meaning."
 	return json.MarshalIndent(map[string]any{"$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "https://ok-houston.com/schemas/connector-manifest-v1.json", "title": "Houston connector manifest v1", "$ref": "#/$defs/Manifest", "$defs": defs}, "", "  ")
 }

@@ -65,7 +65,7 @@ local fs: {
     signedPutUrl:(string,number?)->Operation<string>,
 } = nil :: any
 local json: {encode:(any)->string,decode:(string)->any,jq:(any,string)->any} = nil :: any
-local houston: {fail:(any)->never} = nil :: any
+local houston: {access:"read-only" | "read-write",fail:(any)->never,seal:(any)->string,unseal:(string)->any} = nil :: any
 local require: (string)->any = nil :: any
 `
 

@@ -54,6 +54,36 @@ func TestPublicationRequiresBehaviorFixtures(t *testing.T) {
 	}
 }
 
+func TestCustomCallerAccessReachesDiscoveryAndBehavior(t *testing.T) {
+	m, err := manifest.Parse([]byte(`{"schema_version":1,"name":"Custom access","files":["main.lua"],"config":{"access":{"type":"string","label":"Access","default":"custom"}},"proxy":[{"match":{"protocol":"http","host":["example.com"]},"action":{}}]}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	modules := map[string]string{"main.lua": `local exports={read=function() return config.access end,help=function() return "Caller: "..houston.access end};if houston.access=="read-write" then exports.write=function() return true end end;return exports`}
+	for _, tc := range []struct{ access, assertion string }{
+		{"", `assert(c.write==nil)`},
+		{`,caller_access="read-only"`, `assert(c.write==nil)`},
+		{`,caller_access="read-write"`, `assert(c.write()==true)`},
+	} {
+		fixture := `return {scenario={config={}` + tc.access + `},run=function(c) assert(c.read()=="custom");` + tc.assertion + ` end}`
+		if err := Check(context.Background(), fixtureHost(t), *m, modules, map[string]string{"access.lua": fixture}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, scenario := range []string{
+		`{config={access="read-write"},caller_access="read-only"}`,
+		`{config={access="read-only"},caller_access="read-write"}`,
+	} {
+		fixture := `return {scenario=` + scenario + `,run=function(c) assert(c.read()=="read-only" and c.write==nil) end}`
+		if err := Check(context.Background(), fixtureHost(t), *m, modules, map[string]string{"limited.lua": fixture}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := Check(context.Background(), fixtureHost(t), *m, modules, map[string]string{"invalid.lua": `return {scenario={caller_access="custom"},run=function() end}`}); err == nil || !strings.Contains(err.Error(), "caller_access") {
+		t.Fatalf("invalid caller access accepted: %v", err)
+	}
+}
+
 func TestPublicationFixturesUseNativeIOOperations(t *testing.T) {
 	m, err := manifest.Parse([]byte(`{"files":["main.lua"],"name":"I/O fixture","proxy":[{"action":{},"match":{"host":["example.com"],"protocol":"http"}}],"schema_version":1}`))
 	if err != nil {

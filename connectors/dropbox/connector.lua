@@ -86,7 +86,7 @@ local function content(endpoint: Endpoint, input: any, headers: HttpHeaders): (H
 end
 
 -- Streams the response body to a session file; Dropbox describes it in the Dropbox-API-Result header.
-local function download(name: string, endpoint: Endpoint, input: any): Options
+local function download(name: string, endpoint: Endpoint, input: any, guard: ((any) -> any)?): Options
 	local request, path = content(endpoint, input, {})
 	-- Opening the session file first refuses an invalid path before any Dropbox request.
 	local output = fs.open(path, "w")
@@ -108,6 +108,14 @@ local function download(name: string, endpoint: Endpoint, input: any): Options
 		response.body:close()
 		await(output:close())
 		invalid(name, response, "Dropbox returned no Dropbox-API-Result metadata")
+	end
+	if guard then
+		local allowed, problem = pcall(guard, result)
+		if not allowed then
+			response.body:close()
+			await(output:close())
+			error(problem, 0)
+		end
 	end
 	output:write(response.body)
 	await(output:close())
@@ -241,24 +249,49 @@ local endpoints: {[string]: Endpoint} = {
 
 local exports: {[string]: any} = {}
 local help: {[string]: string} = {}
+local policy: any = nil
+if config.access == "custom" then
+	policy = require("lib/policy.lua")(config.path_access, function(path: string): Options?
+		local response = await(http.request({method = "POST", url = API .. "files/get_metadata",
+			headers = {["Content-Type"] = {"application/json"}}, body = json.encode({path = path, include_deleted = true})}))
+		if response.statusCode < 200 or response.statusCode >= 300 then
+			local ok, body = pcall(json.decode, await(response.body:readPrefix(4096)))
+			if response.statusCode == 409 and ok and type(body) == "table" and type(body.error_summary) == "string"
+				and string.find(body.error_summary, "path/not_found/", 1, true) == 1 then return nil end
+			invalid("folderAccess", response, "Dropbox folder access could not be verified")
+		end
+		return decode("folderAccess", endpoints.getMetadata, response)
+	end)
+end
+
+local function invoke(name: string, endpoint: Endpoint, input: any): any
+	local args, context = options(endpoint, input), nil
+	if policy then args, context = policy.prepare(name, args) end
+	if endpoint.style == "download" then
+		return download(name, endpoint, args, if policy then function(value: any): any return policy.result(name, value, context) end else nil)
+	end
+	local result = if endpoint.style == "upload" then upload(name, endpoint, args) else rpc(name, endpoint, args)
+	return if policy then policy.result(name, result, context) else result
+end
 
 -- Exposes an operation when it only reads or the connection allows writes.
 local function export(name: string, endpoint: Endpoint, fn: (...any) -> any, doc: string)
-	if (endpoint.read or config.access == "read-write") and (auth.scopes == nil or table.find(auth.scopes, endpoint.scope) ~= nil) then
-		exports[name], help[name] = fn, doc
+	local supported = policy == nil or (policy.supports(if name == "statFile" then "getMetadata" else name)
+		and (auth.scopes == nil or table.find(auth.scopes, "files.metadata.read") ~= nil))
+	if supported and (endpoint.read or config.access == "read-write" or (policy and policy.writable)) and (auth.scopes == nil or table.find(auth.scopes, endpoint.scope) ~= nil) then
+		exports[name], help[name] = fn, if policy then policy.documentation(name, doc) else doc
 	end
 end
 
 for name, endpoint in endpoints do
-	local call: (string, Endpoint, any) -> any = if endpoint.style == "download" then download elseif endpoint.style == "upload" then upload else rpc
-	export(name, endpoint, function(args: Options?): any return call(name, endpoint, args) end,
+	export(name, endpoint, function(args: Options?): any return invoke(name, endpoint, args) end,
 		name .. endpoint.help .. " [" .. endpoint.route .. "]")
 end
 
 -- Fixed-signature file lookup shared with other storage connectors.
 export("statFile", endpoints.getMetadata, function(...: any): {id: string, name: string, isFolder: boolean, size: number?}
 	assert(select("#", ...) == 1, "statFile takes exactly one file ID or path")
-	local file = rpc("statFile", endpoints.getMetadata, {path = text((...), "file ID")})
+	local file = invoke("getMetadata", endpoints.getMetadata, {path = text((...), "file ID")})
 	local isFolder = file[".tag"] == "folder"
 	local size = if isFolder then nil else file.size
 	if type(file.id) ~= "string" or file.id == "" or type(file.name) ~= "string"
@@ -266,7 +299,8 @@ export("statFile", endpoints.getMetadata, function(...: any): {id: string, name:
 		houston.fail({operation = "statFile", layer = "upstream", retryable = false, message = "Dropbox returned invalid file metadata"})
 	end
 	return {id = file.id, name = file.name, isFolder = isFolder, size = size}
-end, "statFile(id) -> {id, name, isFolder, size?}. One positional 'id:...' or path; size is absent for folders.")
+end, if policy then "statFile(path) -> {id, name, isFolder, size?}. One positional absolute path; size is absent for folders."
+	else "statFile(id) -> {id, name, isFolder, size?}. One positional 'id:...' or path; size is absent for folders.")
 
 exports.help = function(): string
 	local names: {string} = {}
@@ -281,6 +315,11 @@ exports.help = function(): string
 		"No hidden paging, polling or retries. Batch, URL-saving and sharing jobs may return an async_job_id: poll the status operation their help names. Errors report the HTTP status and Dropbox's error_summary, e.g. 'Dropbox HTTP 409: path/not_found/..'. A failed or timed-out change may already have happened; check before repeating.",
 		"Connector calls return completed values; do not await them. Example: local page = dropbox.listFolder({path='/Reports', limit=100}); local file = dropbox.download({path=page.entries[1].path_lower, session_path='report.pdf'}); return file.url.",
 	}
+	if policy then
+		lines[3] = "Paths are relative to the member's folder. Use an explicitly granted folder to start browsing; path='' requires a '/' rule. This connector does not set Dropbox-API-Path-Root, so full team-space traversal is unsupported."
+		lines[6] = "No hidden paging or retries. Authorization resolves folder rules and operation paths through Dropbox metadata. A failed or timed-out change may already have happened; check before repeating."
+		table.insert(lines, 1, policy.help())
+	end
 	for _, name in names do table.insert(lines, help[name]) end
 	return table.concat(lines, "\n")
 end

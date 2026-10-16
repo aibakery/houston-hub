@@ -243,6 +243,28 @@ inactive saved values cannot satisfy references. Templates use explicit owners:
 `publisher.name`, `config.name`, `auth.token.token`, or an OAuth method's
 `auth.oauth.access_token`. Fallback `||` is available for values, not predicates.
 
+Use `multiline: true` on a plain string field for a textarea. Add `format: "json"`
+for syntax highlighting; this is presentation metadata, preserves the exact string,
+and does not validate JSON or its meaning. Connector code must validate structured
+configuration before using it. Multiline fields cannot be secret, masked, or choices.
+The same metadata works for publisher, connection, and manual-auth settings.
+Conditional required fields are required only while active, for example:
+
+```json
+"folder_rules": {
+  "type": "string",
+  "label": "Folder permissions",
+  "if": "{{ is config.mode \"custom\" }}",
+  "required": true,
+  "multiline": true,
+  "format": "json"
+}
+```
+
+Inactive fields are omitted from forms and runtime config; a save cannot submit
+values for them. Previously saved inactive values can be reused when reactivated.
+Unsaved edits to a field are discarded when its condition becomes inactive.
+
 Updating settings must distinguish omission (retain), reset (apply a declared
 default), replacement, and explicit secret clearing. Saved secret values never
 round-trip through forms. A method switch completes the new authentication before
@@ -410,8 +432,10 @@ and provider/database grants remain part of authorization.
 
 The connector Lua is the sole authority for configured functions and their help.
 Return only functions enabled by the effective public configuration. Houston
-clamps `config.access` to `read-only` for callers without a current write grant,
-then uses the same configured Lua for discovery and execution. Native dispatch
+clamps canonical `config.access` modes to `read-only` for callers without a current
+write grant. A `custom` mode retains its active policy settings and must intersect
+each operation's policy with immutable `houston.access` (`read-only` or `read-write`).
+The same configured Lua serves discovery and execution. Native dispatch
 rechecks current connection access and the effective configuration before each
 transport request. Do not infer permission from function names or HTTP verbs.
 Provider and database grants remain authoritative.
@@ -487,7 +511,11 @@ Set `HOUSTON_CLI` to a newly built Houston runner and put the pinned
 `luau-analyze` on `PATH`. A fixture returns a table with `scenario`, optional
 public `config` overrides, optional `configure`, and `run`. The scenario contains
 synthetic `publisher`, root `config`, `auth_method`, and selected `auth_config`
-inputs. Houston resolves them through the production manifest contract before
+inputs, plus optional `caller_access` (`read-only` or `read-write`). Without it,
+caller access defaults to read-write only for canonical read-write configuration;
+custom policy fixtures default to read-only. Explicit caller access is intersected
+with connection access before resolving conditional fields, preserving custom
+policy. Houston resolves settings through the production manifest contract before
 projecting only active nonsecret root values into the fixture VM. Include every
 declared auth method, enabled proxy rule, and intended enabled/disabled surface.
 Eligibility coverage does not establish which rule wins; matcher tests separately
@@ -532,12 +560,28 @@ validation/release pipeline; see the main repository's local-development guide.
 
 `config.access` is a reserved public field. When declared it must be an
 unconditional string field accepting `read-only`; defaults and options use only
-`read-only` and `read-write`. An optional field without an explicit default
+`read-only`, `read-write`, and `custom`. An optional field without an explicit default
 defaults to `read-only` before conditional fields, OAuth scopes, and proxies are
 resolved. Required fields still require a value, and explicit null inputs are
 invalid. When undeclared, Houston supplies `read-only`.
 The publication type checker exposes this reserved field even if the manifest
 does not declare a configurable Access setting.
+
+Only connector VMs receive immutable `houston.access`, the effective caller grant.
+For `custom`, retain and enforce the configured policy even for read-only callers;
+never substitute unrestricted account-wide reads. Custom write exports require
+both `houston.access == "read-write"` and a policy permitting the write.
+
+`houston.seal(value)` returns an opaque encrypted token, and `houston.unseal(token)`
+returns the original plain JSON value. These synchronous connector-only helpers
+are intended for provider cursors and job handles that must carry an authorized
+folder or operation between calls. They are forbidden during initialization and
+`help()`, count toward the native operation limit, and use normal cancellation.
+JSON values are limited to 64 KiB encoded, tokens to 96 KiB. Tokens are bound to
+the connection, release, and settings/authentication generations; changed access
+configuration or account authorization invalidates them. Opening a token does not
+authorize its operation: validate its purpose and current caller/folder permissions
+again before using its provider handle. Keep tokens outside errors and logs.
 
 ## Runtime examples
 
@@ -734,12 +778,23 @@ Publication resolves the bundle and private imports, validates the manifest,
 checks configured Lua exports/help, type-checks the implementation and runs its
 fixtures. Resolve those failures before making the connector available to users.
 Hub refreshes registered branches, so every validated push becomes the latest
-release. Existing connections move to it unless its configuration shape changed:
-a `config`, `publisher` or auth field was added or removed, or changed its type,
-requirement, options or condition, or an auth method was added, removed or changed
-its type or condition. Those connections must be set up again. Every other change
-applies without setup: labels, defaults, limits, OAuth endpoints and scopes,
-`proxy` rules, documentation and Lua, even when it changes a connector's API.
+release. Houston checks each connection's saved inputs against the new manifest,
+reusing declared values and filling new defaults. Optional or inactive fields,
+unused auth methods, presentation changes, and removed fields do not require setup
+when the resulting configuration is valid. Saved choices take precedence over
+changed defaults. New active required inputs without usable saved values or
+defaults, invalid retained values, and unavailable selected auth methods require
+**Set up again**. Existing secrets never become public inputs automatically.
+OAuth connections also require setup when their client or authorization inputs
+change, or their grant does not cover the new required scopes. Narrowing scopes
+preserves an existing grant. Setup retains reusable inputs, including credentials.
+Every refresh rechecks connections that are behind; documentation and Lua changes
+can apply without setup even when they change a connector's API.
+
+Publisher inputs belong to the registration. Clear configured publisher values
+before removing fields or changing their types; publication rejects these changes
+while values remain. Changing saved publisher settings separately requires
+connections to confirm the new publisher settings.
 
 Use `README.md` for the account user's overview and `SETUP.md` for connecting an
 account to that registered connector. Callable signatures and examples belong in
