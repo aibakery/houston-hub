@@ -123,6 +123,10 @@ return {
 		respond(200, "blob\0raw")
 		github.getBlob({owner = "o", repo = "r", file_sha = "3a0f86fb8db8eea7ccbb9a95f325ddbedfb25e15", save_as = "blob.bin"})
 		assert(requests[#requests].headers.Accept[1] == "application/vnd.github.raw+json" and contents("blob.bin") == "blob\0raw")
+		respond(302, "", {location = {"https://CODELOAD.github.com/o/r/legacy.zip/refs/heads/main"}})
+		respond(200, "upper")
+		github.downloadZipball({owner = "o", repo = "r", ref = "main", save_as = "upper.zip"})
+		assert(contents("upper.zip") == "upper", "host names are case-insensitive")
 		for _, code in {301, 307} do
 			respond(code, "", {location = {signed}})
 			respond(200, "moved")

@@ -109,6 +109,7 @@ return {
 		rejected(function() github.putFile({owner = "o", repo = "r", path = "a.md", message = "m"}) end, "content is required")
 		rejected(function() github.deleteFile({owner = "o", repo = "r", path = "a.md", message = "m"}) end, "sha is required")
 		rejected(function() github.updateRef({owner = "o", repo = "r", ref = "heads/../main", sha = "c"}) end, "ref must not contain empty, . or .. segments")
+		rejected(function() github.createRelease({owner = "o", repo = "r", name = "v1"}) end, "tag_name is required")
 		rejected(function() github.mergeBranch({owner = "o", repo = "r", base = "main"}) end, "head is required")
 		rejected(function() github.createPullReviewComment({owner = "o", repo = "r", pull_number = 5, body = "x", path = "a.go"}) end, "commit_id is required")
 		payload = '{"number":5}'

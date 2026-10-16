@@ -15,6 +15,7 @@ return {
 			status, payload, responseHeaders = code, body, headers
 			local before = calls
 			local ok, err = pcall(function() github.createIssueComment({owner = "o", repo = "r", issue_number = 1, body = "Hi"}) end)
+			assert(not ok and type(err) ~= "string", "lost the structured upstream error")
 			for _, text in expected do
 				assert(not ok and string.find(tostring(err), text, 1, true), "missing " .. text .. " in " .. tostring(err))
 			end

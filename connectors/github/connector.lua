@@ -328,7 +328,7 @@ local function decode(name: string, response: HttpResponse): any
 	end
 	local raw = await(response.body:readAll())
 	local ok, value = pcall(json.decode, raw)
-	if not ok or type(value) ~= "table" or not string.match(raw, "^%s*[{%[]") then
+	if not ok or type(value) ~= "table" then
 		return houston.fail({operation = name, layer = "upstream", upstream_status = response.statusCode, retryable = false,
 			message = "GitHub returned invalid JSON"})
 	end
