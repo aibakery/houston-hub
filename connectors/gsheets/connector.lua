@@ -122,7 +122,7 @@ local RAW = {valueInputOption = "RAW"}
 local endpoints: {[string]: Endpoint} = {
 	getSpreadsheet = {method = "GET", path = "/spreadsheets/{spreadsheetId}", read = true, defaults = {fields = SPREADSHEET_FIELDS},
 		query = {"fields", "ranges", "excludeTablesInBandedRanges"},
-		help = "getSpreadsheet({spreadsheetId, fields?, ranges?}) -> {spreadsheetId, spreadsheetUrl, properties, sheets=[{properties={sheetId, title, index, gridProperties={rowCount, columnCount, ...}}}], namedRanges?}. Lists the tabs and their sizes. fields is a Google field mask: e.g. fields='sheets(data(rowData(values(formattedValue,note,hyperlink))))' with ranges={'Sheet1!A1:C3'} reads cell notes and links."},
+		help = "getSpreadsheet({spreadsheetId, fields?, ranges?}) -> {spreadsheetId, spreadsheetUrl, properties, sheets=[{properties={sheetId, title, index, gridProperties={rowCount, columnCount, ...}}}], namedRanges?}. Lists the tabs and their sizes. fields is a Google field mask: e.g. fields='sheets(data(rowData(values(formattedValue,note,hyperlink))))' with ranges={'Sheet1!A1:C3'} reads cell notes and links. Always pass ranges with data fields: responses over 8 MiB fail."},
 	getValues = {method = "GET", path = "/spreadsheets/{spreadsheetId}/values/{range}", read = true, list = "values", query = READ_QUERY,
 		help = "getValues({spreadsheetId, range, valueRenderOption?, dateTimeRenderOption?, majorDimension?}) -> {range, majorDimension, values}. One cell: getValues({spreadsheetId=..., range='Sheet1!B2'}).values[1] is {'42'}, or nil when B2 is empty."},
 	batchGetValues = {method = "GET", path = "/spreadsheets/{spreadsheetId}/values:batchGet", read = true, list = "valueRanges", required = {"ranges"},
@@ -162,7 +162,7 @@ for name, endpoint in endpoints do
 		args.spreadsheetId = spreadsheetId(args.spreadsheetId)
 		for _, field in endpoint.required or NONE do
 			local value = args[field]
-			assert((type(value) == "string" and value ~= "") or (type(value) == "table" and next(value) ~= nil), name .. " requires a nonempty " .. field)
+			assert(type(value) == "table" and value[1] ~= nil, name .. " requires " .. field .. " as a nonempty array")
 		end
 		local result = invoke(name, endpoint, args)
 		for _, range in result.valueRanges or NONE do
@@ -180,7 +180,7 @@ local overview = {
 	"Google allows about 60 reads per minute per user; HTTP 429 errors are retryable after a pause. No hidden paging or retries. Errors report the HTTP status and Google's message.",
 }
 if config.access == "read-write" then
-	table.insert(overview, "Writes default to valueInputOption='RAW', storing values exactly as given, so '2026-10-16' stays text; pass 'USER_ENTERED' to parse numbers, dates and formulas as if typed. In values, json null leaves a cell unchanged and '' clears it. Google allows about 60 writes per minute per user. A failed or timed-out write may already have succeeded: read the range before repeating it.")
+	table.insert(overview, "Writes default to valueInputOption='RAW', storing values exactly as given, so '2026-10-16' stays text; pass 'USER_ENTERED' to parse numbers, dates and formulas as if typed. In values, json null leaves a cell unchanged and '' clears it. An empty Luau table encodes as a JSON object, which Google rejects: write an empty row or array as json.decode('[]'). Google allows about 60 writes per minute per user. A failed or timed-out write may already have succeeded: read the range before repeating it.")
 end
 exports.help = helpWith(overview)
 return exports
