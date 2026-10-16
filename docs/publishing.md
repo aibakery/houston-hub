@@ -63,7 +63,9 @@ spreadsheet ID or URL, or find it through Google Drive. Read-only connections, a
 read-only callers of read-write ones, may only GET the three read routes, with
 method-override headers removed; writes POST or PUT the listed routes. Writes default
 to `valueInputOption=RAW`, so text that looks like a formula stays text unless the
-caller asks for `USER_ENTERED`.
+caller asks for `USER_ENTERED`. Google limits each Cloud project to about 300 Sheets reads
+and 300 writes per minute, shared by every connection using the publisher's client, on
+top of 60 per minute per user; ask Google for a higher quota before broad rollout.
 
 Google Sheets' icon is the official product logo served by Google at
 [fonts.gstatic.com/s/i/productlogos/sheets_2020q4/v11/192px.svg](https://fonts.gstatic.com/s/i/productlogos/sheets_2020q4/v11/192px.svg),
