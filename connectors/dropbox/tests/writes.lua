@@ -1,12 +1,20 @@
 return {
-	scenario = {config = {client_id = "fixture-app-key", client_secret = "fixture-private-secret"}, auth_method = "oauth", auth_config = {}},
+	scenario = {config = {client_id = "fixture-app-key", client_secret = "fixture-private-secret"}, auth_method = "oauth", granted_scopes = {"account_info.read", "files.metadata.read", "files.content.read", "sharing.read", "file_requests.read", "files.content.write", "sharing.write", "file_requests.write"}},
 	config = {access = "read-write"},
 	configure = function()
 		requests, responses = {}, {}
 		fs = fixture.files()
 		http = {request = function(req)
+			for name in req.headers or {} do assert(string.lower(name) ~= "authorization", "credentials belong to the proxy") end
 			table.insert(requests, req)
-			if req.body ~= nil and type(req.body) ~= "string" then req.body = await(req.body:readAll()) end
+			if req.body ~= nil and type(req.body) ~= "string" then
+				local captured = fs.open("captured-upload", "w")
+				captured:write(req.body)
+				await(captured:close())
+				local input = fs.open("captured-upload", "r")
+				req.body = await(input:readAll())
+				await(input:close())
+			end
 			assert(#responses > 0, "unexpected request: " .. req.url)
 			local response = table.remove(responses, 1)
 			return fixture.operation({statusCode = response.status or 200, headers = response.headers or {}, body = fixture.reader(response.body or "")})
@@ -14,9 +22,31 @@ return {
 	end,
 	run = function(c)
 		local API = "https://api.dropboxapi.com/2/"
-		local count = 0
-		for name in c do if name ~= "help" then count += 1 end end
-		assert(count == 70, "wrong read-write surface: " .. count)
+		local expected = {}
+		for _, name in {
+			"getCurrentAccount", "getSpaceUsage", "getAccount", "getMetadata",
+			"listFolder", "listFolderContinue", "listFolderGetLatestCursor", "search",
+			"searchContinue", "listRevisions", "getTemporaryLink", "download",
+			"downloadZip", "export", "getPreview", "getThumbnail",
+			"createFolder", "upload", "saveUrl", "saveUrlCheckJobStatus",
+			"move", "copy", "delete", "restore",
+			"moveBatch", "moveBatchCheck", "copyBatch", "copyBatchCheck",
+			"deleteBatch", "deleteBatchCheck", "listSharedLinks", "getSharedLinkMetadata",
+			"getSharedLinkFile", "createSharedLinkWithSettings", "modifySharedLinkSettings", "revokeSharedLink",
+			"listSharedFolders", "listSharedFoldersContinue", "listMountableFolders", "listMountableFoldersContinue",
+			"getSharedFolderMetadata", "listFolderMembers", "listFolderMembersContinue", "shareFolder",
+			"checkShareJobStatus", "addFolderMember", "updateFolderMember", "removeFolderMember",
+			"checkRemoveMemberJobStatus", "unshareFolder", "checkJobStatus", "mountFolder",
+			"unmountFolder", "relinquishFolderMembership", "listReceivedFiles", "listReceivedFilesContinue",
+			"getSharedFileMetadata", "listFileMembers", "listFileMembersContinue", "addFileMember",
+			"removeFileMember", "unshareFile", "relinquishFileMembership", "listFileRequests",
+			"listFileRequestsContinue", "getFileRequest", "createFileRequest", "updateFileRequest",
+			"deleteFileRequest", "statFile",
+		} do
+			expected[name] = true
+			assert(type(c[name]) == "function", "read-write lacks " .. name)
+		end
+		for name in c do assert(name == "help" or expected[name], "read-write exposes " .. name) end
 
 		-- Uploads stream the session file with the arguments in Dropbox-API-Arg.
 		local bytes = string.char(0, 255) .. "report"

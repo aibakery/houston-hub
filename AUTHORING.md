@@ -1074,7 +1074,8 @@ scoped Dropbox app, its permissions and the callback URL. No publisher settings 
 needed.
 
 The connector covers 69 user routes of the [Dropbox API v2
-specification](https://github.com/dropbox/dropbox-api-spec), checked on 2026-10-14:
+specification](https://github.com/dropbox/dropbox-api-spec), checked on 2026-10-16
+at revision `3c363a594dafbe0f4646e73352b62a4767540d25`:
 account and space usage; file metadata, listing, change cursors, search, revisions,
 temporary links, downloads, zip downloads, exports, previews and thumbnails;
 uploads, folders, moves, copies, deletes, restores, URL saves and the batch move,
@@ -1099,9 +1100,24 @@ connections request only read scopes, so Dropbox refuses their writes; callers
 narrowed to read-only on a read-write connection get only the read exports. Read
 scopes are always requested and read-write connections add the write scopes, so that
 narrowing keeps a granted scope set. Dropbox lists granted scopes in its token
-response, and Houston refuses an authorization that lacks a requested one. Download
+response, and Houston refuses an authorization that lacks a requested one. Exports
+and help also honor known granted scopes; unknown grants retain the configured
+access surface. No exposed route needs `files.metadata.write`, so it is no longer
+requested. Existing grants may retain that unused scope until reauthorization;
+the client ownership, callback and callable signatures are unchanged. Download
 and upload routes send their argument in the `Dropbox-API-Arg` header, which Dropbox
 requires to be ASCII: the connector escapes other characters as JSON `\u` escapes.
+Required top-level argument types are checked before requests; Dropbox validates
+nested values and other route constraints. Downloads await destination opening
+before HTTP and close it on request failure. Only the five sharing routes with
+void results convert JSON null to `{success=true}`; malformed empty responses fail.
+Full team-space traversal with `Dropbox-API-Path-Root` remains unsupported.
+
+Validation uses the current async runtime, including native file and Reader
+fixtures for large streamed downloads, open/transport/stream failures, bounded
+errors and scope-aware discovery. Before announcing a registered connection,
+verify live OAuth authorization and refresh, paging and a disposable upload/download.
+These require an account and are not covered by local fixtures.
 
 Dropbox's icon is the existing blue Dropbox mark, unchanged and shared with Houston's
 app marks through the central vendor-asset registry. Dropbox owns the mark.

@@ -11,8 +11,9 @@ you decide which folders it can reach. Creating one is free and takes a few minu
 2. Open the [Dropbox App Console](https://www.dropbox.com/developers/apps) and
    select **Create app**. Choose **Scoped access**, then the access type:
    **Full Dropbox** (recommended) for every file, or **App folder** to limit the
-   connection to one folder Dropbox creates under **Apps**. An App folder app
-   cannot work with shared folders or files shared with you. Name the app, for
+   connection to one folder Dropbox creates under **Apps**. Shared folder/member
+   operations and received-file listings require Full Dropbox; shared links and
+   file requests work within App folder restrictions. Name the app, for
    example `Houston for Acme`, and create it.
 3. On the app's **Permissions** tab, tick every permission listed under
    [Permissions](#permissions) for both access levels, so you can change the access
@@ -32,7 +33,7 @@ Houston keeps your Dropbox authorization on its server; agent scripts never see 
 For **Read-only**: `account_info.read`, `files.metadata.read`,
 `files.content.read`, `sharing.read` and `file_requests.read`.
 
-For **Read and write**, also: `files.metadata.write`, `files.content.write`,
+For **Read and write**, also: `files.content.write`,
 `sharing.write` and `file_requests.write`.
 
 See Dropbox's [OAuth guide](https://docs.dropboxapi.com/dropbox-api/docs/oauth) and
@@ -47,8 +48,11 @@ connect with Dropbox again after editing the connection.
 
 ### Dropbox teams
 
-Agents work in your own Dropbox folder by default. On a Dropbox team with a team
-space, a **Full Dropbox** app also lets them reach the team's folders.
+Agents work in your own Dropbox folder. Routes accepting namespace-qualified paths
+can address accessible namespaces with `ns:<namespace_id>/...`, but ordinary
+`/...` paths remain relative to your own folder. Full team-space traversal needs
+Dropbox's `Dropbox-API-Path-Root` header, which this connector does not currently
+set. See Dropbox's [team files guide](https://docs.dropboxapi.com/dropbox-api/docs/team-files).
 
 ### Troubleshooting
 

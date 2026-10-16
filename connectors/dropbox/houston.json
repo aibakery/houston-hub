@@ -61,7 +61,6 @@
         {
           "if": "{{ is config.access \"read-write\" }}",
           "values": [
-            "files.metadata.write",
             "files.content.write",
             "sharing.write",
             "file_requests.write"

@@ -5,6 +5,7 @@ return {
 		requests, responses = {}, {}
 		fs = fixture.files()
 		http = {request = function(req)
+			for name in req.headers or {} do assert(string.lower(name) ~= "authorization", "credentials belong to the proxy") end
 			table.insert(requests, req)
 			assert(#responses > 0, "unexpected request: " .. req.url)
 			local response = table.remove(responses, 1)
@@ -100,6 +101,19 @@ return {
 		assert(#requests == before, "a refused session path reached Dropbox")
 		assert(not pcall(c.download, {path = "/a"}), "download requires a session_path")
 		assert(#requests == before)
+		-- Opening a directory fails asynchronously and must not start an HTTP request.
+		local seed = fs.open("blocked/seed", "w")
+		await(seed:close())
+		assert(not pcall(c.download, {path = "/a", session_path = "blocked"}))
+		assert(#requests == before, "failed file opening reached Dropbox")
+		-- A transport failure must release the destination's writer reservation.
+		local original = http.request
+		http.request = function() error("request failed", 0) end
+		ok, err = pcall(c.download, {path = "/a", session_path = "failed-download"})
+		assert(not ok and string.find(tostring(err), "request failed", 1, true), tostring(err))
+		local retry = fs.open("failed-download", "w")
+		await(retry:close())
+		http.request = original
 		assert(#responses == 0)
 	end,
 }

@@ -20,4 +20,7 @@ documents they need and keep your folders tidy.
 Read-only access cannot change, share or delete your files. Deleted files stay
 recoverable in Dropbox for your plan's retention period.
 
+Available operations also follow the permissions granted by Dropbox. File transfers
+use session files; uploads support up to 150 MiB per file.
+
 [Connect your Dropbox account](SETUP.md).
