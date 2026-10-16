@@ -125,7 +125,7 @@ func TestProxyMatchesEndpointTables(t *testing.T) {
 	const readWrite = `{{ is config.access "read-write" }}`
 	endpoint := regexp.MustCompile(`(?m)^\t\w+ = \{method = "([A-Z]+)", path = "([^"]+)"(.*)$`)
 	override := regexp.MustCompile(`\bwrite = (true|false)\b`)
-	for _, name := range []string{"calcom", "calendly", "resend"} {
+	for _, name := range []string{"calcom", "calendly", "resend", "stripe"} {
 		raw, err := os.ReadFile("../../connectors/" + name + "/connector.lua")
 		if err != nil {
 			t.Fatal(err)
