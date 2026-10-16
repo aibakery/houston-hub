@@ -260,7 +260,8 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 	local read, raw = pcall(function() return await(response.body:readAll()) end)
 	if not read then
 		if type(raw) == "table" and raw.code == "limit_exceeded" then
-			fail(name, endpoint, response, "the response exceeded 8 MiB; narrow the interval or page size")
+			fail(name, endpoint, response, if endpoint.method == "GET" then "the response exceeded 8 MiB; narrow the interval or page size"
+				else "Wise accepted the request but its response exceeded 8 MiB; check the result before repeating it")
 		end
 		error(raw, 0)
 	end
@@ -290,7 +291,7 @@ exports.help = function(): string
 	}
 	if config.access == "read-write" then
 		table.insert(lines, "Sending money: createQuote({profileId,sourceCurrency,targetCurrency,sourceAmount}) -> getAccountRequirements({quoteId}) -> createRecipient or listRecipients -> updateQuote({profileId,quoteId,targetAccount}) -> validateTransferRequirements -> createTransfer({targetAccount,quoteUuid,customerTransactionId,details={reference=...}}) -> fundTransfer({profileId,transferId,type='BALANCE'}). Quotes expire (expirationTime). Funding moves money and can be irreversible; confirm amount, currency and recipient with the user first. cancelTransfer works only while the status is incoming_payment_waiting. Business accounts with payment approvals enabled in Wise settings cannot create transfers through the API (missing approval error).")
-		table.insert(lines, "Write errors: a 5xx is retryable only for calls that create nothing (createQuote, refreshAccountRequirements, validateTransferRequirements); otherwise inspect the transfer or balance before repeating. A write answered with an empty body returns {success=true}.")
+		table.insert(lines, "Write errors: a 5xx is retryable only for calls that move no money (createQuote, refreshAccountRequirements, validateTransferRequirements); otherwise inspect the transfer or balance before repeating. A write answered with an empty body returns {success=true}.")
 		table.insert(lines, "Idempotency: createTransfer and createBatchTransfer require customerTransactionId, and createBalance and createBalanceMovement require idempotenceUuid (sent as X-idempotence-uuid). Each must be a new UUID kept with the intended action; reuse it only to retry that same action after a timeout, never for a different payment. Inspect listTransfers or getTransfer before retrying an ambiguous write.")
 	end
 	table.insert(lines, "Errors report HTTP status, Wise's errors (code, message, path), Retry-After and x-trace-id. A 429 means Wise did not process the request and is retryable after Retry-After, as is a 5xx on a read. Wise rate-limits each user to about 100 requests per second and 900 per minute.")
@@ -302,6 +303,7 @@ exports.help = function(): string
 		local options: {string} = {}
 		for field in string.gmatch(endpoint.path, "{(%w+)}") do table.insert(options, field) end
 		for _, field in endpoint.required or NONE do table.insert(options, field) end
+		if endpoint.oneOf then table.insert(options, table.concat(endpoint.oneOf, "|")) end
 		if endpoint.kind == "download" then table.insert(options, "path") end
 		local optional: {string} = {}
 		for field in endpoint.query or NO_QUERY do

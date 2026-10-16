@@ -62,8 +62,6 @@ return {
 		assert(c.validateTransferRequirements({targetAccount = 55, quoteUuid = quote})[1].fields[1].group[1].key == "reference")
 		payload = "[]"
 		assert(json.encode(c.validateTransferRequirements({targetAccount = 55, quoteUuid = quote, details = {reference = "Invoice 7"}})) == "[]")
-		payload = "[]"
-		c.validateTransferRequirements({targetAccount = 55, quoteUuid = quote, details = {reference = "Invoice 7"}})
 		sent("POST", api .. "/v1/transfer-requirements", {targetAccount = 55, quoteUuid = quote, details = {reference = "Invoice 7"}})
 		payload = '{"id":9001,"status":"incoming_payment_waiting"}'
 		local transfer = {targetAccount = 55, quoteUuid = quote, customerTransactionId = tx, details = {reference = "Invoice 7"}}

@@ -517,12 +517,12 @@ API-created transfers; help and setup state this.
 Read-only connections get GET routes only; POST, PATCH, PUT and DELETE routes
 require read-write access. Every rule strips method-override headers, though
 probes showed Wise's gateway ignores them. Requests validate integer and UUID
-path IDs, currency codes, statement formats, paging bounds, query enums and
+path IDs, currency codes, statement formats, documented paging bounds, query enums and
 unconditional required fields, and require UUID idempotency keys
 (`customerTransactionId`, `X-idempotence-uuid`) for transfers, balances and
 balance movements. Errors are bounded, include Wise's error items, `Retry-After`
 and `x-trace-id`, and no operation is retried automatically. Only 429s and 5xx
-responses to reads or to calls that create nothing (quotes and requirement
+responses to reads or to calls that move no money (quotes and requirement
 checks) are marked retryable: Wise says a 5xx does not prove a write failed, so
 other writes report them as not retryable. Only a 403 carrying
 `x-2fa-approval-result: REJECTED` is reported as an SCA requirement. JSON larger
