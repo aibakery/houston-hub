@@ -1,13 +1,13 @@
 -- Wise Platform API with legacy per-endpoint versions (v1–v4). Arguments and results keep Wise's native field names.
 type Options = {[string]: any}
-type Query = {type: "string" | "integer" | "boolean" | "list", minimum: number?, maximum: number?, enum: {string}?}
+type Query = {type: "string" | "integer" | "boolean" | "list" | "currency", minimum: number?, maximum: number?, enum: {string}?}
 type Endpoint = {
 	method: string, path: string, query: {[string]: Query}?, required: {string}?, oneOf: {string}?, kind: "download"?,
 	idempotence: boolean?, merge: boolean?, minor: boolean?, safe: boolean?, about: string,
 }
 
 local SCA = "Needs strong customer authentication except for accounts based in the US, Canada, Australia, New Zealand, Singapore and Malaysia; elsewhere it fails with a 403 naming SCA, which this connector cannot complete, so the owner must finish the step in the Wise app or website. Do not retry it."
-local STATEMENT_QUERY: {[string]: Query} = {currency = {type = "string"}, intervalStart = {type = "string"}, intervalEnd = {type = "string"},
+local STATEMENT_QUERY: {[string]: Query} = {currency = {type = "currency"}, intervalStart = {type = "string"}, intervalEnd = {type = "string"},
 	type = {type = "string", enum = {"COMPACT", "FLAT"}}, statementLocale = {type = "string"}}
 local LEGAL_ENTITY: Query = {type = "string", enum = {"PRIVATE", "BUSINESS"}}
 local endpoints: {[string]: Endpoint} = {
@@ -50,7 +50,7 @@ local endpoints: {[string]: Endpoint} = {
 
 	createQuote = {method = "POST", path = "/v3/profiles/{profileId}/quotes", required = {"sourceCurrency", "targetCurrency"}, oneOf = {"sourceAmount", "targetAmount"}, safe = true,
 		about = "Price a transfer or conversion; exactly one of sourceAmount or targetAmount; optional targetAccount, payOut, preferredPayIn. Moves no money."},
-	updateQuote = {method = "PATCH", path = "/v3/profiles/{profileId}/quotes/{quoteId}", merge = true,
+	updateQuote = {method = "PATCH", path = "/v3/profiles/{profileId}/quotes/{quoteId}", merge = true, safe = true,
 		about = "Attach targetAccount (and payOut) to a quote, refreshing fees and paymentOptions."},
 	refreshAccountRequirements = {method = "POST", path = "/v1/quotes/{quoteId}/account-requirements", minor = true, safe = true,
 		query = {originatorLegalEntityType = LEGAL_ENTITY},
@@ -104,12 +104,14 @@ local function uuid(value: any, field: string): string
 	return value
 end
 
+local function currency(value: any): string
+	assert(type(value) == "string" and string.match(value, "^%u%u%u$"), "currency must be a three-letter uppercase code")
+	return value
+end
+
 local function pathValue(value: any, field: string): string
 	if table.find(UUID_FIELDS, field) then return uuid(value, field) end
-	if field == "currency" then
-		assert(type(value) == "string" and string.match(value, "^%u%u%u$"), "currency must be a three-letter uppercase code")
-		return value
-	end
+	if field == "currency" then return currency(value) end
 	if field == "format" then
 		assert(table.find(FORMATS, value), "format must be one of " .. table.concat(FORMATS, ", "))
 		return value
@@ -119,6 +121,7 @@ end
 
 local function queryValue(value: any, field: string, spec: Query): string
 	if spec.type == "integer" then return integer(value, field, spec.minimum, spec.maximum) end
+	if spec.type == "currency" then return currency(value) end
 	if spec.type == "boolean" then
 		assert(type(value) == "boolean", field .. " must be a boolean")
 		return tostring(value)
@@ -149,7 +152,7 @@ local function header(response: HttpResponse, name: string): string?
 	return if values and values[1] then string.sub(values[1], 1, 200) else nil
 end
 
-local function fail(name: string, endpoint: Endpoint, response: HttpResponse, detail: string?): never
+local function fail(name: string, endpoint: Endpoint, response: HttpResponse, detail: string?, retryable: boolean?): never
 	local message = "Wise HTTP " .. response.statusCode
 	local sca = response.statusCode == 403 and header(response, "x-2fa-approval-result") == "REJECTED"
 	if detail then
@@ -187,7 +190,9 @@ local function fail(name: string, endpoint: Endpoint, response: HttpResponse, de
 		if value then message ..= "; " .. key .. "=" .. value end
 	end
 	return houston.fail({operation = name, layer = "upstream", upstream_status = response.statusCode,
-		retryable = not sca and (response.statusCode == 429 or (response.statusCode >= 500 and (endpoint.method == "GET" or endpoint.safe == true))), message = message})
+		retryable = if retryable ~= nil then retryable
+			else response.statusCode == 429 or (response.statusCode >= 500 and (endpoint.method == "GET" or endpoint.safe == true)),
+		message = message})
 end
 
 local function present(value: any): boolean
@@ -245,7 +250,8 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 			assert(count == 1, name .. " needs exactly one of " .. table.concat(endpoint.oneOf, " or "))
 		end
 		for _, field in UUID_FIELDS do
-			if args[field] ~= nil and args[field] ~= NULL then uuid(args[field], field) end
+			if args[field] == NULL then args[field] = nil end
+			if args[field] ~= nil then uuid(args[field], field) end
 		end
 		headers["Content-Type"] = {if endpoint.merge then "application/merge-patch+json" else "application/json"}
 		for _, field in endpoint.oneOf or NONE do
@@ -273,11 +279,11 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 			fail(name, endpoint, response, "Wise accepted the request but its response could not be read (" .. code .. "); check the result before repeating it")
 		end
 		fail(name, endpoint, response, if code == "limit_exceeded" then "the response exceeded 8 MiB; narrow the interval or page size"
-			else "reading the response failed (" .. code .. ")")
+			else "reading the response failed (" .. code .. ")", code ~= "limit_exceeded")
 	end
 	if endpoint.method ~= "GET" and string.match(raw, "^%s*$") then return {success = true} end
 	local decoded, value = pcall(json.decode, raw)
-	if not decoded or type(value) ~= "table" or not string.match(raw, "^%s*[%[{]") then
+	if not decoded or type(value) ~= "table" then
 		fail(name, endpoint, response, if endpoint.method == "GET" then "Wise returned an invalid JSON response"
 			else "Wise accepted the request but returned an invalid JSON response; check the result before repeating it")
 	end

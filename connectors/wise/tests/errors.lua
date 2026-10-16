@@ -43,6 +43,8 @@ return {
 		status, payload, responseHeaders = 503, "Unavailable", {}
 		local ok, err = pcall(c.createQuote, {profileId = 202, sourceCurrency = "EUR", targetCurrency = "GBP", sourceAmount = 1})
 		assert(not ok and string.find(tostring(err), '"retryable":true', 1, true), "a quote 5xx should be retryable: " .. tostring(err))
+		ok, err = pcall(c.updateQuote, {profileId = 202, quoteId = "2d0b3b6e-6f1c-4c43-9c6a-1b6a0f4f3a10", targetAccount = 55})
+		assert(not ok and string.find(tostring(err), '"retryable":true', 1, true), "a quote update 5xx should be retryable: " .. tostring(err))
 		fails(200, "not json", {}, {"accepted the request but returned an invalid JSON response", "check the result", '"retryable":false'})
 		fails(422, '{"title":"Invalid","detail":"targetAccount not found"}', {}, {"HTTP 422", "targetAccount not found"})
 		fails(400, '{"errors":[{"arguments":["9001"]}]}', {}, {"HTTP 400: {", "9001"}, "; ;")

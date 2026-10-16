@@ -119,6 +119,7 @@ return {
 			function() c.getTotalFunds({profileId = 202, currency = "gbp"}) end,
 			function() c.getTotalFunds({profileId = 202, currency = "../x"}) end,
 			function() c.getBalanceStatement({profileId = 202, balanceId = 1, currency = "EUR", intervalStart = "x"}) end,
+			function() c.getBalanceStatement({profileId = 202, balanceId = 1, currency = "eur", intervalStart = "a", intervalEnd = "b"}) end,
 			function() c.listActivities({profileId = 202, size = 101}) end,
 			function() c.listActivities({profileId = 202, ["_method"] = "POST"}) end,
 			function() c.listRecipients({profileId = 202, size = 21}) end,
