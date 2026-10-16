@@ -24,7 +24,7 @@ return {
 		for name in github do if name ~= "help" then table.insert(names, name) end end
 		assert(#names == 86, "wrong read-only surface: " .. #names)
 		for _, name in {"createIssue", "updateIssue", "createIssueComment", "createPull", "mergePull", "putFile", "deleteFile", "createRef",
-			"deleteRef", "createRelease", "uploadReleaseAsset", "dispatchWorkflow", "cancelWorkflowRun", "createGist", "markThreadDone", "graphql",
+			"deleteRef", "createRelease", "uploadReleaseAsset", "dispatchWorkflow", "cancelWorkflowRun", "createGist", "markThreadDone", "updateRepo",
 			"generateReleaseNotes", "removeAssignees"} do
 			assert(github[name] == nil, "read-only leaked " .. name)
 		end

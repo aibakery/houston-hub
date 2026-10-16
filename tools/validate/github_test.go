@@ -35,10 +35,10 @@ func TestGitHubAuthenticationAndAccessRoutes(t *testing.T) {
 				"PUT "+api+"/repos/o/r/contents/docs%2Fa.md", "DELETE "+api+"/repos/o/r/contents/docs%2Fa.md",
 				"PATCH "+api+"/repos/o/r/git/refs/heads%2Fx", "DELETE "+api+"/repos/o/r/git/refs/heads%2Fx",
 				"DELETE "+api+"/repos/o/r/issues/1/labels/area%2Fui", "POST "+api+"/repos/o/r/branches/old%2Fname/rename",
-				"POST "+api+"/graphql", "POST https://uploads.github.com/repos/o/r/releases/1/assets?name=a.zip")
+				"POST https://uploads.github.com/repos/o/r/releases/1/assets?name=a.zip")
 			// Repository deletion, administration, secrets and credential endpoints stay denied.
 			assertRoutes(t, r, "fixture-token", false,
-				"DELETE "+api+"/repos/o/r", "GET "+api+"/repos/o/r/actions/secrets", "GET "+api+"/repos/o/r/actions/secrets/public-key",
+				"DELETE "+api+"/repos/o/r", "PATCH "+api+"/repos/o/r", "POST "+api+"/graphql", "GET "+api+"/repos/o/r/actions/secrets", "GET "+api+"/repos/o/r/actions/secrets/public-key",
 				"GET "+api+"/repos/o/r/hooks", "GET "+api+"/repos/o/r/keys", "PUT "+api+"/repos/o/r/collaborators/u",
 				"POST "+api+"/applications/abc/token", "DELETE "+api+"/installation/token", "POST "+api+"/credentials/revoke",
 				"GET "+api+"/authorizations", "POST https://github.com/login/oauth/access_token", "GET https://api.github.com.evil.test/user",

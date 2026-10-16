@@ -564,9 +564,8 @@ App**, preferably owned by Houston's organization:
 2. Under **Webhook**, clear **Active**; Houston does not receive GitHub events.
 3. Set **Repository permissions**: Actions, Administration, Commit statuses,
    Contents, Issues, Pull requests and Workflows to **Read and write**; Checks and
-   Metadata to **Read-only**; Discussions to **Read and write** for GraphQL. Set
-   **Organization permissions**: Members **Read-only** and Projects **Read and
-   write**, and **Account permissions**: Email addresses **Read-only** and
+   Metadata to **Read-only**. Set **Organization permissions → Members** to
+   **Read-only**, and **Account permissions**: Email addresses **Read-only** and
    Gists **Read and write**.
 4. Under **Where can this GitHub App be installed?**, choose **Any account**, then
    **Create GitHub App**.
@@ -587,7 +586,7 @@ on every refresh. GitHub Apps support only the `offline_access` scope, and the t
 `scope` is empty: requesting it would fail Houston's granted-scope check, so the
 method requests none and relies on the app's expiring tokens.
 
-The connector covers 147 REST operations and the GraphQL endpoint, checked on
+The connector covers 146 REST operations, checked on
 2026-10-16 against GitHub's [REST OpenAPI
 description](https://github.com/github/rest-api-description) 1.1.4 at commit
 `798498bd`: users, organizations, teams and app installations; repositories,
@@ -597,13 +596,14 @@ reactions, sub-issues and milestones; pull requests, files, merges, reviews, rev
 comments and reviewers; releases and assets; Actions workflows, runs, jobs, logs and
 artifacts; search; gists; and notifications. Lua pins `X-GitHub-Api-Version:
 2026-03-10`, which has no scheduled sunset; GitHub supports a version for at least
-24 months after its successor ships. GraphQL (Projects, Discussions) is available
-to read-write connections only, because queries and mutations share one POST route.
+24 months after its successor ships.
 Notifications are exported only for personal access tokens: GitHub accepts only
 classic tokens there, so GitHub App sign-ins omit them and fine-grained tokens get
 GitHub's error.
 
-Omitted on purpose: repository deletion and transfer; Actions secrets and
+Omitted on purpose: repository deletion, transfer and settings changes, which can
+change visibility or archive a repository; GraphQL, whose mutations reach everything
+the token allows, including these omissions and sponsorship payments; Actions secrets and
 variables; webhooks; deploy keys; collaborator, team, organization and branch
 protection or ruleset administration; security alerts, whose secret-scanning
 responses contain plaintext secrets; Codespaces, Copilot and packages; GitHub App,

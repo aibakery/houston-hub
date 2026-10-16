@@ -444,7 +444,6 @@
         "path": [
           "/gists/{gist_id}",
           "/notifications/threads/{thread_id}",
-          "/repos/{owner}/{repo}",
           "/repos/{owner}/{repo}/issues/comments/{comment_id}",
           "/repos/{owner}/{repo}/issues/{issue_number}",
           "/repos/{owner}/{repo}/milestones/{milestone_number}",
@@ -522,7 +521,6 @@
         ],
         "path": [
           "/gists",
-          "/graphql",
           "/orgs/{org}/repos",
           "/repos/{owner}/{repo}/actions/runs/{run_id}/cancel",
           "/repos/{owner}/{repo}/actions/runs/{run_id}/rerun",

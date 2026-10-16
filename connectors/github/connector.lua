@@ -33,7 +33,6 @@ local endpoints: {[string]: Endpoint} = {
 	getRepo = {method = "GET", path = "/repos/{owner}/{repo}", about = "A repository, including default_branch and permissions."},
 	createRepo = {method = "POST", path = "/user/repos", required = {"name"}, about = "Body {name, description?, private?, auto_init?, ...}."},
 	createOrgRepo = {method = "POST", path = "/orgs/{org}/repos", required = {"name"}, about = "Body {name, description?, visibility?, auto_init?, ...}."},
-	updateRepo = {method = "PATCH", path = "/repos/{owner}/{repo}", about = "Body: settings to change, such as description, homepage, default_branch or archived."},
 	createFork = {method = "POST", path = "/repos/{owner}/{repo}/forks", about = "Body {organization?, name?, default_branch_only?}. Forking is asynchronous."},
 	listForks = {method = "GET", path = "/repos/{owner}/{repo}/forks", query = {"sort", "per_page", "page"}, about = ""},
 	listLanguages = {method = "GET", path = "/repos/{owner}/{repo}/languages", about = "Bytes of code per language."},
@@ -235,9 +234,6 @@ local endpoints: {[string]: Endpoint} = {
 	markNotificationsRead = {method = "PUT", path = "/notifications", classic = true, about = "Body {last_read_at?, read?}."},
 	markThreadRead = {method = "PATCH", path = "/notifications/threads/{thread_id}", classic = true, about = ""},
 	markThreadDone = {method = "DELETE", path = "/notifications/threads/{thread_id}", classic = true, about = "Marks a thread as done."},
-
-	graphql = {method = "POST", path = "/graphql", required = {"query"},
-		about = "Body {query, variables?}. GraphQL, such as Projects and Discussions; returns {data, errors?}, also with HTTP 200 on errors."},
 }
 local NULL = json.decode("null")
 local NONE: {string} = table.freeze({})
@@ -433,8 +429,8 @@ exports.help = function(): string
 		"Start with github.getAuthenticatedUser().login, github.listMyRepos({sort='pushed', per_page=20}) or github.searchIssues({q='is:pr is:open author:@me'}). branch, ref, path, tag, tree_sha and basehead may contain slashes (ref='heads/feature/x', path='src/main.go').",
 		"Lists return one page: page? means per_page (1..100, default 30) and page (from 1); a shorter page is the last. Search returns {total_count, incomplete_results, items}: at most 1,000 results and 30 requests per minute (searchCode 10).",
 		"Files: getContent returns base64 content; save_as='name' saves raw bytes as a session file instead. save_as functions return {path, size, url}; search large logs with fs.grep. getCommit, compareCommits and getPull take format='diff' or 'patch' and return that text, without paging. To commit several files, chain createBlob, createTree, createGitCommit and updateRef.",
-		"Access: GitHub enforces the token's permissions and repository selection; Connect with GitHub reaches public data and repositories where Houston's GitHub App is installed. A 403 or 404 may mean missing access; errors give GitHub's message, needed permissions and rate-limit resets. Read-only connections omit writes and graphql. Notifications need a classic token; check runs and suites need a classic token or Connect with GitHub.",
-		"Writes can notify people and trigger workflows. No automatic retries: after a timeout or 5xx, read the resource again before repeating a write. Repository deletion, secrets, webhooks, deploy keys and settings administration are not exposed.",
+		"Access: GitHub enforces the token's permissions and repository selection; Connect with GitHub reaches public data and repositories where Houston's GitHub App is installed. A 403 or 404 may mean missing access; errors give GitHub's message, needed permissions and rate-limit resets. Read-only connections omit writes. Notifications need a classic token; check runs and suites need a classic token or Connect with GitHub.",
+		"Writes can notify people and trigger workflows. No automatic retries: after a timeout or 5xx, read the resource again before repeating a write. Repository deletion, settings administration, secrets, webhooks, deploy keys and GraphQL are not exposed.",
 	}
 	local names: {string} = {}
 	for name in exports do if name ~= "help" then table.insert(names, name) end end

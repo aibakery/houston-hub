@@ -39,7 +39,7 @@ return {
 
 		local names = {}
 		for name in github do if name ~= "help" then table.insert(names, name) end end
-		assert(#names == 148, "wrong read-write surface: " .. #names)
+		assert(#names == 146, "wrong read-write surface: " .. #names)
 
 		payload = '{"number":12,"title":"Crash","labels":[{"name":"bug"}]}'
 		local issue = github.createIssue({owner = "o", repo = "r", title = "Crash", body = "Steps", labels = {"bug"}})
@@ -98,11 +98,6 @@ return {
 		assert(github.markThreadDone({thread_id = 1}).success == true)
 		sent("DELETE", API .. "/notifications/threads/1")
 
-		status, payload = 200, '{"data":{"viewer":{"login":"octocat"}}}'
-		local result = github.graphql({query = "query($n:Int!){viewer{login}}", variables = {n = 1}})
-		sent("POST", API .. "/graphql", '{"query":"query($n:Int!){viewer{login}}","variables":{"n":1}}')
-		assert(result.data.viewer.login == "octocat")
-
 		payload = '{"id":3,"files":{"a.md":{"content":"x"}}}'
 		github.updateGist({gist_id = "aa5a315d61ae9438b18d", files = {["old.md"] = NULL, ["a.md"] = {content = "x"}}})
 		sent("PATCH", API .. "/gists/aa5a315d61ae9438b18d", '{"files":{"old.md":null,"a.md":{"content":"x"}}}')
@@ -112,6 +107,5 @@ return {
 		rejected(function() github.deleteFile({owner = "o", repo = "r", path = "a.md", message = "m"}) end, "sha is required")
 		rejected(function() github.updateRef({owner = "o", repo = "r", ref = "heads/../main", sha = "c"}) end, "ref must not contain empty, . or .. segments")
 		rejected(function() github.deleteIssueComment({owner = "o", repo = "r", comment_id = 1, body = "x"}) end, "deleteIssueComment has no option body")
-		rejected(function() github.graphql({variables = {}}) end, "query is required")
 	end,
 }
