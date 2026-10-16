@@ -28,6 +28,7 @@ return {
 			else
 				assert(req.headers["Content-Type"][1] == "application/json")
 				assert(same(json.decode(req.body), json.decode(body)), req.body)
+				if body == "{}" then assert(req.body == "{}", "an empty body must be an object: " .. req.body) end
 			end
 		end
 		local function rejected(fn, expected)
