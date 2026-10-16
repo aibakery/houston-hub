@@ -570,7 +570,9 @@ App**, preferably owned by Houston's organization:
 4. Under **Where can this GitHub App be installed?**, choose **Any account**, then
    **Create GitHub App**.
 5. Select **Generate a new client secret**, and enter the **Client ID** and client
-   secret in the publication's publisher settings.
+   secret in the publication's publisher settings. The app's public page,
+   `https://github.com/apps/<slug>`, is where users install it; SETUP sends them
+   there through the authorization screen.
 
 User tokens are limited to the intersection of the app's permissions, the user's
 own access and the repositories where the app is installed, so users install the app
@@ -622,14 +624,16 @@ redirects: `codeload.github.com` for archives, release asset storage on
 `*.actions.githubusercontent.com` and `*.blob.core.windows.net`. GitHub's
 [meta API](https://api.github.com/meta) lists 140 `productionresultssa<N>` storage
 accounts that change over time, so the rule uses the Azure wildcard; Lua follows
-only `Location` headers from GitHub on those exact host patterns. GitHub ignores
-method-override headers, so no rule removes them. Responses drop the query from `download_url`, which
+only `Location` headers from GitHub on those exact host patterns. The connector sends no
+method-override headers and callers cannot add request headers. Responses drop the query from `download_url`, which
 for private repositories carries a signed token usable outside Houston.
 
 This is a new registration with no existing connections. Fixtures cover both
 methods and access levels, routes, opaque encoding, bodies, downloads through
 redirects, uploads and error mapping; GitHub App sign-in, token refresh, paging and
-a disposable write remain to verify live.
+a disposable write remain to verify live, as does the SETUP install route. Encoded
+`%2F` branch, ref, path and compare values were checked with unauthenticated
+requests on public repositories.
 
 GitHub's icon is the official Invertocat (`GitHub_Invertocat_Black.svg`) from the
 [brand kit](https://brand.github.com/GitHub_Logos.zip) linked from

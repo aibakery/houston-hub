@@ -1,15 +1,16 @@
 # Connect GitHub
 
 Choose an access level, then either sign in with GitHub or paste a personal access
-token. No app setup is needed for **Connect with GitHub**.
+token. With **Connect with GitHub** you install Houston's app instead of creating
+one.
 
 1. Choose **Read-only** or **Read and write**.
 2. Select **Connect with GitHub** and authorize Houston's GitHub App.
-3. Install the app where your repositories live. From
-   [Authorized GitHub Apps](https://github.com/settings/apps/authorizations), open
-   the Houston app, select **Install** (or **Configure** if it is already installed),
-   pick your account or organization, and choose **All repositories** or **Only
-   select repositories**. Organization owners may need to approve the installation.
+3. Install the app where your repositories live: open the Houston app's page on
+   GitHub (the app name on the authorization screen links to it, at
+   `github.com/apps/...`), select **Install** (or **Configure** if it is already
+   installed), pick your account or organization, and choose **All repositories**
+   or **Only select repositories**. Organization owners may need to approve it.
 
 Houston sees public data plus the repositories where the app is installed, limited
 to what your own GitHub account can do. Change the repository selection anytime in
