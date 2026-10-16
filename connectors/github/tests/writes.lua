@@ -88,10 +88,11 @@ return {
 		status, payload = 202, "{}"
 		github.cancelWorkflowRun({owner = "o", repo = "r", run_id = 30433642})
 		sent("POST", API .. "/repos/o/r/actions/runs/30433642/cancel", "{}")
-		status, payload = 204, ""
-		local done = github.dispatchWorkflow({owner = "o", repo = "r", workflow_id = "deploy.yml", ref = "main", inputs = {env = "staging"}})
+		status, payload = 200, '{"workflow_run_id":1,"run_url":"https://api.github.com/repos/o/r/actions/runs/1"}'
+		local run = github.dispatchWorkflow({owner = "o", repo = "r", workflow_id = "deploy.yml", ref = "main", inputs = {env = "staging"}})
 		sent("POST", API .. "/repos/o/r/actions/workflows/deploy.yml/dispatches", '{"ref":"main","inputs":{"env":"staging"}}')
-		assert(done.success == true)
+		assert(run.workflow_run_id == 1)
+		status, payload = 204, ""
 		assert(github.deleteIssueComment({owner = "o", repo = "r", comment_id = 77}).success == true)
 		sent("DELETE", API .. "/repos/o/r/issues/comments/77")
 		assert(github.markThreadDone({thread_id = 1}).success == true)

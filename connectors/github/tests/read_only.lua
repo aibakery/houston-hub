@@ -108,6 +108,9 @@ return {
 		rejected(function() github.getBranch({owner = "o", repo = "r", branch = "a\nb"}) end, "branch must be a nonempty string without control characters")
 		rejected(function() github.searchIssues({}) end, "q is required")
 		rejected(function() github.searchIssues({q = NULL}) end, "q is required")
+		payload = "[]"
+		github.listIssueTimeline({owner = "o", repo = "r", issue_number = 1, exclude = "reactions"})
+		assert(last().url == API .. "/repos/o/r/issues/1/timeline?exclude=reactions")
 		rejected(function() github.listIssues({owner = "o", repo = "r", stat = "open"}) end, "listIssues has no option stat")
 		rejected(function() github.listIssues({owner = "o", repo = "r", labels = {"bug"}}) end, "labels must be a string, boolean or number")
 		rejected(function() github.getPull({owner = "o", repo = "r", pull_number = 1, format = "html"}) end, "format must be 'diff' or 'patch'")
