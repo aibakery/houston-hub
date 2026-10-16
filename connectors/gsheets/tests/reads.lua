@@ -56,6 +56,11 @@ return {
 			{spreadsheetId = "https://docs.google.com/spreadsheets/d/e/2PACX-1vT/pubhtml", range = "A1"},
 			{spreadsheetId = "https://docs.google.com.example.com/spreadsheets/d/s1/edit", range = "A1"},
 			{spreadsheetId = "https://example.com/?u=https://docs.google.com/spreadsheets/d/s1", range = "A1"},
+			{spreadsheetId = "https://docs.google.com/spreadsheets/abcd/s1", range = "A1"},
+			{spreadsheetId = "https://docs.google.com/spreadsheets/u/0/?usp=d/s1", range = "A1"},
+			{spreadsheetId = "https://docs.google.com/spreadsheets/#d/s1", range = "A1"},
+			{spreadsheetId = "https://docs.google.com/spreadsheets/d/s1.x/edit", range = "A1"},
+			{spreadsheetId = "s1 x", range = "A1"},
 			{range = "A1"},
 			{spreadsheetId = "s1", range = "A1", key = "api-key"},
 		}

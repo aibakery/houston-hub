@@ -147,9 +147,11 @@ local endpoints: {[string]: Endpoint} = {
 
 -- Accepts the spreadsheet's URL in place of its ID; publish-to-web links carry no ID.
 local function spreadsheetId(value: any): any
-	if type(value) ~= "string" or not string.find(value, "/", 1, true) then return value end
-	local id = string.match(value, "^https://docs%.google%.com/spreadsheets/.-d/([%w_%-]+)")
-	assert(id and id ~= "e", "spreadsheetId must be a spreadsheet ID or its https://docs.google.com/spreadsheets/d/<id> URL")
+	if type(value) ~= "string" then return value end
+	local rest = string.match(value, "^https://docs%.google%.com/spreadsheets/d/(.*)$")
+		or string.match(value, "^https://docs%.google%.com/spreadsheets/u/%d+/d/(.*)$")
+	local id: string = if rest then string.match(rest, "^[^/?#]*") or "" else value
+	assert(string.match(id, "^[%w_%-]+$") and id ~= "e", "spreadsheetId must be a spreadsheet ID or its https://docs.google.com/spreadsheets/d/<id> URL")
 	return id
 end
 
