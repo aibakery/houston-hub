@@ -467,3 +467,73 @@ and documentation, so no placeholder Atlas bundle is published.
 
 The Stripe icon is the existing approved app mark, copied byte-identically from
 Houston's `app/internal/web/static/marks/stripe.svg`. Stripe owns the mark.
+
+## Wise
+
+Register repository `https://github.com/aibakery/houston-hub`, revision `main`,
+manifest `connectors/wise/houston.json`. No publisher settings or OAuth app are
+needed, and the bundle uses the current runtime without changes. Each connection
+enters its own Wise personal API token and selects **Production**
+(`api.wise.com`) or **Sandbox** (`api.wise-sandbox.com`). The environment setting
+is the proxy host itself, so a token is only ever sent to the selected Wise
+origin; the manifest rejects any other value.
+
+Coverage was checked on 2026-10-16 against Wise's official OpenAPI bundles
+(`https://docs.wise.com/_bundle/api-reference/@legacy/index.yaml` and `@latest`,
+CalVer `2026Q4`) and the [personal API token
+guide](https://docs.wise.com/guides/developer/auth-and-security/personal-api-token).
+The 35 operations cover the user and profiles, balances and total funds,
+balance statements (JSON and file downloads), receiving account details, the
+activity feed, rates, currencies, transfers and receipts, quotes, recipient
+requirements and recipients, and batch groups. Writes cover quotes, recipient
+creation, transfer requirements, transfer creation, cancellation and funding,
+balance creation, closure and movements, and batch groups.
+
+The bundle uses Wise's legacy per-endpoint paths (`/v1`–`/v4`). Wise documents
+these as supported and frozen, and its personal-token guides use them; the
+`2026Q4` CalVer replacement of account details serves only GB, US and BE.
+Moving to a CalVer prefix later changes every route and fixture together.
+
+Deliberate omissions: webhooks (subscriptions deliver account events to an
+arbitrary URL and are of little use to agents), cards and card transactions,
+the multi-currency-account and delivery-estimate endpoints (the spec marks them
+partner-token only), recipient deactivation (likewise), profile and KYC changes,
+OAuth, one-time-token/SCA, PIN and JOSE endpoints, and the `twcard.wise.com`
+card-secrets host. The proxy denies all of these and the legacy
+`api.transferwise.com` host.
+
+Wise documents that personal tokens can fund transfers or batches and fetch
+balance statements only for accounts based in the US, Canada, Australia, New Zealand,
+Singapore and Malaysia. Elsewhere Wise answers 403 with
+`x-2fa-approval-result`; the connector reports that the step must be finished in
+the Wise app and marks it not retryable, without echoing the one-time token. The
+official spec marks quotes and recipients as partner-token only while the
+personal-token guide allows them; the guide was followed. `getQuote`,
+`getRecipient` and `refreshAccountRequirements` are tagged partner-token only and
+are not named by the guide either, so verify them live; they fail with Wise's
+own 401/403 if personal tokens cannot use them. Business payment approvals block
+API-created transfers; help and setup state this.
+
+Read-only connections get GET routes only; POST, PATCH, PUT and DELETE routes
+require read-write access. Every rule strips method-override headers, though
+probes showed Wise's gateway ignores them. Requests validate integer and UUID
+path IDs, currency codes, statement formats, paging bounds, query enums and
+unconditional required fields, and require UUID idempotency keys
+(`customerTransactionId`, `X-idempotence-uuid`) for transfers, balances and
+balance movements. Errors are bounded, include Wise's error items, `Retry-After`
+and `x-trace-id`, and no operation is retried automatically. Only 429s and read
+5xx responses are marked retryable: Wise says a 5xx does not prove a write
+failed, so writes report them as not retryable. Downloads open their session
+file only after a successful response, so a failed download leaves an existing
+file untouched.
+
+This is a new registration with no existing connections. Local fixtures cover
+both access levels, both environments, every route, downloads and error mapping.
+A live check with a real token (discovery, help at both access levels, paging,
+a sandbox quote, recipient and transfer, and the SCA response outside the exempt
+countries) remains for the registering user.
+
+The Wise icon is Wise's own app mark (bright-green flag on a forest-green
+circle), referenced from the [wise.com](https://wise.com) homepage at
+`https://dq8dwmysp7hk1.cloudfront.net/logos/wise-mark.svg`, retrieved 2026-10-16,
+unchanged. Wise owns the mark.

@@ -1,0 +1,227 @@
+{
+  "schema_version": 1,
+  "name": "Wise",
+  "files": [
+    "connector.lua"
+  ],
+  "icon": "icon.svg",
+  "config": {
+    "access": {
+      "default": "read-only",
+      "label": "Access",
+      "options": [
+        {
+          "label": "Read-only",
+          "value": "read-only"
+        },
+        {
+          "label": "Read and write",
+          "value": "read-write"
+        }
+      ],
+      "order": 1,
+      "type": "string"
+    },
+    "api_host": {
+      "default": "api.wise.com",
+      "description": "Use Sandbox only with a token created at wise-sandbox.com.",
+      "label": "Environment",
+      "options": [
+        {
+          "label": "Production",
+          "value": "api.wise.com"
+        },
+        {
+          "label": "Sandbox",
+          "value": "api.wise-sandbox.com"
+        }
+      ],
+      "order": 2,
+      "type": "string"
+    }
+  },
+  "auth": {
+    "token": {
+      "config": {
+        "token": {
+          "label": "Personal API token",
+          "required": true,
+          "type": "secret"
+        }
+      },
+      "label": "Wise personal API token",
+      "type": "manual"
+    }
+  },
+  "proxy": [
+    {
+      "action": {
+        "headers": {
+          "remove": [
+            "X-HTTP-Method-Override",
+            "X-HTTP-Method",
+            "X-Method-Override"
+          ],
+          "set": {
+            "Authorization": "Bearer {{auth.token.token}}"
+          }
+        }
+      },
+      "match": {
+        "host": [
+          "{{config.api_host}}"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/v1/me",
+          "/v2/profiles",
+          "/v2/profiles/{profileId}",
+          "/v4/profiles/{profileId}/balances",
+          "/v4/profiles/{profileId}/balances/{balanceId}",
+          "/v1/profiles/{profileId}/total-funds/{currency}",
+          "/v1/profiles/{profileId}/balance-statements/{balanceId}/statement.json",
+          "/v1/profiles/{profileId}/balance-statements/{balanceId}/statement.pdf",
+          "/v1/profiles/{profileId}/balance-statements/{balanceId}/statement.csv",
+          "/v1/profiles/{profileId}/balance-statements/{balanceId}/statement.xlsx",
+          "/v1/profiles/{profileId}/balance-statements/{balanceId}/statement.xml",
+          "/v1/profiles/{profileId}/balance-statements/{balanceId}/statement.mt940",
+          "/v1/profiles/{profileId}/balance-statements/{balanceId}/statement.qif",
+          "/v1/profiles/{profileId}/account-details",
+          "/v1/profiles/{profileId}/activities",
+          "/v1/rates",
+          "/v1/currencies",
+          "/v1/transfers",
+          "/v1/transfers/{transferId}",
+          "/v1/transfers/{transferId}/receipt.pdf",
+          "/v3/profiles/{profileId}/quotes/{quoteId}",
+          "/v1/quotes/{quoteId}/account-requirements",
+          "/v2/accounts",
+          "/v2/accounts/{accountId}",
+          "/v3/profiles/{profileId}/batch-groups/{batchGroupId}"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "remove": [
+            "X-HTTP-Method-Override",
+            "X-HTTP-Method",
+            "X-Method-Override"
+          ],
+          "set": {
+            "Authorization": "Bearer {{auth.token.token}}"
+          }
+        }
+      },
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "host": [
+          "{{config.api_host}}"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/v3/profiles/{profileId}/quotes",
+          "/v1/quotes/{quoteId}/account-requirements",
+          "/v1/accounts",
+          "/v1/transfer-requirements",
+          "/v1/transfers",
+          "/v3/profiles/{profileId}/transfers/{transferId}/payments",
+          "/v4/profiles/{profileId}/balances",
+          "/v2/profiles/{profileId}/balance-movements",
+          "/v3/profiles/{profileId}/batch-groups",
+          "/v3/profiles/{profileId}/batch-groups/{batchGroupId}/transfers",
+          "/v3/profiles/{profileId}/batch-payments/{batchGroupId}/payments"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "remove": [
+            "X-HTTP-Method-Override",
+            "X-HTTP-Method",
+            "X-Method-Override"
+          ],
+          "set": {
+            "Authorization": "Bearer {{auth.token.token}}"
+          }
+        }
+      },
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "host": [
+          "{{config.api_host}}"
+        ],
+        "method": [
+          "PATCH"
+        ],
+        "path": [
+          "/v3/profiles/{profileId}/quotes/{quoteId}",
+          "/v3/profiles/{profileId}/batch-groups/{batchGroupId}"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "remove": [
+            "X-HTTP-Method-Override",
+            "X-HTTP-Method",
+            "X-Method-Override"
+          ],
+          "set": {
+            "Authorization": "Bearer {{auth.token.token}}"
+          }
+        }
+      },
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "host": [
+          "{{config.api_host}}"
+        ],
+        "method": [
+          "PUT"
+        ],
+        "path": [
+          "/v1/transfers/{transferId}/cancel"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "remove": [
+            "X-HTTP-Method-Override",
+            "X-HTTP-Method",
+            "X-Method-Override"
+          ],
+          "set": {
+            "Authorization": "Bearer {{auth.token.token}}"
+          }
+        }
+      },
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "host": [
+          "{{config.api_host}}"
+        ],
+        "method": [
+          "DELETE"
+        ],
+        "path": [
+          "/v4/profiles/{profileId}/balances/{balanceId}"
+        ],
+        "protocol": "http"
+      }
+    }
+  ]
+}
