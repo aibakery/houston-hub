@@ -1,5 +1,5 @@
 return {
-	scenario = {config = {own_app = true, client_id = "fixture-app-key", client_secret = "fixture-private-secret"}, auth_method = "own_app", auth_config = {}},
+	scenario = {publisher = {client_id = "fixture-app-key", client_secret = "fixture-private-secret"}, auth_method = "oauth", auth_config = {}},
 	config = {access = "read-only"},
 	run = function(c)
 		local reads = {}
