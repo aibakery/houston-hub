@@ -159,9 +159,14 @@ end
 
 local NONE: {string} = table.freeze({})
 -- Ranges are opaque path segments (the proxy allows encoded / and %), so tab names like '10/16' work.
+-- Each part between slashes still passes url.segment's checks, refusing dot-only, look-alike and invisible parts.
 local function withRange(endpoint: Endpoint, args: Options): Endpoint
 	if not string.find(endpoint.path, "{range}", 1, true) then return endpoint end
-	local range = url.encode(text(args.range, "range"))
+	local raw = text(args.range, "range")
+	for part in string.gmatch(raw .. "/", "([^/]*)/") do
+		assert(pcall(url.segment, (string.gsub(part, "%%", "_"))), "range must not contain empty, dot-only, control or invisible parts between slashes")
+	end
+	local range = url.encode(raw)
 	args.range = nil
 	local resolved = table.clone(endpoint)
 	resolved.path = string.gsub(endpoint.path, "{range}", function(): string return range end)
@@ -192,6 +197,7 @@ local overview = {
 	"spreadsheetId is the ID or the spreadsheet's https://docs.google.com/spreadsheets/d/<id>/edit URL. This connector cannot search for files: ask for the URL, or find the ID with the Google Drive connector (listFiles with q=\"mimeType = 'application/vnd.google-apps.spreadsheet' and trashed = false\"). Excel files opened in Sheets are refused with HTTP 400 until saved as Google Sheets (File > Save as Google Sheets).",
 	"Ranges use A1 notation: 'Sheet1!B2', 'Sheet1!A1:C10', 'Sheet1!A:A', a whole tab 'Sheet1' or a named range. Quote tab names with spaces or punctuation, and tab names that look like cells, doubling apostrophes: \"'Q1 Sales'!A1\", \"'Q1'!A1\". Without a tab, a range means the first visible tab.",
 	"values are rows of cells (majorDimension='COLUMNS' gives columns). Trailing empty rows and cells are omitted; values is [] for an empty range. valueRenderOption is FORMATTED_VALUE (default, as displayed), UNFORMATTED_VALUE (numbers as numbers; dates as serial numbers unless dateTimeRenderOption='FORMATTED_STRING') or FORMULA.",
+	"Responses over 8 MiB fail: read large tabs in row blocks such as 'Data!A1:Z5000', and keep batchGetValues to a few dozen ranges per call.",
 	"Google allows about 60 reads per minute per user; HTTP 429 errors are retryable after a pause. No hidden paging or retries. Errors report the HTTP status and Google's message.",
 }
 if config.access == "read-write" then

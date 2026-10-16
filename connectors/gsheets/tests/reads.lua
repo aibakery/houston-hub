@@ -58,6 +58,11 @@ return {
 		local invalid = {
 			{spreadsheetId = "s1"},
 			{spreadsheetId = "s1", range = ""},
+			{spreadsheetId = "s1", range = "\u{FF0E}\u{FF0E}/x!A1"},
+			{spreadsheetId = "s1", range = "../drive!A1"},
+			{spreadsheetId = "s1", range = "a\\b!A1"},
+			{spreadsheetId = "s1", range = "a\u{200B}b!A1"},
+			{spreadsheetId = "s1", range = "a\nb!A1"},
 			{spreadsheetId = "..", range = "A1"},
 			{spreadsheetId = "s/1", range = "A1"},
 			{spreadsheetId = "https://docs.google.com/spreadsheets/d/e/2PACX-1vT/pubhtml", range = "A1"},
