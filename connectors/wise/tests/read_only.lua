@@ -40,6 +40,8 @@ return {
 		get(api .. "/v4/profiles/202/balances?types=STANDARD%2CSAVINGS")
 		c.listBalances({profileId = 202, types = "STANDARD,SAVINGS"})
 		get(api .. "/v4/profiles/202/balances?types=STANDARD%2CSAVINGS")
+		c.listBalances({profileId = 202, types = " STANDARD , SAVINGS"})
+		get(api .. "/v4/profiles/202/balances?types=STANDARD%2CSAVINGS")
 		payload = "[]"
 		assert(json.encode(c.listBalances({profileId = 202, types = "STANDARD"})) == "[]", "empty balance array lost")
 		get(api .. "/v4/profiles/202/balances?types=STANDARD")
@@ -130,6 +132,7 @@ return {
 			function() c.listActivities({profileId = 202, status = "DONE"}) end,
 			function() c.listTransfers({status = {[1] = "a", [3] = "b"}}) end,
 			function() c.listTransfers({profile = 0}) end,
+			function() c.listTransfers({status = {"a", nil, "c"}}) end,
 			function() c.listRecipients({profileId = 0}) end,
 			function() c.listBalances({profileId = 202, types = "STANDARD,"}) end,
 			function() c.listBalances({profileId = 202, types = "STANDARD,CHECKING"}) end,

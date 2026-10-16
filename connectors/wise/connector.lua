@@ -83,7 +83,7 @@ local NONE: {string} = table.freeze({})
 local NO_QUERY: {[string]: Query} = table.freeze({})
 local ORIGIN = "https://" .. config.api_host
 local FORMATS = table.freeze({"pdf", "csv", "xlsx", "xml", "mt940", "qif"})
-local UUID_FIELDS = table.freeze({"customerTransactionId", "quoteUuid", "quoteId"})
+local UUID_FIELDS = table.freeze({"customerTransactionId", "quoteUuid", "quoteId", "batchGroupId"})
 local UUID = "^%x%x%x%x%x%x%x%x%-%x%x%x%x%-%x%x%x%x%-%x%x%x%x%-%x%x%x%x%x%x%x%x%x%x%x%x$"
 
 local function text(value: any, field: string): string
@@ -104,7 +104,7 @@ local function uuid(value: any, field: string): string
 end
 
 local function pathValue(value: any, field: string): string
-	if field == "quoteId" or field == "batchGroupId" then return uuid(value, field) end
+	if table.find(UUID_FIELDS, field) then return uuid(value, field) end
 	if field == "currency" then
 		assert(type(value) == "string" and string.match(value, "^%u%u%u$"), "currency must be a three-letter uppercase code")
 		return value
@@ -126,12 +126,17 @@ local function queryValue(value: any, field: string, spec: Query): string
 	if spec.type == "list" then
 		items = if type(value) == "string" then string.split(value, ",") else value
 		assert(type(items) == "table" and #items > 0, field .. " must be a nonempty list")
+		local count = 0
 		for index in items do
+			count += 1
 			assert(type(index) == "number" and index % 1 == 0 and index >= 1 and index <= #items, field .. " must be a dense array")
 		end
+		assert(count == #items, field .. " must be a dense array")
 	end
 	local values: {string} = {}
-	for _, item in items do table.insert(values, text(item, field)) end
+	for _, item in items do
+		table.insert(values, text(if type(item) == "string" then string.match(item, "^%s*(.-)%s*$") else item, field))
+	end
 	if spec.enum then
 		for _, item in values do assert(table.find(spec.enum, item), field .. " must be one of " .. table.concat(spec.enum, ", ")) end
 	end
@@ -239,7 +244,7 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 			assert(count == 1, name .. " needs exactly one of " .. table.concat(endpoint.oneOf, " or "))
 		end
 		for _, field in UUID_FIELDS do
-			if args[field] ~= nil then uuid(args[field], field) end
+			if args[field] ~= nil and args[field] ~= NULL then uuid(args[field], field) end
 		end
 		headers["Content-Type"] = {if endpoint.merge then "application/merge-patch+json" else "application/json"}
 		body = json.encode(args)
@@ -259,10 +264,11 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 	end
 	local read, raw = pcall(function() return await(response.body:readAll()) end)
 	if not read then
-		if type(raw) == "table" and raw.code == "limit_exceeded" then
-			fail(name, endpoint, response, if endpoint.method == "GET" then "the response exceeded 8 MiB; narrow the interval or page size"
-				else "Wise accepted the request but its response exceeded 8 MiB; check the result before repeating it")
+		local code = if type(raw) == "table" then tostring(raw.code) else "read_error"
+		if endpoint.method ~= "GET" then
+			fail(name, endpoint, response, "Wise accepted the request but its response could not be read (" .. code .. "); check the result before repeating it")
 		end
+		if code == "limit_exceeded" then fail(name, endpoint, response, "the response exceeded 8 MiB; narrow the interval or page size") end
 		error(raw, 0)
 	end
 	if endpoint.method ~= "GET" and string.match(raw, "^%s*$") then return {success = true} end

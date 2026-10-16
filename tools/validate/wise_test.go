@@ -3,6 +3,7 @@ package main
 import (
 	"net/http"
 	"regexp"
+	"strings"
 	"testing"
 )
 
@@ -64,7 +65,7 @@ func TestWiseAccessRoutes(t *testing.T) {
 			}
 		}
 	}
-	if _, err := m.Resolve(nil, map[string]any{"api_host": "attacker.example"}, map[string]any{"token": "wise_fixture"}, "token"); err == nil {
-		t.Fatal("accepted an environment host outside the options")
+	if _, err := m.Resolve(nil, map[string]any{"api_host": "attacker.example"}, map[string]any{"token": "wise_fixture"}, "token"); err == nil || !strings.Contains(err.Error(), "api_host") {
+		t.Fatalf("accepted an environment host outside the options: %v", err)
 	}
 }

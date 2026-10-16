@@ -96,6 +96,8 @@ return {
 		assert(req.headers["X-idempotence-uuid"][1] == tx)
 		c.createBalanceMovement({profileId = 202, amount = {value = 5, currency = "EUR"}, sourceBalanceId = 1, targetBalanceId = 2, idempotenceUuid = tx})
 		sent("POST", api .. "/v2/profiles/202/balance-movements", {amount = {value = 5, currency = "EUR"}, sourceBalanceId = 1, targetBalanceId = 2})
+		c.createBalanceMovement({profileId = 202, quoteId = json.decode("null"), amount = {value = 5, currency = "EUR"}, sourceBalanceId = 1, targetBalanceId = 2, idempotenceUuid = tx})
+		sent("POST", api .. "/v2/profiles/202/balance-movements", {quoteId = json.decode("null"), amount = {value = 5, currency = "EUR"}, sourceBalanceId = 1, targetBalanceId = 2})
 
 		payload = '{"id":"' .. group .. '","version":0}'
 		c.createBatchGroup({profileId = 202, name = "October payroll", sourceCurrency = "EUR"})

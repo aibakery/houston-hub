@@ -39,6 +39,7 @@ return {
 		fails(400, '{"errors":[{"code":"balance.insufficient"}]}', {["x-2fa-approval-result"] = {"APPROVED"}}, {"HTTP 400", "balance.insufficient", '"retryable":false'}, "strong customer authentication")
 		fails(403, '{"error":"Forbidden","message":"Read only token"}', {["x-2fa-approval-result"] = {"APPROVED"}}, {"HTTP 403", "Read only token", '"retryable":false'}, "strong customer authentication")
 		fails(200, '{"data":"' .. string.rep("z", 8 * 1024 * 1024) .. '"}', {}, {"exceeded 8 MiB", "narrow the interval"}, nil, true)
+		fails(201, '{"data":"' .. string.rep("z", 8 * 1024 * 1024) .. '"}', {}, {"accepted the request but its response could not be read (limit_exceeded)", "check the result"})
 		status, payload, responseHeaders = 503, "Unavailable", {}
 		local ok, err = pcall(c.createQuote, {profileId = 202, sourceCurrency = "EUR", targetCurrency = "GBP", sourceAmount = 1})
 		assert(not ok and string.find(tostring(err), '"retryable":true', 1, true), "a quote 5xx should be retryable: " .. tostring(err))
