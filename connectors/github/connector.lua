@@ -87,7 +87,7 @@ local endpoints: {[string]: Endpoint} = {
 		about = "ref is 'heads/<branch>'. Body {sha, force?}. Moves a branch."},
 	deleteRef = {method = "DELETE", path = "/repos/{owner}/{repo}/git/refs/{ref}", about = "ref is 'heads/<branch>' or 'tags/<tag>'. Deletes a branch or tag."},
 	getTree = {method = "GET", path = "/repos/{owner}/{repo}/git/trees/{tree_sha}", query = {"recursive"},
-		about = "Any recursive value lists every path; truncated is true past 100,000 entries or 7 MB. Large recursive trees can exceed the 8 MiB result limit."},
+		about = "recursive=true lists every path; truncated is true past 100,000 entries or 7 MB. Large recursive trees can exceed the 8 MiB result limit."},
 	createTree = {method = "POST", path = "/repos/{owner}/{repo}/git/trees", required = {"tree"},
 		about = "Body {tree={{path, mode, type, sha or content}}, base_tree?}."},
 	getBlob = {method = "GET", path = "/repos/{owner}/{repo}/git/blobs/{file_sha}", save = "application/vnd.github.raw+json",
@@ -398,6 +398,8 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 		headers.Accept = {"application/vnd.github." .. format}
 		args.format = nil
 	end
+	-- getTree recurses for any recursive value, false included.
+	if name == "getTree" and args.recursive == false then args.recursive = nil end
 	local query: {string} = {}
 	for _, field in endpoint.query or NONE do
 		if args[field] ~= nil then table.insert(query, field .. "=" .. scalar(args[field], field)) end
