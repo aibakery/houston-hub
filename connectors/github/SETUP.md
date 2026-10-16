@@ -36,7 +36,7 @@ Choose **Personal access token** and paste a token created as follows.
    **Read-only** for a read-only connection or **Read and write** otherwise
    (**Metadata** is added as read-only automatically). For read and write, also add
    **Workflows** to edit workflow files, and **Administration** and **Repository
-   creation** to create, fork or update repositories.
+   creation** to create or fork repositories.
 5. Optionally add **Members** (read-only) under **Organization permissions**, and
    **Email addresses** (read-only) and **Gists** (read and write) under **Account
    permissions**.
