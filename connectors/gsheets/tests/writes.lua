@@ -29,6 +29,13 @@ return {
 		c.updateValues({spreadsheetId = "s1", range = "B2:C2", values = {{json.decode("null"), ""}}, valueInputOption = "USER_ENTERED", includeValuesInResponse = true})
 		sent("PUT", API .. "/s1/values/B2%3AC2?valueInputOption=USER_ENTERED&includeValuesInResponse=true", '{"values":[[null,""]]}')
 
+		-- Google's system parameters stay out of the URL; Google rejects them as unknown body fields.
+		responses = {'{"spreadsheetId":"s1"}'}
+		c.updateValues({spreadsheetId = "s1", range = "A1", values = {{1}}, key = "k", access_token = "t", alt = "media", fields = "x"})
+		assert(requests[#requests].url == API .. "/s1/values/A1?valueInputOption=RAW", requests[#requests].url)
+		local smuggled = json.decode(requests[#requests].body)
+		assert(smuggled.key == "k" and smuggled.access_token == "t" and smuggled.alt == "media" and smuggled.fields == "x")
+
 		responses = {'{"spreadsheetId":"s1","tableRange":"Log!A1:D3","updates":{"updatedRows":1}}'}
 		assert(c.appendValues({spreadsheetId = "s1", range = "Log!A:D", values = {{"2026-10-16", "paid", 120}}, insertDataOption = "INSERT_ROWS"}).updates.updatedRows == 1)
 		sent("POST", API .. "/s1/values/Log%21A%3AD:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS", '{"values":[["2026-10-16","paid",120]]}')
@@ -40,7 +47,9 @@ return {
 		responses = {'{"spreadsheetId":"s1","totalUpdatedCells":2}', '{"spreadsheetId":"s1","clearedRanges":["Q2/Q3!A1"]}'}
 		c.batchUpdateValues({spreadsheetId = "s1", data = {{range = "Q2/Q3!A1", values = {{1, 2}}}}})
 		local body = json.decode(requests[#requests].body)
-		assert(requests[#requests].url == API .. "/s1/values:batchUpdate" and body.valueInputOption == "RAW" and body.data[1].range == "Q2/Q3!A1" and body.spreadsheetId == nil)
+		assert(requests[#requests].url == API .. "/s1/values:batchUpdate" and body.valueInputOption == "RAW" and body.data[1].range == "Q2/Q3!A1" and json.encode(body.data[1].values) == "[[1,2]]")
+		body.data, body.valueInputOption = nil, nil
+		assert(next(body) == nil, "unexpected batchUpdateValues fields")
 		c.batchClearValues({spreadsheetId = "s1", ranges = {"Q2/Q3!A1"}})
 		sent("POST", API .. "/s1/values:batchClear", '{"ranges":["Q2/Q3!A1"]}')
 

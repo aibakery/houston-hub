@@ -35,7 +35,8 @@ func TestGoogleSheetsScopesAndRoutes(t *testing.T) {
 			"POST https://oauth2.googleapis.com/token", "GET https://www.googleapis.com/drive/v3/files",
 			"GET https://sheets.googleapis.com/v4/spreadsheets", "GET https://sheets.googleapis.com.evil.test/v4/spreadsheets/s1",
 			"GET https://sheets.googleapis.com/v3/spreadsheets/s1", "DELETE "+api+"/s1", "PATCH "+api+"/s1/values/A1",
-			"GET "+api+"/s1/developerMetadata/1", "GET "+api+"/s1/values/%2e%2e/x", "GET "+api+"/s1/values/A%2FB")
+			"GET "+api+"/s1/developerMetadata/1", "POST "+api+"/s1/developerMetadata:search", "POST "+api+"/s1/sheets/0:copyTo",
+			"POST "+api+"/s1/values:batchUpdateByDataFilter", "GET "+api+"/s1/values/%2e%2e/x", "GET "+api+"/s1/values/A%2FB")
 
 		// Reads cannot be turned into writes with a method override.
 		recipe, err := r.Proxy.HTTPRecipe("GET", api+"/s1", nil)

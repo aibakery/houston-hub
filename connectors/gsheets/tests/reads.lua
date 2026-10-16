@@ -42,6 +42,7 @@ return {
 		c.getSpreadsheet({spreadsheetId = "s1", fields = "sheets(data(rowData(values(note))))", ranges = {"A1:B2"}})
 		assert(requests[7].url == API .. "s1?fields=sheets%28data%28rowData%28values%28note%29%29%29%29&ranges=A1%3AB2", requests[7].url)
 		for _, req in requests do
+			assert(req.method == "GET" and req.body == nil, req.method .. " " .. req.url)
 			assert(req.headers == nil or req.headers.Authorization == nil, "connector set credentials")
 		end
 
