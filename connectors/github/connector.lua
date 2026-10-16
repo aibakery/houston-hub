@@ -300,7 +300,10 @@ local function fail(name: string, response: HttpResponse): never
 	if retryAfter then message ..= "; retry after " .. retryAfter .. "s" end
 	if exhausted then message ..= "; rate limit resets at " .. (header(response, "x-ratelimit-reset") or "?") .. " (Unix time)" end
 	-- Renamed or transferred repositories redirect to /repositories/<id>, which no rule allows.
-	if response.statusCode == 301 or response.statusCode == 307 then message ..= "; the repository was renamed or transferred: use its new owner and name" end
+	local moved = header(response, "location")
+	if moved and string.find(moved, "https://api.github.com/repositories/", 1, true) == 1 then
+		message ..= "; the repository was renamed or transferred: use its new owner and name"
+	end
 	local accepted = header(response, "x-accepted-github-permissions")
 	if accepted then message ..= "; needs permissions " .. accepted end
 	local status = response.statusCode
@@ -348,15 +351,21 @@ end
 -- Archives, assets and logs redirect to a signed URL, fetched without credentials.
 local function save(name: string, first: HttpResponse, output: any, destination: string): any
 	local response = first
-	if first.statusCode == 301 or first.statusCode == 302 or first.statusCode == 307 then
-		local location = first.headers.location
-		if first.statusCode ~= 302 and location and string.find(location[1], "https://api.github.com/", 1, true) == 1 then fail(name, first) end
+	local location = first.headers.location
+	local kind = first.headers["content-type"]
+	if first.statusCode >= 300 and first.statusCode < 400 and location then
+		if string.find(location[1], "https://api.github.com/", 1, true) == 1 then fail(name, first) end
 		first.body:close()
-		if location == nil or not allowedDownload(location[1]) then
+		if not allowedDownload(location[1]) then
 			return houston.fail({operation = name, layer = "upstream", upstream_status = first.statusCode, retryable = false,
 				message = "GitHub redirected the download to an unexpected host"})
 		end
 		response = await(http.request({method = "GET", url = location[1], headers = {["User-Agent"] = {"Houston"}}}))
+	elseif first.statusCode == 200 and kind and string.find(kind[1], "application/json", 1, true) == 1 then
+		-- A directory answers with its JSON listing even when raw bytes are requested.
+		first.body:close()
+		return houston.fail({operation = name, layer = "upstream", upstream_status = 200, retryable = false,
+			message = "The path is a directory; call getContent without save_as to list it"})
 	end
 	if response.statusCode ~= 200 then fail(name, response) end
 	output:write(response.body)
@@ -401,17 +410,18 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 	end
 	local unknown = next(args)
 	assert(unknown == nil, name .. " has no option " .. tostring(unknown))
-	-- Open the destination before the request, so a bad path never reaches GitHub; close it on failure.
-	local file: any = if destination then await(fs.open(destination, "w")) else nil
-	local ok, result = pcall(function(): any
-		local response = await(http.request({method = endpoint.method, url = API .. path, headers = headers, body = body}))
-		if destination then return save(name, response, file, destination) end
+	local call: HttpRequest = {method = endpoint.method, url = API .. path, headers = headers, body = body}
+	if destination == nil then
+		local response = await(http.request(call))
 		if response.statusCode < 200 or response.statusCode >= 300 then fail(name, response) end
 		if format then return await(response.body:readAll()) end
 		return decode(name, endpoint, response)
-	end)
+	end
+	-- Open the destination before the request, so a bad path never reaches GitHub; close it on failure.
+	local output = await(fs.open(destination, "w"))
+	local ok, result = pcall(function(): any return save(name, await(http.request(call)), output, destination) end)
 	if not ok then
-		if file then pcall(function() await(file:close()) end) end
+		pcall(function() await(output:close()) end)
 		error(result, 0)
 	end
 	return result

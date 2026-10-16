@@ -34,6 +34,7 @@ return {
 			{"secondary rate limit", "retry after 60s", '"retryable":true'})
 		upstream(307, '{"message":"Temporary Redirect","url":"https://api.github.com/repositories/1/issues/1/comments"}', {location = {"https://api.github.com/repositories/1/issues/1/comments"}},
 			{"HTTP 307", "renamed or transferred", '"retryable":false'})
+		upstream(301, '{"message":"Moved Permanently"}', {location = {"https://api.github.com/user/1"}}, {"HTTP 301"}, "renamed")
 		upstream(429, '{"message":"Too many requests"}', {}, {"HTTP 429", '"retryable":true'})
 		upstream(502, "<html>Bad gateway</html>", {}, {"HTTP 502", '"retryable":true'})
 		upstream(400, json.encode({message = string.rep("x", 5000)}), {}, {"HTTP 400", string.rep("x", 600)}, string.rep("x", 601))

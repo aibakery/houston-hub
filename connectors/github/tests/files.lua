@@ -80,7 +80,7 @@ return {
 		assert(requests[10].url == "https://pipelinesghubeus6.actions.githubusercontent.com/logs.zip?sig=SIGNED")
 
 		for _, location in {"https://evil.example/x", "https://productionresultssa1.blob.core.windows.net.evil.example/x",
-			"http://codeload.github.com/o/r", "https://api.github.com/repositories/1/tarball/main",
+			"http://codeload.github.com/o/r",
 			"https://gist.githubusercontent.com/o/1/raw", "https://evil.actions.githubusercontent.com.example/x",
 			"https://evil.blob.core.windows.net/x", "https://a.b.actions.githubusercontent.com/x"} do
 			redirect(location)
@@ -119,6 +119,11 @@ return {
 		end
 		respond(301, '{"message":"Moved Permanently","url":"https://api.github.com/repositories/1/tarball/main"}', {location = {"https://api.github.com/repositories/1/tarball/main"}})
 		assert(rejected(function() github.downloadTarball({owner = "o", repo = "old", ref = "main", save_as = "old.tar.gz"}) end, "renamed or transferred") == 1)
+		redirect("https://api.github.com/repositories/1/tarball/main")
+		assert(rejected(function() github.downloadTarball({owner = "o", repo = "old", ref = "main", save_as = "old.tar.gz"}) end, "renamed or transferred") == 1)
+		respond(200, '[{"name":"a.md","download_url":"https://raw.githubusercontent.com/o/r/main/a.md?token=SIGNED"}]', {["content-type"] = {"application/json; charset=utf-8"}})
+		assert(rejected(function() github.getContent({owner = "o", repo = "r", path = "docs", save_as = "docs.bin"}) end, "is a directory") == 1)
+		assert(not string.find(contents("docs.bin"), "SIGNED", 1, true), "saved a directory listing with signed links")
 		respond(202, "")
 		assert(rejected(function() github.getContent({owner = "o", repo = "r", path = "a.bin", save_as = "a.bin"}) end, "GitHub HTTP 202") == 1)
 	end,
