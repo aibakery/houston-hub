@@ -525,7 +525,9 @@ and `x-trace-id`, and no operation is retried automatically. Only 429s and 5xx
 responses to reads or to calls that create nothing (quotes and requirement
 checks) are marked retryable: Wise says a 5xx does not prove a write failed, so
 other writes report them as not retryable. Only a 403 carrying
-`x-2fa-approval-result` is reported as an SCA requirement. Downloads open their session
+`x-2fa-approval-result: REJECTED` is reported as an SCA requirement. JSON larger
+than the 8 MiB read limit fails with a structured error asking for a narrower
+interval or page. Downloads open their session
 file only after a successful, non-JSON, non-HTML response, so an error leaves an
 existing file untouched; a stream that fails after Wise starts sending the file
 can leave it partial. A write answered with an empty 2xx body returns

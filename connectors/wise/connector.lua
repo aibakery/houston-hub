@@ -146,7 +146,7 @@ end
 
 local function fail(name: string, endpoint: Endpoint, response: HttpResponse, detail: string?): never
 	local message = "Wise HTTP " .. response.statusCode
-	local sca = if response.statusCode == 403 then header(response, "x-2fa-approval-result") else nil
+	local sca = response.statusCode == 403 and header(response, "x-2fa-approval-result") == "REJECTED"
 	if detail then
 		message ..= ": " .. detail
 	else
@@ -173,15 +173,15 @@ local function fail(name: string, endpoint: Endpoint, response: HttpResponse, de
 		if #parts > 0 then message ..= ": " .. string.sub(table.concat(parts, "; "), 1, 1000) end
 	end
 	if sca then
-		message ..= "; strong customer authentication required (x-2fa-approval-result=" .. sca
-			.. "). Personal API tokens cannot complete it: finish this step in the Wise app or website"
+		message ..= "; strong customer authentication required (x-2fa-approval-result=REJECTED)."
+			.. " This connector cannot complete it: finish this step in the Wise app or website"
 	end
 	for _, key in {"retry-after", "x-trace-id"} do
 		local value = header(response, key)
 		if value then message ..= "; " .. key .. "=" .. value end
 	end
 	return houston.fail({operation = name, layer = "upstream", upstream_status = response.statusCode,
-		retryable = sca == nil and (response.statusCode == 429 or (response.statusCode >= 500 and (endpoint.method == "GET" or endpoint.safe == true))), message = message})
+		retryable = not sca and (response.statusCode == 429 or (response.statusCode >= 500 and (endpoint.method == "GET" or endpoint.safe == true))), message = message})
 end
 
 local function present(value: any): boolean
@@ -233,6 +233,7 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 		if endpoint.oneOf then
 			local count = 0
 			for _, field in endpoint.oneOf do
+				assert(args[field] ~= "", field .. " cannot be empty")
 				if present(args[field]) then count += 1 end
 			end
 			assert(count == 1, name .. " needs exactly one of " .. table.concat(endpoint.oneOf, " or "))
@@ -251,21 +252,13 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 			response.body:close()
 			fail(name, endpoint, response, "Wise returned " .. media .. " instead of a file")
 		end
-		local output: File? = nil
-		local ok, err = pcall(function()
-			local file = fs.open(destination, "w")
-			output = file
-			file:write(response.body)
-			await(file:close())
-		end)
-		if not ok then
-			pcall(function() response.body:close() end)
-			if output then pcall(function() await((output :: File):close()) end) end
-			error(err, 0)
-		end
+		local output = fs.open(destination, "w")
+		output:write(response.body)
+		await(output:close())
 		return {path = destination, size = await(fs.stat(destination)).size, url = await(fs.signedGetUrl(destination))}
 	end
-	local raw = await(response.body:readAll())
+	local read, raw = pcall(function() return await(response.body:readAll()) end)
+	if not read then fail(name, endpoint, response, "the response exceeded 8 MiB; narrow the interval or page size") end
 	if endpoint.method ~= "GET" and string.match(raw, "^%s*$") then return {success = true} end
 	local decoded, value = pcall(json.decode, raw)
 	if not decoded or type(value) ~= "table" or not string.match(raw, "^%s*[%[{]") then
@@ -288,7 +281,7 @@ exports.help = function(): string
 		"Start with listProfiles() and pick the PERSONAL or BUSINESS profile id. Ids for profiles, balances, transfers and recipients are integers; quote and batch group ids are UUID strings. Amounts are decimal major units (12.5 = 12.50), not cents. Dates are ISO-8601, e.g. '2026-10-01T00:00:00Z'.",
 		"Paging: listActivities returns cursor, passed back as nextCursor until null (size 1..100); listTransfers uses limit and offset; listRecipients uses size 1..20 and seekPositionForNext -> seekPosition. Other lists are unpaginated. No automatic paging or retries.",
 		"Downloads stream to a session file and return {path,url,size}; url is Houston's signed link. Failed transfers can leave partial files.",
-		"Personal API tokens: Wise documents them for business accounts, and a token created as read only rejects writes. Balance statements (and, with write access, funding) need strong customer authentication (SCA) except for accounts based in the US, Canada, Australia, New Zealand, Singapore and Malaysia; elsewhere these calls fail with a 403 naming SCA, and the owner must finish the step in the Wise app or website. Do not retry them. Card details, webhooks, profile/KYC changes and recipient deletion are not available here.",
+		"Personal API tokens: Wise documents them for business accounts, and a token created as read only rejects writes. Balance statements (and, with write access, funding) need strong customer authentication (SCA) except for accounts based in the US, Canada, Australia, New Zealand, Singapore and Malaysia; elsewhere these calls fail with a 403 naming SCA, which this connector cannot complete, and the owner must finish the step in the Wise app or website. Do not retry them. Card details, webhooks, profile/KYC changes and recipient deletion are not available here.",
 	}
 	if config.access == "read-write" then
 		table.insert(lines, "Sending money: createQuote({profileId,sourceCurrency,targetCurrency,sourceAmount}) -> getAccountRequirements({quoteId}) -> createRecipient or listRecipients -> updateQuote({profileId,quoteId,targetAccount}) -> validateTransferRequirements -> createTransfer({targetAccount,quoteUuid,customerTransactionId,details={reference=...}}) -> fundTransfer({profileId,transferId,type='BALANCE'}). Quotes expire (expirationTime). Funding moves money and can be irreversible; confirm amount, currency and recipient with the user first. cancelTransfer works only while the status is incoming_payment_waiting. Business accounts with payment approvals enabled in Wise settings cannot create transfers through the API (missing approval error).")

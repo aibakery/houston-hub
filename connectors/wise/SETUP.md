@@ -28,7 +28,7 @@ See Wise's [personal API token guide](https://docs.wise.com/guides/developer/aut
 
 For accounts based outside the US, Canada, Australia, New Zealand, Singapore and
 Malaysia, Wise requires strong customer authentication to fund transfers and to
-export balance statements, and personal API tokens cannot complete it. Those
+export balance statements, and this connector cannot complete it. Those
 requests fail with a message saying so. Agents can still quote, add recipients and
 draft transfers or batches; open the transfer in the Wise app or website to pay it.
 Download statements from Wise directly.

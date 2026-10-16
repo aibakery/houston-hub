@@ -116,6 +116,7 @@ return {
 			function() c.createQuote({sourceCurrency = "EUR", targetCurrency = "GBP", sourceAmount = 1}) end,
 			function() c.createQuote({profileId = 202, sourceCurrency = "EUR", targetCurrency = "GBP", sourceAmount = json.decode("null")}) end,
 			function() c.createQuote({profileId = 202, sourceCurrency = "EUR", targetCurrency = "GBP", sourceAmount = ""}) end,
+			function() c.createQuote({profileId = 202, sourceCurrency = "EUR", targetCurrency = "GBP", sourceAmount = "", targetAmount = 10}) end,
 			function() c.createTransfer({targetAccount = 55, quoteUuid = "quote-1", customerTransactionId = tx}) end,
 			function() c.createBalanceMovement({profileId = 202, quoteId = "quote-1", idempotenceUuid = tx}) end,
 			function() c.createTransfer({targetAccount = 55, quoteUuid = quote}) end,

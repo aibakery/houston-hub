@@ -37,6 +37,8 @@ return {
 		fails(400, json.encode({errors = {item, item, item, item, item, item}, error = long, error_description = long, message = long}), {["retry-after"] = {long}, ["x-trace-id"] = {long}}, {"HTTP 400"})
 		fails(500, string.rep("X", 100000), {["x-2fa-approval-result"] = {"APPROVED"}}, {"HTTP 500", '"retryable":true'}, "strong customer authentication", true)
 		fails(400, '{"errors":[{"code":"balance.insufficient"}]}', {["x-2fa-approval-result"] = {"APPROVED"}}, {"HTTP 400", "balance.insufficient", '"retryable":false'}, "strong customer authentication")
+		fails(403, '{"error":"Forbidden","message":"Read only token"}', {["x-2fa-approval-result"] = {"APPROVED"}}, {"HTTP 403", "Read only token", '"retryable":false'}, "strong customer authentication")
+		fails(200, '{"data":"' .. string.rep("z", 8 * 1024 * 1024) .. '"}', {}, {"exceeded 8 MiB", "narrow the interval"}, nil, true)
 		status, payload, responseHeaders = 503, "Unavailable", {}
 		local ok, err = pcall(c.createQuote, {profileId = 202, sourceCurrency = "EUR", targetCurrency = "GBP", sourceAmount = 1})
 		assert(not ok and string.find(tostring(err), '"retryable":true', 1, true), "a quote 5xx should be retryable: " .. tostring(err))
