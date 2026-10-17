@@ -37,6 +37,7 @@ return {
 		upstream(301, '{"message":"Moved Permanently"}', {location = {"https://api.github.com/user/1"}}, {"HTTP 301"}, "renamed")
 		upstream(403, '{"message":"You have exceeded a secondary rate limit. Please wait a few minutes before you try again.","status":"403"}', {},
 			{"secondary rate limit", '"retryable":true'})
+		upstream(301, '{"message":"Moved Permanently"}', {location = {"https://api.github.com/repos/o/r/issues/9?token=x"}}, {"moved to /repos/o/r/issues/9"}, "token=x")
 		upstream(429, '{"message":"Too many requests"}', {}, {"HTTP 429", '"retryable":true'})
 		upstream(502, "<html>Bad gateway</html>", {}, {"HTTP 502", '"retryable":true'})
 		upstream(400, json.encode({message = string.rep("x", 5000)}), {}, {"HTTP 400", string.rep("x", 600)}, string.rep("x", 601))

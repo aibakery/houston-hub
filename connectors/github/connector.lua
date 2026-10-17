@@ -133,7 +133,7 @@ local endpoints: {[string]: Endpoint} = {
 	listMilestones = {method = "GET", path = "/repos/{owner}/{repo}/milestones", query = {"state", "sort", "direction", "per_page", "page"}, about = ""},
 	getMilestone = {method = "GET", path = "/repos/{owner}/{repo}/milestones/{milestone_number}", about = ""},
 	createMilestone = {method = "POST", path = "/repos/{owner}/{repo}/milestones", required = {"title"}, about = "Body {title, state?, description?, due_on?}."},
-	updateMilestone = {method = "PATCH", path = "/repos/{owner}/{repo}/milestones/{milestone_number}", about = ""},
+	updateMilestone = {method = "PATCH", path = "/repos/{owner}/{repo}/milestones/{milestone_number}", about = "Body {title?, state?, description?, due_on?}."},
 	deleteMilestone = {method = "DELETE", path = "/repos/{owner}/{repo}/milestones/{milestone_number}", about = ""},
 
 	listPulls = {method = "GET", path = "/repos/{owner}/{repo}/pulls", query = {"state", "head", "base", "sort", "direction", "per_page", "page"},
@@ -307,6 +307,9 @@ local function fail(name: string, response: HttpResponse): never
 	local moved = header(response, "location")
 	if moved and string.find(moved, "https://api.github.com/repositories/", 1, true) == 1 then
 		message ..= "; the repository was renamed or transferred: use its new owner and name"
+	elseif moved and string.find(moved, "https://api.github.com/", 1, true) == 1 then
+		-- Renamed branches and transferred issues name their new route; drop any query.
+		message ..= "; moved to " .. (string.match(string.sub(moved, #"https://api.github.com" + 1), "^[^?#]*") or "")
 	end
 	local accepted = header(response, "x-accepted-github-permissions")
 	if accepted then message ..= "; needs permissions " .. accepted end
@@ -369,8 +372,10 @@ local function save(name: string, first: HttpResponse, output: any, destination:
 		if response.statusCode ~= 200 then
 			-- Signed links expire within minutes; a new call fetches a fresh one.
 			response.body:close()
-			return houston.fail({operation = name, layer = "upstream", upstream_status = response.statusCode, retryable = true,
-				message = "The signed download link failed with HTTP " .. tostring(response.statusCode) .. "; call again for a fresh link"})
+			local status = response.statusCode
+			local fresh = status == 403 or status == 429 or status >= 500
+			return houston.fail({operation = name, layer = "upstream", upstream_status = status, retryable = fresh,
+				message = "The signed download link failed with HTTP " .. tostring(status) .. (if fresh then "; call again for a fresh link" else "")})
 		end
 	elseif first.statusCode == 200 and kind and string.find(kind[1], "application/json", 1, true) == 1 then
 		-- Directories and submodules answer with JSON even when raw bytes are requested.
