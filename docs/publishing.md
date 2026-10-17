@@ -295,8 +295,8 @@ Calendly owns the mark.
 Register repository `https://github.com/aibakery/houston-hub`, revision `main`,
 manifest path `connectors/dropbox/houston.json`. The bundle uses the existing
 manifest v1 and async HTTP/file runtime. Standard sign-in uses a publisher-owned
-Dropbox app. Connection admins can optionally enable **Use your own Dropbox app**;
-the [account setup guide](../connectors/dropbox/SETUP.md) keeps those steps under Advanced.
+Dropbox app for every connection; individual connections cannot supply their own
+OAuth client. See the [account setup guide](../connectors/dropbox/SETUP.md).
 
 Create a **Scoped access → Full Dropbox** app in the
 [Dropbox App Console](https://www.dropbox.com/developers/apps). Enable
@@ -306,7 +306,7 @@ Register the publication's callback URL shown by Hub, then save its **App key** 
 **App secret** as publisher settings. Enable additional users for development;
 Dropbox permits up to 500 linked accounts and requires production approval
 within two weeks of reaching 50. Standard sign-in remains unavailable until the
-publisher credentials are saved; own-app connections remain available independently.
+publisher credentials are saved.
 
 Dropbox's [rate limits](https://docs.dropboxapi.com/dropbox-api/docs/performance)
 apply per user/app authorization, so users of one app do not share a single request
@@ -316,11 +316,10 @@ The [developer guide](https://docs.dropboxapi.com/dropbox-api/docs/developer-res
 requires developers using a DBX Platform wrapper to obtain their own app keys;
 confirm Houston's classification with Dropbox before broad public rollout.
 
-This release changes the default OAuth method from a connection-owned client to
-the publisher app. Existing connections may need setup again: select the own-app
-option to retain their app, or sign in through the publisher app. Authorizations
-and refresh tokens cannot transfer between apps. Folder access and callable APIs
-are unchanged. Both methods use PKCE and offline access with server-side refresh.
+Connections previously configured with their own app must sign in again through
+the publisher app. Authorizations and refresh tokens cannot transfer between apps.
+Folder access and callable APIs are unchanged. OAuth uses PKCE and offline access
+with server-side refresh.
 
 The connector covers 69 user routes of the [Dropbox API v2
 specification](https://github.com/dropbox/dropbox-api-spec), checked on 2026-10-16
