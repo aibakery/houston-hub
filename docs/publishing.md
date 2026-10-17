@@ -543,6 +543,7 @@ The Wise icon is Wise's own app mark (bright-green flag on a forest-green
 circle), referenced from the [wise.com](https://wise.com) homepage at
 `https://dq8dwmysp7hk1.cloudfront.net/logos/wise-mark.svg`, retrieved 2026-10-16,
 unchanged. Wise owns the mark.
+
 ## GitHub
 
 Register repository `https://github.com/aibakery/houston-hub`, revision `main`,
