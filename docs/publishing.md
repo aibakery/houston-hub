@@ -543,3 +543,102 @@ The Wise icon is Wise's own app mark (bright-green flag on a forest-green
 circle), referenced from the [wise.com](https://wise.com) homepage at
 `https://dq8dwmysp7hk1.cloudfront.net/logos/wise-mark.svg`, retrieved 2026-10-16,
 unchanged. Wise owns the mark.
+
+## GitHub
+
+Register repository `https://github.com/aibakery/houston-hub`, revision `main`,
+manifest path `connectors/github/houston.json`. The bundle uses the existing
+manifest v1 and async HTTP/file runtime without runtime changes. **Connect with
+GitHub** uses a publisher-owned GitHub App; connections can instead paste a
+personal access token, as the [account setup guide](../connectors/github/SETUP.md)
+describes.
+
+Create the app under **Settings → Developer settings → GitHub Apps → New GitHub
+App**, preferably owned by Houston's organization:
+
+1. Enter Houston's **GitHub App name**, **Homepage URL** and logo. Under
+   **Identifying and authorizing users**, add the publication's redirect URI,
+   `<Houston public URL>/oauth/connectors/<hub-publication-id>/callback`, as the
+   **Callback URL**. Keep **Expire user authorization tokens** checked: the method
+   requires a refresh token. Leave **Request user authorization (OAuth) during
+   installation** and **Enable Device Flow** unchecked.
+2. Under **Webhook**, clear **Active**; Houston does not receive GitHub events.
+3. Set **Repository permissions**: Actions, Administration, Commit statuses,
+   Contents, Issues, Pull requests and Workflows to **Read and write**; Checks and
+   Metadata to **Read-only**. Set **Organization permissions → Members** to
+   **Read-only**, and **Account permissions**: Email addresses **Read-only** and
+   Gists **Read and write**.
+4. Under **Where can this GitHub App be installed?**, choose **Any account**, then
+   **Create GitHub App**.
+5. Select **Generate a new client secret**, and enter the **Client ID** and client
+   secret in the publication's publisher settings. The app's public page,
+   `https://github.com/apps/<slug>`, is where users install it; SETUP sends them
+   there through the authorization screen.
+
+User tokens are limited to the intersection of the app's permissions, the user's
+own access and the repositories where the app is installed, so users install the app
+on their accounts and organizations after authorizing it; SETUP links to the
+installation settings. GitHub App permissions are fixed per app, so read-only
+connections hold upstream tokens that could write: Houston enforces read-only with
+GET-only proxy routes and read-only exports. Requests with user tokens count against
+each user's hourly limit (5,000 requests, or 15,000 when an Enterprise Cloud
+organization owns the app). Sign-in uses
+PKCE and `Accept: application/json` for token replies, which otherwise arrive
+form-encoded. Access tokens last 8 hours and refresh tokens about 6 months, rotating
+on every refresh. GitHub Apps support only the `offline_access` scope, and the token reply's
+`scope` is empty: requesting it would fail Houston's granted-scope check, so the
+method requests none and relies on the app's expiring tokens.
+
+The connector covers 145 REST operations, checked on
+2026-10-16 against GitHub's [REST OpenAPI
+description](https://github.com/github/rest-api-description) 1.1.4 at commit
+`798498bd`: users, organizations, teams and app installations; repositories,
+forks, contents, archives, branches, commits, comparisons, statuses and checks;
+Git refs, trees, blobs and commits; issues, comments, timelines, labels, assignees,
+reactions, sub-issues and milestones; pull requests, files, merges, reviews, review
+comments and reviewers; releases and assets; Actions workflows, runs, jobs, logs and
+artifacts; search; gists; and notifications. Lua pins `X-GitHub-Api-Version:
+2026-03-10`, which has no scheduled sunset; GitHub supports a version for at least
+24 months after its successor ships.
+Notifications are exported only for personal access tokens: GitHub accepts only
+classic tokens there, so GitHub App sign-ins omit them and fine-grained tokens get
+GitHub's error.
+
+Omitted on purpose: repository deletion, transfer and settings changes, which can
+change visibility or archive a repository; GraphQL, whose mutations reach everything
+the token allows, including these omissions and sponsorship payments; Actions secrets and
+variables; webhooks; deploy keys; collaborator, team, organization and branch
+protection or ruleset administration; security alerts, whose secret-scanning
+responses contain plaintext secrets; Codespaces, Copilot and packages; GitHub App,
+installation token and credential revocation endpoints; and check run writes,
+which require installation tokens. Not yet covered: issue and repository events,
+commit and gist comments, other reactions, stars and subscriptions, deployments and
+environments, Pages, and issue dependencies and sub-issue writes. Release asset
+uploads wait for a runtime change: GitHub requires `Content-Length`, which Houston
+does not yet send for streamed file bodies.
+
+Credentials go only to the listed routes on `api.github.com`; writes require
+read-write access. Branch, ref, path, tag, tree, compare and label values travel as single encoded path segments
+through opaque-parameter rules, which GitHub accepts and which keep them from
+reaching sub-resources. A credential-free GET rule serves signed download
+redirects: `codeload.github.com` for archives, release asset storage on
+`githubusercontent.com` hosts, and Actions logs and artifacts on
+`*.actions.githubusercontent.com` and `*.blob.core.windows.net`. GitHub's
+[meta API](https://api.github.com/meta) lists 140 `productionresultssa<N>` storage
+accounts that change over time, so the rule uses the Azure wildcard; Lua follows
+only `Location` headers from GitHub on those exact host patterns. The connector sends no
+method-override headers and callers cannot add request headers. Responses drop the query from `download_url` and remove `temp_clone_token`, which
+for private repositories carry tokens usable outside Houston.
+
+This is a new registration with no existing connections. Fixtures cover both
+methods and access levels, routes, opaque encoding, bodies, downloads through
+redirects and error mapping; GitHub App sign-in, token refresh, paging and
+a disposable write remain to verify live, as does the SETUP install route. Encoded
+`%2F` branch, ref, path and compare values were checked with unauthenticated
+requests on public repositories.
+
+GitHub's icon is the official Invertocat (`GitHub_Invertocat_Black.svg`) from the
+[brand kit](https://brand.github.com/GitHub_Logos.zip) linked from
+[github.com/logos](https://github.com/logos), retrieved 2026-10-16, unchanged.
+GitHub permits it to show that a project integrates with GitHub. GitHub® and the
+Invertocat logo are trademarks of GitHub, Inc.

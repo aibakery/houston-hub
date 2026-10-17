@@ -16,7 +16,7 @@ import (
 )
 
 // Bundles migrated to the current runtime. Pass a directory to validate another.
-var migrated = []string{"connectors/fastmail", "connectors/notion", "connectors/gmail", "connectors/gcalendar", "connectors/gdrive", "connectors/mercury", "connectors/x", "connectors/linkedin", "connectors/clickhouse", "connectors/mariadb", "connectors/mysql", "connectors/postgres", "connectors/redis", "connectors/imap", "connectors/supabase", "connectors/woocommerce", "connectors/calcom", "connectors/calendly", "connectors/dropbox", "connectors/resend", "connectors/stripe", "connectors/wise"}
+var migrated = []string{"connectors/fastmail", "connectors/notion", "connectors/gmail", "connectors/gcalendar", "connectors/gdrive", "connectors/mercury", "connectors/x", "connectors/linkedin", "connectors/clickhouse", "connectors/mariadb", "connectors/mysql", "connectors/postgres", "connectors/redis", "connectors/imap", "connectors/supabase", "connectors/woocommerce", "connectors/calcom", "connectors/calendly", "connectors/dropbox", "connectors/resend", "connectors/stripe", "connectors/wise", "connectors/github"}
 
 // Bundles still on the old synchronous HTTP API: they fail type analysis, but their
 // fixtures run. Every bundle belongs to exactly one of these lists.
