@@ -52,6 +52,9 @@ return {
 		status, payload = 204, ""
 		assert(json.encode(github.listContributors({owner = "o", repo = "empty"})) == "[]", "an empty 204 list is an array")
 		status = 200
+		payload = '[{"full_name":"o/secret","private":true,"temp_clone_token":"AABBCC"}]'
+		local repos = github.listMyRepos({visibility = "private"})
+		assert(repos[1].full_name == "o/secret" and repos[1].temp_clone_token == nil, "a temporary clone token leaked")
 		payload = "[]"
 		local empty = github.listPulls({owner = "o", repo = "r"})
 		assert(last().url == API .. "/repos/o/r/pulls" and json.encode(empty) == "[]")

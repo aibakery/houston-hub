@@ -626,8 +626,8 @@ redirects: `codeload.github.com` for archives, release asset storage on
 [meta API](https://api.github.com/meta) lists 140 `productionresultssa<N>` storage
 accounts that change over time, so the rule uses the Azure wildcard; Lua follows
 only `Location` headers from GitHub on those exact host patterns. The connector sends no
-method-override headers and callers cannot add request headers. Responses drop the query from `download_url`, which
-for private repositories carries a signed token usable outside Houston.
+method-override headers and callers cannot add request headers. Responses drop the query from `download_url` and remove `temp_clone_token`, which
+for private repositories carry tokens usable outside Houston.
 
 This is a new registration with no existing connections. Fixtures cover both
 methods and access levels, routes, opaque encoding, bodies, downloads through
