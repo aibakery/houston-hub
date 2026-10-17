@@ -7,14 +7,14 @@ for maintained bundles. For the shared publishing workflow, see
 ## the Google connectors
 
 Register repository `https://github.com/aibakery/houston-hub`, revision `main`, and
-the manifest paths `connectors/gmail/houston.json`, `connectors/gcalendar/houston.json`
-and `connectors/gdrive/houston.json`. The bundles use Houston's async HTTP and file
+the manifest paths `connectors/gmail/houston.json`, `connectors/gcalendar/houston.json`,
+`connectors/gdrive/houston.json` and `connectors/gsheets/houston.json`. The bundles use Houston's async HTTP and file
 runtime and a publisher-owned OAuth client, so users only choose an access level and
 select **Connect with Google**.
 
 In the Google Cloud project that owns Houston's client:
 
-1. Enable the Gmail API, Google Calendar API and Google Drive API.
+1. Enable the Gmail API, Google Calendar API, Google Drive API and Google Sheets API.
 2. Configure the OAuth consent screen (External) with Houston's name, logo, home
    page, privacy policy and authorized domain, and declare the scopes below.
 3. Create a **Web application** OAuth client. Add each publication's redirect URI,
@@ -22,7 +22,7 @@ In the Google Cloud project that owns Houston's client:
    authorized redirect URIs.
 4. Enter the client ID and secret in each publication's publisher settings.
 
-One client can serve all three publications, or each publication can have its own
+One client can serve all four publications, or each publication can have its own
 client in a separate project; the bundles work either way.
 
 | Connector | Read-only scopes | Read and write scopes |
@@ -30,6 +30,7 @@ client in a separate project; the bundles work either way.
 | Gmail | `gmail.readonly` (restricted) | `gmail.modify` (restricted) |
 | Google Calendar | `calendar.readonly` (sensitive) | `calendar.readonly`, `calendar.events` (sensitive) |
 | Google Drive | `drive.readonly` (restricted) | `drive` (restricted) |
+| Google Sheets | `spreadsheets.readonly` (sensitive) | `spreadsheets` (sensitive) |
 
 Every method also requests `userinfo.email` to label the connected account, and asks
 for offline access so Houston receives a refresh token. Houston requires every
@@ -45,9 +46,33 @@ seven days, so connections must be authorized again weekly.
 Gmail cannot permanently delete messages: `gmail.modify` excludes it, and the
 connector moves messages to Trash instead. Each connector proxies only its own API
 paths: Gmail `gmail.googleapis.com/gmail/v1/users/me` and its upload path, Calendar
-`www.googleapis.com/calendar/v3`, and Drive `www.googleapis.com/drive/v3` and
-`/upload/drive/v3`. Bundles cannot share files, so the three `connector.lua` files
-carry the same request layer; `tools/validate` checks that the copies match.
+`www.googleapis.com/calendar/v3`, Drive `www.googleapis.com/drive/v3` and
+`/upload/drive/v3`, and Sheets `sheets.googleapis.com/v4/spreadsheets`. Bundles cannot
+share files, so the four `connector.lua` files carry the same request layer;
+`tools/validate` checks that the copies match.
+
+Google Sheets covers 10 of the 17 `spreadsheets.*` methods in the
+[Sheets API v4 discovery document](https://sheets.googleapis.com/$discovery/rest?version=v4),
+revision `20261012`, checked on 2026-10-16: spreadsheet metadata, value reads, updates,
+appends and clears with their batch forms, spreadsheet creation and the structural
+`batchUpdate`. Omitted for now: the `*ByDataFilter` variants and developer metadata,
+which select ranges by tags an app attached and whose POST reads need the write scope,
+and `sheets.copyTo`, which `batchUpdate`'s `duplicateSheet` covers inside a
+spreadsheet. The Sheets scopes cannot list or search files, so callers pass a
+spreadsheet ID or URL, or find it through Google Drive. Read-only connections, and
+read-only callers of read-write ones, may only GET the three read routes; writes POST
+or PUT the listed routes, and every rule removes method-override headers. The `{range}`
+segment is an opaque path parameter, so tab names may contain `/` or `%`. Proxy paths match
+whole segments, so the write rule's `{spreadsheetId}` also admits other `:verb` routes,
+such as the read-only `getByDataFilter`, which the connector never calls. Writes default
+to `valueInputOption=RAW`, so text that looks like a formula stays text unless the
+caller asks for `USER_ENTERED`. Google limits each Cloud project to about 300 Sheets reads
+and 300 writes per minute, shared by every connection using the publisher's client, on
+top of 60 per minute per user; ask Google for a higher quota before broad rollout.
+
+Google Sheets' icon is the official product logo served by Google at
+[fonts.gstatic.com/s/i/productlogos/sheets_2020q4/v11/192px.svg](https://fonts.gstatic.com/s/i/productlogos/sheets_2020q4/v11/192px.svg),
+retrieved 2026-10-16, unchanged. Google owns the mark.
 
 ## Notion
 

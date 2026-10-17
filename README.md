@@ -1,6 +1,6 @@
 # Houston Hub
 
-This repository contains twenty-six connector bundles, the authoritative manifest v1
+This repository contains twenty-seven connector bundles, the authoritative manifest v1
 contract and configured Lua operations. Registrations in Houston define the live
 catalog; repository files are not published automatically.
 
@@ -25,7 +25,7 @@ go run ./tools/validate
 
 Set `HOUSTON_CLI` to a freshly built Houston runner and put the pinned
 `luau-analyze` on `PATH`; the Go validator runs every resolved behavior fixture
-in the selected bundle. Cal.com, Calendly, Dropbox, Fastmail, GitHub, Gmail, Google Calendar, Google Drive, IMAP, LinkedIn, Mercury,
+in the selected bundle. Cal.com, Calendly, Dropbox, Fastmail, GitHub, Gmail, Google Calendar, Google Drive, Google Sheets, IMAP, LinkedIn, Mercury,
 Notion, Resend, Stripe, Wise, WooCommerce, X and the ClickHouse, MariaDB, MySQL,
 PostgreSQL, Redis and Supabase database connectors are migrated to the current
 runtime; other provider bundles remain available for future migration.
