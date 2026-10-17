@@ -54,5 +54,14 @@ secrets in them. Grant write access only to people who may see those values.
   ignores the key and reports "Consumer key is missing"; configure WordPress to
   recognize HTTPS behind the proxy. Security plugins or firewalls can also block API
   requests from servers.
+- **Requests fail with HTTP 429 now and then.** WooCommerce itself doesn't limit
+  its REST API, so the limit usually comes from your host's firewall or a security
+  plugin. Houston already waits and retries short limits. The error shows the
+  blocking page's text and `Server` header. On o2switch, open **Tiger Protect** for
+  the store's domain and check the default rule (**Sécurité par défaut
+  d'o2switch** under **Générique**) and **ModSecurity**. Otherwise, ask your host
+  or plugin vendor to allow Houston's requests: they come from Houston's outbound
+  IP address, available from your Houston operator, with the User-Agent
+  `Houston (+https://ok-houston.com)`.
 - **You need to stop access.** Revoke the key in WooCommerce, or remove the
   connection in Houston.
