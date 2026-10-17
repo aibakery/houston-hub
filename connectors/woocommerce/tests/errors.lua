@@ -51,7 +51,7 @@ return {
 			{"rest_invalid_param", "status is invalid"})
 		upstream(429, "Too many requests", {["retry-after"] = {"30"}}, {"HTTP 429: Too many requests", "Retry-After: 30", '"retryable":true'})
 		-- Host firewalls answer with an HTML page that names the blocking layer.
-		upstream(429, "<!doctype html><html><head><title>429</title></head><body>\n<!-- HTTP_Code = 429 -->\n<h1>Too many\n requests</h1></body></html>",
+		upstream(429, "<!doctype html><html><head><title>429</title><style>\nbody { color: red }</style></head><body>\n<!-- HTTP_Code = 429 -->\n<h1>Too many\n requests</h1></body></html>",
 			{server = {"host-firewall"}}, {"HTTP 429: 429 HTTP_Code = 429 Too many requests", "Server: host-firewall"})
 		upstream(500, "<html>Fatal error</html>", {}, {"HTTP 500: Fatal error", '"retryable":true'})
 		upstream(301, "", {location = {"https://www.shop.example.com/wp-json/wc/v3/orders/1"}},
