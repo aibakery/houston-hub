@@ -93,11 +93,13 @@
     "client_id": {
       "label": "Dropbox app key",
       "order": 1,
+      "required": true,
       "type": "string"
     },
     "client_secret": {
       "label": "Dropbox app secret",
       "order": 2,
+      "required": true,
       "type": "secret"
     }
   },
