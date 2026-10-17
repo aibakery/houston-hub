@@ -46,11 +46,14 @@ return {
 		upstream(401, '{"code":"woocommerce_rest_cannot_edit","message":"Sorry, you are not allowed to edit this resource.","data":{"status":401}}', {},
 			{"HTTP 401", "woocommerce_rest_cannot_edit", "not allowed to edit"})
 		upstream(400, '{"code":"rest_invalid_param","message":"Invalid parameter(s): status","data":{"status":400,"params":{"status":"status is not one of pending, processing."}}}', {},
-			{"HTTP 400", "rest_invalid_param", "status is not one of"})
+			{"HTTP 400", "rest_invalid_param", "status is not one of", '"retryable":false'})
 		upstream(400, json.encode({code = "rest_invalid_param", message = string.rep("x", 5000), data = {params = {status = "status is invalid"}}}), {},
 			{"rest_invalid_param", "status is invalid"})
-		upstream(429, "Too many requests", {["retry-after"] = {"30"}}, {"HTTP 429", "Retry-After: 30"})
-		upstream(500, "<html>Fatal error</html>", {}, {"HTTP 500"})
+		upstream(429, "Too many requests", {["retry-after"] = {"30"}}, {"HTTP 429: Too many requests", "Retry-After: 30", '"retryable":true'})
+		-- Host firewalls answer with an HTML page that names the blocking layer.
+		upstream(429, "<!doctype html><html><head><title>429</title></head><body>\n<!-- HTTP_Code = 429 -->\n<h1>Too many\n requests</h1></body></html>",
+			{server = {"host-firewall"}}, {"HTTP 429: 429 HTTP_Code = 429 Too many requests", "Server: host-firewall"})
+		upstream(500, "<html>Fatal error</html>", {}, {"HTTP 500: Fatal error", '"retryable":true'})
 		upstream(301, "", {location = {"https://www.shop.example.com/wp-json/wc/v3/orders/1"}},
 			{"HTTP 301", "redirected to https://www.shop.example.com/", "store domain"})
 		upstream(200, "<!doctype html><title>Maintenance</title>", {}, {"not JSON", "/wp-json"})
