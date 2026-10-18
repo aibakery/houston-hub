@@ -39,7 +39,7 @@ return {
 		local req = last()
 		assert(req.method == "GET" and req.url == API .. "/user" and req.body == nil)
 		assert(req.headers.Accept[1] == "application/vnd.github+json" and req.headers["X-GitHub-Api-Version"][1] == "2026-03-10")
-		assert(req.headers["User-Agent"][1] == "Houston" and req.headers.Authorization == nil, "the proxy injects credentials")
+		assert(req.headers["User-Agent"] == nil and req.headers.Authorization == nil, "the transport sets User-Agent and the proxy injects credentials")
 		assert(me.login == "octocat" and me.name == NULL)
 
 		payload = '[{"number":7,"title":"Bug","labels":[],"pull_request":{"url":"x"}}]'

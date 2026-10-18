@@ -118,8 +118,8 @@ return {
 `http.request` directly and handle the provider's status and response format in
 the connector. No HTTP module import or generated helper copy is needed. The
 request completes within the invocation, including uploads and downloads.
-Houston sends `User-Agent: Houston (+https://ok-houston.com)` unless the
-connector sets its own. It retries an HTTP 429 at most twice, waiting as
+Houston sends `User-Agent: Houston (+https://ok-houston.com)` on every request
+and ignores a connector's own User-Agent header. It retries an HTTP 429 at most twice, waiting as
 `Retry-After` asks when that is 5 seconds or less, or 1 and then 2 seconds when it is
 absent or unreadable; a longer `Retry-After`, a third 429 or a streamed request body reaches the
 connector unchanged. Nothing else is retried.

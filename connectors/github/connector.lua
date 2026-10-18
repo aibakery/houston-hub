@@ -371,7 +371,7 @@ local function save(name: string, first: HttpResponse, output: any, destination:
 			return houston.fail({operation = name, layer = "upstream", upstream_status = first.statusCode, retryable = false,
 				message = "GitHub redirected the download to an unexpected host"})
 		end
-		response = await(http.request({method = "GET", url = target, headers = {["User-Agent"] = {"Houston"}}}))
+		response = await(http.request({method = "GET", url = target}))
 		if response.statusCode ~= 200 then
 			-- Signed links expire within minutes; a new call fetches a fresh one.
 			response.body:close()
@@ -402,7 +402,7 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 	for _, field in endpoint.required or NONE do
 		assert(args[field] ~= nil and args[field] ~= NULL, field .. " is required")
 	end
-	local headers: HttpHeaders = {Accept = {JSON}, ["X-GitHub-Api-Version"] = {VERSION}, ["User-Agent"] = {"Houston"}}
+	local headers: HttpHeaders = {Accept = {JSON}, ["X-GitHub-Api-Version"] = {VERSION}}
 	local destination: string? = nil
 	if endpoint.save and args.save_as ~= nil then
 		destination = text(args.save_as, "save_as")
