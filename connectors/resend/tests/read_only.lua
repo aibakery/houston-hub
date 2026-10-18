@@ -36,7 +36,7 @@ return {
 		-- Lists always page: limit defaults to Resend's maximum, and arrays stay arrays.
 		local empty = resend.listEmails()
 		assert(last().method == "GET" and last().url == API .. "/emails?limit=100" and last().body == nil, last().url)
-		assert(last().headers.Accept[1] == "application/json" and last().headers["User-Agent"][1] == "Houston")
+		assert(last().headers.Accept[1] == "application/json" and last().headers["User-Agent"] == nil)
 		assert(last().headers.Authorization == nil and last().headers["Idempotency-Key"] == nil)
 		assert(empty.has_more == false and json.encode(empty.data) == "[]")
 
@@ -102,7 +102,7 @@ return {
 		assert(requests[before + 2].url == API .. "/emails/receiving/r1/attachments/a1")
 		local download = last()
 		assert(download.method == "GET" and download.url == "https://inbound-cdn.resend.com/t1/attachments/a1?signature=s1")
-		assert(download.headers.Authorization == nil and download.body == nil)
+		assert(download.headers == nil and download.body == nil)
 		assert(saved.path == "mail/invoice.pdf" and saved.url == "https://houston.test/mail/invoice.pdf" and saved.size == #bytes)
 		assert(saved.attachment.filename == "invoice.pdf" and saved.attachment.id == "a1")
 		local fd = fs.open("mail/invoice.pdf", "r")

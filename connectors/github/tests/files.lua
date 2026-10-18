@@ -57,7 +57,7 @@ return {
 		respond(200, "tarball")
 		saved = github.downloadTarball({owner = "o", repo = "r", ref = "feature/x", save_as = "src.tar.gz"})
 		assert(requests[2].url == API .. "/repos/o/r/tarball/feature%2Fx" and requests[2].headers.Accept[1] == "application/vnd.github+json")
-		assert(requests[3].method == "GET" and requests[3].url == signed and requests[3].headers.Authorization == nil)
+		assert(requests[3].method == "GET" and requests[3].url == signed and requests[3].headers == nil)
 		assert(saved.size == 7 and contents("src.tar.gz") == "tarball")
 
 		respond(200, '{"id":5,"name":"app.zip","browser_download_url":"https://github.com/o/r/releases/download/v1/app.zip"}')

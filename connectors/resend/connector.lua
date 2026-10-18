@@ -8,7 +8,6 @@ type Endpoint = {
 local PROVIDER = "Resend"
 local API = "https://api.resend.com"
 local DOCS = "https://resend.com/docs/api-reference/"
-local USER_AGENT = "Houston"
 -- Some Resend lists return every item when limit is omitted, so the connector always pages.
 local PAGE_SIZE = 100
 
@@ -320,7 +319,7 @@ end
 local function save(name: string, attachment: any, path: string): any
 	local link = attachment.download_url
 	assert(type(link) == "string" and string.match(link, "^https://"), PROVIDER .. " returned no attachment download_url")
-	local response = await(http.request({method = "GET", url = link, headers = {["User-Agent"] = {USER_AGENT}}}))
+	local response = await(http.request({method = "GET", url = link}))
 	if response.statusCode ~= 200 then failStatus(name, response) end
 	local file = fs.open(path, "w")
 	file:write(response.body)
@@ -368,7 +367,7 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 		extra[field] = args[field]
 		args[field] = nil
 	end
-	local headers: HttpHeaders = {Accept = {"application/json"}, ["User-Agent"] = {USER_AGENT}}
+	local headers: HttpHeaders = {Accept = {"application/json"}}
 	local key = extra.idempotency_key
 	if key ~= nil then
 		assert(type(key) == "string" and #key >= 1 and #key <= 256, "idempotency_key must be a string of 1 to 256 characters")
