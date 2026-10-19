@@ -158,7 +158,10 @@ func TestProxyMatchesEndpointTables(t *testing.T) {
 				}
 			}
 			for _, path := range paths {
-				want = append(want, match[1]+" "+path+" "+gate)
+				// Custom methods of one resource, such as two exercise verbs, share its route.
+				if route := match[1] + " " + path + " " + gate; !customMethod.MatchString(match[2]) || !slices.Contains(want, route) {
+					want = append(want, route)
+				}
 			}
 		}
 		if entries := strings.Count(lua, "= {method = "); len(matches) != entries {
@@ -175,7 +178,6 @@ func TestProxyMatchesEndpointTables(t *testing.T) {
 			}
 		}
 		slices.Sort(want)
-		want = slices.Compact(want)
 		slices.Sort(got)
 		if !slices.Equal(got, want) {
 			t.Errorf("%s: proxy routes %v, endpoint table %v", name, got, want)
