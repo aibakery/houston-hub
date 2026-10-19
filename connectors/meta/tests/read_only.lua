@@ -91,13 +91,14 @@ return {
 		respond(json.encode({id = "101", accounts = {data = {{id = "102", name = "Other", access_token = "EAAOTHER", page_token = "EAAPT"}}},
 			comments = {data = {}, paging = {next = "https://graph.facebook.com/v26.0/101_1/comments?access_token=EAA1&access_token=EAA2&limit=5"}},
 			link = "https://example.com/?redirect=https%3A%2F%2Fgraph.facebook.com%2Fme%3Faccess_token%3DEAAGZBpage0123456789abcdefghijklmnopqrstuvwxyz%26ref%3Dabc", note = "see https://x.test/?access_token=EAA4 and thanks",
-			quote = "Bearer EAAGZBpage0123456789abcdefghijklmnopqrstuvwxyz", thread = "aWdGGiblWZEAAxyz", comment = "Is EAAGLES2024 still open?"}))
+			cursors = {after = "QUFB_EAAGZBpage0123456789abcdefghijklmnopqrstuvwxyz"}, thread = "aWdGGiblWZEAAxyz", comment = "Is EAAGLES2024 still open?"}))
 		local leaky = meta.getObject({id = "101", fields = "id,accounts,comments"})
 		assert(leaky.accounts.data[1].name == "Other" and leaky.accounts.data[1].access_token == nil and leaky.accounts.data[1].page_token == nil)
 		assert(leaky.comments.paging.next == "https://graph.facebook.com/v26.0/101_1/comments?limit=5", leaky.comments.paging.next)
 		assert(leaky.note == "see https://x.test/? and thanks" and leaky.thread == "aWdGGiblWZEAAxyz", leaky.note)
 		leaky.thread = nil
-		assert(leaky.quote == "Bearer EAA[redacted]" and leaky.comment == "Is EAAGLES2024 still open?", json.encode(leaky))
+		assert(leaky.cursors.after == "QUFB_EAAGZBpage0123456789abcdefghijklmnopqrstuvwxyz" and leaky.comment == "Is EAAGLES2024 still open?", json.encode(leaky))
+		leaky.cursors = nil
 		assert(leaky.link == "https://example.com/?redirect=https%3A%2F%2Fgraph.facebook.com%2Fme%3F%26ref%3Dabc", leaky.link)
 		assert(not string.find(json.encode(leaky), "EAAGZB", 1, true), json.encode(leaky))
 

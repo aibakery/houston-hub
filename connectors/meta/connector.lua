@@ -201,15 +201,18 @@ local function nextPage(name: string, endpoint: Endpoint, link: any): string
 	return API .. path .. "?" .. query
 end
 
--- Meta writes the request's access token into paging links, also URL-encoded inside others,
--- and echoes malformed tokens, EAA and at least 30 more token characters, in error messages.
+-- Meta writes the request's access token into paging links, also URL-encoded inside others.
 local TOKEN_CHARS = "[%w_.-]*"
-local ECHOED = "%f[%w]EAA" .. string.rep("[%w_-]", 30) .. "[%w_-]*"
 local function scrub(text: string): string
 	local plain, found = string.gsub(text, "access_token=" .. TOKEN_CHARS .. "&?", "")
 	if found > 0 then plain = string.gsub(plain, "[?&]$", "") end
-	local encoded = string.gsub(plain, "access_token%%3[Dd]" .. TOKEN_CHARS, "")
-	return (string.gsub(encoded, ECHOED, "EAA[redacted]"))
+	return (string.gsub(plain, "access_token%%3[Dd]" .. TOKEN_CHARS, ""))
+end
+
+-- Error messages also echo malformed tokens: EAA and at least 30 more token characters.
+local ECHOED = "%f[%w]EAA" .. string.rep("[%w_-]", 30) .. "[%w_-]*"
+local function scrubError(text: string): string
+	return (string.gsub(scrub(text), ECHOED, "EAA[redacted]"))
 end
 
 -- Results never carry credentials: token links are scrubbed and token fields, such as an
@@ -251,13 +254,14 @@ local function fail(name: string, response: HttpResponse, raw: string?): never
 	local status = response.statusCode
 	local message = "Meta HTTP " .. tostring(status)
 	local retryable = status == 429 or status >= 500
-	local ok, value = pcall(json.decode, raw or await(response.body:readPrefix(16 * 1024)))
+	-- A body that fails to arrive still yields the status and retry hint.
+	local ok, value = pcall(function(): any return json.decode(raw or await(response.body:readPrefix(16 * 1024))) end)
 	local problem = if ok and type(value) == "table" and type(value.error) == "table" then value.error else nil
 	if problem then
 		local code, subcode = int(problem.code), int(problem.error_subcode)
 		if code then message ..= " (#" .. code .. (if subcode then "/" .. subcode else "") .. ")" end
-		if type(problem.message) == "string" then message ..= ": " .. string.sub(scrub(problem.message), 1, 600) end
-		if type(problem.error_user_msg) == "string" then message ..= " " .. string.sub(scrub(problem.error_user_msg), 1, 600) end
+		if type(problem.message) == "string" then message ..= ": " .. string.sub(scrubError(problem.message), 1, 600) end
+		if type(problem.error_user_msg) == "string" then message ..= " " .. string.sub(scrubError(problem.error_user_msg), 1, 600) end
 		-- Meta's code decides, so a 500 for an unsupported request is final.
 		local number = tonumber(code)
 		if number then
@@ -281,7 +285,8 @@ local function decode(name: string, response: HttpResponse): any
 			message = "Meta returned an invalid JSON object"})
 	end
 	if type(value.error) == "table" then fail(name, response, raw) end
-	redact(value)
+	-- Every token key or link names a token; most bodies have none to walk for.
+	if string.find(raw, "[Tt][Oo][Kk][Ee][Nn]") then redact(value) end
 	return value
 end
 
