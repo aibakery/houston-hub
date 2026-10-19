@@ -45,21 +45,23 @@ func TestMetaRoutesMatchEndpointTable(t *testing.T) {
 	_, entries := endpointTable(t, "meta")
 	placeholder := regexp.MustCompile(`\{\w+\}`)
 	firstSegment := regexp.MustCompile(`^/[^/]+`)
+	host := func(entry endpointEntry) string {
+		if strings.Contains(entry.rest, "host = VIDEO_API") {
+			return "graph-video.facebook.com"
+		}
+		return "graph.facebook.com"
+	}
 	m := parseManifest(t, "../../connectors/meta/houston.json")
 	var want, got []string
 	for _, entry := range entries {
-		host := "graph.facebook.com"
-		if strings.Contains(entry.rest, "host = VIDEO_API") {
-			host = "graph-video.facebook.com"
-		}
 		// The first segment is always a node: an ID, me or ig_hashtag_search.
-		want = append(want, entry.method+" "+host+"/v26.0"+placeholder.ReplaceAllString(firstSegment.ReplaceAllString(entry.path, "/{id}"), "{id}"))
+		want = append(want, entry.method+" "+host(entry)+"/v26.0"+placeholder.ReplaceAllString(firstSegment.ReplaceAllString(entry.path, "/{id}"), "{id}"))
 	}
 	for _, rule := range m.Proxy {
-		for _, host := range rule.Match.Host {
+		for _, h := range rule.Match.Host {
 			for _, method := range rule.Match.Method {
 				for _, path := range rule.Match.Path {
-					got = append(got, method+" "+host+path)
+					got = append(got, method+" "+h+path)
 				}
 			}
 		}
@@ -76,11 +78,7 @@ func TestMetaRoutesMatchEndpointTable(t *testing.T) {
 			t.Fatal(err)
 		}
 		for _, entry := range entries {
-			host := "https://graph.facebook.com"
-			if strings.Contains(entry.rest, "host = VIDEO_API") {
-				host = "https://graph-video.facebook.com"
-			}
-			route := entry.method + " " + host + "/v26.0" + placeholder.ReplaceAllString(entry.path, "101_1")
+			route := entry.method + " https://" + host(entry) + "/v26.0" + placeholder.ReplaceAllString(entry.path, "101_1")
 			assertRoutes(t, r, "EAAPAGE", !entry.write || access == "read-write", route)
 		}
 	}
