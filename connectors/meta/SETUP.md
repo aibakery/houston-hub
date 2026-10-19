@@ -4,7 +4,7 @@ Houston connects to one Facebook Page with a **Page access token**. You make it
 once, from a system user of your business portfolio: a business-owned account
 meant for integrations, so the connection does not depend on anyone's personal
 Facebook login. A Page access token made from a system user token that never
-expires does not expire either.
+expires should not expire either; step 3 checks it.
 
 You need:
 
@@ -15,7 +15,8 @@ You need:
   steps below create it. Posts, comments and insights need no App Review while the
   app and the Page belong to the same business portfolio.
 - to read and answer conversations with your customers, Meta's **Advanced Access**
-  for `pages_messaging` (and `instagram_manage_messages` for Instagram). It requires
+  for messaging, `pages_messaging` and the permissions it depends on (and
+  `instagram_manage_messages` for Instagram). It requires
   [business verification](https://developers.facebook.com/docs/development/release/business-verification)
   and App Review; see [Messaging](#messaging). Without it, Meta only returns
   conversations with people who have a role on the app, Page or portfolio.
@@ -80,7 +81,7 @@ For **Read-only**: `pages_show_list`, `pages_read_engagement`,
 `instagram_manage_messages`.
 
 For **Read and write**, also: `pages_manage_posts`, `pages_manage_engagement` and
-`publish_video`; for Instagram, `instagram_content_publish` and
+`publish_video` when Meta offers it; for Instagram, `instagram_content_publish` and
 `instagram_manage_contents`.
 
 Meta grants reading and replying to messages together (`pages_messaging`,
@@ -95,11 +96,13 @@ write, whatever the token allows. See Meta's
 Meta's [conversations guide](https://developers.facebook.com/documentation/business-messaging/messenger-platform/conversations)
 requires Advanced Access to read conversations with people who have no role on
 your app, Page or portfolio, and Instagram messaging requires an app owned by a
-verified business. Verify the business in **Business settings** → **Business
-info**, then request Advanced Access for `pages_messaging` and
-`instagram_manage_messages` under **App Review** → **Permissions and features** in
-the app dashboard. Until Meta approves it, test with people who have a role on the
-app.
+verified business. Complete Meta's
+[business verification](https://developers.facebook.com/docs/development/release/business-verification),
+then request Advanced Access through App Review in the app dashboard for every
+permission the conversations guide lists: `pages_messaging`,
+`pages_manage_metadata` and `pages_read_engagement`, and for Instagram
+`instagram_basic` and `instagram_manage_messages`. Until Meta approves it, test
+with people who have a role on the app.
 
 ### Expiring tokens
 
@@ -135,9 +138,11 @@ connection.
 - **Requests fail with "appsecret_proof".** Turn off **Require app secret** in the
   app's **App settings** → **Advanced** → **Security**: Houston does not send app
   secret proofs.
-- **Replies after 24 hours fail.** Meta allows replies outside the 24-hour window
-  only with its Human Agent feature, which needs App Review; hashtag search similarly
-  needs the Instagram Public Content Access feature.
+- **Replies after 24 hours fail.** Outside the 24-hour window Meta accepts only
+  messages with a tag it still allows, such as Human Agent, which needs App Review,
+  or its utility and marketing messages, which this connector does not send.
+- **Hashtag search fails.** It needs Meta's Instagram Public Content Access feature,
+  through App Review.
 - **The token stops working.** Removing the system user, its access to the Page or
   the app invalidates the Page access token. Make a new one and update the
   connection.
