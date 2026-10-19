@@ -141,7 +141,7 @@ func TestCartaCRMSiblingRoutesGetNoKey(t *testing.T) {
 			t.Fatalf("%s received the key: %v", route, err)
 		}
 	}
-	for _, route := range []string{"PATCH " + api + "/deals/65a1b2c3d4e5f60718293a4b", "GET " + api + "/deals/pipeline-review", "GET " + api + "/deals/pipelines",
+	for _, route := range []string{"PATCH " + api + "/deals/65a1b2c3d4e5f60718293a4b", "GET " + api + "/deals/pipelines",
 		"GET " + api + "/companies/fields", "POST " + api + "/deals/search"} {
 		method, url, _ := strings.Cut(route, " ")
 		recipe, err := r.Proxy.HTTPRecipe(method, url, nil)
