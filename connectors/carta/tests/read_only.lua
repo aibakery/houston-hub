@@ -75,6 +75,9 @@ return {
 		local body = json.decode(last().body)
 		assert(body.since.value == "2026-01-01T00:00:00Z" and body.securities[1].securityId == "S1" and body.issuerId == nil, "path field leaked into the body")
 		assert(split.splitOccurredSince == false and json.encode(split.affectedAssets) == "[]")
+		payload = ""
+		local empty, emptyErr = pcall(function() carta.getStockSplitChanges({issuerId = "7", securities = json.decode("[]"), since = {value = "2026-01-01T00:00:00Z"}}) end)
+		assert(not empty and string.find(tostring(emptyErr), "invalid JSON object", 1, true), "an empty read is not a success")
 		local count = #requests
 
 		rejected(function() carta.getIssuer() end, "id must be a Carta ID")
