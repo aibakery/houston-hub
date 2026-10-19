@@ -81,6 +81,8 @@ return {
 		assert(last().url == API .. "/v1/funds/1017/closing-prospect-statuses?prospectPublicIds=a1%2Cb2", last().url)
 		crm.getFundClosingsStatus({fundCartaIds = "1017,1018"})
 		assert(last().url == API .. "/v1/funds/closings-status?fundCartaIds=1017%2C1018", last().url)
+		crm.getFundClosingsStatus({fundCartaIds = {1017, 1018}})
+		assert(last().url == API .. "/v1/funds/closings-status?fundCartaIds=1017,1018", "string-typed lists join an array with commas")
 		crm.listClosingProspectStatuses({fundCartaId = 42})
 		assert(last().url == API .. "/v1/funds/42/closing-prospect-statuses", "Carta fund IDs are integers")
 		crm.listTasks({done = false})
@@ -105,6 +107,6 @@ return {
 		rejected(function() crm.listDeals({stages = {{"s1"}}}) end, "must be a string, boolean, number")
 		rejected(function() crm.listDeals("acme") end, "opts must be an object")
 		rejected(function() crm.listDeals({"acme"}) end, "named fields")
-		assert(#requests == 16)
+		assert(#requests == 17)
 	end,
 }

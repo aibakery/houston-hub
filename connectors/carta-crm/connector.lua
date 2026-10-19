@@ -110,9 +110,9 @@ local endpoints: {[string]: Endpoint} = {
 	linkInvestorNote = {method = "POST", path = "/v1/investors/{id}/notes/{noteId}", body = false, doc = "investor-linking-controller-link-note", about = ""},
 
 	getFundClosingsStatus = {method = "GET", path = "/v1/funds/closings-status", query = {"fundCartaIds"}, required = {"fundCartaIds"}, doc = "fund-admin-controller-get-closings-status",
-		about = "fundCartaIds is a comma-separated string of up to 25 Carta fund IDs. Whether closings are set up per fund, with the ledger URL."},
+		about = "fundCartaIds: up to 25 Carta fund IDs, an array or comma-separated string. Whether closings are set up per fund, with the ledger URL."},
 	listClosingProspectStatuses = {method = "GET", path = "/v1/funds/{fundCartaId}/closing-prospect-statuses", query = {"prospectPublicIds"}, doc = "fund-admin-controller-get-closing-prospect-statuses",
-		about = "prospectPublicIds? is a comma-separated string. KYC, risk and commitment state of a fund's closing prospects."},
+		about = "prospectPublicIds?: an array or comma-separated string. KYC, risk and commitment state of a fund's closing prospects."},
 
 	listFees = {method = "GET", path = "/v1/fees", query = paged("search"), doc = "fees-controller-get-fees", about = "Newest first, with totalAmount."},
 	searchFees = {method = "POST", path = "/v1/fees/search", write = false, doc = "fees-controller-search-fees", about = "Body {filters?, search?, limit?, offset?}."},
@@ -298,19 +298,26 @@ local function identifier(value: any, field: string): string
 	return value
 end
 
--- Array filters repeat the parameter: listIds=a&listIds=b.
+-- Array filters repeat the parameter: listIds=a&listIds=b. The reference types these lists as
+-- strings instead, so an array is sent comma-separated.
+local COMMA_SEPARATED = table.freeze({fundCartaIds = true, prospectPublicIds = true})
+
 local function queryPairs(query: {string}, field: string, value: any)
 	if type(value) ~= "table" then
 		table.insert(query, field .. "=" .. scalar(value, field))
 		return
 	end
-	local count = 0
+	local values: {string} = {}
 	for index, item in value do
-		assert(type(index) == "number" and index == count + 1, field .. " must be an array, not an object")
-		table.insert(query, field .. "=" .. scalar(item, field))
-		count += 1
+		assert(type(index) == "number" and index == #values + 1, field .. " must be an array, not an object")
+		table.insert(values, scalar(item, field))
 	end
-	assert(count > 0, field .. " must not be an empty array")
+	assert(#values > 0, field .. " must not be an empty array")
+	if COMMA_SEPARATED[field] then
+		table.insert(query, field .. "=" .. table.concat(values, ","))
+		return
+	end
+	for _, item in values do table.insert(query, field .. "=" .. item) end
 end
 
 -- Carta CRM errors are {success=false, error, code?}; authentication failures are {message}.
