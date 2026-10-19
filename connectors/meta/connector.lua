@@ -9,6 +9,7 @@ local VERSION = "v26.0"
 local API = "https://graph.facebook.com/" .. VERSION
 local VIDEO_API = "https://graph-video.facebook.com/" .. VERSION
 local LINK = "^" .. (string.gsub(API, "%p", "%%%0")) .. "(/[^?#]*)%?([^#]*)$"
+local ID = "^[%w_][%w_.:$=+-]*$"
 local CURSORS = {"limit", "after", "before"}
 local NONE: {string} = table.freeze({})
 local NULL = json.decode("null")
@@ -126,12 +127,12 @@ local function text(value: any, field: string): string
 	return value
 end
 
--- IDs exceed 2^53, so only strings keep them exact.
+-- IDs exceed 2^53, so only strings keep them exact. Meta's IDs (123_456, t_1, m_1, mid.$c1,
+-- aWdG...=) use these characters only.
 local function segment(value: any, field: string): string
 	assert(type(value) == "string", field .. " must be an ID string, such as '123_456'")
-	local ok, encoded = pcall(url.segment, value, field)
-	assert(ok, field .. " must be one Meta ID, without /, \\ or %")
-	return encoded
+	assert(string.match(value, ID), field .. " must be one Meta ID, such as '123_456' or 't_123'")
+	return url.segment(value, field)
 end
 
 -- A Graph field list with expansions such as comments.limit(5){message}. A Page can read its
@@ -170,19 +171,29 @@ local function unescape(value: string): string
 	return (string.gsub(spaced, "%%(%x%x)", function(hex: string): string return string.char(tonumber(hex, 16) :: number) end))
 end
 
--- A paging.next link from an earlier result of the same function. Meta adds its own parameters
--- (such as __paging_token), so the link is replayed as is once its route and parameters check out.
+-- A paging.next link from an earlier result of the same function. It is replayed as is once its
+-- route and parameters check out: the function's own options plus Meta's paging tokens.
 local function nextPage(name: string, endpoint: Endpoint, link: any): string
 	local usage = "next must be the unchanged paging.next link of an earlier " .. name .. " result"
 	assert(type(link) == "string" and #link <= 8192, usage)
 	local path, query = string.match(link, LINK)
+	assert(path and query, usage)
 	-- Meta writes the Page's ID where the request said me.
-	local route = string.gsub(string.gsub(endpoint.path, "^/me/", "/{me}/"), "{[%w_]+}", function(): string return "[%w_.=-]+" end)
-	assert(path and query and string.match(path, "^" .. route .. "$"), usage)
+	local parts = string.split(string.sub(path, 2), "/")
+	local expected = string.split(string.sub(endpoint.path, 2), "/")
+	assert(#parts == #expected, usage)
+	for index, part in parts do
+		local literal = expected[index]
+		assert(string.match(part, ID) and (part == literal or literal == "me" or string.match(literal, "^{")), usage)
+	end
+	local seen: {[string]: boolean} = {}
 	for pair in string.gmatch(query, "[^&]+") do
 		local key, value = string.match(pair, "^([%w_]+)=([%w%%._~+-]*)$")
-		assert(key and value and not RESERVED[key], usage)
+		assert(key and value and not seen[key], usage)
+		assert(key == "fields" or key == "__paging_token" or key == "__previous" or table.find(endpoint.query or NONE, key)
+			or table.find(endpoint.paging or NONE, key), usage)
 		if key == "fields" then fieldList(unescape(value)) end
+		seen[key] = true
 	end
 	return API .. path .. "?" .. query
 end

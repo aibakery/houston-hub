@@ -104,6 +104,11 @@ return {
 			"https://graph.facebook.com/v25.0/101/feed?limit=25",
 			"https://graph.facebook.com.evil.test/v26.0/101/feed?limit=25",
 			"http://graph.facebook.com/v26.0/101/feed?limit=25",
+			"https://graph.facebook.com/v26.0/101/feed?limit=25&Method=delete",
+			"https://graph.facebook.com/v26.0/101/feed?limit=25&metadata=1",
+			"https://graph.facebook.com/v26.0/101/feed?limit=25&limit=100",
+			"https://graph.facebook.com/v26.0/./feed?limit=25",
+			"https://graph.facebook.com/v26.0/../feed?limit=25",
 		} do
 			rejected(function() meta.listFeed({next = link}) end, "paging.next link")
 		end
@@ -113,6 +118,10 @@ return {
 
 		-- IDs are single path segments given as strings, and required options come first.
 		rejected(function() meta.listComments({object = "../me"}) end, "one Meta ID")
+		rejected(function() meta.getObject({id = "me?method=delete"}) end, "one Meta ID")
+		rejected(function() meta.getObject({id = "101#x"}) end, "one Meta ID")
+		rejected(function() meta.getObject({id = ".."}) end, "one Meta ID")
+		rejected(function() meta.getObject({id = "101 102"}) end, "one Meta ID")
 		rejected(function() meta.listComments({object = 1234567890}) end, "ID string")
 		rejected(function() meta.listComments({}) end, "ID string")
 		rejected(function() meta.getInsights({object = "me"}) end, "metric is required")
