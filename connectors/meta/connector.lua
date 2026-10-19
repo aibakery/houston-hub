@@ -180,12 +180,13 @@ local function queryValue(value: any, field: string): string
 end
 
 -- paging.next goes back to callers sealed with the function that produced it, so next can only
--- continue an earlier result and never carries a URL, query or method a caller chose. Each seal
--- is a native call, so paging.previous keeps Meta's link, without its token.
+-- continue an earlier result and never carries a URL, query or method a caller chose.
+-- paging.previous, which no call could replay, is dropped: cursors.before pages backward.
 local function sealPaging(name: string, value: any)
 	local paging = if type(value) == "table" then value.paging else nil
 	if type(paging) ~= "table" then return end
 	if type(paging.next) == "string" then paging.next = houston.seal({operation = name, url = paging.next}) end
+	paging.previous = nil
 end
 
 local function nextPage(name: string, token: any): string
@@ -209,13 +210,13 @@ end
 -- Meta writes the request's access token into its links, also URL-encoded inside others.
 -- Parameters are split on & so a token of any characters goes whole.
 local function scrub(link: string): string
-	local base, query = string.match(link, "^([^?#]*)%?([^#]*)")
-	if not base or not query or not string.find(query, "access_token", 1, true) then return link end
+	local base, query, fragment = string.match(link, "^([^?#]*)%?([^#]*)(.*)$")
+	if not base or not query or not fragment or not string.find(query, "access_token", 1, true) then return link end
 	local kept: {string} = {}
 	for pair in string.gmatch(query, "[^&]+") do
 		if string.sub(pair, 1, 13) ~= "access_token=" then table.insert(kept, dropEncoded(pair)) end
 	end
-	return base .. (if #kept > 0 then "?" .. table.concat(kept, "&") else "")
+	return base .. (if #kept > 0 then "?" .. table.concat(kept, "&") else "") .. fragment
 end
 
 -- Error messages also echo tokens: an access_token value, or a bare user or Page (EAA...) or
@@ -235,7 +236,9 @@ local function redact(value: any)
 		if type(key) == "string" and string.find(string.lower(key), "token", 1, true) then
 			value[key] = nil
 		elseif type(child) == "string" and string.match(child, "^https://graph[%w-]*%.facebook%.com/") then
-			value[key] = scrub(child)
+			-- A link still naming access_token wraps it more deeply than scrub reaches, so it goes.
+			local clean = scrub(child)
+			value[key] = if string.find(clean, "access_token", 1, true) then nil else clean
 		else
 			redact(child)
 		end
