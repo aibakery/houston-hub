@@ -112,8 +112,9 @@ local endpoints: {[string]: Endpoint} = {
 -- the rest carry or reveal credentials.
 local RESERVED = table.freeze({method = true, batch = true, callback = true, suppress_http_code = true, include_headers = true,
 	attached_files = true, access_token = true, appsecret_proof = true, appsecret_time = true, input_token = true, ids = true})
--- Rate limits: app, user, Pages, custom and Business Use Case (80000-80014) throttling.
-local THROTTLED = table.freeze({[4] = true, [17] = true, [32] = true, [341] = true, [613] = true})
+-- Temporary errors (1, 2) and rate limits: app, user, Pages, custom and Business Use Case
+-- (80000-80014) throttling.
+local RETRYABLE = table.freeze({[1] = true, [2] = true, [4] = true, [17] = true, [32] = true, [341] = true, [613] = true})
 
 local function options(input: Options?): Options
 	if input == nil then return {} end
@@ -239,19 +240,24 @@ local function regainMinutes(response: HttpResponse): string?
 end
 
 -- Meta errors are {error = {message, type, code, error_subcode?, error_user_msg?, is_transient?, fbtrace_id}}.
-local function fail(name: string, response: HttpResponse): never
+-- raw is the body when it was already read.
+local function fail(name: string, response: HttpResponse, raw: string?): never
 	local status = response.statusCode
 	local message = "Meta HTTP " .. tostring(status)
 	local retryable = status == 429 or status >= 500
-	local ok, value = pcall(json.decode, await(response.body:readPrefix(16 * 1024)))
+	local ok, value = pcall(json.decode, raw or await(response.body:readPrefix(16 * 1024)))
 	local problem = if ok and type(value) == "table" and type(value.error) == "table" then value.error else nil
 	if problem then
 		local code, subcode = int(problem.code), int(problem.error_subcode)
 		if code then message ..= " (#" .. code .. (if subcode then "/" .. subcode else "") .. ")" end
 		if type(problem.message) == "string" then message ..= ": " .. string.sub(problem.message, 1, 600) end
 		if type(problem.error_user_msg) == "string" then message ..= " " .. string.sub(problem.error_user_msg, 1, 600) end
+		-- Meta's code decides, so a 500 for an unsupported request is final.
 		local number = tonumber(code)
-		if number and (THROTTLED[number] or (number >= 80000 and number <= 80014)) or problem.is_transient == true then retryable = true end
+		if number then
+			retryable = status == 429 or RETRYABLE[number] == true or (number >= 80000 and number <= 80014)
+		end
+		if problem.is_transient == true then retryable = true end
 		if number == 190 or number == 102 then message ..= "; the Page access token is invalid or expired: create a new one and update the connection" end
 		if type(problem.fbtrace_id) == "string" then message ..= " (fbtrace_id " .. string.sub(problem.fbtrace_id, 1, 64) .. ")" end
 	end
@@ -270,6 +276,7 @@ local function decode(name: string, response: HttpResponse): any
 		return houston.fail({operation = name, layer = "upstream", upstream_status = response.statusCode, retryable = false,
 			message = "Meta returned an invalid JSON object"})
 	end
+	if type(value.error) == "table" then fail(name, response, raw) end
 	redact(value)
 	return value
 end
@@ -284,6 +291,7 @@ local function multipart(args: Options, field: string): (any, string)
 	local parts: {any} = {}
 	for _, key in names do
 		local value = args[key]
+		assert(value ~= NULL, "a file upload cannot send null as " .. key)
 		local body = if type(value) == "table" then json.encode(value) elseif type(value) == "number" then int(value) or tostring(value) else tostring(value)
 		table.insert(parts, {name = key, body = body})
 	end

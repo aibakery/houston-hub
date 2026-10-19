@@ -114,6 +114,7 @@ return {
 		rejected(function() meta.updatePost({post = "me", about = "x", fields = "access_token"}) end, "cannot send fields")
 		rejected(function() meta.createComment({object = "101_9", message = "x", access_token = "EAAOTHER"}) end, "cannot send access_token")
 		rejected(function() meta.uploadPhoto({path = "photos/bread.jpg", callback = "f"}) end, "cannot send callback")
+		rejected(function() meta.uploadPhoto({path = "photos/bread.jpg", caption = json.decode("null")}) end, "cannot send null")
 		-- PHP-style parsers trim names, map . and spaces to _ and read name[] as arrays.
 		for _, key in {" method", "Method", "fields[]", "batch[0]", "suppress.http.code", "access token", "method "} do
 			rejected(function() meta.createPost({message = "x", [key] = "delete"}) end, "cannot send")

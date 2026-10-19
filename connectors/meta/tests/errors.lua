@@ -36,14 +36,22 @@ return {
 			{"(#368)", '"retryable":false'})
 		upstream(500, '{"error":{"message":"Service temporarily unavailable","type":"FacebookApiException","code":2,"is_transient":true}}', {},
 			{"Meta HTTP 500 (#2)", '"retryable":true'})
-		upstream(400, '{"error":{"message":"An unexpected error has occurred.","type":"OAuthException","code":1,"is_transient":true}}', {},
+		upstream(400, '{"error":{"message":"An unexpected error has occurred.","type":"OAuthException","code":1}}', {},
 			{"(#1)", '"retryable":true'})
 		upstream(400, '{"error":{"message":"Malformed access token EAAPAGETOKEN123 near https://graph.facebook.com/me?access_token=EAAPAGETOKEN123","type":"OAuthException","code":190}}', {},
 			{"Malformed access token", '"retryable":false'}, "EAAPAGETOKEN123")
+		upstream(500, '{"error":{"message":"Unsupported post request.","type":"GraphMethodException","code":100,"error_subcode":33,"is_transient":false}}', {},
+			{"Meta HTTP 500 (#100/33)", '"retryable":false'})
+		upstream(200, '{"error":{"message":"(#100) Invalid parameter","type":"OAuthException","code":100}}', {}, {"Meta HTTP 200 (#100)", '"retryable":false'})
 		upstream(429, "", {}, {"Meta HTTP 429", '"retryable":true'})
 		upstream(502, "<html>Bad gateway</html>", {}, {"Meta HTTP 502", '"retryable":true'})
 		upstream(400, json.encode({error = {message = string.rep("x", 5000), code = 100}}), {}, {"(#100)"})
 		upstream(200, "<html>Maintenance</html>", {}, {"invalid JSON object", '"upstream_status":200'})
 		upstream(200, "[]", {}, {"invalid JSON object"})
+
+		-- Reads map errors the same way.
+		status, payload, responseHeaders = 400, '{"error":{"message":"(#10) This endpoint requires the pages_read_engagement permission","type":"OAuthException","code":10}}', {}
+		local ok, err = pcall(function() meta.listFeed() end)
+		assert(not ok and string.find(tostring(err), "Meta HTTP 400 (#10): (#10) This endpoint requires the pages_read_engagement permission", 1, true), tostring(err))
 	end,
 }
