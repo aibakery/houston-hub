@@ -200,11 +200,13 @@ local function nextPage(name: string, endpoint: Endpoint, link: any): string
 	return API .. path .. "?" .. query
 end
 
--- Meta writes the request's access token into paging links, also URL-encoded inside others.
+-- Meta writes the request's access token into paging links, also URL-encoded inside others,
+-- and echoes malformed tokens, which start with EAA, in error messages.
 local function scrub(text: string): string
-	local plain, found = string.gsub(text, "access_token=[^&#]*&?", "")
-	local clean, encoded = string.gsub(plain, "access_token%%3[Dd][^&#]*", "")
-	return if found + encoded == 0 then text else (string.gsub(clean, "[?&]$", ""))
+	local plain, found = string.gsub(text, "access_token=[^&#%s\"]*&?", "")
+	local clean, encoded = string.gsub(plain, "access_token%%3[Dd][^&#%s\"]*", "")
+	local bare, echoed = string.gsub(clean, "%f[%w]EAA[%w_%-]+", "EAA[redacted]")
+	return if found + encoded + echoed == 0 then text else (string.gsub(bare, "[?&]$", ""))
 end
 
 -- Results never carry credentials: token links are scrubbed and token fields, such as an
@@ -251,8 +253,8 @@ local function fail(name: string, response: HttpResponse, raw: string?): never
 	if problem then
 		local code, subcode = int(problem.code), int(problem.error_subcode)
 		if code then message ..= " (#" .. code .. (if subcode then "/" .. subcode else "") .. ")" end
-		if type(problem.message) == "string" then message ..= ": " .. string.sub(problem.message, 1, 600) end
-		if type(problem.error_user_msg) == "string" then message ..= " " .. string.sub(problem.error_user_msg, 1, 600) end
+		if type(problem.message) == "string" then message ..= ": " .. string.sub(scrub(problem.message), 1, 600) end
+		if type(problem.error_user_msg) == "string" then message ..= " " .. string.sub(scrub(problem.error_user_msg), 1, 600) end
 		-- Meta's code decides, so a 500 for an unsupported request is final.
 		local number = tonumber(code)
 		if number then
@@ -264,8 +266,6 @@ local function fail(name: string, response: HttpResponse, raw: string?): never
 	end
 	local minutes = regainMinutes(response)
 	if minutes then message ..= "; Meta expects calls to succeed again in about " .. minutes .. " min" end
-	-- Meta echoes malformed tokens, which start with EAA.
-	message = string.gsub(scrub(message), "EAA[%w_%-]+", "EAA[redacted]")
 	return houston.fail({operation = name, layer = "upstream", upstream_status = status, retryable = retryable, message = message})
 end
 
@@ -339,7 +339,7 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 	local headers: HttpHeaders = {Accept = {"application/json"}}
 	local body: any = nil
 	if endpoint.method == "POST" then
-		-- Graph's parser trims names, maps . and spaces to _ and reads name[] as arrays, so only
+		-- Graph's PHP-style parser may trim names, map . and spaces to _ and read name[] as arrays, so only
 		-- plain snake_case names are sent.
 		for key in args do
 			assert(string.match(key, "^%l[%l%d_]*$") and not RESERVED[key] and key ~= "fields", name .. " cannot send " .. key)

@@ -855,24 +855,26 @@ runs `batch` requests on any node, and returns errors as HTTP 200 with `callback
 `suppress_http_code`. The proxy cannot filter queries, so Lua builds every query from
 each operation's declared parameters with encoded values. Write bodies take only
 plain snake_case names other than those, `fields` and token parameters, since
-Graph's parser trims names and maps `.` and spaces to `_`. Replayed `paging.next`
-links may carry only the operation's own parameters and Meta's paging tokens, once
-each. `fields` naming a token is refused: a Page can read its own `access_token`
-field, also through field expansion or a write's read-after-write `fields`. Responses
-drop every key containing `token` (an expanded `accounts` edge returns Page tokens)
-and the token Meta writes into `paging.next` and `paging.previous`; error messages
-drop echoed tokens. Path IDs are limited to the characters of Meta's IDs. The
-connector sends no `appsecret_proof`, so SETUP asks to keep **Require app secret**
-off.
+Graph's PHP-style parser may trim names and map `.` and spaces to `_`. Replayed
+`paging.next` links may carry only the operation's own parameters and Meta's paging
+tokens, once each. `fields` naming a token is refused: a Page can read its own
+`access_token` field, also through field expansion or a write's read-after-write
+`fields`. Responses drop every key containing `token` (an expanded `accounts` edge
+returns Page tokens) and the token Meta writes into `paging.next` and
+`paging.previous`; error messages drop echoed tokens. Path IDs are limited to the
+characters of Meta's IDs. The connector sends no `appsecret_proof`, so SETUP asks
+to keep **Require app secret** off.
 
 This is a new registration with no existing connections. Fixtures cover both access
 levels and a read-only caller, routes, query and body building, the override and
 token defenses, paging links, multipart uploads and error mapping. Still to verify
 live: that the Page token serves the Instagram endpoints (Meta's references name a
-user token, its guides a Page token), that real `paging.next` links carry no other
-parameters, Page feed reads, hiding and deleting comments, JSON bodies on every
-write, Bearer authentication on `graph-video.facebook.com`, the SETUP labels, and a
-disposable post, comment and message.
+user token, its guides a Page token), whether Graph honours name variants such as
+`%20method=delete` or `method[]=delete` (code 104 versus 102 without a token), that
+real `paging.next` links carry no other parameters, Page feed reads, hiding and
+deleting comments, JSON bodies on every write, Bearer authentication on
+`graph-video.facebook.com`, the SETUP labels, and a disposable post, comment and
+message.
 
 The icon is Meta's infinity symbol, unchanged, as served by Meta's
 [brand resource center](https://www.meta.com/brand/resources/meta/company-brand/)

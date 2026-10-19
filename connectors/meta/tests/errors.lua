@@ -39,7 +39,7 @@ return {
 		upstream(400, '{"error":{"message":"An unexpected error has occurred.","type":"OAuthException","code":1}}', {},
 			{"(#1)", '"retryable":true'})
 		upstream(400, '{"error":{"message":"Malformed access token EAAPAGETOKEN123 near https://graph.facebook.com/me?access_token=EAAPAGETOKEN123","type":"OAuthException","code":190}}', {},
-			{"Malformed access token", '"retryable":false'}, "EAAPAGETOKEN123")
+			{"Malformed access token", "near https://graph.facebook.com/me", "create a new one and update the connection", '"retryable":false'}, "EAAPAGETOKEN123")
 		upstream(500, '{"error":{"message":"Unsupported post request.","type":"GraphMethodException","code":100,"error_subcode":33,"is_transient":false}}', {},
 			{"Meta HTTP 500 (#100/33)", '"retryable":false'})
 		upstream(200, '{"error":{"message":"(#100) Invalid parameter","type":"OAuthException","code":100}}', {}, {"Meta HTTP 200 (#100)", '"retryable":false'})
