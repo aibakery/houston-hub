@@ -856,8 +856,8 @@ runs `batch` requests on any node, and returns errors as HTTP 200 with `callback
 each operation's declared parameters with encoded values. Write bodies take only
 plain snake_case names other than those, `fields` and token parameters, since
 Graph's PHP-style parser may trim names and map `.` and spaces to `_`. Replayed
-`paging.next` links may carry only the operation's own parameters and Meta's paging
-tokens and `pretty`, once each. `fields` naming a token is refused: a Page can read
+`paging.next` links may carry only the operation's own parameters, Meta's internal `__`
+parameters and `pretty`, once each. `fields` naming a token is refused: a Page can read
 its own `access_token` field, also through field expansion or a write's
 read-after-write `fields`. Responses drop every key containing `token` (an expanded
 `accounts` edge returns Page tokens) and the token Meta writes into `paging.next`

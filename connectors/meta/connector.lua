@@ -8,7 +8,7 @@ type Endpoint = {method: string, path: string, host: string?, query: {string}?, 
 local VERSION = "v26.0"
 local API = "https://graph.facebook.com/" .. VERSION
 local VIDEO_API = "https://graph-video.facebook.com/" .. VERSION
-local LINK = "^" .. (string.gsub(API, "%p", "%%%0")) .. "(/[^?#]*)%?([^#]*)$"
+local LINK = "^" .. (string.gsub(API, "%p", "%%%0")) .. "(/[^?#]*)%??([^#]*)$"
 local ID = "^[%w_][%w_.:$=+-]*$"
 local CURSORS = {"limit", "after", "before"}
 local NONE: {string} = table.freeze({})
@@ -177,8 +177,8 @@ local function unescape(value: string): string
 end
 
 -- A paging.next link from an earlier result of the same function. It is replayed as is once its
--- route and parameters check out: the function's own options plus Meta's paging tokens and
--- pretty, which v26.0 ignores.
+-- route and parameters check out: the function's own options, Meta's internal __ parameters
+-- (such as __paging_token) and pretty, which v26.0 ignores.
 local function nextPage(name: string, endpoint: Endpoint, link: any): string
 	local usage = "next must be the unchanged paging.next link of an earlier " .. name .. " result"
 	assert(type(link) == "string" and #link <= 8192, usage)
@@ -194,22 +194,26 @@ local function nextPage(name: string, endpoint: Endpoint, link: any): string
 	end
 	local seen: {[string]: boolean} = {}
 	for pair in string.gmatch(query, "[^&]+") do
-		local key, value = string.match(pair, "^([%w_]+)=([%w%%._~+,-]*)$")
+		local key, value = string.match(pair, "^([%w_]+)=([%w%%._~+,(){}:-]*)$")
 		assert(key and value and not seen[key], usage)
-		assert(key == "fields" or key == "pretty" or key == "__paging_token" or key == "__previous" or table.find(endpoint.query or NONE, key)
+		assert(key == "fields" or key == "pretty" or string.match(key, "^__%l[%l_]*$") or table.find(endpoint.query or NONE, key)
 			or table.find(endpoint.paging or NONE, key), usage)
 		if key == "fields" then fieldList(unescape(value)) end
 		seen[key] = true
 	end
-	return API .. path .. "?" .. query
+	return API .. path .. (if query == "" then "" else "?" .. query)
 end
 
 -- Meta writes the request's access token into paging links, also URL-encoded inside others.
 local TOKEN_CHARS = "[%w_.-]*"
 local function scrub(text: string): string
-	local plain, found = string.gsub(text, "access_token=" .. TOKEN_CHARS .. "&?", "")
-	if found > 0 then plain = string.gsub(plain, "[?&]$", "") end
-	return (string.gsub(plain, "access_token%%3[Dd]" .. TOKEN_CHARS, ""))
+	-- Only whole access_token parameters go, so page_access_token=... or after=... stay intact.
+	local plain, found = string.gsub(text, "([?&])access_token=" .. TOKEN_CHARS, "%1")
+	if found > 0 then
+		plain = string.gsub(string.gsub(string.gsub(plain, "&&+", "&"), "%?&", "?"), "[?&]$", "")
+	end
+	local encoded = string.gsub(plain, "(%%3[Ff])access_token%%3[Dd]" .. TOKEN_CHARS, "%1")
+	return (string.gsub(encoded, "(%%26)access_token%%3[Dd]" .. TOKEN_CHARS, "%1"))
 end
 
 -- Error messages also echo malformed tokens: EAA and at least 30 more token characters.

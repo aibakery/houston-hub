@@ -87,6 +87,15 @@ return {
 		respond('{"data":[]}')
 		meta.listTaggedPosts({next = taggedNext})
 		assert(requests[11].url == taggedNext)
+		-- Meta may add internal __ parameters, leave field lists unencoded or end the list without a query.
+		for _, link in {
+			"https://graph.facebook.com/v26.0/101/feed?fields=id,comments.summary(true){message}&limit=25&__cppo=1&after=QUZU",
+			"https://graph.facebook.com/v26.0/101/feed",
+		} do
+			respond('{"data":[]}')
+			meta.listFeed({next = link})
+			assert(requests[#requests].url == link, requests[#requests].url)
+		end
 
 		-- Query values are encoded, so they cannot add parameters.
 		respond('{"data":[]}')
@@ -95,6 +104,7 @@ return {
 		-- Token fields and the tokens in Meta's own links, repeated or encoded, are dropped;
 		-- text from people and cursors stay as they are.
 		respond(json.encode({id = "101", accounts = {data = {{id = "102", name = "Other", access_token = "EAAOTHER", page_token = "EAAPT"}}},
+			bare = "https://graph.facebook.com/v26.0/101/feed?access_token=EAA9", named = "https://graph.facebook.com/v26.0/101/feed?limit=5&page_access_token=kept&after=Q",
 			comments = {data = {}, paging = {next = "https://graph.facebook.com/v26.0/101_1/comments?access_token=EAA1&access_token=EAA2&limit=5",
 				previous = "https://graph.facebook.com/v26.0/101_1/comments?limit=5&redirect=x%3Faccess_token%3DEAAGZBpage0123456789abcdefghijklmnopqrstuvwxyz%26ref%3Dabc"}},
 			note = "see https://x.test/cb?access_token=abc&x=1 and thanks", cursors = {after = "QUFB_EAAGZBpage0123456789abcdefghijklmnopqrstuvwxyz"}, comment = "Is EAAGLES2024 still open?"}))
@@ -103,6 +113,7 @@ return {
 		assert(leaky.comments.paging.next == "https://graph.facebook.com/v26.0/101_1/comments?limit=5", leaky.comments.paging.next)
 		assert(leaky.comments.paging.previous == "https://graph.facebook.com/v26.0/101_1/comments?limit=5&redirect=x%3F%26ref%3Dabc", leaky.comments.paging.previous)
 		assert(leaky.note == "see https://x.test/cb?access_token=abc&x=1 and thanks" and leaky.comment == "Is EAAGLES2024 still open?", leaky.note)
+		assert(leaky.bare == "https://graph.facebook.com/v26.0/101/feed" and leaky.named == "https://graph.facebook.com/v26.0/101/feed?limit=5&page_access_token=kept&after=Q", leaky.named)
 		assert(leaky.cursors.after == "QUFB_EAAGZBpage0123456789abcdefghijklmnopqrstuvwxyz", leaky.cursors.after)
 		-- Graph honours ?method=delete and batch even on GET, and a Page can read its own token.
 		rejected(function() meta.listFeed({method = "delete"}) end, "has no option method")
