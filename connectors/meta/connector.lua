@@ -18,6 +18,7 @@ local POST_FIELDS = "id,message,story,created_time,permalink_url,status_type,ful
 local VIDEO_FIELDS = "id,title,description,created_time,length,permalink_url,published"
 local IG_MEDIA_FIELDS = "id,caption,media_type,media_product_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count"
 local IG_COMMENT_FIELDS = "id,text,timestamp,username,like_count,hidden"
+local HASHTAG_MEDIA_FIELDS = "id,caption,media_type,permalink,timestamp,like_count,comments_count"
 
 -- Edges and parameters of Meta's reference and Business SDK v26.0.2, checked on 2026-10-19.
 -- Page functions act on /me, the Page the token belongs to. Path {fields} are IDs; listed query
@@ -76,9 +77,9 @@ local endpoints: {[string]: Endpoint} = {
 	searchInstagramHashtag = {method = "GET", path = "/ig_hashtag_search", query = {"user_id", "q"}, required = {"user_id", "q"},
 		about = "The ID of a hashtag (q without #); user_id is your ig_user. At most 30 different hashtags per 7 days; needs Meta's Instagram Public Content Access feature."},
 	listHashtagTopMedia = {method = "GET", path = "/{hashtag}/top_media", query = {"user_id"}, required = {"user_id"}, paging = {"limit", "after"},
-		fields = "id,caption,media_type,permalink,timestamp,like_count,comments_count", about = "Most popular public media with a hashtag. limit is at most 50."},
+		fields = HASHTAG_MEDIA_FIELDS, about = "Most popular public media with a hashtag. limit is at most 50."},
 	listHashtagRecentMedia = {method = "GET", path = "/{hashtag}/recent_media", query = {"user_id"}, required = {"user_id"}, paging = {"limit", "after"},
-		fields = "id,caption,media_type,permalink,timestamp,like_count,comments_count", about = "Public media with a hashtag from the last 24 hours. limit is at most 50."},
+		fields = HASHTAG_MEDIA_FIELDS, about = "Public media with a hashtag from the last 24 hours. limit is at most 50."},
 
 	createPost = {method = "POST", path = "/me/feed",
 		about = "Body {message?, link?, published?, scheduled_publish_time?, attached_media?, place?}. Posts as the Page; returns {id}. Pass message or link."},
@@ -108,11 +109,11 @@ local endpoints: {[string]: Endpoint} = {
 		about = "Body {creation_id}. Publishes a FINISHED container; returns the media {id}."},
 }
 
--- Graph reads these from any query or body: method replaces the HTTP verb (even of a GET),
--- batch runs other requests, callback and suppress_http_code turn errors into HTTP 200, and
--- the rest carry or reveal credentials.
+-- Write bodies never send these: method replaces the HTTP verb, batch runs other requests,
+-- callback and suppress_http_code turn errors into HTTP 200, fields reads the written object
+-- back (a Page's own access_token included), and the rest carry or reveal credentials.
 local RESERVED = table.freeze({method = true, batch = true, callback = true, suppress_http_code = true, include_headers = true,
-	attached_files = true, access_token = true, appsecret_proof = true, appsecret_time = true, input_token = true, ids = true})
+	attached_files = true, fields = true, access_token = true, appsecret_proof = true, appsecret_time = true, input_token = true, ids = true})
 -- Temporary errors (1, 2) and rate limits: app, user, Pages, custom and Business Use Case
 -- (80000-80014) throttling.
 local RETRYABLE = table.freeze({[1] = true, [2] = true, [4] = true, [17] = true, [32] = true, [341] = true, [613] = true})
@@ -350,7 +351,7 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 		-- Graph's PHP-style parser may trim names, map . and spaces to _ and read name[] as arrays, so only
 		-- plain snake_case names are sent.
 		for key in args do
-			assert(string.match(key, "^%l[%l%d_]*$") and not RESERVED[key] and key ~= "fields", name .. " cannot send " .. key)
+			assert(string.match(key, "^%l[%l%d_]*$") and not RESERVED[key], name .. " cannot send " .. key)
 		end
 		if endpoint.upload and args.path ~= nil then
 			local contentType
