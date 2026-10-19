@@ -306,6 +306,7 @@ local function multipart(args: Options): (any, string)
 		local body = if type(value) == "table" then json.encode(value) elseif type(value) == "number" then int(value) or tostring(value) else tostring(value)
 		table.insert(parts, {name = key, body = body})
 	end
+	assert(await(fs.stat(source)).isFile, "path must be a session file")
 	local file = fs.open(source, "r")
 	local ok, body, contentType = pcall(function()
 		await(file)

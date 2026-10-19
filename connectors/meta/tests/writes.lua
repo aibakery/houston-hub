@@ -127,6 +127,7 @@ return {
 		rejected(function() meta.publishInstagramMedia({ig_user = "17841400000000001"}) end, "creation_id is required")
 		rejected(function() meta.deleteObject({id = "101/feed"}) end, "one Meta ID")
 		rejected(function() meta.uploadPhoto({path = "missing.jpg"}) end, '"code":"not_found"')
+		rejected(function() meta.uploadPhoto({path = "photos"}) end, "path must be a session file")
 		assert(#responses == 0)
 	end,
 }
