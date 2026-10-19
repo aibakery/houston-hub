@@ -343,7 +343,9 @@
       "action": {
         "headers": {
           "remove": [
-            "X-HTTP-Method-Override"
+            "X-HTTP-Method-Override",
+            "X-HTTP-Method",
+            "X-Method-Override"
           ],
           "set": {
             "Authorization": "Bearer {{auth.carta.access_token || auth.own_app.access_token || auth.playground.access_token}}"
@@ -368,7 +370,9 @@
       "action": {
         "headers": {
           "remove": [
-            "X-HTTP-Method-Override"
+            "X-HTTP-Method-Override",
+            "X-HTTP-Method",
+            "X-Method-Override"
           ],
           "set": {
             "Authorization": "Bearer {{auth.carta.access_token || auth.own_app.access_token || auth.playground.access_token}}"

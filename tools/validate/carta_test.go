@@ -1,8 +1,12 @@
 package main
 
 import (
+	"net/http"
 	"slices"
+	"strings"
 	"testing"
+
+	"github.com/aibakery/houston-hub/manifest"
 )
 
 func TestCartaScopesAndAccessRoutes(t *testing.T) {
@@ -66,4 +70,43 @@ func TestCartaScopesAndAccessRoutes(t *testing.T) {
 				"GET https://api.carta.com.example.com/v1alpha1/user", "GET https://crm-public-api.app.carta.com/v1/me")
 		}
 	}
+}
+
+// Read-only routes drop method-override headers, so a read cannot become a write upstream.
+func assertStripsMethodOverrides(t *testing.T, r *manifest.Resolved, routes ...string) {
+	t.Helper()
+	for _, route := range routes {
+		method, url, _ := strings.Cut(route, " ")
+		recipe, err := r.Proxy.HTTPRecipe(method, url, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		headers, err := recipe.Prepare(r.Context, http.Header{
+			"X-Http-Method-Override": {"DELETE"}, "X-Http-Method": {"DELETE"}, "X-Method-Override": {"DELETE"},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, name := range []string{"X-HTTP-Method-Override", "X-HTTP-Method", "X-Method-Override"} {
+			if headers.Get(name) != "" {
+				t.Fatalf("%s kept %s", route, name)
+			}
+		}
+	}
+}
+
+func TestCartaReadRoutesStripMethodOverrides(t *testing.T) {
+	carta, err := parseManifest(t, "../../connectors/carta/houston.json").Resolve(
+		map[string]any{"client_id": "houston-client", "client_secret": "houston-secret"}, map[string]any{"access": "read-only"}, nil, "carta")
+	if err != nil {
+		t.Fatal(err)
+	}
+	carta.Context.Auth["carta"]["access_token"] = "carta-token"
+	assertStripsMethodOverrides(t, carta, "GET https://api.carta.com/v1alpha1/issuers/7", "POST https://api.carta.com/v1alpha1/issuers/7/securities:stockSplitChanges")
+	crm, err := parseManifest(t, "../../connectors/carta-crm/houston.json").Resolve(nil, map[string]any{"access": "read-only"}, map[string]any{"token": "crm-key"}, "token")
+	if err != nil {
+		t.Fatal(err)
+	}
+	const api = "https://crm-public-api.app.carta.com/v1"
+	assertStripsMethodOverrides(t, crm, "GET "+api+"/deals/65a1b2c3d4e5f60718293a4b", "POST "+api+"/companies/search")
 }
