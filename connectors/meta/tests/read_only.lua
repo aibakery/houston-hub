@@ -52,7 +52,7 @@ return {
 		respond('{"data":[{"name":"page_media_view","period":"day","values":[{"value":42,"end_time":"2026-10-18T07:00:00+0000"}]}]}')
 		local insights = meta.getInsights({object = "me", metric = {"page_media_view", "page_follows"}, period = "day", since = "2026-10-01", ["until"] = "2026-10-18"})
 		assert(insights.data[1].values[1].value == 42)
-		assert(requests[5].url == "https://graph.facebook.com/v26.0/me/insights?metric=page_media_view,page_follows&period=day&since=2026-10-01&until=2026-10-18")
+		assert(requests[5].url == "https://graph.facebook.com/v26.0/me/insights?metric=page_media_view%2Cpage_follows&period=day&since=2026-10-01&until=2026-10-18")
 		respond('{"data":[{"id":"17843853986012965"}]}')
 		meta.searchInstagramHashtag({user_id = "17841400000000001", q = "sourdough"})
 		assert(requests[6].url == "https://graph.facebook.com/v26.0/ig_hashtag_search?user_id=17841400000000001&q=sourdough")
@@ -73,7 +73,7 @@ return {
 		meta.listComments({next = comments.paging.next})
 		assert(requests[9].url == comments.paging.next)
 		-- A me route pages through the Page's own ID, with Meta's internal parameters.
-		local feedNext = "https://graph.facebook.com/v26.0/101/feed?fields=id&limit=25&until=1760000000&__paging_token=enc_AdBz"
+		local feedNext = "https://graph.facebook.com/v26.0/101/feed?fields=id,message&limit=25&until=1760000000&__paging_token=enc_AdBz"
 		respond('{"data":[]}')
 		meta.listFeed({next = feedNext})
 		assert(requests[10].url == feedNext)

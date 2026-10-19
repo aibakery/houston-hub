@@ -156,7 +156,7 @@ local function scalar(value: any, field: string): string
 	return url.encode(int(value) or value)
 end
 
--- Metric and breakdown lists are comma-separated.
+-- Metric and breakdown lists are comma-separated, encoded like fields so paging links keep them.
 local function queryValue(value: any, field: string): string
 	if type(value) ~= "table" then return scalar(value, field) end
 	local parts: {string} = {}
@@ -165,7 +165,7 @@ local function queryValue(value: any, field: string): string
 		table.insert(parts, scalar(item, field))
 	end
 	assert(#parts > 0, field .. " must not be an empty array")
-	return table.concat(parts, ",")
+	return table.concat(parts, "%2C")
 end
 
 local function unescape(value: string): string
@@ -191,7 +191,7 @@ local function nextPage(name: string, endpoint: Endpoint, link: any): string
 	end
 	local seen: {[string]: boolean} = {}
 	for pair in string.gmatch(query, "[^&]+") do
-		local key, value = string.match(pair, "^([%w_]+)=([%w%%._~+-]*)$")
+		local key, value = string.match(pair, "^([%w_]+)=([%w%%._~+,-]*)$")
 		assert(key and value and not seen[key], usage)
 		assert(key == "fields" or key == "pretty" or key == "__paging_token" or key == "__previous" or table.find(endpoint.query or NONE, key)
 			or table.find(endpoint.paging or NONE, key), usage)
