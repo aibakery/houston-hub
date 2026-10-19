@@ -195,8 +195,8 @@ local endpoints: {[string]: Endpoint} = {
 	removeSuppression = {method = "DELETE", path = "/suppressions/{suppression}", doc = "suppressions/remove-suppression", about = "Removes a suppression."},
 }
 
--- Request layer shared verbatim by the Cal.com, Calendly and Resend connectors (tools/validate
--- checks they match). It uses each connector's PROVIDER, DOCS and Endpoint type.
+-- Request layer shared verbatim by the Cal.com, Calendly, Carta, Carta CRM and Resend connectors
+-- (tools/validate checks they match). It uses each connector's PROVIDER, DOCS and Endpoint type.
 local NULL = json.decode("null")
 local NONE: {string} = table.freeze({})
 
@@ -233,7 +233,7 @@ end
 -- A successful response's JSON object, or nil when a write answers without a body.
 local function object(name: string, endpoint: Endpoint, response: HttpResponse): Options?
 	local raw = await(response.body:readAll())
-	if endpoint.method ~= "GET" and string.match(raw, "^%s*$") then return nil end
+	if endpoint.method ~= "GET" and writes(endpoint) and string.match(raw, "^%s*$") then return nil end
 	local ok, value = pcall(json.decode, raw)
 	if not ok or type(value) ~= "table" or not string.match(raw, "^%s*{") then
 		fail(name, response, PROVIDER .. " returned an invalid JSON object")

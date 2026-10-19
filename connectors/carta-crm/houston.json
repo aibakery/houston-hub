@@ -1,0 +1,436 @@
+{
+  "schema_version": 1,
+  "name": "Carta CRM",
+  "files": [
+    "connector.lua"
+  ],
+  "icon": "icon.svg",
+  "config": {
+    "access": {
+      "default": "read-only",
+      "label": "Access",
+      "options": [
+        {
+          "label": "Read-only",
+          "value": "read-only"
+        },
+        {
+          "label": "Read and write",
+          "value": "read-write"
+        }
+      ],
+      "type": "string"
+    }
+  },
+  "auth": {
+    "token": {
+      "type": "manual",
+      "label": "API key",
+      "config": {
+        "token": {
+          "label": "API key",
+          "required": true,
+          "type": "secret"
+        }
+      }
+    }
+  },
+  "proxy": [
+    {
+      "match": {
+        "protocol": "http",
+        "host": [
+          "crm-public-api.app.carta.com"
+        ],
+        "method": [
+          "DELETE"
+        ],
+        "path": [
+          "/v1/companies/aggregate",
+          "/v1/companies/angles",
+          "/v1/companies/custom-fields",
+          "/v1/companies/fields",
+          "/v1/companies/lists",
+          "/v1/companies/search",
+          "/v1/contacts/classifier-prompt",
+          "/v1/contacts/custom-fields",
+          "/v1/contacts/duplicates",
+          "/v1/contacts/enrich",
+          "/v1/contacts/fields",
+          "/v1/contacts/folders",
+          "/v1/contacts/lists",
+          "/v1/contacts/merge",
+          "/v1/deals/aggregate",
+          "/v1/deals/batch",
+          "/v1/deals/custom-fields",
+          "/v1/deals/fields",
+          "/v1/deals/pipelines",
+          "/v1/deals/search",
+          "/v1/fees/aggregate",
+          "/v1/fees/custom-fields",
+          "/v1/fees/fields",
+          "/v1/fees/search",
+          "/v1/fundraisings/aggregate",
+          "/v1/fundraisings/custom-fields",
+          "/v1/fundraisings/fields",
+          "/v1/fundraisings/search",
+          "/v1/fundraisings/stages",
+          "/v1/ic-meetings/fields",
+          "/v1/ic-requests/fields",
+          "/v1/investors/aggregate",
+          "/v1/investors/custom-fields",
+          "/v1/investors/fields",
+          "/v1/investors/search",
+          "/v1/notes/by-domain",
+          "/v1/notes/folders",
+          "/v1/tasks/by-entity"
+        ]
+      },
+      "action": {}
+    },
+    {
+      "match": {
+        "protocol": "http",
+        "host": [
+          "crm-public-api.app.carta.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/v1/companies/aggregate",
+          "/v1/companies/custom-fields",
+          "/v1/companies/search",
+          "/v1/contacts/classifier-prompt",
+          "/v1/contacts/custom-fields",
+          "/v1/contacts/enrich",
+          "/v1/contacts/folders",
+          "/v1/contacts/merge",
+          "/v1/deals/aggregate",
+          "/v1/deals/batch",
+          "/v1/deals/custom-fields",
+          "/v1/deals/search",
+          "/v1/email-campaigns/stats",
+          "/v1/fees/aggregate",
+          "/v1/fees/custom-fields",
+          "/v1/fees/search",
+          "/v1/fundraisings/aggregate",
+          "/v1/fundraisings/custom-fields",
+          "/v1/fundraisings/search",
+          "/v1/investors/aggregate",
+          "/v1/investors/custom-fields",
+          "/v1/investors/search"
+        ]
+      },
+      "action": {}
+    },
+    {
+      "match": {
+        "protocol": "http",
+        "host": [
+          "crm-public-api.app.carta.com"
+        ],
+        "method": [
+          "PATCH"
+        ],
+        "path": [
+          "/v1/companies/aggregate",
+          "/v1/companies/angles",
+          "/v1/companies/custom-fields",
+          "/v1/companies/fields",
+          "/v1/companies/lists",
+          "/v1/companies/search",
+          "/v1/contacts/classifier-prompt",
+          "/v1/contacts/custom-fields",
+          "/v1/contacts/duplicates",
+          "/v1/contacts/enrich",
+          "/v1/contacts/fields",
+          "/v1/contacts/folders",
+          "/v1/contacts/lists",
+          "/v1/contacts/merge",
+          "/v1/deals/aggregate",
+          "/v1/deals/batch",
+          "/v1/deals/custom-fields",
+          "/v1/deals/fields",
+          "/v1/deals/pipelines",
+          "/v1/deals/search",
+          "/v1/fees/aggregate",
+          "/v1/fees/custom-fields",
+          "/v1/fees/fields",
+          "/v1/fees/search",
+          "/v1/fundraisings/aggregate",
+          "/v1/fundraisings/custom-fields",
+          "/v1/fundraisings/fields",
+          "/v1/fundraisings/search",
+          "/v1/fundraisings/stages",
+          "/v1/ic-meetings/fields",
+          "/v1/ic-requests/fields",
+          "/v1/investors/aggregate",
+          "/v1/investors/custom-fields",
+          "/v1/investors/fields",
+          "/v1/investors/search",
+          "/v1/notes/by-domain",
+          "/v1/notes/folders",
+          "/v1/tasks/by-entity"
+        ]
+      },
+      "action": {}
+    },
+    {
+      "match": {
+        "protocol": "http",
+        "host": [
+          "crm-public-api.app.carta.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/v1/calendar-events",
+          "/v1/calendar-events/{id}/notes",
+          "/v1/companies",
+          "/v1/companies/angles",
+          "/v1/companies/fields",
+          "/v1/companies/lists",
+          "/v1/companies/{id}",
+          "/v1/companies/{id}/interactions",
+          "/v1/companies/{id}/notes",
+          "/v1/companies/{id}/relations",
+          "/v1/contacts",
+          "/v1/contacts/duplicates",
+          "/v1/contacts/fields",
+          "/v1/contacts/lists",
+          "/v1/contacts/{id}",
+          "/v1/contacts/{id}/interactions",
+          "/v1/contacts/{id}/notes",
+          "/v1/deals",
+          "/v1/deals/fields",
+          "/v1/deals/pipelines",
+          "/v1/deals/{id}",
+          "/v1/deals/{id}/notes",
+          "/v1/deals/{id}/stage-history",
+          "/v1/email-campaigns",
+          "/v1/email-campaigns/{id}",
+          "/v1/email-history",
+          "/v1/fees",
+          "/v1/fees/by-contact/{contactId}",
+          "/v1/fees/by-deal/{dealId}",
+          "/v1/fees/fields",
+          "/v1/fees/{id}",
+          "/v1/fundraisings",
+          "/v1/fundraisings/fields",
+          "/v1/fundraisings/stages",
+          "/v1/fundraisings/{id}",
+          "/v1/fundraisings/{id}/notes",
+          "/v1/funds/closings-status",
+          "/v1/funds/{fundCartaId}/closing-prospect-statuses",
+          "/v1/ic-meetings",
+          "/v1/ic-meetings/fields",
+          "/v1/ic-meetings/{id}",
+          "/v1/ic-meetings/{id}/requests",
+          "/v1/ic-requests",
+          "/v1/ic-requests/fields",
+          "/v1/ic-requests/{id}",
+          "/v1/interactions",
+          "/v1/investors",
+          "/v1/investors/fields",
+          "/v1/investors/{id}",
+          "/v1/investors/{id}/capital-activity",
+          "/v1/investors/{id}/notes",
+          "/v1/lp-discovery",
+          "/v1/lp-discovery/facets",
+          "/v1/lp-discovery/{id}",
+          "/v1/me",
+          "/v1/notes",
+          "/v1/notes/by-domain",
+          "/v1/notes/folders",
+          "/v1/notes/{id}",
+          "/v1/objects-count",
+          "/v1/organization",
+          "/v1/organization/users",
+          "/v1/people/search",
+          "/v1/reports",
+          "/v1/reports/{id}",
+          "/v1/reports/{id}/data",
+          "/v1/tasks",
+          "/v1/tasks/by-entity",
+          "/v1/tasks/{id}",
+          "/v1/themes",
+          "/v1/themes/{id}/folders",
+          "/v1/themes/{id}/theme-items"
+        ]
+      },
+      "action": {
+        "headers": {
+          "remove": [
+            "X-HTTP-Method-Override",
+            "X-HTTP-Method",
+            "X-Method-Override"
+          ],
+          "set": {
+            "Authorization": "{{auth.token.token}}"
+          }
+        }
+      }
+    },
+    {
+      "match": {
+        "protocol": "http",
+        "host": [
+          "crm-public-api.app.carta.com"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/v1/companies/aggregate",
+          "/v1/companies/search",
+          "/v1/deals/aggregate",
+          "/v1/deals/search",
+          "/v1/deals/stage-history/aggregate",
+          "/v1/fees/aggregate",
+          "/v1/fees/search",
+          "/v1/fundraisings/aggregate",
+          "/v1/fundraisings/search",
+          "/v1/investors/aggregate",
+          "/v1/investors/search"
+        ]
+      },
+      "action": {
+        "headers": {
+          "remove": [
+            "X-HTTP-Method-Override",
+            "X-HTTP-Method",
+            "X-Method-Override"
+          ],
+          "set": {
+            "Authorization": "{{auth.token.token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "crm-public-api.app.carta.com"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/v1/calendar-events/{id}/notes/{noteId}",
+          "/v1/companies",
+          "/v1/companies/{id}/lists/{listId}",
+          "/v1/companies/{id}/notes/{noteId}",
+          "/v1/contacts",
+          "/v1/contacts/{id}/lists/{listId}",
+          "/v1/contacts/{id}/notes/{noteId}",
+          "/v1/deals",
+          "/v1/deals/{id}/notes/{noteId}",
+          "/v1/fees",
+          "/v1/fundraisings",
+          "/v1/fundraisings/{id}/notes/{noteId}",
+          "/v1/ic-meetings",
+          "/v1/ic-requests",
+          "/v1/investors",
+          "/v1/investors/{id}/notes/{noteId}",
+          "/v1/lp-discovery/{id}/add-to-fundraising",
+          "/v1/lp-discovery/{id}/add-to-investors",
+          "/v1/notes",
+          "/v1/tasks",
+          "/v1/themes",
+          "/v1/themes/{id}/theme-items"
+        ]
+      },
+      "action": {
+        "headers": {
+          "remove": [
+            "X-HTTP-Method-Override",
+            "X-HTTP-Method",
+            "X-Method-Override"
+          ],
+          "set": {
+            "Authorization": "{{auth.token.token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "crm-public-api.app.carta.com"
+        ],
+        "method": [
+          "PATCH"
+        ],
+        "path": [
+          "/v1/companies/{id}",
+          "/v1/contacts/{id}",
+          "/v1/deals/{id}",
+          "/v1/fees/{id}",
+          "/v1/fundraisings/{id}",
+          "/v1/ic-meetings/{id}",
+          "/v1/ic-requests/{id}",
+          "/v1/investors/{id}",
+          "/v1/notes/{id}",
+          "/v1/tasks/{id}"
+        ]
+      },
+      "action": {
+        "headers": {
+          "remove": [
+            "X-HTTP-Method-Override",
+            "X-HTTP-Method",
+            "X-Method-Override"
+          ],
+          "set": {
+            "Authorization": "{{auth.token.token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "crm-public-api.app.carta.com"
+        ],
+        "method": [
+          "DELETE"
+        ],
+        "path": [
+          "/v1/companies/{id}",
+          "/v1/companies/{id}/lists/{listId}",
+          "/v1/contacts/{id}",
+          "/v1/contacts/{id}/lists/{listId}",
+          "/v1/deals/{id}",
+          "/v1/fees/{id}",
+          "/v1/fundraisings/{id}",
+          "/v1/ic-meetings/{id}",
+          "/v1/ic-requests/{id}",
+          "/v1/investors/{id}",
+          "/v1/notes/{id}",
+          "/v1/tasks/{id}",
+          "/v1/themes/{id}/theme-items/{itemId}"
+        ]
+      },
+      "action": {
+        "headers": {
+          "remove": [
+            "X-HTTP-Method-Override",
+            "X-HTTP-Method",
+            "X-Method-Override"
+          ],
+          "set": {
+            "Authorization": "{{auth.token.token}}"
+          }
+        }
+      }
+    }
+  ]
+}

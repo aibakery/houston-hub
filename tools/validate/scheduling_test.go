@@ -121,13 +121,15 @@ func TestCalendlyScopesAndAccessRoutes(t *testing.T) {
 // The proxy must allow exactly the routes in each connector's endpoint table, and the
 // writes only on read-write connections. Only GET reads unless an entry sets write.
 // Credential-free rules, such as Resend's signed attachment links, are not API routes.
-// A {format} placeholder expands to the connector's FORMATS list (Wise statements).
+// A {format} placeholder expands to the connector's FORMATS list (Wise statements). A custom
+// method such as Carta's {capitalCallId}:adjust is routed by its whole-segment placeholder.
 func TestProxyMatchesEndpointTables(t *testing.T) {
 	const readWrite = `{{ is config.access "read-write" }}`
 	endpoint := regexp.MustCompile(`(?m)^\t\w+ = \{method = "([A-Z]+)", path = "([^"]+)"(.*)$`)
 	override := regexp.MustCompile(`\bwrite = (true|false)\b`)
 	formats := regexp.MustCompile(`local FORMATS = table\.freeze\(\{([^}]*)\}\)`)
-	for _, name := range []string{"calcom", "calendly", "resend", "stripe", "wise", "github"} {
+	customMethod := regexp.MustCompile(`\}:\w+$`)
+	for _, name := range []string{"calcom", "calendly", "carta", "carta-crm", "resend", "stripe", "wise", "github"} {
 		raw, err := os.ReadFile("../../connectors/" + name + "/connector.lua")
 		if err != nil {
 			t.Fatal(err)
@@ -144,7 +146,7 @@ func TestProxyMatchesEndpointTables(t *testing.T) {
 			if write {
 				gate = readWrite
 			}
-			paths := []string{match[2]}
+			paths := []string{customMethod.ReplaceAllString(match[2], "}")}
 			if strings.Contains(match[2], "{format}") {
 				list := formats.FindStringSubmatch(lua)
 				if list == nil {
@@ -172,7 +174,9 @@ func TestProxyMatchesEndpointTables(t *testing.T) {
 				}
 			}
 		}
+		// Custom methods of one resource, such as two exercise verbs, share its route.
 		slices.Sort(want)
+		want = slices.Compact(want)
 		slices.Sort(got)
 		if !slices.Equal(got, want) {
 			t.Errorf("%s: proxy routes %v, endpoint table %v", name, got, want)
