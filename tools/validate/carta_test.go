@@ -119,16 +119,18 @@ func TestCartaRoutesStripMethodOverrides(t *testing.T) {
 	assertStripsMethodOverrides(t, crm, "GET "+api+"/deals/65a1b2c3d4e5f60718293a4b", "POST "+api+"/companies/search", "POST "+api+"/contacts", "PATCH "+api+"/deals/65a1b2c3d4e5f60718293a4b")
 }
 
-// Carta CRM's {id} routes would also match omitted sibling routes such as PATCH
-// /v1/deals/batch; a credential-free rule ahead of them sends those without the key.
+// Carta CRM's {id} routes would also match documented literal routes such as PATCH
+// /v1/deals/batch; credential-free rules ahead of them send those without the key,
+// while the table's own literal routes keep it.
 func TestCartaCRMSiblingRoutesGetNoKey(t *testing.T) {
 	r, err := parseManifest(t, "../../connectors/carta-crm/houston.json").Resolve(nil, map[string]any{"access": "read-write"}, map[string]any{"token": "crm-key"}, "token")
 	if err != nil {
 		t.Fatal(err)
 	}
 	const api = "https://crm-public-api.app.carta.com/v1"
-	for _, route := range []string{"PATCH " + api + "/deals/batch", "PATCH " + api + "/contacts/classifier-prompt", "GET " + api + "/contacts/classifier-prompt",
-		"GET " + api + "/deals/custom-fields", "GET " + api + "/email-campaigns/stats", "GET " + api + "/investors/custom-fields"} {
+	for _, route := range []string{"PATCH " + api + "/deals/batch", "DELETE " + api + "/deals/batch", "PATCH " + api + "/contacts/classifier-prompt",
+		"PATCH " + api + "/deals/pipelines", "PATCH " + api + "/fundraisings/stages", "DELETE " + api + "/notes/folders", "DELETE " + api + "/contacts/merge",
+		"GET " + api + "/contacts/classifier-prompt", "GET " + api + "/deals/custom-fields", "GET " + api + "/email-campaigns/stats"} {
 		method, url, _ := strings.Cut(route, " ")
 		recipe, err := r.Proxy.HTTPRecipe(method, url, nil)
 		if err != nil {
@@ -139,7 +141,8 @@ func TestCartaCRMSiblingRoutesGetNoKey(t *testing.T) {
 			t.Fatalf("%s received the key: %v", route, err)
 		}
 	}
-	for _, route := range []string{"PATCH " + api + "/deals/65a1b2c3d4e5f60718293a4b", "GET " + api + "/deals/pipeline-review"} {
+	for _, route := range []string{"PATCH " + api + "/deals/65a1b2c3d4e5f60718293a4b", "GET " + api + "/deals/pipeline-review", "GET " + api + "/deals/pipelines",
+		"GET " + api + "/companies/fields", "POST " + api + "/deals/search"} {
 		method, url, _ := strings.Cut(route, " ")
 		recipe, err := r.Proxy.HTTPRecipe(method, url, nil)
 		if err != nil {

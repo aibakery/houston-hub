@@ -766,9 +766,11 @@ settings and the contact classifier prompt. Not yet covered: attachment, logo an
 photo uploads (multipart), subtheme changes and DELETE requests with bodies, note
 unlinking, relations and interactions of deals, fundraisings and investors, campaign
 statistics and email templates. The LP capital map and the contact count are not covered
-either. A first, credential-free rule matches the omitted routes that `{id}` placeholders
-would otherwise reach (`PATCH /v1/deals/batch`, the classifier prompt, custom-field
-lists and campaign statistics), so they never receive the key. The reference types
+either. Credential-free rules come first for every documented literal route that a
+credentialed `{id}` rule would also match, under each of that rule's methods (such as
+`PATCH /v1/deals/batch` and `DELETE /v1/notes/folders`), so they never receive the key;
+the table's own literal routes keep it. Regenerate them from the reference when the
+table changes. The reference types
 `fundCartaIds` and `prospectPublicIds` as strings, unlike its repeated array
 parameters, so callers pass comma-separated strings; confirm that live.
 

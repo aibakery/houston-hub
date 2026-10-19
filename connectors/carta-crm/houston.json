@@ -43,19 +43,135 @@
           "crm-public-api.app.carta.com"
         ],
         "method": [
-          "GET",
+          "DELETE"
+        ],
+        "path": [
+          "/v1/companies/aggregate",
+          "/v1/companies/angles",
+          "/v1/companies/custom-fields",
+          "/v1/companies/fields",
+          "/v1/companies/lists",
+          "/v1/companies/search",
+          "/v1/contacts/classifier-prompt",
+          "/v1/contacts/custom-fields",
+          "/v1/contacts/duplicates",
+          "/v1/contacts/enrich",
+          "/v1/contacts/fields",
+          "/v1/contacts/folders",
+          "/v1/contacts/lists",
+          "/v1/contacts/merge",
+          "/v1/deals/aggregate",
+          "/v1/deals/batch",
+          "/v1/deals/custom-fields",
+          "/v1/deals/fields",
+          "/v1/deals/pipelines",
+          "/v1/deals/search",
+          "/v1/fees/aggregate",
+          "/v1/fees/custom-fields",
+          "/v1/fees/fields",
+          "/v1/fees/search",
+          "/v1/fundraisings/aggregate",
+          "/v1/fundraisings/custom-fields",
+          "/v1/fundraisings/fields",
+          "/v1/fundraisings/search",
+          "/v1/fundraisings/stages",
+          "/v1/ic-meetings/fields",
+          "/v1/ic-requests/fields",
+          "/v1/investors/aggregate",
+          "/v1/investors/custom-fields",
+          "/v1/investors/fields",
+          "/v1/investors/search",
+          "/v1/notes/by-domain",
+          "/v1/notes/folders",
+          "/v1/tasks/by-entity"
+        ]
+      },
+      "action": {}
+    },
+    {
+      "match": {
+        "protocol": "http",
+        "host": [
+          "crm-public-api.app.carta.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/v1/companies/aggregate",
+          "/v1/companies/custom-fields",
+          "/v1/companies/search",
+          "/v1/contacts/classifier-prompt",
+          "/v1/contacts/custom-fields",
+          "/v1/contacts/enrich",
+          "/v1/contacts/folders",
+          "/v1/contacts/merge",
+          "/v1/deals/aggregate",
+          "/v1/deals/batch",
+          "/v1/deals/custom-fields",
+          "/v1/deals/search",
+          "/v1/email-campaigns/stats",
+          "/v1/fees/aggregate",
+          "/v1/fees/custom-fields",
+          "/v1/fees/search",
+          "/v1/fundraisings/aggregate",
+          "/v1/fundraisings/custom-fields",
+          "/v1/fundraisings/search",
+          "/v1/investors/aggregate",
+          "/v1/investors/custom-fields",
+          "/v1/investors/search"
+        ]
+      },
+      "action": {}
+    },
+    {
+      "match": {
+        "protocol": "http",
+        "host": [
+          "crm-public-api.app.carta.com"
+        ],
+        "method": [
           "PATCH"
         ],
         "path": [
+          "/v1/companies/aggregate",
+          "/v1/companies/angles",
           "/v1/companies/custom-fields",
+          "/v1/companies/fields",
+          "/v1/companies/lists",
+          "/v1/companies/search",
           "/v1/contacts/classifier-prompt",
           "/v1/contacts/custom-fields",
+          "/v1/contacts/duplicates",
+          "/v1/contacts/enrich",
+          "/v1/contacts/fields",
+          "/v1/contacts/folders",
+          "/v1/contacts/lists",
+          "/v1/contacts/merge",
+          "/v1/deals/aggregate",
           "/v1/deals/batch",
           "/v1/deals/custom-fields",
-          "/v1/email-campaigns/stats",
+          "/v1/deals/fields",
+          "/v1/deals/pipelines",
+          "/v1/deals/search",
+          "/v1/fees/aggregate",
           "/v1/fees/custom-fields",
+          "/v1/fees/fields",
+          "/v1/fees/search",
+          "/v1/fundraisings/aggregate",
           "/v1/fundraisings/custom-fields",
-          "/v1/investors/custom-fields"
+          "/v1/fundraisings/fields",
+          "/v1/fundraisings/search",
+          "/v1/fundraisings/stages",
+          "/v1/ic-meetings/fields",
+          "/v1/ic-requests/fields",
+          "/v1/investors/aggregate",
+          "/v1/investors/custom-fields",
+          "/v1/investors/fields",
+          "/v1/investors/search",
+          "/v1/notes/by-domain",
+          "/v1/notes/folders",
+          "/v1/tasks/by-entity"
         ]
       },
       "action": {}
