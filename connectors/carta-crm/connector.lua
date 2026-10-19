@@ -321,6 +321,8 @@ local function failStatus(name: string, response: HttpResponse): never
 		if type(value.code) == "string" then message ..= " (" .. string.sub(value.code, 1, 100) .. ")" end
 		local text = if type(value.error) == "string" then value.error else value.message
 		if type(text) == "string" then message ..= ": " .. string.sub(text, 1, 600) end
+		-- Validation failures list their problems in message.
+		if type(value.message) == "table" then message ..= " " .. string.sub(json.encode(value.message), 1, 600) end
 	end
 	local reset = response.headers["ratelimit-reset"]
 	if response.statusCode == 429 and reset and reset[1] then message ..= "; rate limit resets in " .. reset[1] .. "s" end

@@ -27,6 +27,8 @@ return {
 			{"HTTP 400 (FOLDER_NOT_FOUND): Folder not found", '"retryable":false'})
 		local long = upstream(422, json.encode({success = false, error = string.rep("x", 5000)}), {}, {"HTTP 422: xxx"})
 		assert(not string.find(long, string.rep("x", 601), 1, true), "error message not bounded")
+		upstream(400, '{"statusCode":400,"message":["emailDetail.email must be an email","name should not be empty"],"error":"Bad Request"}', {},
+			{"HTTP 400: Bad Request", "emailDetail.email must be an email", "name should not be empty"})
 		upstream(429, '{"message":"Too many requests"}', {["ratelimit-reset"] = {"42"}}, {"HTTP 429", "rate limit resets in 42s", '"retryable":true'})
 		upstream(502, "<html>Bad gateway</html>", {}, {"HTTP 502", '"retryable":true'})
 		upstream(200, "<html>Maintenance</html>", {}, {"invalid JSON object"})
