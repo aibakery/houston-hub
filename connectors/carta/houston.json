@@ -282,7 +282,6 @@
           "/v1alpha1/corporations",
           "/v1alpha1/corporations/{corporationId}/compensationBenchmarkAttributes",
           "/v1alpha1/corporations/{corporationId}/compensationBenchmarks",
-          "/v1alpha1/draftIssuers/{id}",
           "/v1alpha1/investors/firms",
           "/v1alpha1/investors/firms/{firmId}/funds",
           "/v1alpha1/investors/firms/{firmId}/funds/{fundId}/cashBalances",
@@ -392,6 +391,7 @@
           "GET"
         ],
         "path": [
+          "/v1alpha1/draftIssuers/{id}",
           "/v1alpha1/investors/firms/{firmId}/funds/{fundId}/capitalCalls/{capitalCallId}",
           "/v1alpha1/investors/firms/{firmId}/funds/{fundId}/managementFees/{managementFeeId}",
           "/v1alpha1/issuers/{issuerId}/secondaryTransactions/{secondaryTransactionId}"

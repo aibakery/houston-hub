@@ -20,13 +20,13 @@ return {
 
 		local names = {}
 		for name in carta do if name ~= "help" then table.insert(names, name) end end
-		assert(#names == 64, "wrong read-only surface: " .. #names)
+		assert(#names == 63, "wrong read-only surface: " .. #names)
 		for _, name in {"createCapitalCall", "adjustCapitalCall", "getCapitalCall", "createManagementFee", "getManagementFee", "createCarriedInterestAllocation",
 			"createDraftOptionGrant", "updateExerciseMoneyMovement", "updateExerciseTaxWithholding", "initiateSecondarySettlement", "getSecondaryTransaction",
-			"finalizeSecondarySettlement", "createDraftIssuer", "uploadOpenCapTable", "uploadFile"} do
+			"finalizeSecondarySettlement", "createDraftIssuer", "getDraftIssuer", "uploadOpenCapTable", "uploadFile"} do
 			assert(carta[name] == nil, "read-only leaked " .. name)
 		end
-		assert(carta.getStockSplitChanges and carta.getDraftIssuer and carta.getOpenCapTable, "reads are missing")
+		assert(carta.getStockSplitChanges and carta.getOpenCapTable, "reads are missing")
 		assert(#requests == 0, "initialization reached Carta")
 
 		payload = '{"user":{"id":"2184ae6f-9415-465a-9f5f-80efbc81b266","email":"tagg@example.com"}}'

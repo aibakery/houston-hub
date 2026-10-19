@@ -48,10 +48,11 @@ func TestCartaScopesAndAccessRoutes(t *testing.T) {
 					"GET "+api+"/user", "GET "+api+"/issuers?pageSize=50", "GET "+api+"/issuers/7/stakeholders/611/equitySummary",
 					"GET "+api+"/investors/firms/F/funds/-/metrics", "GET "+api+"/portfolios/P/fundInvestmentDocuments/D:download",
 					"POST "+api+"/issuers/7/securities:stockSplitChanges")
-				// Capital calls, management fees and secondary transactions read only with readwrite_ scopes.
+				// Capital calls, management fees and secondary transactions read only with readwrite_ scopes;
+				// draft issuers return a one-time registration link.
 				assertRoutes(t, r, token, access == "read-write",
 					"GET "+api+"/investors/firms/F/funds/U/capitalCalls/C", "GET "+api+"/investors/firms/F/funds/U/managementFees/M",
-					"GET "+api+"/issuers/7/secondaryTransactions/S", "POST "+api+"/investors/firms/F/funds/U/capitalCalls",
+					"GET "+api+"/issuers/7/secondaryTransactions/S", "GET "+api+"/draftIssuers/D", "POST "+api+"/investors/firms/F/funds/U/capitalCalls",
 					"POST "+api+"/investors/firms/F/funds/U/capitalCalls/C:adjust", "POST "+api+"/issuers/7/optionExercises/E:updateTaxWithholding",
 					"POST "+api+"/issuers/7/secondaryTransactions/S:finalize", "POST "+api+"/draftIssuers", "POST "+api+"/files:upload")
 				assertRoutes(t, r, token, false,

@@ -70,7 +70,8 @@ local endpoints: {[string]: Endpoint} = {
 
 	createDraftIssuer = {method = "POST", path = "/v1alpha1/draftIssuers", doc = "draft-issuers-create-draft-issuer",
 		about = "Body {draftIssuer}. Starts a company on Carta Launch; the result's registrationUrl is a one-time link for its primary contact."},
-	getDraftIssuer = {method = "GET", path = "/v1alpha1/draftIssuers/{id}", doc = "draft-issuers-get-draft-issuer", about = ""},
+	getDraftIssuer = {method = "GET", path = "/v1alpha1/draftIssuers/{id}", write = true, doc = "draft-issuers-get-draft-issuer",
+		about = "Includes the primary contact's one-time registrationUrl; treat it as a secret."},
 	uploadOpenCapTable = {method = "POST", path = "/v1alpha1/openCapTables", doc = "open-cap-tables-upload-open-cap-table",
 		about = "Body {contentType, data (base64 OCF zip), extensions?}. Processing is asynchronous; poll getOpenCapTable."},
 	getOpenCapTable = {method = "GET", path = "/v1alpha1/openCapTables/{id}", doc = "open-cap-tables-get-open-cap-table", about = "Processing status of an OCF upload."},
@@ -318,6 +319,6 @@ return operations(endpoints, request, {
 	"Start from listIssuers() for companies, listFirms() then listFunds({firmId}) for investment firms (fundId '-' selects every fund for cash balances, metrics and investment securities), or listPortfolios() for shareholdings. Only the companies, firms and portfolios shared at sign-in are visible, within the user's Carta role.",
 	"IDs are strings. Lists return one page: pageSize defaults to 25, at most 50 unless noted (larger values are reduced); while nextPageToken is nonempty, pass it as pageToken with the same other options. Dates are YYYY-MM-DD; date-times ISO 8601 UTC. Array filters (fundIds, partnerIds) are sent comma-separated.",
 	"Examples: local issuer = carta.listIssuers({pageSize=50}).issuers[1]; carta.getIssuerCapitalizationTable({issuerId=issuer.id, asOfDate='2026-10-19'}); carta.listStakeholders({issuerId=issuer.id, pageSize=100}); carta.listTransactions({issuerId=issuer.id, type='option'}); carta.listFundPerformanceMetrics({firmId=firm.id, fundId='-', reportType='BY_FUND'}).",
-	"Read-only connections omit writes and getCapitalCall, getManagementFee and getSecondaryTransaction, which need write scopes. Fund accounting writes are idempotent on externalReferenceId and sourceSystem: repeating the same request returns the original with replayed=true, and a different payload under the same reference fails with 409. Other writes are not: after a timeout or 5xx, read the resource again before repeating one. Carta allows 10 requests per second and 300 per minute (half on the playground).",
+	"Read-only connections omit writes, getCapitalCall, getManagementFee and getSecondaryTransaction, which need write scopes, and getDraftIssuer, whose registration link is a credential. Fund accounting writes are idempotent on externalReferenceId and sourceSystem: repeating the same request returns the original with replayed=true, and a different payload under the same reference fails with 409. Other writes are not: after a timeout or 5xx, read the resource again before repeating one. Carta allows 10 requests per second and 300 per minute (half on the playground).",
 	"Errors report the HTTP status, Carta's reasons (INSUFFICIENT_SCOPE, ACCESS_TO_RESOURCE_RESTRICTED for a resource not shared at sign-in, MISSING_INTERNAL_PERMISSION for the user's Carta role) and message.",
 })

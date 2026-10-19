@@ -718,9 +718,10 @@ Every method shares the proxy rules, which allow only the listed routes on
 from reads; writes require read-write access. Lua chooses the host from the selected
 method. Custom methods such as `capitalCalls/{id}:adjust` match their whole-segment
 placeholder. Fund document downloads return a temporary signed URL, which the
-connector passes through without fetching; draft issuers return a one-time
-`registrationUrl`. Carta allows 10 requests per second and 300 per minute per app
-(half on the playground), reported in `RateLimit-*` headers without `Retry-After`.
+connector passes through without fetching. Draft issuers return the primary contact's
+one-time `registrationUrl`, so even reading one needs read-write access. Carta allows
+10 requests per second and 300 per minute per app (half on the playground), reported
+in `RateLimit-*` headers without `Retry-After`.
 
 Carta's icon is the square favicon mark (`carta-favicon-black.svg`) from the approved
 branding folder linked from Carta's production guide, retrieved 2026-10-19,
