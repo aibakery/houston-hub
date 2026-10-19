@@ -201,12 +201,14 @@ local function nextPage(name: string, endpoint: Endpoint, link: any): string
 end
 
 -- Meta writes the request's access token into paging links, also URL-encoded inside others,
--- and echoes malformed tokens, which start with EAA, in error messages.
+-- and echoes malformed tokens, EAA and at least 30 more token characters, in error messages.
+local TOKEN_CHARS = "[%w_.-]*"
+local ECHOED = "%f[%w]EAA" .. string.rep("[%w_-]", 30) .. "[%w_-]*"
 local function scrub(text: string): string
-	local plain, found = string.gsub(text, "access_token=[^&#%s\"]*&?", "")
-	local clean, encoded = string.gsub(plain, "access_token%%3[Dd][^&#%s\"]*", "")
-	local bare, echoed = string.gsub(clean, "%f[%w]EAA[%w_%-]+", "EAA[redacted]")
-	return if found + encoded + echoed == 0 then text else (string.gsub(bare, "[?&]$", ""))
+	local plain, found = string.gsub(text, "access_token=" .. TOKEN_CHARS .. "&?", "")
+	if found > 0 then plain = string.gsub(plain, "[?&]$", "") end
+	local encoded = string.gsub(plain, "access_token%%3[Dd]" .. TOKEN_CHARS, "")
+	return (string.gsub(encoded, ECHOED, "EAA[redacted]"))
 end
 
 -- Results never carry credentials: token links are scrubbed and token fields, such as an
