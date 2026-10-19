@@ -2,7 +2,7 @@
 -- results keep Meta's native field names.
 type Options = {[string]: any}
 type Endpoint = {method: string, path: string, host: string?, query: {string}?, required: {string}?, paging: {string}?,
-	body: {string}?, fields: string?, upload: boolean?, write: boolean?, about: string}
+	body: {string}?, fields: string?, upload: boolean?, about: string}
 
 -- Graph versions work for two years after their successor ships; v26.0 has no sunset date yet.
 local VERSION = "v26.0"
@@ -73,8 +73,8 @@ local endpoints: {[string]: Endpoint} = {
 	listInstagramComments = {method = "GET", path = "/{media}/comments", paging = CURSORS, fields = IG_COMMENT_FIELDS .. ",replies{" .. IG_COMMENT_FIELDS .. "}",
 		about = "Top-level comments on Instagram media, newest first, with their replies. limit is at most 50."},
 	listInstagramReplies = {method = "GET", path = "/{comment}/replies", paging = CURSORS, fields = IG_COMMENT_FIELDS, about = "Replies to an Instagram comment."},
-	getInstagramPublishingLimit = {method = "GET", path = "/{ig_user}/content_publishing_limit", query = {"since"}, fields = "config,quota_usage", write = true,
-		about = "Posts published through the API in the last 24 hours (quota_usage) and the quota (config.quota_total). Needs instagram_content_publish, so read-write only."},
+	getInstagramPublishingLimit = {method = "GET", path = "/{ig_user}/content_publishing_limit", query = {"since"}, fields = "config,quota_usage",
+		about = "Posts published through the API in the last 24 hours (quota_usage) and the quota (config.quota_total). Needs the instagram_content_publish permission."},
 	searchInstagramHashtag = {method = "GET", path = "/ig_hashtag_search", query = {"user_id", "q"}, required = {"user_id", "q"},
 		about = "The ID of a hashtag (q without #); user_id is your ig_user. At most 30 different hashtags per 7 days; needs Meta's Instagram Public Content Access feature."},
 	listHashtagTopMedia = {method = "GET", path = "/{hashtag}/top_media", query = {"user_id"}, required = {"user_id"}, paging = {"limit", "after"},
@@ -379,8 +379,7 @@ end
 
 local exports: {[string]: any} = {}
 for name, endpoint in endpoints do
-	local write = if endpoint.write ~= nil then endpoint.write else endpoint.method ~= "GET"
-	if not write or config.access == "read-write" then
+	if endpoint.method == "GET" or config.access == "read-write" then
 		exports[name] = function(args: Options?): any return request(name, endpoint, args) end
 	end
 end

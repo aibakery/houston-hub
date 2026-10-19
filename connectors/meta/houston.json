@@ -50,6 +50,7 @@
           "/v26.0/{id}",
           "/v26.0/{id}/children",
           "/v26.0/{id}/comments",
+          "/v26.0/{id}/content_publishing_limit",
           "/v26.0/{id}/conversations",
           "/v26.0/{id}/feed",
           "/v26.0/{id}/insights",
@@ -68,33 +69,6 @@
           "/v26.0/{id}/top_media",
           "/v26.0/{id}/video_reels",
           "/v26.0/{id}/videos"
-        ]
-      },
-      "action": {
-        "headers": {
-          "remove": [
-            "X-HTTP-Method-Override",
-            "X-HTTP-Method",
-            "X-Method-Override"
-          ],
-          "set": {
-            "Authorization": "Bearer {{auth.token.token}}"
-          }
-        }
-      }
-    },
-    {
-      "if": "{{ is config.access \"read-write\" }}",
-      "match": {
-        "protocol": "http",
-        "host": [
-          "graph.facebook.com"
-        ],
-        "method": [
-          "GET"
-        ],
-        "path": [
-          "/v26.0/{id}/content_publishing_limit"
         ]
       },
       "action": {

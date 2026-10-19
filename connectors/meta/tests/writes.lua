@@ -29,7 +29,7 @@ return {
 	end,
 	run = function(meta)
 		for _, name in {"createComment", "createInstagramContainer", "createInstagramReply", "createPost", "deleteObject",
-			"publishInstagramMedia", "sendMessage", "sendInstagramPrivateReply", "getInstagramPublishingLimit", "updateComment", "updateInstagramMedia", "updatePost", "uploadPhoto", "uploadVideo",
+			"publishInstagramMedia", "sendMessage", "sendInstagramPrivateReply", "updateComment", "updateInstagramMedia", "updatePost", "uploadPhoto", "uploadVideo",
 			"getPage", "listFeed"} do
 			assert(meta[name], "missing " .. name)
 		end
@@ -99,7 +99,7 @@ return {
 		meta.uploadVideo({file_url = "https://example.com/baking.mp4"})
 		assert(json.decode(sent(12, "POST", "https://graph-video.facebook.com/v26.0/me/videos").body).file_url == "https://example.com/baking.mp4")
 
-		-- Instagram private replies go through the account; the quota needs the publishing permission.
+		-- Instagram private replies go through the account.
 		respond('{"recipient_id":"17840000000000002","message_id":"aWdGMTIz"}')
 		meta.sendInstagramPrivateReply({ig_user = "17841400000000001", recipient = {comment_id = "17860000000000001"}, message = {text = "Sent you the details"}})
 		assert(sent(13, "POST", "https://graph.facebook.com/v26.0/17841400000000001/messages").body
