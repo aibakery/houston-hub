@@ -254,13 +254,11 @@
     "client_id": {
       "label": "Carta OAuth client ID",
       "order": 1,
-      "required": true,
       "type": "string"
     },
     "client_secret": {
       "label": "Carta OAuth client secret",
       "order": 2,
-      "required": true,
       "type": "secret"
     }
   },
