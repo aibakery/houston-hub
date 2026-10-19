@@ -19,12 +19,14 @@ return {
 				assert(not ok and string.find(tostring(err), text, 1, true), "missing " .. text .. " in " .. tostring(err))
 			end
 			assert(calls == before + 1, "failed write was retried")
+			return tostring(err)
 		end
 		upstream(401, '{"message":"Unauthorized"}', {}, {"Carta CRM HTTP 401: Unauthorized", '"retryable":false'})
 		upstream(401, "Unauthorized", {}, {"Carta CRM HTTP 401", '"retryable":false'})
 		upstream(400, '{"success":false,"error":"Folder not found","code":"FOLDER_NOT_FOUND"}', {},
 			{"HTTP 400 (FOLDER_NOT_FOUND): Folder not found", '"retryable":false'})
-		upstream(422, json.encode({success = false, error = string.rep("x", 5000)}), {}, {"HTTP 422"})
+		local long = upstream(422, json.encode({success = false, error = string.rep("x", 5000)}), {}, {"HTTP 422: xxx"})
+		assert(not string.find(long, string.rep("x", 601), 1, true), "error message not bounded")
 		upstream(429, '{"message":"Too many requests"}', {["ratelimit-reset"] = {"42"}}, {"HTTP 429", "rate limit resets in 42s", '"retryable":true'})
 		upstream(502, "<html>Bad gateway</html>", {}, {"HTTP 502", '"retryable":true'})
 		upstream(200, "<html>Maintenance</html>", {}, {"invalid JSON object"})

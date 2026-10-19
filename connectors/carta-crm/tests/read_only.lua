@@ -23,8 +23,13 @@ return {
 		local names = {}
 		for name in crm do if name ~= "help" then table.insert(names, name) end end
 		assert(#names == 78, "wrong read-only surface: " .. #names)
-		for _, name in {"createCompany", "updateDeal", "deleteContact", "createTask", "linkDealNote", "addLpToInvestors",
-			"addThemeItem", "removeContactFromList", "deleteIcMeeting", "createFee"} do
+		for _, name in {"addCompanyToList", "addContactToList", "addLpToFundraising", "addLpToInvestors", "addThemeItem", "createCompany",
+			"createContact", "createDeal", "createFee", "createFundraising", "createIcMeeting", "createIcRequest", "createInvestor", "createNote",
+			"createTask", "createTheme", "deleteCompany", "deleteContact", "deleteDeal", "deleteFee", "deleteFundraising", "deleteIcMeeting",
+			"deleteIcRequest", "deleteInvestor", "deleteNote", "deleteTask", "linkCompanyNote", "linkContactNote", "linkDealNote",
+			"linkFundraisingNote", "linkInvestorNote", "removeCompanyFromList", "removeContactFromList", "removeThemeItem", "updateCompany",
+			"updateContact", "updateDeal", "updateFee", "updateFundraising", "updateIcMeeting", "updateIcRequest", "updateInvestor", "updateNote",
+			"updateTask"} do
 			assert(crm[name] == nil, "read-only leaked " .. name)
 		end
 		for _, name in {"searchCompanies", "aggregateDeals", "aggregateDealStageHistory", "searchFees"} do
