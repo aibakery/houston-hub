@@ -55,6 +55,11 @@ later means submitting a new app.
 To use a playground app in production, promote it with **Actions → Promote to
 production** in the Developer Portal and complete Carta's
 [production review](https://docs.carta.com/api-platform/guides/getting-started/migrate-to-production/).
+Promotion creates a new production app: enter its `client_id` and `client_secret` in
+Houston, then select **Set up again** and sign in with **Connect with your Carta app**.
+Carta's fund accounting endpoints (capital calls, management fees, carried interest)
+are in beta; ask your Carta representative to enable them for your app before
+choosing read and write access.
 
 ### Troubleshooting
 

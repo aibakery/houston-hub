@@ -708,20 +708,25 @@ discovery document omits some documented scopes (`read_compensation_benchmarks`,
 `read_investor_cashbalances`, `read_investor_fundperformance`,
 `read_investor_securities`, the `readwrite_investor_` scopes and
 `readwrite_issuer_secondarytransactions`), so confirm one live sign-in at each access
-level with them before announcing the connector. Capital calls, management fees and
-secondary transactions can only be read with their `readwrite_` scopes, so
-read-only connections omit those reads; `read_issuer_secondarytransactions` appears
-only in the reference and is not requested.
+level with them before announcing the connector. The fund accounting endpoints are in
+beta and need Carta to enable them for the app; if Carta rejects their scopes, every
+read-write sign-in fails until the app has them. Carta also lets users untick scopes
+at consent, which fails activation too; include that case in the live test. Capital
+calls, management fees and secondary transactions can only be read with their
+`readwrite_` scopes, so read-only connections omit those reads;
+`read_issuer_secondarytransactions` appears only in the reference and is not requested.
 
 Every method shares the proxy rules, which allow only the listed routes on
 `api.carta.com` and `api.playground.carta.team` and strip `X-HTTP-Method-Override`
-from reads; writes require read-write access. Lua chooses the host from the selected
-method. Custom methods such as `capitalCalls/{id}:adjust` match their whole-segment
-placeholder. Fund document downloads return a temporary signed URL, which the
+from read-only routes; writes require read-write access. Lua chooses the host from
+the selected method. Custom methods such as `capitalCalls/{id}:adjust` match their
+whole-segment placeholder. Open Cap Table uploads take the raw ZIP archive (a
+`google.api.HttpBody`), streamed from a session file; Carta only stores them during its
+beta. Fund document downloads return a temporary signed URL, which the
 connector passes through without fetching. Draft issuers return the primary contact's
 one-time `registrationUrl`, so even reading one needs read-write access. Carta allows
-10 requests per second and 300 per minute per app (half on the playground), reported
-in `RateLimit-*` headers without `Retry-After`.
+10 requests per second and 300 per minute (5 and 150 per app on the playground),
+reported in `RateLimit-*` headers without `Retry-After`.
 
 Carta's icon is the square favicon mark (`carta-favicon-black.svg`) from the approved
 branding folder linked from Carta's production guide, retrieved 2026-10-19,

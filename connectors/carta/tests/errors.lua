@@ -16,7 +16,7 @@ return {
 			local before = calls
 			local ok, err = pcall(call or function()
 				carta.createCapitalCall({firmId = "FIRM1", fundId = "FUND1", externalReferenceId = "ref-1", sourceSystem = "houston",
-					dueDate = "2026-11-01", amount = {currencyCode = "USD", value = "1.00"}, postAsDraft = true})
+					dueDate = {value = "2026-11-01"}, amount = {value = "1.00"}, postAsDraft = true})
 			end)
 			for _, text in expected do
 				assert(not ok and string.find(tostring(err), text, 1, true), "missing " .. text .. " in " .. tostring(err))

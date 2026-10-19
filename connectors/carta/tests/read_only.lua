@@ -68,13 +68,13 @@ return {
 		carta.listPortfolioRestrictedStockUnits({portfolioId = "P1", issuerId = "7", lastModifiedDatetimeAfter = "2026-01-01T00:00:00Z"})
 		assert(last().url == API .. "/portfolios/P1/issuers/7/restrictedStockUnits?lastModifiedDatetimeAfter=2026-01-01T00%3A00%3A00Z")
 
-		payload = '{"securities":[{"id":"S1","splitOccurred":false}],"asOfTime":"2026-10-19T00:00:00Z"}'
-		local split = carta.getStockSplitChanges({issuerId = "7", securities = {{id = "S1", type = "CERTIFICATE"}}, since = "2026-01-01T00:00:00Z"})
+		payload = '{"affectedAssets":[],"asOf":{"value":"2026-10-19T00:00:00Z"},"splitOccurredSince":false}'
+		local split = carta.getStockSplitChanges({issuerId = "7", securities = {{securityType = "CERTIFICATE", securityId = "S1"}}, since = {value = "2026-01-01T00:00:00Z"}})
 		assert(last().method == "POST" and last().url == API .. "/issuers/7/securities:stockSplitChanges")
 		assert(last().headers["Content-Type"][1] == "application/json")
 		local body = json.decode(last().body)
-		assert(body.since == "2026-01-01T00:00:00Z" and body.securities[1].id == "S1" and body.issuerId == nil, "path field leaked into the body")
-		assert(split.securities[1].splitOccurred == false)
+		assert(body.since.value == "2026-01-01T00:00:00Z" and body.securities[1].securityId == "S1" and body.issuerId == nil, "path field leaked into the body")
+		assert(split.splitOccurredSince == false and json.encode(split.affectedAssets) == "[]")
 		local count = #requests
 
 		rejected(function() carta.getIssuer() end, "id must be a Carta ID")
@@ -86,7 +86,7 @@ return {
 		rejected(function() carta.getIssuer({id = 1.5}) end, "id must be a Carta ID")
 		rejected(function() carta.getIssuer({id = string.rep("a", 65)}) end, "id must be a Carta ID")
 		rejected(function() carta.listTransactions({issuerId = "7"}) end, "type is required")
-		rejected(function() carta.getStockSplitChanges({issuerId = "7", since = "2026-01-01T00:00:00Z"}) end, "securities is required")
+		rejected(function() carta.getStockSplitChanges({issuerId = "7", since = {value = "2026-01-01T00:00:00Z"}}) end, "securities is required")
 		rejected(function() carta.getCompensationBenchmarks({corporationId = "1", jobArea = "ENGINEERING", geoAdjustmentLocation = "US"}) end, "postMoneyValuationBucket is required")
 		rejected(function() carta.listIssuers({page_size = 10}) end, "listIssuers has no option page_size")
 		rejected(function() carta.listPartners({firmId = firm, fundIds = json.decode("[]")}) end, "fundIds must not be an empty array")

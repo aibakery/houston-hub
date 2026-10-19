@@ -14,7 +14,7 @@ return {
 		assert(requests[1].method == "GET" and requests[1].url == API .. "/portfolios" and json.encode(empty.portfolios) == "[]")
 		carta.getManagementFee({firmId = "FIRM1", fundId = "FUND1", managementFeeId = "MF1"})
 		assert(requests[2].url == API .. "/investors/firms/FIRM1/funds/FUND1/managementFees/MF1")
-		carta.getStockSplitChanges({issuerId = "7", securities = json.decode("[]"), since = "2026-01-01T00:00:00Z"})
+		carta.getStockSplitChanges({issuerId = "7", securities = json.decode("[]"), since = {value = "2026-01-01T00:00:00Z"}})
 		carta.createDraftIssuer({draftIssuer = {legalName = "Playco"}})
 		assert(requests[4].method == "POST" and requests[4].url == API .. "/draftIssuers")
 		assert(#requests == 4)
