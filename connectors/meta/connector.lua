@@ -307,8 +307,10 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 	local headers: HttpHeaders = {Accept = {"application/json"}}
 	local body: any = nil
 	if endpoint.method == "POST" then
+		-- Graph's parser trims names, maps . and spaces to _ and reads name[] as arrays, so only
+		-- plain snake_case names are sent.
 		for key in args do
-			assert(not RESERVED[key] and key ~= "fields", name .. " cannot send " .. key)
+			assert(string.match(key, "^%l[%l%d_]*$") and not RESERVED[key] and key ~= "fields", name .. " cannot send " .. key)
 		end
 		if endpoint.upload and args.path ~= nil then
 			local contentType
