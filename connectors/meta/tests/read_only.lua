@@ -37,6 +37,12 @@ return {
 		assert(req.method == "GET" and req.url == "https://graph.facebook.com/v26.0/me?fields=id%2Cname%2Cinstagram_business_account%7Bid%2Cusername%7D")
 		assert(req.headers.Authorization == nil and req.headers.Accept[1] == "application/json" and req.body == nil)
 
+		-- Default fields need no Instagram permission; Instagram functions name their account.
+		respond('{"id":"101","name":"Bakery"}')
+		meta.getPage()
+		assert(requests[2].url == "https://graph.facebook.com/v26.0/me?fields=id%2Cname%2Cusername%2Clink%2Ccategory%2Cabout%2Cdescription%2Cwebsite%2Cphone%2Cemails%2Cfollowers_count%2Cfan_count%2Cverification_status", requests[2].url)
+		table.remove(requests, 2)
+
 		-- Default fields, path IDs and paging options.
 		respond('{"data":[]}')
 		local empty = meta.listInstagramChildren({media = "17900000000000001"})
