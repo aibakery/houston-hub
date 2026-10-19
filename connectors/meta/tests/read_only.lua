@@ -77,6 +77,10 @@ return {
 		respond('{"data":[]}')
 		meta.listFeed({next = feedNext})
 		assert(requests[10].url == feedNext)
+		local taggedNext = "https://graph.facebook.com/v26.0/101/tagged?fields=id&limit=25&until=1760000000&__paging_token=enc_AdBy"
+		respond('{"data":[]}')
+		meta.listTaggedPosts({next = taggedNext})
+		assert(requests[11].url == taggedNext)
 
 		-- Query values are encoded, so they cannot add parameters.
 		respond('{"data":[]}')
