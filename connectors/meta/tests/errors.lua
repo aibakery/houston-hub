@@ -38,6 +38,8 @@ return {
 			{"Meta HTTP 500 (#2)", '"retryable":true'})
 		upstream(400, '{"error":{"message":"An unexpected error has occurred.","type":"OAuthException","code":1,"is_transient":true}}', {},
 			{"(#1)", '"retryable":true'})
+		upstream(400, '{"error":{"message":"Malformed access token EAAPAGETOKEN123 near https://graph.facebook.com/me?access_token=EAAPAGETOKEN123","type":"OAuthException","code":190}}', {},
+			{"Malformed access token", '"retryable":false'}, "EAAPAGETOKEN123")
 		upstream(429, "", {}, {"Meta HTTP 429", '"retryable":true'})
 		upstream(502, "<html>Bad gateway</html>", {}, {"Meta HTTP 502", '"retryable":true'})
 		upstream(400, json.encode({error = {message = string.rep("x", 5000), code = 100}}), {}, {"(#100)"})

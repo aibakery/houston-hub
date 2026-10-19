@@ -187,12 +187,22 @@ local function nextPage(name: string, endpoint: Endpoint, link: any): string
 	return API .. path .. "?" .. query
 end
 
--- Meta writes the request's access token into paging links; drop it so results never carry it.
+-- Meta writes the request's access token into paging links, also URL-encoded inside others.
+local function scrub(text: string): string
+	local plain, found = string.gsub(text, "access_token=[^&#]*&?", "")
+	local clean, encoded = string.gsub(plain, "access_token%%3[Dd][^&#]*", "")
+	return if found + encoded == 0 then text else (string.gsub(clean, "[?&]$", ""))
+end
+
+-- Results never carry credentials: token links are scrubbed and token fields, such as an
+-- expanded accounts edge's access_token, dropped.
 local function redact(value: any)
 	if type(value) ~= "table" then return end
 	for key, child in value do
-		if type(child) == "string" and string.find(child, "access_token=", 1, true) then
-			value[key] = (string.gsub(string.gsub(child, "([?&])access_token=[^&#]*&?", "%1"), "[?&]$", ""))
+		if type(key) == "string" and string.find(string.lower(key), "token", 1, true) then
+			value[key] = nil
+		elseif type(child) == "string" then
+			value[key] = scrub(child)
 		else
 			redact(child)
 		end
@@ -236,6 +246,8 @@ local function fail(name: string, response: HttpResponse): never
 	end
 	local minutes = regainMinutes(response)
 	if minutes then message ..= "; Meta expects calls to succeed again in about " .. minutes .. " min" end
+	-- Meta echoes malformed tokens, which start with EAA.
+	message = string.gsub(scrub(message), "EAA[%w_%-]+", "EAA[redacted]")
 	return houston.fail({operation = name, layer = "upstream", upstream_status = status, retryable = retryable, message = message})
 end
 

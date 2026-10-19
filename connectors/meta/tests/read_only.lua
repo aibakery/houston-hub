@@ -78,6 +78,15 @@ return {
 		meta.listFeed({next = feedNext})
 		assert(requests[10].url == feedNext)
 
+		-- Token fields, repeated and encoded tokens and tokens in nested links are dropped too.
+		respond(json.encode({id = "101", accounts = {data = {{id = "102", name = "Other", access_token = "EAAOTHER", page_token = "EAAPT"}}},
+			comments = {data = {}, paging = {next = "https://graph.facebook.com/v26.0/101_1/comments?access_token=EAA1&access_token=EAA2&limit=5"}},
+			link = "https://example.com/?redirect=https%3A%2F%2Fgraph.facebook.com%2Fme%3Faccess_token%3DEAA3", note = "access_token=EAA4"}))
+		local leaky = meta.getObject({id = "101", fields = "id,accounts,comments"})
+		assert(leaky.accounts.data[1].name == "Other" and leaky.accounts.data[1].access_token == nil and leaky.accounts.data[1].page_token == nil)
+		assert(leaky.comments.paging.next == "https://graph.facebook.com/v26.0/101_1/comments?limit=5", leaky.comments.paging.next)
+		assert(not string.find(json.encode(leaky), "EAA", 1, true), json.encode(leaky))
+
 		-- Graph honours ?method=delete and batch even on GET, and a Page can read its own token.
 		rejected(function() meta.listFeed({method = "delete"}) end, "has no option method")
 		rejected(function() meta.getObject({id = "101", batch = "[]"}) end, "has no option batch")
