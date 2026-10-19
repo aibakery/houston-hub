@@ -118,60 +118,73 @@ func TestCalendlyScopesAndAccessRoutes(t *testing.T) {
 	}
 }
 
+type endpointEntry struct {
+	method, path, rest string
+	write              bool
+}
+
+// endpointTable reads a connector's endpoint table. Only GET reads unless an entry sets write or read.
+func endpointTable(t *testing.T, name string) (string, []endpointEntry) {
+	t.Helper()
+	raw, err := os.ReadFile("../../connectors/" + name + "/connector.lua")
+	if err != nil {
+		t.Fatal(err)
+	}
+	lua := string(raw)
+	endpoint := regexp.MustCompile(`(?m)^\t\w+ = \{method = "([A-Z]+)", path = "([^"]+)"(.*)$`)
+	override := regexp.MustCompile(`\b(write|read) = (true|false)\b`)
+	matches := endpoint.FindAllStringSubmatch(lua, -1)
+	if entries := strings.Count(lua, "= {method = "); len(matches) != entries || entries == 0 {
+		t.Fatalf("%s: matched %d of %d endpoint entries", name, len(matches), entries)
+	}
+	entries := make([]endpointEntry, 0, len(matches))
+	for _, match := range matches {
+		write := match[1] != "GET"
+		if flag := override.FindStringSubmatch(match[3]); flag != nil {
+			write = (flag[2] == "true") != (flag[1] == "read")
+		}
+		entries = append(entries, endpointEntry{method: match[1], path: match[2], rest: match[3], write: write})
+	}
+	return lua, entries
+}
+
 // The proxy must allow exactly the routes in each connector's endpoint table, and the
-// writes only on read-write connections. Only GET reads unless an entry sets write or read.
-// Paths are relative to the connector's API base URL, such as Calendar's /calendar/v3.
+// writes only on read-write connections. Paths are relative to the connector's API base URL,
+// such as Calendar's /calendar/v3.
 // Credential-free rules, such as Resend's signed attachment links, are not API routes.
 // A {format} placeholder expands to the connector's FORMATS list (Wise statements). A custom
 // method such as Carta's {capitalCallId}:adjust is routed by its whole-segment placeholder.
 func TestProxyMatchesEndpointTables(t *testing.T) {
 	const readWrite = `{{ is config.access "read-write" }}`
-	endpoint := regexp.MustCompile(`(?m)^\t\w+ = \{method = "([A-Z]+)", path = "([^"]+)"(.*)$`)
-	override := regexp.MustCompile(`\b(write|read) = (true|false)\b`)
 	base := regexp.MustCompile(`(?m)^local API = "https://[^/"]+([^"]*)"`)
 	formats := regexp.MustCompile(`local FORMATS = table\.freeze\(\{([^}]*)\}\)`)
 	customMethod := regexp.MustCompile(`\}:\w+$`)
 	for _, name := range []string{"calcom", "calendly", "carta", "carta-crm", "resend", "stripe", "wise", "github", "gcalendar", "gsheets"} {
-		raw, err := os.ReadFile("../../connectors/" + name + "/connector.lua")
-		if err != nil {
-			t.Fatal(err)
-		}
-		lua := string(raw)
+		lua, entries := endpointTable(t, name)
 		prefix := ""
 		if api := base.FindStringSubmatch(lua); api != nil {
 			prefix = api[1]
 		}
 		var want, got []string
-		matches := endpoint.FindAllStringSubmatch(lua, -1)
-		for _, match := range matches {
-			write := match[1] != "GET"
-			if flag := override.FindStringSubmatch(match[3]); flag != nil {
-				write = flag[2] == "true"
-				if flag[1] == "read" {
-					write = !write
-				}
-			}
+		for _, entry := range entries {
 			gate := ""
-			if write {
+			if entry.write {
 				gate = readWrite
 			}
-			paths := []string{prefix + customMethod.ReplaceAllString(match[2], "}")}
-			if strings.Contains(match[2], "{format}") {
+			paths := []string{prefix + customMethod.ReplaceAllString(entry.path, "}")}
+			if strings.Contains(entry.path, "{format}") {
 				list := formats.FindStringSubmatch(lua)
 				if list == nil {
 					t.Fatalf("%s: {format} without FORMATS", name)
 				}
 				paths = nil
 				for _, format := range strings.Split(list[1], ",") {
-					paths = append(paths, prefix+strings.Replace(match[2], "{format}", strings.Trim(format, ` "`), 1))
+					paths = append(paths, prefix+strings.Replace(entry.path, "{format}", strings.Trim(format, ` "`), 1))
 				}
 			}
 			for _, path := range paths {
-				want = append(want, match[1]+" "+path+" "+gate)
+				want = append(want, entry.method+" "+path+" "+gate)
 			}
-		}
-		if entries := strings.Count(lua, "= {method = "); len(matches) != entries {
-			t.Fatalf("%s: matched %d of %d endpoint entries", name, len(matches), entries)
 		}
 		for _, rule := range parseManifest(t, "../../connectors/"+name+"/houston.json").Proxy {
 			if rule.Action.Headers.Set["Authorization"] == "" {

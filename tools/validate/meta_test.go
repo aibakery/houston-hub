@@ -1,7 +1,6 @@
 package main
 
 import (
-	"os"
 	"regexp"
 	"strings"
 	"testing"
@@ -48,30 +47,21 @@ func TestMetaAccessRoutes(t *testing.T) {
 // Every endpoint-table entry has a route, gated like its export: writes, and reads marked
 // write = true, only on read-write connections.
 func TestMetaRoutesMatchEndpointTable(t *testing.T) {
-	raw, err := os.ReadFile("../../connectors/meta/connector.lua")
-	if err != nil {
-		t.Fatal(err)
-	}
-	lua := string(raw)
-	entry := regexp.MustCompile(`(?m)^\t\w+ = \{method = "([A-Z]+)", path = "([^"]+)"(.*)$`)
-	matches := entry.FindAllStringSubmatch(lua, -1)
-	if entries := strings.Count(lua, "= {method = "); len(matches) != entries || entries == 0 {
-		t.Fatalf("matched %d of %d endpoint entries", len(matches), entries)
-	}
+	_, entries := endpointTable(t, "meta")
+	placeholder := regexp.MustCompile(`\{\w+\}`)
 	m := parseManifest(t, "../../connectors/meta/houston.json")
 	for _, access := range []string{"read-only", "read-write"} {
 		r, err := m.Resolve(nil, map[string]any{"access": access}, map[string]any{"token": "EAAPAGE"}, "token")
 		if err != nil {
 			t.Fatal(err)
 		}
-		for _, match := range matches {
+		for _, entry := range entries {
 			host := "https://graph.facebook.com"
-			if strings.Contains(match[3], "host = VIDEO_API") {
+			if strings.Contains(entry.rest, "host = VIDEO_API") {
 				host = "https://graph-video.facebook.com"
 			}
-			path := regexp.MustCompile(`\{\w+\}`).ReplaceAllString(match[2], "101_1")
-			write := match[1] != "GET" || strings.Contains(match[3], "write = true")
-			assertRoutes(t, r, "EAAPAGE", !write || access == "read-write", match[1]+" "+host+"/v26.0"+path)
+			route := entry.method + " " + host + "/v26.0" + placeholder.ReplaceAllString(entry.path, "101_1")
+			assertRoutes(t, r, "EAAPAGE", !entry.write || access == "read-write", route)
 		}
 	}
 }
