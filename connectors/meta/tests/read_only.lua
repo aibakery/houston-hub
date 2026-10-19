@@ -131,8 +131,8 @@ return {
 		rejected(function() meta.getPage({fields = "id,PAGE_TOKEN"}) end, "cannot request access tokens")
 		-- Expanded edges page with padded cursors and zoned times.
 		respond('{"id":"17841400000000001"}')
-		meta.getObject({id = "17841400000000001", fields = "media.after(MTAxNTE=).since(2026-10-01T00:00:00+0000){caption}"})
-		assert(requests[#requests].url == "https://graph.facebook.com/v26.0/17841400000000001?fields=media.after%28MTAxNTE%3D%29.since%282026-10-01T00%3A00%3A00%2B0000%29%7Bcaption%7D", requests[#requests].url)
+		meta.getObject({id = "17841400000000001", fields = "media.after(QVF/MTAxNTE=).since(2026-10-01T00:00:00+0000){caption}"})
+		assert(requests[#requests].url == "https://graph.facebook.com/v26.0/17841400000000001?fields=media.after%28QVF%2FMTAxNTE%3D%29.since%282026-10-01T00%3A00%3A00%2B0000%29%7Bcaption%7D", requests[#requests].url)
 		rejected(function() meta.getObject({id = "101", fields = "id&method=delete"}) end, "Graph field list")
 		-- next takes only a link sealed by the same function, never a URL a caller wrote.
 		rejected(function() meta.listFeed({next = "https://graph.facebook.com/v26.0/101/feed?method=delete"}) end, "paging.next value of an earlier")

@@ -92,7 +92,7 @@ local endpoints: {[string]: Endpoint} = {
 		about = "Body {file_url | path, title?, description?, published?, scheduled_publish_time?, no_story?}. Returns {id}; Meta processes the video afterwards."},
 	createComment = {method = "POST", path = "/{object}/comments",
 		about = "Body {message?, attachment_url?, attachment_id?, attachment_share_url?}. Comments as the Page on a Facebook post, photo, video or comment, or on Instagram media (message only); returns {id}."},
-	updateComment = {method = "POST", path = "/{comment}", body = {"message", "is_hidden", "hide", "attachment_url", "attachment_id"},
+	updateComment = {method = "POST", path = "/{comment}", body = {"message", "is_hidden", "hide", "attachment_url", "attachment_id", "attachment_share_url"},
 		about = "Body {is_hidden} or {message} for a Facebook comment, {hide} for an Instagram comment."},
 	createInstagramReply = {method = "POST", path = "/{comment}/replies", required = {"message"},
 		about = "Body {message}. Replies as the account to a top-level Instagram comment; returns {id}."},
@@ -146,7 +146,7 @@ end
 -- A Graph field list with expansions such as comments.limit(5){message}. A Page can read its
 -- own access_token field, so no field may name a token.
 local function fieldList(value: any): string
-	assert(type(value) == "string" and #value <= 4096 and string.match(value, "^[%w_,.(){}:=+ -]+$"),
+	assert(type(value) == "string" and #value <= 4096 and string.match(value, "^[%w_,.(){}:=+/ -]+$"),
 		"fields must be a Graph field list such as 'id,message,comments.limit(5){message}'")
 	assert(not string.find(string.lower(value), "token", 1, true), "fields cannot request access tokens")
 	return value
