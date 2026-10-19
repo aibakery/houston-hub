@@ -20,6 +20,12 @@ func TestMetaAccessRoutes(t *testing.T) {
 			"POST "+api+"/me/photos", "POST "+api+"/17841400000000001/media", "POST "+api+"/17841400000000001/media_publish",
 			"POST "+api+"/17860000000000001/replies", "DELETE "+api+"/101_1",
 			"POST https://graph-video.facebook.com/v26.0/me/videos", "GET "+api+"/17841400000000001/content_publishing_limit")
+		// Graph ignores method-override headers today; every credentialed route drops them anyway.
+		assertStripsMethodOverrides(t, r, "GET "+api+"/me/feed")
+		if access == "read-write" {
+			assertStripsMethodOverrides(t, r, "POST "+api+"/me/feed", "DELETE "+api+"/101_1", "GET "+api+"/1/content_publishing_limit",
+				"POST https://graph-video.facebook.com/v26.0/me/videos")
+		}
 		// Token, permission and account endpoints, ads, batch on the root, other versions and
 		// hosts, and unlisted edges get no credential. Expanded fields can still reach other
 		// edges of an allowed node, so Lua refuses fields naming a token and drops token fields.
