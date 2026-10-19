@@ -132,6 +132,9 @@ return {
 		rejected(function() meta.deleteObject({id = "101/feed"}) end, "one Meta ID")
 		rejected(function() meta.uploadPhoto({path = "missing.jpg"}) end, '"code":"not_found"')
 		rejected(function() meta.uploadPhoto({path = "photos"}) end, "path must be a session file")
+		for _, key in {"source", "url", "file_url"} do
+			rejected(function() meta.uploadVideo({path = "photos/bread.jpg", [key] = "https://example.com/x"}) end, "path cannot be combined with " .. key)
+		end
 		assert(#responses == 0)
 	end,
 }

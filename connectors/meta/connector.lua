@@ -153,10 +153,15 @@ local function int(value: any): string?
 	return if type(value) == "number" and value % 1 == 0 and math.abs(value) < 2 ^ 53 then string.format("%d", value) else nil
 end
 
+-- Integers without exponents; other values as tostring renders them.
+local function plain(value: any): string
+	return int(value) or tostring(value)
+end
+
 local function scalar(value: any, field: string): string
 	local kind = type(value)
 	assert(kind == "string" or kind == "boolean" or kind == "number", field .. " must be a string, boolean, number or array of those")
-	return url.encode(int(value) or value)
+	return url.encode(plain(value))
 end
 
 -- Metric and breakdown lists are comma-separated, encoded like fields so paging links keep them.
@@ -307,22 +312,14 @@ local function multipart(args: Options): (any, string)
 	local parts: {any} = {}
 	for _, key in names do
 		local value = args[key]
+		assert(key ~= "source" and key ~= "url" and key ~= "file_url", "path cannot be combined with " .. key)
 		assert(value ~= NULL, "a file upload cannot send null as " .. key)
-		local body = if type(value) == "table" then json.encode(value) elseif type(value) == "number" then int(value) or tostring(value) else tostring(value)
-		table.insert(parts, {name = key, body = body})
+		table.insert(parts, {name = key, body = if type(value) == "table" then json.encode(value) else plain(value)})
 	end
 	assert(await(fs.stat(source)).isFile, "path must be a session file")
-	local file = fs.open(source, "r")
-	local ok, body, contentType = pcall(function()
-		await(file)
-		table.insert(parts, {name = "source", filename = string.match(source, "[^/]+$"), body = file})
-		return http.multipart(parts)
-	end)
-	if not ok then
-		pcall(function() await(file:close()) end)
-		error(body, 0)
-	end
-	return body, contentType
+	-- http.multipart owns the file and closes it with the body.
+	table.insert(parts, {name = "source", filename = string.match(source, "[^/]+$"), body = fs.open(source, "r")})
+	return http.multipart(parts)
 end
 
 local function request(name: string, endpoint: Endpoint, input: Options?): any
