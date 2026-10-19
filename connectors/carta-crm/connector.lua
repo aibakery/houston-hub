@@ -191,6 +191,7 @@ local endpoints: {[string]: Endpoint} = {
 	getEmailHistory = {method = "GET", path = "/v1/email-history", query = paged("email", "campaignIds", "from", "to", "event"), doc = "email-campaign-controller-get-email-history",
 		about = "Campaign email events, newest first (limit up to 100, default 50)."},
 }
+
 -- Request layer shared verbatim by the Cal.com, Calendly, Carta, Carta CRM and Resend connectors
 -- (tools/validate checks they match). It uses each connector's PROVIDER, DOCS and Endpoint type.
 local NULL = json.decode("null")

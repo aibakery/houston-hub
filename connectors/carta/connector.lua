@@ -280,12 +280,6 @@ local function failStatus(name: string, response: HttpResponse): never
 	return fail(name, response, message)
 end
 
-local function decode(name: string, endpoint: Endpoint, response: HttpResponse): any
-	if response.statusCode < 200 or response.statusCode >= 300 then failStatus(name, response) end
-	-- Accepted settlements may answer 202 without a body.
-	return object(name, endpoint, response) or {success = true}
-end
-
 local function request(name: string, endpoint: Endpoint, input: Options?): any
 	local args = options(input)
 	local path = string.gsub(endpoint.path, "{([%w_]+)}", function(field: string)
@@ -311,7 +305,10 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 	end
 	local unknown = next(args)
 	assert(unknown == nil, name .. " has no option " .. tostring(unknown))
-	return decode(name, endpoint, await(http.request({method = endpoint.method, url = API .. path, headers = headers, body = body})))
+	local response = await(http.request({method = endpoint.method, url = API .. path, headers = headers, body = body}))
+	if response.statusCode < 200 or response.statusCode >= 300 then failStatus(name, response) end
+	-- Accepted settlements may answer 202 without a body.
+	return object(name, endpoint, response) or {success = true}
 end
 
 return operations(endpoints, request, {
