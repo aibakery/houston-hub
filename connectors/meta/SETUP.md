@@ -84,9 +84,12 @@ For **Read and write**, also: `pages_manage_posts`, `pages_manage_engagement` an
 `publish_video` when Meta offers it; for Instagram, `instagram_content_publish` and
 `instagram_manage_contents`.
 
-Meta grants reading and replying to messages together (`pages_messaging`,
-`instagram_manage_messages`). On a **Read-only** connection Houston blocks every
-write, whatever the token allows. See Meta's
+Some read-only permissions also allow changes: Meta requires `pages_manage_metadata`
+to read conversations, adds `business_management` with the **Manage everything on
+your Page** use case for business-owned Pages, and grants reading and replying to
+messages together (`pages_messaging`, `instagram_manage_messages`). Leave out
+messaging permissions if you do not need the inbox. On a **Read-only** connection
+Houston blocks every write, whatever the token allows. See Meta's
 [permissions reference](https://developers.facebook.com/docs/permissions).
 
 ## Advanced
