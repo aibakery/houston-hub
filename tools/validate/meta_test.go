@@ -19,7 +19,7 @@ func TestMetaAccessRoutes(t *testing.T) {
 			"POST "+api+"/me/feed", "POST "+api+"/101_1", "POST "+api+"/101_1/comments", "POST "+api+"/me/messages",
 			"POST "+api+"/me/photos", "POST "+api+"/17841400000000001/media", "POST "+api+"/17841400000000001/media_publish",
 			"POST "+api+"/17860000000000001/replies", "DELETE "+api+"/101_1",
-			"POST https://graph-video.facebook.com/v26.0/me/videos")
+			"POST https://graph-video.facebook.com/v26.0/me/videos", "GET "+api+"/17841400000000001/content_publishing_limit")
 		// Token, permission and account endpoints, ads, batch on the root, other versions and
 		// hosts, and unlisted edges get no credential. Expanded fields can still reach other
 		// edges of an allowed node, so Lua refuses fields naming a token and drops token fields.
