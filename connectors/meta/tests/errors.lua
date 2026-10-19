@@ -43,6 +43,10 @@ return {
 		upstream(500, '{"error":{"message":"Unsupported post request.","type":"GraphMethodException","code":100,"error_subcode":33,"is_transient":false}}', {},
 			{"Meta HTTP 500 (#100/33)", '"retryable":false'})
 		upstream(200, '{"error":{"message":"(#100) Invalid parameter","type":"OAuthException","code":100}}', {}, {"Meta HTTP 200 (#100)", '"retryable":false'})
+		upstream(400, '{"error":{"message":"Invalid OAuth access token: IGAAKxyz0123456789abcdefghijklmnopqrstuvwx and access_token=123|secret","type":"OAuthException","code":190}}', {},
+			{"Invalid OAuth access token"}, "secret")
+		upstream(400, '{"error":{"message":"Invalid OAuth access token: IGAAKxyz0123456789abcdefghijklmnopqrstuvwx","type":"OAuthException","code":190}}', {},
+			{"Invalid OAuth access token"}, "IGAAKxyz")
 		upstream(429, "", {}, {"Meta HTTP 429", '"retryable":true'})
 		upstream(502, "<html>Bad gateway</html>", {}, {"Meta HTTP 502", '"retryable":true'})
 		upstream(400, json.encode({error = {message = string.rep("x", 5000), code = 100}}), {}, {"(#100)"})

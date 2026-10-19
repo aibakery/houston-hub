@@ -194,24 +194,36 @@ local function nextPage(name: string, token: any): string
 	return link.url
 end
 
--- Meta writes the request's access token into paging links, also URL-encoded inside others.
-local TOKEN_CHARS = "[%w_.-]*"
-local function scrub(text: string): string
-	-- Only whole access_token parameters go, so page_access_token=... or after=... stay intact.
-	local plain, found = string.gsub(text, "([?&])access_token=" .. TOKEN_CHARS, "%1")
-	if found > 0 then
-		plain = string.gsub(string.gsub(string.gsub(plain, "&&+", "&"), "%?&", "?"), "[?&]$", "")
+-- Inside an encoded link, drop each access_token%3D... parameter with the %26 after it.
+local function dropEncoded(value: string): string
+	while true do
+		local first, last = string.find(value, "access_token%%3[Dd]")
+		if not first or not last then break end
+		local stop = string.find(value, "%26", last + 1, true)
+		value = string.sub(value, 1, first - 1) .. (if stop then string.sub(value, stop + 3) else "")
 	end
-	-- Inside encoded links, a parameter goes with its following (or else preceding) %26.
-	local encoded = string.gsub(plain, "(%%3[Ff])access_token%%3[Dd]" .. TOKEN_CHARS .. "%%26", "%1")
-	encoded = string.gsub(encoded, "(%%3[Ff])access_token%%3[Dd]" .. TOKEN_CHARS, "%1")
-	return (string.gsub(encoded, "%%26access_token%%3[Dd]" .. TOKEN_CHARS, ""))
+	return (string.gsub(string.gsub(value, "%%26$", ""), "%%3[Ff]$", ""))
 end
 
--- Error messages also echo malformed tokens: EAA and at least 30 more token characters.
-local ECHOED = "%f[%w]EAA" .. string.rep("[%w_-]", 30) .. "[%w_-]*"
+-- Meta writes the request's access token into its links, also URL-encoded inside others.
+-- Parameters are split on & so a token of any characters goes whole.
+local function scrub(link: string): string
+	local base, query = string.match(link, "^([^?#]*)%?([^#]*)")
+	if not base or not query or not string.find(query, "access_token", 1, true) then return link end
+	local kept: {string} = {}
+	for pair in string.gmatch(query, "[^&]+") do
+		if string.sub(pair, 1, 13) ~= "access_token=" then table.insert(kept, dropEncoded(pair)) end
+	end
+	return base .. (if #kept > 0 then "?" .. table.concat(kept, "&") else "")
+end
+
+-- Error messages also echo tokens: an access_token value, or a bare user or Page (EAA...) or
+-- Instagram (IG...) token of at least 30 more characters.
+local ECHOED = string.rep("[%w_-]", 30) .. "[%w_-]*"
 local function scrubError(text: string): string
-	return (string.gsub(scrub(text), ECHOED, "EAA[redacted]"))
+	local value = string.gsub(text, "access_token=[^&#%s\"]*", "access_token=[redacted]")
+	value = string.gsub(value, "%f[%w]EAA" .. ECHOED, "EAA[redacted]")
+	return (string.gsub(value, "%f[%w]IG" .. ECHOED, "IG[redacted]"))
 end
 
 -- Results never carry credentials: Meta's own Graph links lose their token and token fields,
