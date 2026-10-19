@@ -314,7 +314,13 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 		headers["Content-Type"] = {endpoint.upload}
 		body = fs.open(extra.path, "r")
 	end
-	local response = await(http.request({method = endpoint.method, url = API .. path, headers = headers, body = body}))
+	local sent, response = pcall(function() return await(http.request({method = endpoint.method, url = API .. path, headers = headers, body = body})) end)
+	if not sent then
+		-- A request that never started leaves the upload file open.
+		local file = body
+		if type(file) ~= "string" and file ~= nil then pcall(function() await(file:close()) end) end
+		error(response, 0)
+	end
 	if response.statusCode < 200 or response.statusCode >= 300 then failStatus(name, response) end
 	-- Accepted settlements may answer 202 without a body.
 	return object(name, endpoint, response) or {success = true}
