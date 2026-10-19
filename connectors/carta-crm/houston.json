@@ -73,6 +73,7 @@
           "/v1/email-campaigns/{id}",
           "/v1/email-history",
           "/v1/fees",
+          "/v1/fees/by-contact/{contactId}",
           "/v1/fees/by-deal/{dealId}",
           "/v1/fees/fields",
           "/v1/fees/{id}",
@@ -97,6 +98,7 @@
           "/v1/investors/{id}/capital-activity",
           "/v1/investors/{id}/notes",
           "/v1/lp-discovery",
+          "/v1/lp-discovery/facets",
           "/v1/lp-discovery/{id}",
           "/v1/me",
           "/v1/notes",
@@ -141,8 +143,11 @@
           "/v1/deals/aggregate",
           "/v1/deals/search",
           "/v1/deals/stage-history/aggregate",
+          "/v1/fees/aggregate",
           "/v1/fees/search",
+          "/v1/fundraisings/aggregate",
           "/v1/fundraisings/search",
+          "/v1/investors/aggregate",
           "/v1/investors/search"
         ]
       },
@@ -165,6 +170,7 @@
           "POST"
         ],
         "path": [
+          "/v1/calendar-events/{id}/notes/{noteId}",
           "/v1/companies",
           "/v1/companies/{id}/lists/{listId}",
           "/v1/companies/{id}/notes/{noteId}",

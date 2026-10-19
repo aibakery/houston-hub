@@ -18,7 +18,7 @@ return {
 
 		local count = 0
 		for name in crm do if name ~= "help" then count += 1 end end
-		assert(count == 122, "wrong read-write surface: " .. count)
+		assert(count == 128, "wrong read-write surface: " .. count)
 
 		payload = '{"id":"' .. ID .. '","stageId":"s1"}'
 		local deal = crm.createDeal({company = {name = "Acme", url = "https://acme.com"}, pipelineId = "p1", stageId = "s1", tags = json.decode("[]")})
@@ -44,6 +44,8 @@ return {
 		local linked = crm.linkDealNote({id = ID, noteId = NOTE})
 		assert(last().method == "POST" and last().url == API .. "/v1/deals/" .. ID .. "/notes/" .. NOTE)
 		assert(last().body == nil and last().headers["Content-Type"] == nil and linked.success == true)
+		crm.linkCalendarEventNote({id = ID, noteId = NOTE})
+		assert(last().method == "POST" and last().url == API .. "/v1/calendar-events/" .. ID .. "/notes/" .. NOTE and last().body == nil)
 		crm.linkCompanyNote({id = "acme.com", noteId = NOTE})
 		assert(last().url == API .. "/v1/companies/acme.com/notes/" .. NOTE, "company note routes take a domain")
 		crm.addCompanyToList({id = ID, listId = "L1"})
@@ -60,6 +62,6 @@ return {
 		assert(not ok and string.find(tostring(err), "dueDate is required", 1, true))
 		ok, err = pcall(function() crm.updateDeal({id = "batch", deals = {}}) end)
 		assert(not ok and string.find(tostring(err), "Carta CRM ID or domain", 1, true), "an ID must not name a sibling route")
-		assert(#requests == 10)
+		assert(#requests == 11)
 	end,
 }

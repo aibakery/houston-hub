@@ -744,27 +744,31 @@ and organization, so Houston enforces read-only access with its proxy routes and
 The key is sent as the bare `Authorization` value, as the reference's `apiKey`
 scheme and Postman requests show.
 
-The connector covers 122 of the 261 operations in the
+The connector covers 128 of the 261 operations in the
 [CRM API reference](https://docs.carta.com/crm/reference/) (`/v1`, spec 1.1.32),
 checked on 2026-10-19: companies, contacts, deals, fundraisings and investors with
-search, aggregates, fields, lists, interactions and linked notes; fees, notes, tasks,
-IC meetings and requests, calendar events, themes, report data, fund-admin closing
-and capital-activity reads, the LP catalogue, email campaign and history reads, the
-current user and organization. Search and aggregate POSTs only read, so read-only
-connections may send them. Carta publishes no OpenAPI file; the operations were read
-from the reference pages.
+their fields and linked notes, interactions and list membership for companies and
+contacts, company relations, and search and aggregates for every record type but
+contacts; fees, notes, tasks, IC meetings and requests, calendar events, themes,
+report data, fund-admin closing and capital-activity reads, the LP catalogue, email
+campaign and history reads, the current user and organization. Search and aggregate
+POSTs only read, so read-only connections may send them. Carta publishes no OpenAPI
+file; the operations were read from the reference pages.
 
 Omitted on purpose: organization administration (users, roles, invitations, teams,
 modules); custom-field, stage, folder and list schema changes; contact merge; flows
 that email limited partners or start closings (subscription documents, initiate
-closing) and email campaign writes; enrichment, which looks records up with outside data providers;
-batch deal writes; report writes and email schedules; notification settings and the
-contact classifier prompt. Not yet covered: attachment, logo and photo uploads
-(multipart), subtheme changes and DELETE requests with bodies, note unlinking,
-relations and interactions of deals, fundraisings and investors, campaign
-statistics, email templates and LP discovery facets. Path IDs must contain a digit
-or a dot (ObjectIds and company domains), so a word such as `batch` cannot reach an
-omitted sibling route.
+closing) and email campaign writes; enrichment, which looks records up with outside
+data providers; batch deal writes; report writes and email schedules; notification
+settings and the contact classifier prompt. Not yet covered: attachment, logo and
+photo uploads (multipart), subtheme changes and DELETE requests with bodies, note
+unlinking, relations and interactions of deals, fundraisings and investors, campaign
+statistics and email templates. Path IDs must contain a digit or a dot (ObjectIds,
+integer fund IDs and company domains), so a word such as `batch` cannot reach an
+omitted sibling route. Confirm live that LP catalogue IDs have that form and that
+`fundCartaIds` and `prospectPublicIds` accept repeated parameters, as the connector
+sends them; the reference types both as strings.
+
 
 The CRM API allowed 8,000 requests per 60 seconds when probed on 2026-10-19,
 reported in `RateLimit-*` headers; Carta documents no limit. The icon is the same

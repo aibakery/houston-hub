@@ -85,6 +85,7 @@ local endpoints: {[string]: Endpoint} = {
 
 	listFundraisings = {method = "GET", path = "/v1/fundraisings", query = paged("stages", "search"), doc = "fundraising-controller-get-fundraising", about = "LP prospects, {fundraising}."},
 	searchFundraisings = {method = "POST", path = "/v1/fundraisings/search", write = false, doc = "fundraising-controller-search-fundraisings", about = "Body {filters?, search?, limit?, offset?}."},
+	aggregateFundraisings = {method = "POST", path = "/v1/fundraisings/aggregate", write = false, required = {"group_by"}, doc = "fundraising-controller-aggregate-fundraisings", about = "Body {group_by, group_by_granularity?, filters?, metric?}."},
 	getFundraising = {method = "GET", path = "/v1/fundraisings/{id}", doc = "fundraising-controller-get-fundraising-by-id", about = ""},
 	createFundraising = {method = "POST", path = "/v1/fundraisings", required = {"name"}, doc = "fundraising-controller-create-fundraising",
 		about = "Body {name, stageId?, investorId?, originContactId?, fields?}."},
@@ -97,6 +98,7 @@ local endpoints: {[string]: Endpoint} = {
 
 	listInvestors = {method = "GET", path = "/v1/investors", query = paged("search"), doc = "investors-controller-get-investors", about = "{investors}."},
 	searchInvestors = {method = "POST", path = "/v1/investors/search", write = false, doc = "investors-controller-search-investors", about = "Body {filters?, search?, limit?, offset?}."},
+	aggregateInvestors = {method = "POST", path = "/v1/investors/aggregate", write = false, required = {"group_by"}, doc = "investors-controller-aggregate-investors", about = "Body {group_by, group_by_granularity?, filters?, metric?}."},
 	getInvestor = {method = "GET", path = "/v1/investors/{id}", doc = "investors-controller-get-investor-by-id", about = ""},
 	createInvestor = {method = "POST", path = "/v1/investors", required = {"name"}, doc = "investors-controller-create-investor", about = "Body {name, fields?, originContactId?}."},
 	updateInvestor = {method = "PATCH", path = "/v1/investors/{id}", doc = "investors-controller-update-investor", about = ""},
@@ -114,6 +116,7 @@ local endpoints: {[string]: Endpoint} = {
 
 	listFees = {method = "GET", path = "/v1/fees", query = paged("search"), doc = "fees-controller-get-fees", about = "Newest first, with totalAmount."},
 	searchFees = {method = "POST", path = "/v1/fees/search", write = false, doc = "fees-controller-search-fees", about = "Body {filters?, search?, limit?, offset?}."},
+	aggregateFees = {method = "POST", path = "/v1/fees/aggregate", write = false, required = {"group_by"}, doc = "fees-controller-aggregate-fees", about = "Body {group_by, group_by_granularity?, filters?, metric?}."},
 	getFee = {method = "GET", path = "/v1/fees/{id}", doc = "fees-controller-get-fee-by-id", about = ""},
 	createFee = {method = "POST", path = "/v1/fees", required = {"name"}, doc = "fees-controller-create-fee",
 		about = "Body {name, fields?}. Amount, date and deal are custom fields; read listFeeFields first."},
@@ -121,6 +124,7 @@ local endpoints: {[string]: Endpoint} = {
 	deleteFee = {method = "DELETE", path = "/v1/fees/{id}", doc = "fees-controller-delete-fee", about = "Moves it to the trash."},
 	listFeeFields = {method = "GET", path = "/v1/fees/fields", doc = "fees-controller-get-all-fee-fields", about = ""},
 	listFeesByDeal = {method = "GET", path = "/v1/fees/by-deal/{dealId}", doc = "fees-controller-get-fees-by-deal", about = ""},
+	listFeesByContact = {method = "GET", path = "/v1/fees/by-contact/{contactId}", doc = "fees-controller-get-fees-by-contact", about = ""},
 
 	listNotes = {method = "GET", path = "/v1/notes", doc = "notes-controller-get-notes",
 		query = paged("search", "folderId", "createdAfter", "createdBefore", "sort", "linkedEntityType", "linkedEntityId", "hasLinkedEntity"),
@@ -161,6 +165,7 @@ local endpoints: {[string]: Endpoint} = {
 	listCalendarEvents = {method = "GET", path = "/v1/calendar-events", query = paged("startDate", "endDate", "mine"), doc = "calendar-event-linking-controller-get-calendar-events",
 		about = "External meetings, default now to +90 days (Interactions module)."},
 	listCalendarEventNotes = {method = "GET", path = "/v1/calendar-events/{id}/notes", doc = "calendar-event-linking-controller-get-linked-notes", about = ""},
+	linkCalendarEventNote = {method = "POST", path = "/v1/calendar-events/{id}/notes/{noteId}", body = false, doc = "calendar-event-linking-controller-link-note", about = ""},
 
 	listThemes = {method = "GET", path = "/v1/themes", query = paged("search"), doc = "themes-controller-get-themes", about = ""},
 	createTheme = {method = "POST", path = "/v1/themes", required = {"name"}, doc = "themes-controller-create-theme", about = "Body {name, comments?}; returns an existing theme of that name."},
@@ -182,6 +187,7 @@ local endpoints: {[string]: Endpoint} = {
 		query = paged("search", "types", "regions", "countries", "minAumUsd", "maxAumUsd", "sortBy", "sortDirection"),
 		about = "Carta's shared institutional LP catalogue, not your investors."},
 	getLpCatalogEntry = {method = "GET", path = "/v1/lp-discovery/{id}", doc = "lp-discovery-controller-get-one", about = ""},
+	getLpCatalogFacets = {method = "GET", path = "/v1/lp-discovery/facets", doc = "lp-discovery-controller-get-facets", about = "Valid types, regions and countries for searchLpCatalog."},
 	addLpToFundraising = {method = "POST", path = "/v1/lp-discovery/{id}/add-to-fundraising", body = false, doc = "lp-discovery-controller-add-to-fundraising",
 		about = "Copies a catalogue LP into your fundraising pipeline; created=false when it exists."},
 	addLpToInvestors = {method = "POST", path = "/v1/lp-discovery/{id}/add-to-investors", body = false, doc = "lp-discovery-controller-add-to-investors", about = ""},

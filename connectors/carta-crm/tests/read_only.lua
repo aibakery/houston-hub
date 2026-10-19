@@ -22,11 +22,11 @@ return {
 
 		local names = {}
 		for name in crm do if name ~= "help" then table.insert(names, name) end end
-		assert(#names == 78, "wrong read-only surface: " .. #names)
+		assert(#names == 83, "wrong read-only surface: " .. #names)
 		for _, name in {"addCompanyToList", "addContactToList", "addLpToFundraising", "addLpToInvestors", "addThemeItem", "createCompany",
 			"createContact", "createDeal", "createFee", "createFundraising", "createIcMeeting", "createIcRequest", "createInvestor", "createNote",
 			"createTask", "createTheme", "deleteCompany", "deleteContact", "deleteDeal", "deleteFee", "deleteFundraising", "deleteIcMeeting",
-			"deleteIcRequest", "deleteInvestor", "deleteNote", "deleteTask", "linkCompanyNote", "linkContactNote", "linkDealNote",
+			"deleteIcRequest", "deleteInvestor", "deleteNote", "deleteTask", "linkCalendarEventNote", "linkCompanyNote", "linkContactNote", "linkDealNote",
 			"linkFundraisingNote", "linkInvestorNote", "removeCompanyFromList", "removeContactFromList", "removeThemeItem", "updateCompany",
 			"updateContact", "updateDeal", "updateFee", "updateFundraising", "updateIcMeeting", "updateIcRequest", "updateInvestor", "updateNote",
 			"updateTask"} do
@@ -65,6 +65,16 @@ return {
 		payload = '{"groups":[]}'
 		crm.aggregateDeals({group_by = {"stage"}})
 		assert(last().url == API .. "/v1/deals/aggregate" and json.decode(last().body).group_by[1] == "stage")
+		crm.aggregateFees({group_by = {"amount"}, filters = {{field_id = "date", operator = "between", value = {"2026-01-01", "2026-06-30"}}}})
+		assert(last().method == "POST" and last().url == API .. "/v1/fees/aggregate" and json.decode(last().body).filters[1].value[2] == "2026-06-30")
+		crm.aggregateInvestors({group_by = {"type"}})
+		assert(last().url == API .. "/v1/investors/aggregate")
+		crm.aggregateFundraisings({group_by = {"stage"}})
+		assert(last().url == API .. "/v1/fundraisings/aggregate")
+		crm.getLpCatalogFacets()
+		assert(last().method == "GET" and last().url == API .. "/v1/lp-discovery/facets")
+		crm.listFeesByContact({contactId = ID})
+		assert(last().url == API .. "/v1/fees/by-contact/" .. ID)
 		crm.getReportData({id = ID, entityType = "deal", offset = 100})
 		assert(last().url == API .. "/v1/reports/" .. ID .. "/data?entityType=deal&offset=100", last().url)
 		crm.listClosingProspectStatuses({fundCartaId = "0b6f6c1e-3d1a-4f7e-9a51-2a5d0c7e9b10", prospectPublicIds = {"a1", "b2"}})
@@ -93,6 +103,6 @@ return {
 		rejected(function() crm.listDeals({stages = {{"s1"}}}) end, "must be a string, boolean, number")
 		rejected(function() crm.listDeals("acme") end, "opts must be an object")
 		rejected(function() crm.listDeals({"acme"}) end, "named fields")
-		assert(#requests == 10)
+		assert(#requests == 15)
 	end,
 }
