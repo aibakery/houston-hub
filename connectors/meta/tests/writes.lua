@@ -112,7 +112,11 @@ return {
 		-- fields reads the written object back, its access_token included.
 		rejected(function() meta.updatePost({post = "101_9", message = "x", method = "delete"}) end, "cannot send method")
 		rejected(function() meta.createPost({message = "x", batch = "[]"}) end, "cannot send batch")
-		rejected(function() meta.updatePost({post = "me", about = "x", fields = "access_token"}) end, "cannot send fields")
+		rejected(function() meta.updatePost({post = "101_9", message = "x", fields = "access_token"}) end, "cannot send fields")
+		-- Node updates take their own fields only, so they cannot change the Page itself.
+		rejected(function() meta.updatePost({post = "me", about = "x"}) end, "updatePost cannot send about")
+		rejected(function() meta.updateComment({comment = "101", website = "https://x.test"}) end, "updateComment cannot send website")
+		rejected(function() meta.updateInstagramMedia({media = "101", comment_enabled = true, phone = "1"}) end, "updateInstagramMedia cannot send phone")
 		rejected(function() meta.createComment({object = "101_9", message = "x", access_token = "EAAOTHER"}) end, "cannot send access_token")
 		rejected(function() meta.uploadPhoto({path = "photos/bread.jpg", callback = "f"}) end, "cannot send callback")
 		rejected(function() meta.uploadPhoto({path = "photos/bread.jpg", caption = json.decode("null")}) end, "cannot send null")

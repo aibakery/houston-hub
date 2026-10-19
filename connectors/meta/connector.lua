@@ -2,7 +2,7 @@
 -- results keep Meta's native field names.
 type Options = {[string]: any}
 type Endpoint = {method: string, path: string, host: string?, query: {string}?, required: {string}?, paging: {string}?,
-	fields: string?, upload: boolean?, write: boolean?, about: string}
+	body: {string}?, fields: string?, upload: boolean?, write: boolean?, about: string}
 
 -- Graph versions work for two years after their successor ships; v26.0 has no sunset date yet.
 local VERSION = "v26.0"
@@ -23,7 +23,8 @@ local HASHTAG_MEDIA_FIELDS = "id,caption,media_type,permalink,timestamp,like_cou
 -- Edges and parameters of Meta's reference and Business SDK v26.0.2, checked on 2026-10-19.
 -- Page functions act on /me, the Page the token belongs to. Path {fields} are IDs; listed query
 -- fields are taken from the options, and the other options form the body of writes. paging lists
--- the cursor options; any paging list, even an empty one, also accepts next.
+-- the cursor options; any paging list, even an empty one, also accepts next. body limits the
+-- writes to one object (a post, comment or media) to its own fields, so they cannot change the Page.
 local endpoints: {[string]: Endpoint} = {
 	getPage = {method = "GET", path = "/me",
 		fields = "id,name,username,link,category,about,description,website,phone,emails,followers_count,fan_count,verification_status",
@@ -83,19 +84,19 @@ local endpoints: {[string]: Endpoint} = {
 
 	createPost = {method = "POST", path = "/me/feed",
 		about = "Body {message?, link?, published?, scheduled_publish_time?, attached_media?, place?}. Posts as the Page; returns {id}. Pass message or link."},
-	updatePost = {method = "POST", path = "/{post}",
-		about = "Body {message?, is_published?, scheduled_publish_time?, is_pinned?}. Only posts made through the token's Meta app can change."},
+	updatePost = {method = "POST", path = "/{post}", body = {"message", "is_hidden", "is_published", "scheduled_publish_time", "is_pinned", "timeline_visibility"},
+		about = "Body {message?, is_hidden?, is_published?, scheduled_publish_time?, is_pinned?, timeline_visibility?}. Only posts made through the token's Meta app can change."},
 	uploadPhoto = {method = "POST", path = "/me/photos", upload = true,
 		about = "Body {url | path, caption?, published?, temporary?, scheduled_publish_time?, no_story?, alt_text_custom?}. JPEG, PNG, GIF, BMP or TIFF up to 10 MB; returns {id, post_id}."},
 	uploadVideo = {method = "POST", path = "/me/videos", host = VIDEO_API, upload = true,
 		about = "Body {file_url | path, title?, description?, published?, scheduled_publish_time?, no_story?}. Returns {id}; Meta processes the video afterwards."},
 	createComment = {method = "POST", path = "/{object}/comments",
 		about = "Body {message?, attachment_url?, attachment_id?, attachment_share_url?}. Comments as the Page on a Facebook post, photo, video or comment, or on Instagram media (message only); returns {id}."},
-	updateComment = {method = "POST", path = "/{comment}",
+	updateComment = {method = "POST", path = "/{comment}", body = {"message", "is_hidden", "hide", "attachment_url", "attachment_id"},
 		about = "Body {is_hidden} or {message} for a Facebook comment, {hide} for an Instagram comment."},
 	createInstagramReply = {method = "POST", path = "/{comment}/replies", required = {"message"},
 		about = "Body {message}. Replies as the account to a top-level Instagram comment; returns {id}."},
-	updateInstagramMedia = {method = "POST", path = "/{media}", required = {"comment_enabled"},
+	updateInstagramMedia = {method = "POST", path = "/{media}", required = {"comment_enabled"}, body = {"comment_enabled"},
 		about = "Body {comment_enabled}. Turns comments on Instagram media on or off."},
 	deleteObject = {method = "DELETE", path = "/{id}",
 		about = "Deletes a Facebook post, photo, video or comment, or Instagram media or comment. Instagram media need the instagram_manage_contents permission; carousels are deleted whole."},
@@ -353,7 +354,8 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 		-- Graph's PHP-style parser may trim names, map . and spaces to _ and read name[] as arrays, so only
 		-- plain snake_case names are sent.
 		for key in args do
-			assert(string.match(key, "^%l[%l%d_]*$") and not RESERVED[key], name .. " cannot send " .. key)
+			assert(string.match(key, "^%l[%l%d_]*$") and not RESERVED[key] and (endpoint.body == nil or table.find(endpoint.body, key)),
+				name .. " cannot send " .. key)
 		end
 		if endpoint.upload and args.path ~= nil then
 			local contentType
