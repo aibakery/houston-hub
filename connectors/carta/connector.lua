@@ -297,8 +297,8 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 	end
 	if #query > 0 then path ..= "?" .. table.concat(query, "&") end
 	local headers: HttpHeaders = {Accept = {"application/json"}}
-	local upload: any = nil
-	if endpoint.upload then upload, args.path = args.path, nil end
+	local extra: Options = {}
+	for _, field in endpoint.extra or NONE do extra[field], args[field] = args[field], nil end
 	local body: (string | File)? = nil
 	if hasBody(endpoint) then
 		headers["Content-Type"] = {"application/json"}
@@ -307,12 +307,12 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 	end
 	local unknown = next(args)
 	assert(unknown == nil, name .. " has no option " .. tostring(unknown))
-	-- uploadOpenCapTable streams a session file as the raw body.
+	-- uploadOpenCapTable streams the session file at path as the raw body.
 	if endpoint.upload then
-		assert(type(upload) == "string" and upload ~= "", "path must be a session file path")
-		assert(await(fs.stat(upload)).isFile, "path must be a session file")
+		assert(type(extra.path) == "string" and extra.path ~= "", "path must be a session file path")
+		assert(await(fs.stat(extra.path)).isFile, "path must be a session file")
 		headers["Content-Type"] = {endpoint.upload}
-		body = fs.open(upload, "r")
+		body = fs.open(extra.path, "r")
 	end
 	local response = await(http.request({method = endpoint.method, url = API .. path, headers = headers, body = body}))
 	if response.statusCode < 200 or response.statusCode >= 300 then failStatus(name, response) end
