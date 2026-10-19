@@ -116,9 +116,10 @@ local endpoints: {[string]: Endpoint} = {
 -- reveal credentials.
 local RESERVED = table.freeze({method = true, batch = true, callback = true, suppress_http_code = true, include_headers = true,
 	attached_files = true, fields = true, next = true, access_token = true, appsecret_proof = true, appsecret_time = true, input_token = true, ids = true})
--- Temporary errors (1, 2) and rate limits: app, user, Pages, custom and Business Use Case
--- (80000-80014) throttling.
-local RETRYABLE = table.freeze({[1] = true, [2] = true, [4] = true, [17] = true, [32] = true, [341] = true, [613] = true})
+-- Throttling: app, user, Pages, custom and Business Use Case (80000-80014) limits. Meta refuses
+-- these before acting, unlike its temporary errors (1, 2), after which a write may have happened.
+local THROTTLED = table.freeze({[4] = true, [17] = true, [32] = true, [341] = true, [613] = true})
+local TEMPORARY = table.freeze({[1] = true, [2] = true})
 
 local function options(input: Options?): Options
 	if input == nil then return {} end
@@ -260,11 +261,12 @@ local function regainMinutes(response: HttpResponse): string?
 end
 
 -- Meta errors are {error = {message, type, code, error_subcode?, error_user_msg?, is_transient?, fbtrace_id}}.
--- raw is the body when it was already read.
-local function fail(name: string, response: HttpResponse, raw: string?): never
+-- raw is the body when it was already read. Only reads retry a 5xx or temporary error, since a
+-- write may already have been applied.
+local function fail(name: string, response: HttpResponse, write: boolean, raw: string?): never
 	local status = response.statusCode
 	local message = "Meta HTTP " .. tostring(status)
-	local retryable = status == 429 or status >= 500
+	local retryable = status == 429 or (not write and status >= 500)
 	-- A body that fails to arrive still yields the status and retry hint.
 	local ok, value = pcall(function(): any return json.decode(raw or await(response.body:readPrefix(16 * 1024))) end)
 	local problem = if ok and type(value) == "table" and type(value.error) == "table" then value.error else nil
@@ -276,9 +278,10 @@ local function fail(name: string, response: HttpResponse, raw: string?): never
 		-- Meta's code decides, so a 500 for an unsupported request is final.
 		local number = tonumber(code)
 		if number then
-			retryable = status == 429 or RETRYABLE[number] == true or (number >= 80000 and number <= 80014)
+			retryable = status == 429 or THROTTLED[number] == true or (number >= 80000 and number <= 80014)
+				or (not write and TEMPORARY[number] == true)
 		end
-		if problem.is_transient == true then retryable = true end
+		if problem.is_transient == true and not write then retryable = true end
 		if number == 190 or number == 102 then message ..= "; the Page access token is invalid or expired: create a new one and update the connection" end
 		if type(problem.fbtrace_id) == "string" then message ..= " (fbtrace_id " .. string.sub(problem.fbtrace_id, 1, 64) .. ")" end
 	end
@@ -288,14 +291,14 @@ local function fail(name: string, response: HttpResponse, raw: string?): never
 end
 
 local function decode(name: string, endpoint: Endpoint, response: HttpResponse): any
-	if response.statusCode < 200 or response.statusCode >= 300 then fail(name, response) end
+	if response.statusCode < 200 or response.statusCode >= 300 then fail(name, response, endpoint.method ~= "GET") end
 	local raw = await(response.body:readAll())
 	local ok, value = pcall(json.decode, raw)
 	if not ok or type(value) ~= "table" or not string.match(raw, "^%s*{") then
 		return houston.fail({operation = name, layer = "upstream", upstream_status = response.statusCode, retryable = false,
 			message = "Meta returned an invalid JSON object"})
 	end
-	if type(value.error) == "table" then fail(name, response, raw) end
+	if type(value.error) == "table" then fail(name, response, endpoint.method ~= "GET", raw) end
 	-- Always walked: JSON escapes can spell token keys the raw bytes do not show.
 	redact(value)
 	if endpoint.paging then sealPaging(name, value) end
@@ -410,7 +413,7 @@ exports.help = function(): string
 		"Paging: lists return one page, {data, paging}. limit sets its size (default 25) and paging.cursors.after is the next call's after. While paging.next is present, call the same function with {next = result.paging.next} alone for the next page; stop when it is absent, as a page can be empty yet have next. Expanded edges, such as business_discovery media, are paged with their own .after(cursor) modifier instead.",
 		"Insights: getInsights({object, metric, period?, since?, until?, ...}); since and until take Unix times or dates, at most 90 days apart for the Page, and paging.next or since/until move through time. Page (object='me'): page_media_view, page_total_media_view_unique, page_daily_follows_unique, page_daily_unfollows_unique, page_post_engagements, page_total_actions, page_views_total, page_video_views, with period day, week or days_28, and page_follows with period day; needs 100 or more followers. Posts: post_media_view, post_total_media_view_unique, post_clicks, post_reactions_by_type_total, post_video_views (period lifetime). Instagram account: reach, views, accounts_engaged, total_interactions, likes, comments, shares, saves, replies, follows_and_unfollows, profile_links_taps, with period='day' and metric_type='total_value' (breakdown='media_product_type' splits most), covering the last 24 hours unless since/until are given; follower_demographics and engaged_audience_demographics need period='lifetime', timeframe='this_month' and breakdown age, city, country or gender. Instagram media: views, reach, likes, comments, shares, saved, total_interactions; reels add ig_reels_avg_watch_time, stories navigation (24 hours only). impressions, plays and page_fans no longer exist.",
 		"Inbox: listConversations({platform='messenger' or 'instagram'}), then listMessages({conversation=thread.id}). Meta returns conversations with your customers only once the app has Advanced Access for messaging.",
-		"Read-only connections omit writes. Meta also applies the token's permissions and the system user's tasks on the Page; a missing one fails with code 10 or 200 naming it. Errors give the HTTP status, Meta's code/subcode, message and fbtrace_id; rate limits (codes 4, 17, 32, 341, 613, 80000-80014) and transient errors are retryable and may say when calls succeed again.",
+		"Read-only connections omit writes. Meta also applies the token's permissions and the system user's tasks on the Page; a missing one fails with code 10 or 200 naming it. Errors give the HTTP status, Meta's code/subcode, message and fbtrace_id; rate limits (codes 4, 17, 32, 341, 613, 80000-80014) are retryable and may say when calls succeed again; temporary errors and 5xx are retryable for reads only, since a write may already have been applied.",
 	}
 	local writing = {
 		"Replying: sendMessage({recipient={id=psid}, messaging_type='RESPONSE', message={text='Thanks!'}}) answers within 24 hours of the person's last message; after that Meta requires messaging_type='MESSAGE_TAG' with a tag it still accepts, such as 'HUMAN_AGENT' (within 7 days, once Meta approved its Human Agent feature). sendMessage({recipient={comment_id=id}, message}) sends the one private reply allowed to a Facebook comment, within 7 days; Instagram comments use sendInstagramPrivateReply, and if Meta refuses that route, sendMessage with the Instagram comment_id. Instagram texts are at most 1,000 bytes; recipients are the IDs in participants or from.",
