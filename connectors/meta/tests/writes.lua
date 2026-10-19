@@ -86,7 +86,7 @@ return {
 		assert(meta.uploadPhoto({path = "photos/bread.jpg", caption = "Bread", published = false, scheduled_publish_time = 1760003600}).id == "202")
 		req = sent(10, "POST", "https://graph.facebook.com/v26.0/me/photos")
 		assert(string.find(req.headers["Content-Type"][1], "multipart/form-data", 1, true))
-		for _, part in {'name="source"; filename="bread.jpg"', bytes, 'name="caption"\r\n\r\nBread', 'name="published"\r\n\r\nfalse',
+		for _, part in {'name="source"; filename="bread.jpg"\r\nContent-Type: application/octet-stream', bytes, 'name="caption"\r\n\r\nBread', 'name="published"\r\n\r\nfalse',
 			'name="scheduled_publish_time"\r\n\r\n1760003600'} do
 			assert(string.find(req.body, part, 1, true), "missing multipart field " .. part)
 		end

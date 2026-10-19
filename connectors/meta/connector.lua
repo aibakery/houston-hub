@@ -16,6 +16,7 @@ local NULL = json.decode("null")
 local POST_FIELDS = "id,message,story,created_time,permalink_url,status_type,full_picture,is_published,from,comments.summary(true).limit(0),reactions.summary(true).limit(0)"
 local VIDEO_FIELDS = "id,title,description,created_time,length,permalink_url,published"
 local IG_MEDIA_FIELDS = "id,caption,media_type,media_product_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count"
+local IG_STORY_FIELDS = "id,caption,media_type,media_product_type,media_url,thumbnail_url,permalink,timestamp"
 local IG_COMMENT_FIELDS = "id,text,timestamp,username,like_count,hidden"
 local HASHTAG_MEDIA_FIELDS = "id,caption,media_type,permalink,timestamp,like_count,comments_count"
 
@@ -64,7 +65,7 @@ local endpoints: {[string]: Endpoint} = {
 		about = "The linked Instagram professional account. fields='business_discovery.username(name){followers_count,media_count,media{caption,like_count}}' reads another business or creator account."},
 	listInstagramMedia = {method = "GET", path = "/{ig_user}/media", query = {"since", "until"}, paging = CURSORS, fields = IG_MEDIA_FIELDS,
 		about = "Posts and reels, newest first, at most the latest 10,000. media_product_type is FEED, REELS or AD."},
-	listInstagramStories = {method = "GET", path = "/{ig_user}/stories", paging = CURSORS, fields = IG_MEDIA_FIELDS, about = "Stories of the last 24 hours."},
+	listInstagramStories = {method = "GET", path = "/{ig_user}/stories", paging = CURSORS, fields = IG_STORY_FIELDS, about = "Stories of the last 24 hours."},
 	listInstagramTags = {method = "GET", path = "/{ig_user}/tags", paging = CURSORS, fields = "id,caption,media_type,media_url,permalink,timestamp,username",
 		about = "Media by others that tag the account."},
 	listInstagramChildren = {method = "GET", path = "/{media}/children", fields = "id,media_type,media_url,thumbnail_url,timestamp",
@@ -202,8 +203,10 @@ local function scrub(text: string): string
 	if found > 0 then
 		plain = string.gsub(string.gsub(string.gsub(plain, "&&+", "&"), "%?&", "?"), "[?&]$", "")
 	end
-	local encoded = string.gsub(plain, "(%%3[Ff])access_token%%3[Dd]" .. TOKEN_CHARS, "%1")
-	return (string.gsub(encoded, "(%%26)access_token%%3[Dd]" .. TOKEN_CHARS, "%1"))
+	-- Inside encoded links, a parameter goes with its following (or else preceding) %26.
+	local encoded = string.gsub(plain, "(%%3[Ff])access_token%%3[Dd]" .. TOKEN_CHARS .. "%%26", "%1")
+	encoded = string.gsub(encoded, "(%%3[Ff])access_token%%3[Dd]" .. TOKEN_CHARS, "%1")
+	return (string.gsub(encoded, "%%26access_token%%3[Dd]" .. TOKEN_CHARS, ""))
 end
 
 -- Error messages also echo malformed tokens: EAA and at least 30 more token characters.
@@ -304,7 +307,8 @@ local function multipart(args: Options): (any, string)
 	end
 	assert(await(fs.stat(source)).isFile, "path must be a session file")
 	-- http.multipart owns the file and closes it with the body.
-	table.insert(parts, {name = "source", filename = string.match(source, "[^/]+$"), body = fs.open(source, "r")})
+	table.insert(parts, {name = "source", filename = string.match(source, "[^/]+$"), contentType = "application/octet-stream",
+		body = fs.open(source, "r")})
 	return http.multipart(parts)
 end
 
@@ -312,7 +316,7 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 	local args = options(input)
 	if args.next ~= nil and endpoint.paging then
 		for key in args do assert(key == "next", "pass next alone, as {next = result.paging.next}") end
-		return decode(name, endpoint, await(http.request({method = "GET", url = nextPage(name, args.next)})))
+		return decode(name, endpoint, await(http.request({method = "GET", url = nextPage(name, args.next), headers = {Accept = {"application/json"}}})))
 	end
 	local path = string.gsub(endpoint.path, "{([%w_]+)}", function(field: string): string
 		local value = segment(args[field], field)

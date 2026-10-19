@@ -89,7 +89,7 @@ return {
 		assert(comments.paging.cursors.after == "QUZU" and not string.find(comments.paging.next, "graph", 1, true), comments.paging.next)
 		respond('{"data":[]}')
 		meta.listComments({next = comments.paging.next})
-		assert(requests[9].url == "https://graph.facebook.com/v26.0/101_1/comments?fields=id%2Cmessage&limit=1&after=QUZU", requests[9].url)
+		assert(requests[9].url == "https://graph.facebook.com/v26.0/101_1/comments?fields=id%2Cmessage&limit=1&after=QUZU" and requests[9].headers.Accept[1] == "application/json", requests[9].url)
 		respond('{"data":[]}')
 		meta.listComments({next = comments.paging.previous})
 		assert(requests[10].url == "https://graph.facebook.com/v26.0/101_1/comments?fields=id&limit=1&before=QkVG", requests[10].url)
@@ -100,6 +100,11 @@ return {
 		respond('{"data":[]}')
 		meta.getInsights({next = follows.paging.next})
 		assert(requests[12].url == insightsNext, requests[12].url)
+
+		-- Stories have no like or comment counts to ask for.
+		respond('{"data":[]}')
+		meta.listInstagramStories({ig_user = "17841400000000001"})
+		assert(requests[#requests].url == "https://graph.facebook.com/v26.0/17841400000000001/stories?fields=id%2Ccaption%2Cmedia_type%2Cmedia_product_type%2Cmedia_url%2Cthumbnail_url%2Cpermalink%2Ctimestamp", requests[#requests].url)
 
 		-- Query values are encoded, so they cannot add parameters.
 		respond('{"data":[]}')
@@ -115,7 +120,7 @@ return {
 		local leaky = meta.getObject({id = "101", fields = "id,accounts,comments"})
 		assert(leaky.accounts.data[1].name == "Other" and leaky.accounts.data[1].access_token == nil and leaky.accounts.data[1].page_token == nil)
 		assert(leaky.comments.paging.next == "https://graph.facebook.com/v26.0/101_1/comments?limit=5", leaky.comments.paging.next)
-		assert(leaky.comments.paging.previous == "https://graph.facebook.com/v26.0/101_1/comments?limit=5&redirect=x%3F%26ref%3Dabc", leaky.comments.paging.previous)
+		assert(leaky.comments.paging.previous == "https://graph.facebook.com/v26.0/101_1/comments?limit=5&redirect=x%3Fref%3Dabc", leaky.comments.paging.previous)
 		assert(leaky.note == "see https://x.test/cb?access_token=abc&x=1 and thanks" and leaky.comment == "Is EAAGLES2024 still open?", leaky.note)
 		assert(leaky.bare == "https://graph.facebook.com/v26.0/101/feed" and leaky.named == "https://graph.facebook.com/v26.0/101/feed?limit=5&page_access_token=kept&after=Q", leaky.named)
 		assert(leaky.cursors.after == "QUFB_EAAGZBpage0123456789abcdefghijklmnopqrstuvwxyz", leaky.cursors.after)
