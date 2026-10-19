@@ -280,9 +280,13 @@ local function operations(endpoints: {[string]: Endpoint}, request: (string, End
 end
 -- End of the shared request layer.
 
--- IDs are Mongo ObjectIds, UUIDs, or for some company routes a domain such as acme.com. Requiring a
--- digit or dot keeps an ID from naming a sibling route such as /v1/deals/batch.
+-- IDs are Mongo ObjectIds, UUIDs, integer Carta fund IDs, or for company notes a domain such as
+-- acme.com. Requiring a digit or dot keeps an ID from naming a sibling route such as /v1/deals/batch.
 local function identifier(value: any, field: string): string
+	if type(value) == "number" then
+		assert(value >= 0 and value % 1 == 0 and value <= 9007199254740991, field .. " must be a Carta CRM ID or domain")
+		return string.format("%d", value)
+	end
 	assert(type(value) == "string" and #value <= 200 and string.match(value, "^[%w][%w%-_.]*$") and string.find(value, "[%d.]"),
 		field .. " must be a Carta CRM ID or domain")
 	return value

@@ -69,6 +69,8 @@ return {
 		assert(last().url == API .. "/v1/reports/" .. ID .. "/data?entityType=deal&offset=100", last().url)
 		crm.listClosingProspectStatuses({fundCartaId = "0b6f6c1e-3d1a-4f7e-9a51-2a5d0c7e9b10", prospectPublicIds = {"a1", "b2"}})
 		assert(last().url == API .. "/v1/funds/0b6f6c1e-3d1a-4f7e-9a51-2a5d0c7e9b10/closing-prospect-statuses?prospectPublicIds=a1&prospectPublicIds=b2", last().url)
+		crm.listClosingProspectStatuses({fundCartaId = 42})
+		assert(last().url == API .. "/v1/funds/42/closing-prospect-statuses", "Carta fund IDs are integers")
 		crm.listTasks({done = false})
 		assert(last().url == API .. "/v1/tasks?done=false")
 		payload = ""
@@ -79,7 +81,8 @@ return {
 		rejected(function() crm.getDeal({id = "../me"}) end, "Carta CRM ID or domain")
 		rejected(function() crm.getDeal({id = "a/b1"}) end, "Carta CRM ID or domain")
 		rejected(function() crm.getDeal({id = "batch"}) end, "Carta CRM ID or domain")
-		rejected(function() crm.getDeal({id = 7}) end, "Carta CRM ID or domain")
+		rejected(function() crm.getDeal({id = -7}) end, "Carta CRM ID or domain")
+		rejected(function() crm.getDeal({id = 1.5}) end, "Carta CRM ID or domain")
 		rejected(function() crm.getDeal({id = string.rep("a1", 101)}) end, "Carta CRM ID or domain")
 		rejected(function() crm.getCompanyAngles() end, "domain is required")
 		rejected(function() crm.listReports({entityType = NULL}) end, "entityType is required")
@@ -90,6 +93,6 @@ return {
 		rejected(function() crm.listDeals({stages = {{"s1"}}}) end, "must be a string, boolean, number")
 		rejected(function() crm.listDeals("acme") end, "opts must be an object")
 		rejected(function() crm.listDeals({"acme"}) end, "named fields")
-		assert(#requests == 9)
+		assert(#requests == 10)
 	end,
 }
