@@ -274,7 +274,7 @@ Read-only connections may GET the listed routes except webhooks, whose responses
 include signing secrets, and may POST only to the routing-form slot calculation,
 which saves nothing.
 
-Bundles cannot share files, so Cal.com, Calendly and Resend carry the same request layer:
+Bundles cannot share files, so Cal.com, Calendly, Carta, Carta CRM and Resend carry the same request layer:
 option and query encoding, upstream failures, response decoding, and the generation of
 functions and help from each endpoint table. `tools/validate` checks that the copies
 match and that each manifest allows exactly the table's routes, with writes only on
@@ -667,3 +667,99 @@ GitHub's icon is the official Invertocat (`GitHub_Invertocat_Black.svg`) from th
 [github.com/logos](https://github.com/logos), retrieved 2026-10-16, unchanged.
 GitHub permits it to show that a project integrates with GitHub. GitHub® and the
 Invertocat logo are trademarks of GitHub, Inc.
+
+## Carta
+
+Register repository `https://github.com/aibakery/houston-hub`, revision `main`,
+manifest path `connectors/carta/houston.json`. The bundle uses the existing manifest
+v1 and async HTTP runtime without runtime changes. **Connect with Carta** uses a
+publisher-owned Carta app in production; connections can instead enable **Use your
+own Carta app** and sign in to production or Carta's playground with it, as the
+[account setup guide](../connectors/carta/SETUP.md) describes.
+
+Register at the [Carta Developer Portal](https://developers.app.carta.com/user/registration)
+and **Create App** with the authorization code grant type, the publication's redirect
+URI `<Houston public URL>/oauth/connectors/<hub-publication-id>/callback` under
+**Callbacks**, and every read and write scope listed in the account setup guide. The
+app starts in the playground. Promote it with **Actions → Promote to production** and
+pass Carta's [production review](https://docs.carta.com/api-platform/guides/getting-started/migrate-to-production/)
+(1–2 weeks; a rollout plan, expected traffic, a recorded demo and approved Carta
+branding). Production apps cannot be edited: adding scopes means promoting the
+playground app again into a new production app, which is reviewed again and needs
+new publisher settings. Enter the production app's `client_id` and `client_secret`
+in the publication's publisher settings.
+
+The connector covers all 79 operations of Carta's API Platform reference
+(`/v1alpha1`, the only version), checked on 2026-10-19 against the reference at
+[docs.carta.com](https://docs.carta.com/api-platform/reference/): the Issuer, Investor,
+Portfolio and Launch APIs, compensation benchmarks, file upload and the current user.
+Carta publishes no OpenAPI file; the operations were read from the reference pages.
+Carta has no webhooks and no PUT, PATCH or DELETE operations. Not covered: the client
+credentials grant, which Houston's OAuth support does not offer, the Data Warehouse
+(Snowflake) and Carta's MCP server.
+
+OAuth uses `login.app.carta.com` (playground `login.playground.carta.team`) with HTTP
+Basic client authentication and PKCE, which Carta's discovery document advertises.
+Access tokens last one hour; refresh tokens last 14 days and rotate on each refresh,
+so the methods require one. Read scopes are always requested and read-write
+connections add the `readwrite_` scopes. Carta's token reply lists the granted scopes
+space-separated, and Houston fails activation when one is missing. Carta's OIDC
+discovery document omits some documented scopes (`read_compensation_benchmarks`,
+`read_investor_cashbalances`, `read_investor_fundperformance`,
+`read_investor_securities`, the `readwrite_investor_` scopes and
+`readwrite_issuer_secondarytransactions`), so confirm one live sign-in at each access
+level with them before announcing the connector. Capital calls, management fees and
+secondary transactions can only be read with their `readwrite_` scopes, so
+read-only connections omit those reads; `read_issuer_secondarytransactions` appears
+only in the reference and is not requested.
+
+Every method shares the proxy rules, which allow only the listed routes on
+`api.carta.com` and `api.playground.carta.team` and strip `X-HTTP-Method-Override`
+from reads; writes require read-write access. Lua chooses the host from the selected
+method. Custom methods such as `capitalCalls/{id}:adjust` match their whole-segment
+placeholder. Fund document downloads return a temporary signed URL, which the
+connector passes through without fetching; draft issuers return a one-time
+`registrationUrl`. Carta allows 10 requests per second and 300 per minute per app
+(half on the playground), reported in `RateLimit-*` headers without `Retry-After`.
+
+Carta's icon is the square favicon mark (`carta-favicon-black.svg`) from the approved
+branding folder linked from Carta's production guide, retrieved 2026-10-19,
+unchanged. Carta is a trademark of eShares, Inc. d/b/a Carta, Inc.
+
+## Carta CRM
+
+Register repository `https://github.com/aibakery/houston-hub`, revision `main`,
+manifest path `connectors/carta-crm/houston.json`. The bundle uses the existing
+manifest v1 and async HTTP runtime without runtime changes. Connections paste an API
+key that an organization admin generates in Carta CRM settings; the
+[account setup guide](../connectors/carta-crm/SETUP.md) covers it. No publisher
+settings are needed. Carta CRM has no OAuth or scopes: the key acts as the admin who
+created it, so Houston enforces read-only access with its proxy routes and exports.
+The key is sent as the bare `Authorization` value, as the reference's `apiKey`
+scheme and Postman requests show.
+
+The connector covers 122 of the 261 operations in the
+[CRM API reference](https://docs.carta.com/crm/reference/) (`/v1`, spec 1.1.32),
+checked on 2026-10-19: companies, contacts, deals, fundraisings and investors with
+search, aggregates, fields, lists, interactions and linked notes; fees, notes, tasks,
+IC meetings and requests, calendar events, themes, report data, fund-admin closing
+and capital-activity reads, the LP catalogue, email campaign and history reads, the
+current user and organization. Search and aggregate POSTs only read, so read-only
+connections may send them. Carta publishes no OpenAPI file; the operations were read
+from the reference pages.
+
+Omitted on purpose: organization administration (users, roles, invitations, teams,
+modules); custom-field, stage, folder and list schema changes; contact merge; flows
+that email limited partners or start closings (subscription documents, initiate
+closing) and email campaign writes; enrichment, which may use paid data credits;
+batch deal writes; report writes and email schedules; notification settings and the
+contact classifier prompt. Not yet covered: attachment, logo and photo uploads
+(multipart), subtheme changes and DELETE requests with bodies, note unlinking,
+relations and interactions of deals, fundraisings and investors, campaign
+statistics, email templates and LP discovery facets. Path IDs must contain a digit
+or a dot (ObjectIds and company domains), so a word such as `batch` cannot reach an
+omitted sibling route.
+
+The CRM API allowed 8,000 requests per 60 seconds when probed on 2026-10-19,
+reported in `RateLimit-*` headers; Carta documents no limit. The icon is the same
+Carta mark as the [Carta](#carta) connector.

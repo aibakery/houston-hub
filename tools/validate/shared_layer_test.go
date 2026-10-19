@@ -43,7 +43,7 @@ func TestConnectorsShareOneRequestLayer(t *testing.T) {
 		groups = append(groups, group)
 	}
 	slices.Sort(groups)
-	if !slices.Equal(groups, []string{"Cal.com, Calendly and Resend", "Google"}) {
+	if !slices.Equal(groups, []string{"Cal.com, Calendly, Carta, Carta CRM and Resend", "Google"}) {
 		t.Errorf("shared request layer groups %v", groups)
 	}
 }

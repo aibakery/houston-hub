@@ -29,6 +29,8 @@ func TestEveryProviderAuthenticationAndTransport(t *testing.T) {
 		"woocommerce": {"GET", "https://shop.example.com/wp-json/wc/v3/orders"},
 		"calcom":      {"GET", "https://api.cal.com/v2/me"},
 		"calendly":    {"GET", "https://api.calendly.com/users/me"},
+		"carta":       {"GET", "https://api.carta.com/v1alpha1/user"},
+		"carta-crm":   {"GET", "https://crm-public-api.app.carta.com/v1/me"},
 		"resend":      {"GET", "https://api.resend.com/domains"},
 		"stripe":      {"GET", "https://api.stripe.com/v1/balance"},
 		"wise":        {"GET", "https://api.wise.com/v2/profiles"},
@@ -67,6 +69,9 @@ func TestEveryProviderAuthenticationAndTransport(t *testing.T) {
 				if provider == "dropbox" && method == "own_app" {
 					config["own_app"] = true
 				}
+				if provider == "carta" && method != "carta" {
+					config["own_app"] = true
+				}
 				if m.Proxy[0].Match.Protocol != "http" {
 					config["host"] = "database.example.com"
 					switch provider {
@@ -83,6 +88,9 @@ func TestEveryProviderAuthenticationAndTransport(t *testing.T) {
 					input["token"] = "synthetic-method-secret"
 				}
 				authorization := "Bearer synthetic-method-secret"
+				if provider == "carta-crm" { // Carta CRM takes the bare API key.
+					authorization = "synthetic-method-secret"
+				}
 				if provider == "woocommerce" {
 					config["store_host"] = "shop.example.com"
 					input = map[string]any{"consumer_key": "synthetic-method-key", "consumer_secret": "synthetic-method-secret"}

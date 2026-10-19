@@ -195,8 +195,8 @@ local endpoints: {[string]: Endpoint} = {
 	removeSuppression = {method = "DELETE", path = "/suppressions/{suppression}", doc = "suppressions/remove-suppression", about = "Removes a suppression."},
 }
 
--- Request layer shared verbatim by the Cal.com, Calendly and Resend connectors (tools/validate
--- checks they match). It uses each connector's PROVIDER, DOCS and Endpoint type.
+-- Request layer shared verbatim by the Cal.com, Calendly, Carta, Carta CRM and Resend connectors
+-- (tools/validate checks they match). It uses each connector's PROVIDER, DOCS and Endpoint type.
 local NULL = json.decode("null")
 local NONE: {string} = table.freeze({})
 

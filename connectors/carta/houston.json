@@ -1,0 +1,442 @@
+{
+  "schema_version": 1,
+  "name": "Carta",
+  "files": [
+    "connector.lua"
+  ],
+  "icon": "icon.svg",
+  "config": {
+    "access": {
+      "default": "read-only",
+      "label": "Access",
+      "options": [
+        {
+          "label": "Read-only",
+          "value": "read-only"
+        },
+        {
+          "label": "Read and write",
+          "value": "read-write"
+        }
+      ],
+      "type": "string"
+    },
+    "own_app": {
+      "default": false,
+      "label": "Use your own Carta app",
+      "order": 1,
+      "type": "boolean"
+    },
+    "client_id": {
+      "if": "{{ is config.own_app true }}",
+      "label": "Carta OAuth client ID",
+      "order": 2,
+      "required": true,
+      "type": "string"
+    },
+    "client_secret": {
+      "if": "{{ is config.own_app true }}",
+      "label": "Carta OAuth client secret",
+      "order": 3,
+      "required": true,
+      "type": "secret"
+    }
+  },
+  "auth": {
+    "carta": {
+      "type": "oauth2",
+      "label": "Connect with Carta",
+      "if": "{{ is config.own_app false }}",
+      "authorize_url": "https://login.app.carta.com/o/authorize/",
+      "token_url": "https://login.app.carta.com/o/access_token/",
+      "client_id": "{{publisher.client_id}}",
+      "client_secret": "{{publisher.client_secret}}",
+      "client_auth": "basic",
+      "require_refresh": true,
+      "scopes": [
+        {
+          "values": [
+            "read_user_info",
+            "read_issuer_info",
+            "read_issuer_capitalizationtablesummary",
+            "read_issuer_stakeholdercapitalizationtable",
+            "read_issuer_shareclasses",
+            "read_issuer_stakeholders",
+            "read_issuer_securities",
+            "read_issuer_valuations",
+            "read_issuer_securitiestemplates",
+            "read_issuer_interests",
+            "read_issuer_draftsecurities",
+            "read_corporation_info",
+            "read_compensation_benchmarks",
+            "read_draftissuers",
+            "read_opencaptables",
+            "read_investor_firms",
+            "read_investor_funds",
+            "read_investor_investments",
+            "read_investor_capitalizationtables",
+            "read_investor_stakeholdercapitalizationtable",
+            "read_investor_securities",
+            "read_investor_cashbalances",
+            "read_investor_fundperformance",
+            "read_investor_partners",
+            "read_portfolio_info",
+            "read_portfolio_securities",
+            "read_portfolio_issuervaluations",
+            "read_portfolio_transactions",
+            "read_portfolio_fundinvestmentdocuments"
+          ]
+        },
+        {
+          "if": "{{ is config.access \"read-write\" }}",
+          "values": [
+            "readwrite_issuer_securities",
+            "readwrite_issuer_draftsecurities",
+            "readwrite_issuer_secondarytransactions",
+            "readwrite_draftissuers",
+            "readwrite_opencaptables",
+            "readwrite_file_upload",
+            "readwrite_investor_capitalcalls",
+            "readwrite_investor_carriedinterest",
+            "readwrite_investor_managementfees"
+          ]
+        }
+      ],
+      "account": {
+        "url": "https://api.carta.com/v1alpha1/user",
+        "headers": {
+          "Authorization": {
+            "value": "Bearer {{auth.carta.access_token}}"
+          }
+        },
+        "label": "/user/email"
+      }
+    },
+    "own_app": {
+      "type": "oauth2",
+      "label": "Connect with your Carta app",
+      "order": 1,
+      "if": "{{ is config.own_app true }}",
+      "authorize_url": "https://login.app.carta.com/o/authorize/",
+      "token_url": "https://login.app.carta.com/o/access_token/",
+      "client_id": "{{config.client_id}}",
+      "client_secret": "{{config.client_secret}}",
+      "client_auth": "basic",
+      "require_refresh": true,
+      "scopes": [
+        {
+          "values": [
+            "read_user_info",
+            "read_issuer_info",
+            "read_issuer_capitalizationtablesummary",
+            "read_issuer_stakeholdercapitalizationtable",
+            "read_issuer_shareclasses",
+            "read_issuer_stakeholders",
+            "read_issuer_securities",
+            "read_issuer_valuations",
+            "read_issuer_securitiestemplates",
+            "read_issuer_interests",
+            "read_issuer_draftsecurities",
+            "read_corporation_info",
+            "read_compensation_benchmarks",
+            "read_draftissuers",
+            "read_opencaptables",
+            "read_investor_firms",
+            "read_investor_funds",
+            "read_investor_investments",
+            "read_investor_capitalizationtables",
+            "read_investor_stakeholdercapitalizationtable",
+            "read_investor_securities",
+            "read_investor_cashbalances",
+            "read_investor_fundperformance",
+            "read_investor_partners",
+            "read_portfolio_info",
+            "read_portfolio_securities",
+            "read_portfolio_issuervaluations",
+            "read_portfolio_transactions",
+            "read_portfolio_fundinvestmentdocuments"
+          ]
+        },
+        {
+          "if": "{{ is config.access \"read-write\" }}",
+          "values": [
+            "readwrite_issuer_securities",
+            "readwrite_issuer_draftsecurities",
+            "readwrite_issuer_secondarytransactions",
+            "readwrite_draftissuers",
+            "readwrite_opencaptables",
+            "readwrite_file_upload",
+            "readwrite_investor_capitalcalls",
+            "readwrite_investor_carriedinterest",
+            "readwrite_investor_managementfees"
+          ]
+        }
+      ],
+      "account": {
+        "url": "https://api.carta.com/v1alpha1/user",
+        "headers": {
+          "Authorization": {
+            "value": "Bearer {{auth.own_app.access_token}}"
+          }
+        },
+        "label": "/user/email"
+      }
+    },
+    "playground": {
+      "type": "oauth2",
+      "label": "Connect with your Carta playground app",
+      "order": 2,
+      "if": "{{ is config.own_app true }}",
+      "authorize_url": "https://login.playground.carta.team/o/authorize/",
+      "token_url": "https://login.playground.carta.team/o/access_token/",
+      "client_id": "{{config.client_id}}",
+      "client_secret": "{{config.client_secret}}",
+      "client_auth": "basic",
+      "require_refresh": true,
+      "scopes": [
+        {
+          "values": [
+            "read_user_info",
+            "read_issuer_info",
+            "read_issuer_capitalizationtablesummary",
+            "read_issuer_stakeholdercapitalizationtable",
+            "read_issuer_shareclasses",
+            "read_issuer_stakeholders",
+            "read_issuer_securities",
+            "read_issuer_valuations",
+            "read_issuer_securitiestemplates",
+            "read_issuer_interests",
+            "read_issuer_draftsecurities",
+            "read_corporation_info",
+            "read_compensation_benchmarks",
+            "read_draftissuers",
+            "read_opencaptables",
+            "read_investor_firms",
+            "read_investor_funds",
+            "read_investor_investments",
+            "read_investor_capitalizationtables",
+            "read_investor_stakeholdercapitalizationtable",
+            "read_investor_securities",
+            "read_investor_cashbalances",
+            "read_investor_fundperformance",
+            "read_investor_partners",
+            "read_portfolio_info",
+            "read_portfolio_securities",
+            "read_portfolio_issuervaluations",
+            "read_portfolio_transactions",
+            "read_portfolio_fundinvestmentdocuments"
+          ]
+        },
+        {
+          "if": "{{ is config.access \"read-write\" }}",
+          "values": [
+            "readwrite_issuer_securities",
+            "readwrite_issuer_draftsecurities",
+            "readwrite_issuer_secondarytransactions",
+            "readwrite_draftissuers",
+            "readwrite_opencaptables",
+            "readwrite_file_upload",
+            "readwrite_investor_capitalcalls",
+            "readwrite_investor_carriedinterest",
+            "readwrite_investor_managementfees"
+          ]
+        }
+      ],
+      "account": {
+        "url": "https://api.playground.carta.team/v1alpha1/user",
+        "headers": {
+          "Authorization": {
+            "value": "Bearer {{auth.playground.access_token}}"
+          }
+        },
+        "label": "/user/email"
+      }
+    }
+  },
+  "publisher": {
+    "client_id": {
+      "label": "Carta OAuth client ID",
+      "order": 1,
+      "required": true,
+      "type": "string"
+    },
+    "client_secret": {
+      "label": "Carta OAuth client secret",
+      "order": 2,
+      "required": true,
+      "type": "secret"
+    }
+  },
+  "proxy": [
+    {
+      "match": {
+        "protocol": "http",
+        "host": [
+          "api.carta.com",
+          "api.playground.carta.team"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/v1alpha1/corporations",
+          "/v1alpha1/corporations/{corporationId}/compensationBenchmarkAttributes",
+          "/v1alpha1/corporations/{corporationId}/compensationBenchmarks",
+          "/v1alpha1/draftIssuers/{id}",
+          "/v1alpha1/investors/firms",
+          "/v1alpha1/investors/firms/{firmId}/funds",
+          "/v1alpha1/investors/firms/{firmId}/funds/{fundId}/cashBalances",
+          "/v1alpha1/investors/firms/{firmId}/funds/{fundId}/interests",
+          "/v1alpha1/investors/firms/{firmId}/funds/{fundId}/investments",
+          "/v1alpha1/investors/firms/{firmId}/funds/{fundId}/investments/{companyId}/capitalizationTables",
+          "/v1alpha1/investors/firms/{firmId}/funds/{fundId}/investments/{companyId}/capitalizationTables/{capitalizationTableId}",
+          "/v1alpha1/investors/firms/{firmId}/funds/{fundId}/investments/{companyId}/stakeholderCapitalizationTables/{capitalizationTableId}",
+          "/v1alpha1/investors/firms/{firmId}/funds/{fundId}/investments/{investmentId}/certificates",
+          "/v1alpha1/investors/firms/{firmId}/funds/{fundId}/investments/{investmentId}/convertibleNotes",
+          "/v1alpha1/investors/firms/{firmId}/funds/{fundId}/investments/{investmentId}/warrants",
+          "/v1alpha1/investors/firms/{firmId}/funds/{fundId}/metrics",
+          "/v1alpha1/investors/firms/{firmId}/metrics",
+          "/v1alpha1/investors/firms/{firmId}/partnerContacts",
+          "/v1alpha1/investors/firms/{firmId}/partners",
+          "/v1alpha1/issuers",
+          "/v1alpha1/issuers/{id}",
+          "/v1alpha1/issuers/{issuerId}/capitalizationTable",
+          "/v1alpha1/issuers/{issuerId}/certificates",
+          "/v1alpha1/issuers/{issuerId}/certificates/{id}",
+          "/v1alpha1/issuers/{issuerId}/convertibleNotes",
+          "/v1alpha1/issuers/{issuerId}/convertibleNotes/{id}",
+          "/v1alpha1/issuers/{issuerId}/draftOptionGrantSets/{draftOptionGrantSetId}/draftOptionGrants/{draftOptionGrantId}",
+          "/v1alpha1/issuers/{issuerId}/fairMarketValues",
+          "/v1alpha1/issuers/{issuerId}/interests",
+          "/v1alpha1/issuers/{issuerId}/optionExercises",
+          "/v1alpha1/issuers/{issuerId}/optionGrants",
+          "/v1alpha1/issuers/{issuerId}/optionGrants/{id}",
+          "/v1alpha1/issuers/{issuerId}/pointsOfContact",
+          "/v1alpha1/issuers/{issuerId}/restrictedStockAwards",
+          "/v1alpha1/issuers/{issuerId}/restrictedStockAwards/{id}",
+          "/v1alpha1/issuers/{issuerId}/restrictedStockUnits",
+          "/v1alpha1/issuers/{issuerId}/restrictedStockUnits/{id}",
+          "/v1alpha1/issuers/{issuerId}/shareClasses",
+          "/v1alpha1/issuers/{issuerId}/stakeholderCapitalizationTable",
+          "/v1alpha1/issuers/{issuerId}/stakeholders",
+          "/v1alpha1/issuers/{issuerId}/stakeholders/{id}",
+          "/v1alpha1/issuers/{issuerId}/stakeholders/{stakeholderId}/equitySummary",
+          "/v1alpha1/issuers/{issuerId}/transactions",
+          "/v1alpha1/issuers/{issuerId}/vestingScheduleTemplates",
+          "/v1alpha1/openCapTables/{id}",
+          "/v1alpha1/portfolios",
+          "/v1alpha1/portfolios/{portfolioId}",
+          "/v1alpha1/portfolios/{portfolioId}/fundInvestmentDocuments",
+          "/v1alpha1/portfolios/{portfolioId}/fundInvestmentDocuments/{documentId}",
+          "/v1alpha1/portfolios/{portfolioId}/issuers",
+          "/v1alpha1/portfolios/{portfolioId}/issuers/{issuerId}/certificates",
+          "/v1alpha1/portfolios/{portfolioId}/issuers/{issuerId}/certificates/{certificateId}",
+          "/v1alpha1/portfolios/{portfolioId}/issuers/{issuerId}/convertibleNotes",
+          "/v1alpha1/portfolios/{portfolioId}/issuers/{issuerId}/convertibleNotes/{id}",
+          "/v1alpha1/portfolios/{portfolioId}/issuers/{issuerId}/fairMarketValue",
+          "/v1alpha1/portfolios/{portfolioId}/issuers/{issuerId}/optionGrants",
+          "/v1alpha1/portfolios/{portfolioId}/issuers/{issuerId}/optionGrants/{optionGrantId}",
+          "/v1alpha1/portfolios/{portfolioId}/issuers/{issuerId}/restrictedStockAwards",
+          "/v1alpha1/portfolios/{portfolioId}/issuers/{issuerId}/restrictedStockAwards/{restrictedStockAwardId}",
+          "/v1alpha1/portfolios/{portfolioId}/issuers/{issuerId}/restrictedStockUnits",
+          "/v1alpha1/portfolios/{portfolioId}/issuers/{issuerId}/restrictedStockUnits/{restrictedStockUnitId}",
+          "/v1alpha1/portfolios/{portfolioId}/issuers/{issuerId}/securityTransactions",
+          "/v1alpha1/user"
+        ]
+      },
+      "action": {
+        "headers": {
+          "remove": [
+            "X-HTTP-Method-Override"
+          ],
+          "set": {
+            "Authorization": "Bearer {{auth.carta.access_token || auth.own_app.access_token || auth.playground.access_token}}"
+          }
+        }
+      }
+    },
+    {
+      "match": {
+        "protocol": "http",
+        "host": [
+          "api.carta.com",
+          "api.playground.carta.team"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/v1alpha1/issuers/{issuerId}/securities:stockSplitChanges"
+        ]
+      },
+      "action": {
+        "headers": {
+          "remove": [
+            "X-HTTP-Method-Override"
+          ],
+          "set": {
+            "Authorization": "Bearer {{auth.carta.access_token || auth.own_app.access_token || auth.playground.access_token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "api.carta.com",
+          "api.playground.carta.team"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/v1alpha1/investors/firms/{firmId}/funds/{fundId}/capitalCalls/{capitalCallId}",
+          "/v1alpha1/investors/firms/{firmId}/funds/{fundId}/managementFees/{managementFeeId}",
+          "/v1alpha1/issuers/{issuerId}/secondaryTransactions/{secondaryTransactionId}"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.carta.access_token || auth.own_app.access_token || auth.playground.access_token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "api.carta.com",
+          "api.playground.carta.team"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/v1alpha1/draftIssuers",
+          "/v1alpha1/files:upload",
+          "/v1alpha1/investors/firms/{firmId}/funds/{fundId}/capitalCalls",
+          "/v1alpha1/investors/firms/{firmId}/funds/{fundId}/capitalCalls/{capitalCallId}",
+          "/v1alpha1/investors/firms/{firmId}/funds/{fundId}/carriedInterestAllocations",
+          "/v1alpha1/investors/firms/{firmId}/funds/{fundId}/managementFees",
+          "/v1alpha1/issuers/{issuerId}/draftOptionGrantSets/{draftOptionGrantSetId}/draftOptionGrants",
+          "/v1alpha1/issuers/{issuerId}/optionExercises/{exerciseId}",
+          "/v1alpha1/issuers/{issuerId}/secondaryTransactions",
+          "/v1alpha1/issuers/{issuerId}/secondaryTransactions/{secondaryTransactionId}",
+          "/v1alpha1/openCapTables"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.carta.access_token || auth.own_app.access_token || auth.playground.access_token}}"
+          }
+        }
+      }
+    }
+  ]
+}
