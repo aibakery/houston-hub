@@ -378,13 +378,18 @@ local function signature(endpoint: Endpoint): string
 		end
 	end
 	if endpoint.paging then table.insert(fields, "next?") end
-	if endpoint.method == "POST" then table.insert(fields, "...body") end
+	if endpoint.method == "POST" then
+		for _, field in endpoint.required or NONE do
+			if not table.find(fields, field) then table.insert(fields, field) end
+		end
+		table.insert(fields, "...body")
+	end
 	return "({" .. table.concat(fields, ", ") .. "})"
 end
 
 exports.help = function(): string
 	local lines = {
-		"Meta Graph API " .. VERSION .. " for one Facebook Page and the Instagram professional account linked to it. Each function takes one options object with Meta's snake_case names (? marks optional; ...body are the body fields after Body). Results are Meta's JSON unchanged, except that access tokens are removed; writes return {id} or {success=true}. Connector calls return completed values: use them directly, without await.",
+		"Meta Graph API " .. VERSION .. " for one Facebook Page and the Instagram professional account linked to it. Each function takes one options object with Meta's snake_case names (? marks optional; ...body are the body fields after Body). Results are Meta's JSON unchanged, except that access tokens are removed. Connector calls return completed values: use them directly, without await.",
 		"Start with local page = meta.getPage(): page.id is the Page. For Instagram, local ig = meta.getPage({fields='id,instagram_business_account'}).instagram_business_account gives the linked account, whose ig.id is the ig_user of Instagram functions; it is nil when none is linked, and the call needs the instagram_basic permission. Page functions act on the connected Page itself. IDs are strings: posts look like '<page-id>_<post-id>', conversations 't_...', Messenger messages 'm_...'; Instagram media, comments and accounts are numeric strings, Instagram threads and messages opaque ones.",
 		"fields chooses what Meta returns and accepts field expansion, such as fields='id,message,comments.limit(5){message,from}' or, to get insights with each post, fields='id,message,insights.metric(post_media_view,post_clicks)'. Functions list their default fields; getObject without fields returns only Meta's minimal defaults. Access tokens cannot be requested. Media links (full_picture, picture, media_url, attachments) are signed CDN URLs that expire within days; read the object again for fresh ones.",
 		"Paging: lists return one page, {data, paging}. limit sets its size (default 25) and paging.cursors.after is the next call's after. paging.next and paging.previous are opaque values: while paging.next is present, call the same function with {next = result.paging.next} alone for the next page (or paging.previous to go back); stop when it is absent, as a page can be empty yet have next. Expanded edges, such as business_discovery media, are paged with their own .after(cursor) modifier instead.",
@@ -397,7 +402,7 @@ exports.help = function(): string
 		"Publishing to Facebook: createPost({message='Hello'}) posts now; published=false with scheduled_publish_time (Unix time 10 minutes to 30 days ahead) schedules it. uploadPhoto and uploadVideo take a public url (file_url for videos) or path, a session file streamed to Meta. For several photos in one post, upload each with published=false (and temporary=true when the post is scheduled), then createPost({message, attached_media={{media_fbid=id1}, {media_fbid=id2}}}). Facebook reels cannot be published here.",
 		"Publishing to Instagram: createInstagramContainer({ig_user, image_url=jpeg_url, caption}) (or media_type='REELS' with video_url, media_type='STORIES', or media_type='CAROUSEL' with children='id1,id2', at most 10 made with is_carousel_item=true) returns {id}; poll getObject({id=container.id, fields='status_code'}) about once a minute, for at most 5 minutes, until FINISHED (EXPIRED after 24 hours, ERROR on failure); then publishInstagramMedia({ig_user, creation_id=container.id}). Meta fetches media from public HTTPS URLs. Captions take at most 2,200 characters, 30 hashtags and 20 @ tags; an account creates at most 400 containers a day, and getInstagramPublishingLimit gives the 24-hour publishing quota.",
 		"Moderation: updateComment({comment, is_hidden=true}) hides a Facebook comment and updateComment({comment, hide=true}) an Instagram one; deleteObject({id}) deletes either. Instagram comments can be deleted only on the account's own media.",
-		"There are no automatic retries: after a timeout or 5xx, read the Page again before repeating a write, since a post or message may already be live.",
+		"Writes return {id} or {success=true}. There are no automatic retries: after a timeout or 5xx, read the Page again before repeating a write, since a post or message may already be live.",
 	}
 	if config.access == "read-write" then table.move(writing, 1, #writing, #lines + 1, lines) end
 	local names: {string} = {}
