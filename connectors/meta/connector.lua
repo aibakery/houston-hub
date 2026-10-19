@@ -8,7 +8,6 @@ type Endpoint = {method: string, path: string, host: string?, query: {string}?, 
 local VERSION = "v26.0"
 local API = "https://graph.facebook.com/" .. VERSION
 local VIDEO_API = "https://graph-video.facebook.com/" .. VERSION
-local LINK = "^" .. (string.gsub(API, "%p", "%%%0")) .. "(/[^?#]*)%??([^#]*)$"
 local ID = "^[%w_][%w_.:$=+-]*$"
 local CURSORS = {"limit", "after", "before"}
 local NONE: {string} = table.freeze({})
@@ -176,37 +175,21 @@ local function queryValue(value: any, field: string): string
 	return table.concat(parts, "%2C")
 end
 
-local function unescape(value: string): string
-	local spaced = string.gsub(value, "%+", " ")
-	return (string.gsub(spaced, "%%(%x%x)", function(hex: string): string return string.char(tonumber(hex, 16) :: number) end))
+-- Paging links go back to callers sealed with the function that produced them, so next can
+-- only continue an earlier result and never carries a URL, query or method a caller chose.
+local function sealPaging(name: string, value: any)
+	local paging = if type(value) == "table" then value.paging else nil
+	if type(paging) ~= "table" then return end
+	for _, key in {"next", "previous"} do
+		if type(paging[key]) == "string" then paging[key] = houston.seal({operation = name, url = paging[key]}) end
+	end
 end
 
--- A paging.next link from an earlier result of the same function. It is replayed as is once its
--- route and parameters check out: the function's own options, Meta's internal __ parameters
--- (such as __paging_token) and pretty, which v26.0 ignores.
-local function nextPage(name: string, endpoint: Endpoint, link: any): string
-	local usage = "next must be the unchanged paging.next link of an earlier " .. name .. " result"
-	assert(type(link) == "string" and #link <= 8192, usage)
-	local path, query = string.match(link, LINK)
-	assert(path and query, usage)
-	-- Meta writes the Page's ID where the request said me.
-	local parts = string.split(string.sub(path, 2), "/")
-	local expected = string.split(string.sub(endpoint.path, 2), "/")
-	assert(#parts == #expected, usage)
-	for index, part in parts do
-		local literal = expected[index]
-		assert(string.match(part, ID) and (part == literal or literal == "me" or string.match(literal, "^{")), usage)
-	end
-	local seen: {[string]: boolean} = {}
-	for pair in string.gmatch(query, "[^&]+") do
-		local key, value = string.match(pair, "^([%w_]+)=([%w%%._~+,(){}:-]*)$")
-		assert(key and value and not seen[key], usage)
-		assert(key == "fields" or key == "pretty" or string.match(key, "^__%l[%l_]*$") or table.find(endpoint.query or NONE, key)
-			or table.find(endpoint.paging or NONE, key), usage)
-		if key == "fields" then fieldList(unescape(value)) end
-		seen[key] = true
-	end
-	return API .. path .. (if query == "" then "" else "?" .. query)
+local function nextPage(name: string, token: any): string
+	local ok, link = pcall(houston.unseal, token)
+	assert(ok and type(link) == "table" and link.operation == name and type(link.url) == "string"
+		and string.sub(link.url, 1, #API + 1) == API .. "/", "next must be the paging.next or paging.previous value of an earlier " .. name .. " result")
+	return link.url
 end
 
 -- Meta writes the request's access token into paging links, also URL-encoded inside others.
@@ -288,7 +271,7 @@ local function fail(name: string, response: HttpResponse, raw: string?): never
 	return houston.fail({operation = name, layer = "upstream", upstream_status = status, retryable = retryable, message = message})
 end
 
-local function decode(name: string, response: HttpResponse): any
+local function decode(name: string, endpoint: Endpoint, response: HttpResponse): any
 	if response.statusCode < 200 or response.statusCode >= 300 then fail(name, response) end
 	local raw = await(response.body:readAll())
 	local ok, value = pcall(json.decode, raw)
@@ -297,8 +280,9 @@ local function decode(name: string, response: HttpResponse): any
 			message = "Meta returned an invalid JSON object"})
 	end
 	if type(value.error) == "table" then fail(name, response, raw) end
-	-- Every token key or link names a token; most bodies have none to walk for.
-	if string.find(raw, "[Tt][Oo][Kk][Ee][Nn]") then redact(value) end
+	-- Always walked: JSON escapes can spell token keys the raw bytes do not show.
+	redact(value)
+	if endpoint.paging then sealPaging(name, value) end
 	return value
 end
 
@@ -326,7 +310,7 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 	local args = options(input)
 	if args.next ~= nil and endpoint.paging then
 		for key in args do assert(key == "next", "pass next alone, as {next = result.paging.next}") end
-		return decode(name, await(http.request({method = "GET", url = nextPage(name, endpoint, args.next)})))
+		return decode(name, endpoint, await(http.request({method = "GET", url = nextPage(name, args.next)})))
 	end
 	local path = string.gsub(endpoint.path, "{([%w_]+)}", function(field: string): string
 		local value = segment(args[field], field)
@@ -370,7 +354,7 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 	end
 	local unknown = next(args)
 	assert(unknown == nil, name .. " has no option " .. tostring(unknown))
-	return decode(name, await(http.request({method = endpoint.method, url = (endpoint.host or API) .. path, headers = headers, body = body})))
+	return decode(name, endpoint, await(http.request({method = endpoint.method, url = (endpoint.host or API) .. path, headers = headers, body = body})))
 end
 
 local exports: {[string]: any} = {}
@@ -401,7 +385,7 @@ exports.help = function(): string
 		"Meta Graph API " .. VERSION .. " for one Facebook Page and the Instagram professional account linked to it. Each function takes one options object with Meta's snake_case names (? marks optional; ...body are the body fields after Body). Results are Meta's JSON unchanged, except that access tokens are removed; writes return {id} or {success=true}. Connector calls return completed values: use them directly, without await.",
 		"Start with local page = meta.getPage(): page.id is the Page. For Instagram, local ig = meta.getPage({fields='id,instagram_business_account'}).instagram_business_account gives the linked account, whose ig.id is the ig_user of Instagram functions; it is nil when none is linked, and the call needs the instagram_basic permission. Page functions act on the connected Page itself. IDs are strings: posts look like '<page-id>_<post-id>', conversations 't_...', Messenger messages 'm_...'; Instagram media, comments and accounts are numeric strings, Instagram threads and messages opaque ones.",
 		"fields chooses what Meta returns and accepts field expansion, such as fields='id,message,comments.limit(5){message,from}' or, to get insights with each post, fields='id,message,insights.metric(post_media_view,post_clicks)'. Functions list their default fields; getObject without fields returns only Meta's minimal defaults. Access tokens cannot be requested. Media links (full_picture, picture, media_url, attachments) are signed CDN URLs that expire within days; read the object again for fresh ones.",
-		"Paging: lists return one page, {data, paging}. limit sets its size (default 25) and paging.cursors.after is the next call's after. While paging.next is present, call the same function with {next = result.paging.next} alone for the next page; stop when it is absent, as a page can be empty yet have next. Expanded edges, such as business_discovery media, are paged with their own .after(cursor) modifier instead.",
+		"Paging: lists return one page, {data, paging}. limit sets its size (default 25) and paging.cursors.after is the next call's after. paging.next and paging.previous are opaque values: while paging.next is present, call the same function with {next = result.paging.next} alone for the next page (or paging.previous to go back); stop when it is absent, as a page can be empty yet have next. Expanded edges, such as business_discovery media, are paged with their own .after(cursor) modifier instead.",
 		"Insights: getInsights({object, metric, period?, since?, until?, ...}); since and until take Unix times or dates, at most 90 days apart for the Page, and paging.next or since/until move through time. Page (object='me'): page_media_view, page_total_media_view_unique, page_daily_follows_unique, page_daily_unfollows_unique, page_post_engagements, page_total_actions, page_views_total, page_video_views, with period day, week or days_28, and page_follows with period day; needs 100 or more followers. Posts: post_media_view, post_total_media_view_unique, post_clicks, post_reactions_by_type_total, post_video_views (period lifetime). Instagram account: reach, views, accounts_engaged, total_interactions, likes, comments, shares, saves, replies, follows_and_unfollows, profile_links_taps, with period='day' and metric_type='total_value' (breakdown='media_product_type' splits most), covering the last 24 hours unless since/until are given; follower_demographics and engaged_audience_demographics need period='lifetime', timeframe='this_month' and breakdown age, city, country or gender. Instagram media: views, reach, likes, comments, shares, saved, total_interactions; reels add ig_reels_avg_watch_time, stories navigation (24 hours only). impressions, plays and page_fans no longer exist.",
 		"Inbox: listConversations({platform='messenger' or 'instagram'}), then listMessages({conversation=thread.id}). Meta returns conversations with your customers only once the app has Advanced Access for messaging.",
 		"Read-only connections omit writes. Meta also applies the token's permissions and the system user's tasks on the Page; a missing one fails with code 10 or 200 naming it. Errors give the HTTP status, Meta's code/subcode, message and fbtrace_id; rate limits (codes 4, 17, 32, 341, 613, 80000-80014) and transient errors are retryable and may say when calls succeed again.",

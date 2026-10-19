@@ -2,6 +2,18 @@ return {
 	scenario = {publisher = {}, config = {access = "read-only"}, auth_method = "token", auth_config = {token = "fixture-page-token"}},
 	configure = function()
 		requests, responses = {}, {}
+		-- Sealing is native; a table of opaque handles stands in for it.
+		local sealed, count = {}, 0
+		houston = table.clone(houston)
+		houston.seal = function(value)
+			count += 1
+			sealed["sealed:" .. count] = json.encode(value)
+			return "sealed:" .. count
+		end
+		houston.unseal = function(token)
+			assert(type(token) == "string" and sealed[token], "invalid sealed token")
+			return json.decode(sealed[token])
+		end
 		http = {request = function(req)
 			table.insert(requests, req)
 			assert(#responses > 0, "unexpected request: " .. req.url)
@@ -66,36 +78,28 @@ return {
 		meta.getObject({id = "t_1", fields = "messages.limit(5){message,from}"})
 		assert(requests[7].url == "https://graph.facebook.com/v26.0/t_1?fields=messages.limit%285%29%7Bmessage%2Cfrom%7D")
 
-		-- Meta echoes the access token in paging links; results drop it, and the link pages on.
+		-- Paging links come back sealed for the function that made them, without the token Meta
+		-- writes into them, and page on through that function.
 		respond(json.encode({data = {{id = "c1"}}, paging = {
 			cursors = {after = "QUZU"},
 			next = "https://graph.facebook.com/v26.0/101_1/comments?access_token=EAAPAGE&fields=id%2Cmessage&limit=1&after=QUZU",
 			previous = "https://graph.facebook.com/v26.0/101_1/comments?fields=id&limit=1&before=QkVG&access_token=EAAPAGE",
 		}}))
 		local comments = meta.listComments({object = "101_1", fields = "id,message", limit = 1})
-		assert(comments.paging.next == "https://graph.facebook.com/v26.0/101_1/comments?fields=id%2Cmessage&limit=1&after=QUZU", comments.paging.next)
-		assert(comments.paging.previous == "https://graph.facebook.com/v26.0/101_1/comments?fields=id&limit=1&before=QkVG", comments.paging.previous)
+		assert(comments.paging.cursors.after == "QUZU" and not string.find(comments.paging.next, "graph", 1, true), comments.paging.next)
 		respond('{"data":[]}')
 		meta.listComments({next = comments.paging.next})
-		assert(requests[9].url == comments.paging.next)
-		-- A me route pages through the Page's own ID, with Meta's internal parameters.
-		local feedNext = "https://graph.facebook.com/v26.0/101/feed?fields=id,message&limit=25&until=1760000000&__paging_token=enc_AdBz"
+		assert(requests[9].url == "https://graph.facebook.com/v26.0/101_1/comments?fields=id%2Cmessage&limit=1&after=QUZU", requests[9].url)
 		respond('{"data":[]}')
-		meta.listFeed({next = feedNext})
-		assert(requests[10].url == feedNext)
-		local taggedNext = "https://graph.facebook.com/v26.0/101/tagged?pretty=0&fields=id&limit=25&until=1760000000&__paging_token=enc_AdBy"
+		meta.listComments({next = comments.paging.previous})
+		assert(requests[10].url == "https://graph.facebook.com/v26.0/101_1/comments?fields=id&limit=1&before=QkVG", requests[10].url)
+		-- Insights page through time the same way, whatever parameters Meta adds.
+		local insightsNext = "https://graph.facebook.com/v26.0/101/insights?metric=page_follows&period=day&since=1&until=2&__cppo=1"
+		respond(json.encode({data = {}, paging = {next = insightsNext}}))
+		local follows = meta.getInsights({object = "me", metric = "page_follows", period = "day"})
 		respond('{"data":[]}')
-		meta.listTaggedPosts({next = taggedNext})
-		assert(requests[11].url == taggedNext)
-		-- Meta may add internal __ parameters, leave field lists unencoded or end the list without a query.
-		for _, link in {
-			"https://graph.facebook.com/v26.0/101/feed?fields=id,comments.summary(true){message}&limit=25&__cppo=1&after=QUZU",
-			"https://graph.facebook.com/v26.0/101/feed",
-		} do
-			respond('{"data":[]}')
-			meta.listFeed({next = link})
-			assert(requests[#requests].url == link, requests[#requests].url)
-		end
+		meta.getInsights({next = follows.paging.next})
+		assert(requests[12].url == insightsNext, requests[12].url)
 
 		-- Query values are encoded, so they cannot add parameters.
 		respond('{"data":[]}')
@@ -121,28 +125,12 @@ return {
 		rejected(function() meta.getPage({fields = "id,access_token"}) end, "cannot request access tokens")
 		rejected(function() meta.getPage({fields = "id,PAGE_TOKEN"}) end, "cannot request access tokens")
 		rejected(function() meta.getObject({id = "101", fields = "id&method=delete"}) end, "Graph field list")
-		for _, link in {
-			"https://graph.facebook.com/v26.0/101/feed?limit=25&method=delete",
-			"https://graph.facebook.com/v26.0/101/feed?limit=25&access_token=EAAOTHER",
-			"https://graph.facebook.com/v26.0/101/feed?batch=%5B%5D",
-			"https://graph.facebook.com/v26.0/101/feed?suppress_http_code=1",
-			"https://graph.facebook.com/v26.0/101/feed?m%65thod=delete",
-			"https://graph.facebook.com/v26.0/101/comments?limit=25",
-			"https://graph.facebook.com/v26.0/101/feed/extra?limit=25",
-			"https://graph.facebook.com/v25.0/101/feed?limit=25",
-			"https://graph.facebook.com.evil.test/v26.0/101/feed?limit=25",
-			"http://graph.facebook.com/v26.0/101/feed?limit=25",
-			"https://graph.facebook.com/v26.0/101/feed?limit=25&Method=delete",
-			"https://graph.facebook.com/v26.0/101/feed?limit=25&metadata=1",
-			"https://graph.facebook.com/v26.0/101/feed?limit=25&limit=100",
-			"https://graph.facebook.com/v26.0/./feed?limit=25",
-			"https://graph.facebook.com/v26.0/../feed?limit=25",
-		} do
-			rejected(function() meta.listFeed({next = link}) end, "paging.next link")
-		end
-		rejected(function() meta.listFeed({next = "https://graph.facebook.com/v26.0/101/feed?fields=access%5Ftoken"}) end, "cannot request access tokens")
-		rejected(function() meta.listFeed({next = feedNext, limit = 5}) end, "pass next alone")
-		rejected(function() meta.getPage({next = feedNext}) end, "has no option next")
+		-- next takes only a link sealed by the same function, never a URL a caller wrote.
+		rejected(function() meta.listFeed({next = "https://graph.facebook.com/v26.0/101/feed?method=delete"}) end, "paging.previous value of an earlier")
+		rejected(function() meta.listFeed({next = comments.paging.next}) end, "paging.previous value of an earlier")
+		rejected(function() meta.listComments({next = houston.seal({operation = "listComments", url = "https://evil.test/v26.0/me"})}) end, "paging.previous value of an earlier")
+		rejected(function() meta.listComments({next = comments.paging.next, limit = 5}) end, "pass next alone")
+		rejected(function() meta.getPage({next = comments.paging.next}) end, "has no option next")
 
 		-- IDs are single path segments given as strings, and required options come first.
 		rejected(function() meta.listComments({object = "../me"}) end, "one Meta ID")
