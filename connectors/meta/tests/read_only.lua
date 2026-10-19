@@ -90,16 +90,15 @@ return {
 		respond('{"data":[]}')
 		meta.listComments({next = comments.paging.next})
 		assert(requests[9].url == "https://graph.facebook.com/v26.0/101_1/comments?fields=id%2Cmessage&limit=1&after=QUZU" and requests[9].headers.Accept[1] == "application/json", requests[9].url)
-		respond('{"data":[]}')
-		meta.listComments({next = comments.paging.previous})
-		assert(requests[10].url == "https://graph.facebook.com/v26.0/101_1/comments?fields=id&limit=1&before=QkVG", requests[10].url)
+		-- Only next is sealed; previous keeps Meta's link, without its token.
+		assert(comments.paging.previous == "https://graph.facebook.com/v26.0/101_1/comments?fields=id&limit=1&before=QkVG", comments.paging.previous)
 		-- Insights page through time the same way, whatever parameters Meta adds.
 		local insightsNext = "https://graph.facebook.com/v26.0/101/insights?metric=page_follows&period=day&since=1&until=2&__cppo=1"
 		respond(json.encode({data = {}, paging = {next = insightsNext}}))
 		local follows = meta.getInsights({object = "me", metric = "page_follows", period = "day"})
 		respond('{"data":[]}')
 		meta.getInsights({next = follows.paging.next})
-		assert(requests[12].url == insightsNext, requests[12].url)
+		assert(requests[11].url == insightsNext, requests[11].url)
 
 		-- Stories have no like or comment counts to ask for.
 		respond('{"data":[]}')
@@ -129,11 +128,15 @@ return {
 		rejected(function() meta.getObject({id = "101", batch = "[]"}) end, "has no option batch")
 		rejected(function() meta.getPage({fields = "id,access_token"}) end, "cannot request access tokens")
 		rejected(function() meta.getPage({fields = "id,PAGE_TOKEN"}) end, "cannot request access tokens")
+		-- Expanded edges page with padded cursors and zoned times.
+		respond('{"id":"17841400000000001"}')
+		meta.getObject({id = "17841400000000001", fields = "media.after(MTAxNTE=).since(2026-10-01T00:00:00+0000){caption}"})
+		assert(requests[#requests].url == "https://graph.facebook.com/v26.0/17841400000000001?fields=media.after%28MTAxNTE%3D%29.since%282026-10-01T00%3A00%3A00%2B0000%29%7Bcaption%7D", requests[#requests].url)
 		rejected(function() meta.getObject({id = "101", fields = "id&method=delete"}) end, "Graph field list")
 		-- next takes only a link sealed by the same function, never a URL a caller wrote.
-		rejected(function() meta.listFeed({next = "https://graph.facebook.com/v26.0/101/feed?method=delete"}) end, "paging.previous value of an earlier")
-		rejected(function() meta.listFeed({next = comments.paging.next}) end, "paging.previous value of an earlier")
-		rejected(function() meta.listComments({next = houston.seal({operation = "listComments", url = "https://evil.test/v26.0/me"})}) end, "paging.previous value of an earlier")
+		rejected(function() meta.listFeed({next = "https://graph.facebook.com/v26.0/101/feed?method=delete"}) end, "paging.next value of an earlier")
+		rejected(function() meta.listFeed({next = comments.paging.next}) end, "paging.next value of an earlier")
+		rejected(function() meta.listComments({next = houston.seal({operation = "listComments", url = "https://evil.test/v26.0/me"})}) end, "paging.next value of an earlier")
 		rejected(function() meta.listComments({next = comments.paging.next, limit = 5}) end, "pass next alone")
 		rejected(function() meta.getPage({next = comments.paging.next}) end, "has no option next")
 

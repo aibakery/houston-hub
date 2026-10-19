@@ -855,8 +855,8 @@ runs `batch` requests on any node, and returns errors as HTTP 200 with `callback
 `suppress_http_code`. The proxy cannot filter queries, so Lua builds every query from
 each operation's declared parameters with encoded values. Write bodies take only
 plain snake_case names other than those, `fields` and token parameters, since
-Graph's PHP-style parser may trim names and map `.` and spaces to `_`. Paging links
-go back to callers sealed with `houston.seal` and the function that produced them,
+Graph's PHP-style parser may trim names and map `.` and spaces to `_`. `paging.next`
+goes back to callers sealed with `houston.seal` and the function that produced it,
 so `next` replays only Meta's own link, never a URL a caller wrote. `fields` naming
 a token is refused: a Page can read its own `access_token` field, also through
 field expansion or a write's read-after-write `fields`. Responses drop every key
