@@ -124,7 +124,7 @@ local endpoints: {[string]: Endpoint} = {
 	deleteFee = {method = "DELETE", path = "/v1/fees/{id}", doc = "fees-controller-delete-fee", about = "Moves it to the trash."},
 	listFeeFields = {method = "GET", path = "/v1/fees/fields", doc = "fees-controller-get-all-fee-fields", about = ""},
 	listFeesByDeal = {method = "GET", path = "/v1/fees/by-deal/{dealId}", doc = "fees-controller-get-fees-by-deal", about = ""},
-	listFeesByContact = {method = "GET", path = "/v1/fees/by-contact/{contactId}", doc = "fees-controller-get-fees-by-contact", about = ""},
+	listFeesByContact = {method = "GET", path = "/v1/fees/by-contact/{contactId}", doc = "fees-controller-get-fees-by-contact", about = "contactId is the contact's common ID, not its record id."},
 
 	listNotes = {method = "GET", path = "/v1/notes", doc = "notes-controller-get-notes",
 		query = paged("search", "folderId", "createdAfter", "createdBefore", "sort", "linkedEntityType", "linkedEntityId", "hasLinkedEntity"),
@@ -359,7 +359,7 @@ end
 
 return operations(endpoints, request, {
 	"Carta CRM public API v1. Every function takes one named options object with Carta CRM's field names; ? marks optional fields and ...body the JSON body fields. Results are Carta CRM's JSON unchanged: lists as {<records>, total?}, records as objects, deletes and note links as {success}; list membership changes return the record. In bodies, pass json.decode('[]') for empty arrays and json.decode('null') to clear a field. Connector calls return completed values: use them directly, without await.",
-	"Start with getMe(): the user and organization the key acts as. IDs are ObjectIds; company note routes also take a domain such as acme.com. Custom field values go in fields keyed by fieldId: read the record type's list*Fields first.",
+	"Start with getMe(): the user and organization the key acts as. IDs are usually ObjectIds; company note routes also take a domain such as acme.com. Custom field values go in fields keyed by fieldId: read the record type's list*Fields first.",
 	"Lists return one page: limit 1..100 (default 100) and offset (default 0); fetch offset + limit until fewer than limit return. Array query filters repeat the parameter and match any value.",
 	"Search and aggregate bodies take filters {{field_id, operator, value}}: eq, neq, gt, gte, lt, lte, contains, in (array), between ({from, to} as a two-element array), last_x ('12 months'). group_by is a one-element array holding a field ID.",
 	"Examples: crm.listDeals({search='acme', limit=25}); crm.searchCompanies({filters={{field_id='lists', operator='in', value={listId}}}}); crm.getReportData({id=reportId, entityType='deal', offset=100}); crm.createTask({entityId=dealId, entityType='DEAL', title='Send memo', dueDate='2026-11-01'}).",

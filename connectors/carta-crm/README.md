@@ -13,7 +13,8 @@ search Carta's catalogue of institutional LPs.
 With read and write access, agents can also create and update companies,
 contacts, deals, fundraising prospects, investors, fees, notes, tasks and
 investment committee items, add records to lists and themes, link notes, and
-delete records. Deletions are permanent, except for fees.
+delete records. Deletions are permanent, except for fees, which go to the trash, and investment
+committee meetings and requests, which are archived.
 
 Each area needs its module enabled in your Carta CRM organization, and Fund Admin
 details need Fund Admin access. Houston never sends emails to LPs, changes your

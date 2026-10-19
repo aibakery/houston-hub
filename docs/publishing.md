@@ -765,10 +765,10 @@ photo uploads (multipart), subtheme changes and DELETE requests with bodies, not
 unlinking, relations and interactions of deals, fundraisings and investors, campaign
 statistics and email templates. Path IDs must contain a digit or a dot (ObjectIds,
 integer fund IDs and company domains), so a word such as `batch` cannot reach an
-omitted sibling route. Confirm live that LP catalogue IDs have that form and that
-`fundCartaIds` and `prospectPublicIds` accept repeated parameters, as the connector
-sends them; the reference types both as strings.
-
+omitted sibling route. Confirm live that LP catalogue IDs and contacts' common IDs (fees
+by contact) have that form, and that `fundCartaIds` and `prospectPublicIds` accept
+repeated parameters, as the connector sends them; the reference types both as strings.
+The LP capital map and the contact count are not covered either.
 
 The CRM API allowed 8,000 requests per 60 seconds when probed on 2026-10-19,
 reported in `RateLimit-*` headers; Carta documents no limit. The icon is the same
