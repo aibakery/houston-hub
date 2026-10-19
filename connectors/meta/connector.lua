@@ -111,9 +111,10 @@ local endpoints: {[string]: Endpoint} = {
 
 -- Write bodies never send these: method replaces the HTTP verb, batch runs other requests,
 -- callback and suppress_http_code turn errors into HTTP 200, fields reads the written object
--- back (a Page's own access_token included), and the rest carry or reveal credentials.
+-- back (a Page's own access_token included), next belongs to paging, and the rest carry or
+-- reveal credentials.
 local RESERVED = table.freeze({method = true, batch = true, callback = true, suppress_http_code = true, include_headers = true,
-	attached_files = true, fields = true, access_token = true, appsecret_proof = true, appsecret_time = true, input_token = true, ids = true})
+	attached_files = true, fields = true, next = true, access_token = true, appsecret_proof = true, appsecret_time = true, input_token = true, ids = true})
 -- Temporary errors (1, 2) and rate limits: app, user, Pages, custom and Business Use Case
 -- (80000-80014) throttling.
 local RETRYABLE = table.freeze({[1] = true, [2] = true, [4] = true, [17] = true, [32] = true, [341] = true, [613] = true})
@@ -216,14 +217,14 @@ local function scrubError(text: string): string
 	return (string.gsub(scrub(text), ECHOED, "EAA[redacted]"))
 end
 
--- Results never carry credentials: token links are scrubbed and token fields, such as an
--- expanded accounts edge's access_token, dropped.
+-- Results never carry credentials: Meta's own Graph links lose their token and token fields,
+-- such as an expanded accounts edge's access_token, are dropped. Text from people is kept.
 local function redact(value: any)
 	if type(value) ~= "table" then return end
 	for key, child in value do
 		if type(key) == "string" and string.find(string.lower(key), "token", 1, true) then
 			value[key] = nil
-		elseif type(child) == "string" then
+		elseif type(child) == "string" and string.match(child, "^https://graph[%w-]*%.facebook%.com/") then
 			value[key] = scrub(child)
 		else
 			redact(child)

@@ -122,6 +122,7 @@ return {
 			rejected(function() meta.uploadPhoto({path = "photos/bread.jpg", [key] = "get"}) end, "cannot send")
 		end
 		rejected(function() meta.deleteObject({id = "101_9", method = "get"}) end, "has no option method")
+		rejected(function() meta.createComment({object = "101_9", message = "hi", next = "https://graph.facebook.com/v26.0/101_9/comments?after=x"}) end, "cannot send next")
 		rejected(function() meta.sendMessage({message = {text = "hi"}}) end, "recipient is required")
 		rejected(function() meta.publishInstagramMedia({ig_user = "17841400000000001"}) end, "creation_id is required")
 		rejected(function() meta.deleteObject({id = "101/feed"}) end, "one Meta ID")
