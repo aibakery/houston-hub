@@ -5,8 +5,8 @@ developer app is required. For testing, Carta can create a sandbox account on
 request.
 
 1. Sign in to Carta CRM as an organization admin and open **Settings**.
-2. Generate an API key and copy it. The key acts as the admin who created it and
-   reaches everything that admin can see.
+2. Generate an API key and copy it. The key acts as its user and organization and
+   reaches everything that user can see.
 3. In your Houston organization, add the Carta CRM connector and paste the key into
    **API key**. Keep **Access** set to **Read-only** unless agents should create,
    change or delete records.

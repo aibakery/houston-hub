@@ -53,7 +53,7 @@ local endpoints: {[string]: Endpoint} = {
 		about = "{contacts}. Array filters match any value."},
 	getContact = {method = "GET", path = "/v1/contacts/{id}", doc = "contacts-controller-get-contact-by-id", about = ""},
 	createContact = {method = "POST", path = "/v1/contacts", required = {"name"}, doc = "contacts-controller-create-contact",
-		about = "Body {name, listId?, firstName?, lastName?, emailDetail?, phone?, title?, tags?, jobs?, location?, socialLinks?, fields?, ...}. Runs an enrichment check."},
+		about = "Body {name, listId?, firstName?, lastName?, emailDetail?, phone?, title?, tags?, jobs?, location?, socialLinks?, fields?, ...}. Enriches the contact unless enrich=false."},
 	updateContact = {method = "PATCH", path = "/v1/contacts/{id}", doc = "contacts-controller-update-contact", about = "Body: fields to change; jobs, location and homeLocation are replaced whole."},
 	deleteContact = {method = "DELETE", path = "/v1/contacts/{id}", doc = "contacts-controller-delete-contact", about = "Permanent, from every list."},
 	listContactFields = {method = "GET", path = "/v1/contacts/fields", doc = "contacts-controller-get-all-contact-fields", about = ""},
@@ -69,7 +69,7 @@ local endpoints: {[string]: Endpoint} = {
 	listDeals = {method = "GET", path = "/v1/deals", query = paged("pipelines", "stages", "search"), doc = "deal-controller-get-deals",
 		about = "{deals}. Without pipelines, the default pipeline."},
 	searchDeals = {method = "POST", path = "/v1/deals/search", write = false, doc = "deal-controller-search-deals", about = "Body {filters?, search?, limit?, offset?}."},
-	aggregateDeals = {method = "POST", path = "/v1/deals/aggregate", write = false, required = {"group_by"}, doc = "deal-controller-aggregate-deals", about = "Like aggregateCompanies."},
+	aggregateDeals = {method = "POST", path = "/v1/deals/aggregate", write = false, required = {"group_by"}, doc = "deal-controller-aggregate-deals", about = "Body {group_by, pipeline_id?, group_by_granularity?, filters?, metric?}."},
 	aggregateDealStageHistory = {method = "POST", path = "/v1/deals/stage-history/aggregate", write = false, required = {"group_by"}, doc = "deal-controller-aggregate-deal-stage-history",
 		about = "Body {group_by, group_by_granularity?, count_by?, filters?}: stage transitions per group."},
 	getDeal = {method = "GET", path = "/v1/deals/{id}", doc = "deal-controller-get-deal-by-id", about = ""},
@@ -83,7 +83,7 @@ local endpoints: {[string]: Endpoint} = {
 	listDealNotes = {method = "GET", path = "/v1/deals/{id}/notes", doc = "deal-linking-controller-get-linked-notes", about = ""},
 	linkDealNote = {method = "POST", path = "/v1/deals/{id}/notes/{noteId}", body = false, doc = "deal-linking-controller-link-note", about = ""},
 
-	listFundraisings = {method = "GET", path = "/v1/fundraisings", query = paged("stages", "search"), doc = "fundraising-controller-get-fundraising", about = "LP prospects, {fundraisings}."},
+	listFundraisings = {method = "GET", path = "/v1/fundraisings", query = paged("stages", "search"), doc = "fundraising-controller-get-fundraising", about = "LP prospects, {fundraising}."},
 	searchFundraisings = {method = "POST", path = "/v1/fundraisings/search", write = false, doc = "fundraising-controller-search-fundraisings", about = "Body {filters?, search?, limit?, offset?}."},
 	getFundraising = {method = "GET", path = "/v1/fundraisings/{id}", doc = "fundraising-controller-get-fundraising-by-id", about = ""},
 	createFundraising = {method = "POST", path = "/v1/fundraisings", required = {"name"}, doc = "fundraising-controller-create-fundraising",
@@ -352,11 +352,11 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 end
 
 return operations(endpoints, request, {
-	"Carta CRM public API v1. Every function takes one named options object with Carta CRM's field names; ? marks optional fields and ...body the JSON body fields. Results are Carta CRM's JSON unchanged: lists as {<records>, total?}, records as objects, deletes and links as {success}. In bodies, pass json.decode('[]') for empty arrays and json.decode('null') to clear a field. Connector calls return completed values: use them directly, without await.",
-	"Start with getMe(): the user and organization the key acts as. IDs are ObjectIds; company routes also take a domain such as acme.com. Custom field values go in fields keyed by fieldId: read the record type's list*Fields first.",
+	"Carta CRM public API v1. Every function takes one named options object with Carta CRM's field names; ? marks optional fields and ...body the JSON body fields. Results are Carta CRM's JSON unchanged: lists as {<records>, total?}, records as objects, deletes and note links as {success}; list membership changes return the record. In bodies, pass json.decode('[]') for empty arrays and json.decode('null') to clear a field. Connector calls return completed values: use them directly, without await.",
+	"Start with getMe(): the user and organization the key acts as. IDs are ObjectIds; company note routes also take a domain such as acme.com. Custom field values go in fields keyed by fieldId: read the record type's list*Fields first.",
 	"Lists return one page: limit 1..100 (default 100) and offset (default 0); fetch offset + limit until fewer than limit return. Array query filters repeat the parameter and match any value.",
-	"Search and aggregate bodies take filters {{field_id, operator, value}}: eq, neq, gt, gte, lt, lte, contains, in (array), between ({from, to}), last_x ('12 months'). group_by is an array of field IDs.",
+	"Search and aggregate bodies take filters {{field_id, operator, value}}: eq, neq, gt, gte, lt, lte, contains, in (array), between ({from, to} as a two-element array), last_x ('12 months'). group_by is a one-element array holding a field ID.",
 	"Examples: crm.listDeals({search='acme', limit=25}); crm.searchCompanies({filters={{field_id='lists', operator='in', value={listId}}}}); crm.getReportData({id=reportId, entityType='deal', offset=100}); crm.createTask({entityId=dealId, entityType='DEAL', title='Send memo', dueDate='2026-11-01'}).",
-	"Read-only connections omit writes; search and aggregate still work. Each record type needs its module enabled (deals, fundraising, investors, fees, themes, companies, contacts, Interactions); Fund Admin reads need Fund Admin access; the key acts as the admin who generated it.",
-	"Side effects: creating contacts, or records with a website, can start Carta's enrichment; deletes are permanent except fees (trash). No automatic retries: after a timeout or 5xx, read the record before repeating a write. Errors report the HTTP status, Carta CRM's code and message.",
+	"Read-only connections omit writes; search and aggregate still work. Each record type needs its module enabled (deals, fundraising, investors, fees, themes, companies, contacts, Interactions); Fund Admin reads need Fund Admin access; the key acts as its user and organization.",
+	"Side effects: creating contacts, or records with a website, can start Carta's enrichment; deletes are permanent, except fees (moved to the trash) and IC meetings and requests (archived; an unknown ID also succeeds). No automatic retries: after a timeout or 5xx, read the record before repeating a write. Errors report the HTTP status, Carta CRM's code and message.",
 })

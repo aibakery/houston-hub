@@ -739,8 +739,8 @@ manifest path `connectors/carta-crm/houston.json`. The bundle uses the existing
 manifest v1 and async HTTP runtime without runtime changes. Connections paste an API
 key that an organization admin generates in Carta CRM settings; the
 [account setup guide](../connectors/carta-crm/SETUP.md) covers it. No publisher
-settings are needed. Carta CRM has no OAuth or scopes: the key acts as the admin who
-created it, so Houston enforces read-only access with its proxy routes and exports.
+settings are needed. Carta CRM has no OAuth or scopes: the key acts as its user
+and organization, so Houston enforces read-only access with its proxy routes and exports.
 The key is sent as the bare `Authorization` value, as the reference's `apiKey`
 scheme and Postman requests show.
 
@@ -757,7 +757,7 @@ from the reference pages.
 Omitted on purpose: organization administration (users, roles, invitations, teams,
 modules); custom-field, stage, folder and list schema changes; contact merge; flows
 that email limited partners or start closings (subscription documents, initiate
-closing) and email campaign writes; enrichment, which may use paid data credits;
+closing) and email campaign writes; enrichment, which looks records up with outside data providers;
 batch deal writes; report writes and email schedules; notification settings and the
 contact classifier prompt. Not yet covered: attachment, logo and photo uploads
 (multipart), subtheme changes and DELETE requests with bodies, note unlinking,

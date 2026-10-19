@@ -37,15 +37,17 @@ return {
 
 		crm.createTask({entityId = ID, entityType = "DEAL", title = "Send memo", dueDate = "2026-11-01"})
 		assert(last().url == API .. "/v1/tasks" and sent().entityType == "DEAL")
-		crm.addThemeItem({id = ID, entityId = NOTE, entityType = "note"})
+		crm.addThemeItem({id = ID, entityId = NOTE, entityType = "NOTE"})
 		assert(last().url == API .. "/v1/themes/" .. ID .. "/theme-items" and sent().entityId == NOTE)
 
 		payload = '{"success":true}'
 		local linked = crm.linkDealNote({id = ID, noteId = NOTE})
 		assert(last().method == "POST" and last().url == API .. "/v1/deals/" .. ID .. "/notes/" .. NOTE)
 		assert(last().body == nil and last().headers["Content-Type"] == nil and linked.success == true)
-		crm.addCompanyToList({id = "acme.com", listId = "L1"})
-		assert(last().url == API .. "/v1/companies/acme.com/lists/L1" and last().body == nil)
+		crm.linkCompanyNote({id = "acme.com", noteId = NOTE})
+		assert(last().url == API .. "/v1/companies/acme.com/notes/" .. NOTE, "company note routes take a domain")
+		crm.addCompanyToList({id = ID, listId = "L1"})
+		assert(last().url == API .. "/v1/companies/" .. ID .. "/lists/L1" and last().body == nil)
 
 		payload = ""
 		local deleted = crm.deleteNote({id = NOTE})
@@ -58,6 +60,6 @@ return {
 		assert(not ok and string.find(tostring(err), "dueDate is required", 1, true))
 		ok, err = pcall(function() crm.updateDeal({id = "batch", deals = {}}) end)
 		assert(not ok and string.find(tostring(err), "Carta CRM ID or domain", 1, true), "an ID must not name a sibling route")
-		assert(#requests == 9)
+		assert(#requests == 10)
 	end,
 }
