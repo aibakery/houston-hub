@@ -51,7 +51,8 @@ return {
 
 		respond('{"success":true}')
 		assert(meta.updateComment({comment = "101_9_3", is_hidden = true}).success == true)
-		assert(json.decode(sent(3, "POST", "https://graph.facebook.com/v26.0/101_9_3").body).is_hidden == true)
+		req = sent(3, "POST", "https://graph.facebook.com/v26.0/101_9_3")
+		assert(req.body == '{"is_hidden":true}' and req.headers.Accept[1] == "application/json", req.body)
 		respond('{"success":true}')
 		meta.deleteObject({id = "101_9"})
 		req = sent(4, "DELETE", "https://graph.facebook.com/v26.0/101_9")

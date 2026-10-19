@@ -828,7 +828,7 @@ system-user token does not expire. A multi-Page connection with **Connect with
 Facebook** would need a runtime feature that exchanges and derives tokens on the
 server.
 
-The connector covers 38 Graph API operations, checked on 2026-10-19 against Meta's
+The connector covers 39 Graph API operations, checked on 2026-10-19 against Meta's
 Graph API reference and the [Business SDK](https://github.com/facebook/facebook-python-business-sdk)
 v26.0.2 (commit `efd8423a`): the Page, its feed, published, scheduled and tagged posts,
 photos, videos, reels and ratings; comments and reactions; Page, post, Instagram
@@ -853,18 +853,24 @@ uploads on `graph-video.facebook.com`; writes require read-write access. Graph r
 `method` from any query or body and runs it even on GET (`?method=delete` deletes),
 runs `batch` requests on any node, and returns errors as HTTP 200 with `callback` or
 `suppress_http_code`. The proxy cannot filter queries, so Lua builds every query from
-each operation's declared parameters, rejects those names and token parameters in
-bodies and in replayed `paging.next` links, and refuses `fields` naming a token: a
-Page can read its own `access_token` field, also through field expansion or a
-write's read-after-write `fields`. Meta writes the request's token into `paging.next`
-and `paging.previous`; responses drop it. Path IDs pass `url.segment`. The connector
-sends no `appsecret_proof`, so SETUP asks to keep **Require app secret** off.
+each operation's declared parameters with encoded values. Write bodies take only
+plain snake_case names other than those, `fields` and token parameters, since
+Graph's parser trims names and maps `.` and spaces to `_`. Replayed `paging.next`
+links may carry only the operation's own parameters and Meta's paging tokens, once
+each. `fields` naming a token is refused: a Page can read its own `access_token`
+field, also through field expansion or a write's read-after-write `fields`. Responses
+drop every key containing `token` (an expanded `accounts` edge returns Page tokens)
+and the token Meta writes into `paging.next` and `paging.previous`; error messages
+drop echoed tokens. Path IDs are limited to the characters of Meta's IDs. The
+connector sends no `appsecret_proof`, so SETUP asks to keep **Require app secret**
+off.
 
 This is a new registration with no existing connections. Fixtures cover both access
-levels, routes, query and body building, the override and token defenses, paging
-links, multipart uploads and error mapping. Still to verify live: that the Page token
-serves the Instagram endpoints (Meta's references name a user token, its guides a
-Page token), Page feed reads, hiding and deleting comments, JSON bodies on every
+levels and a read-only caller, routes, query and body building, the override and
+token defenses, paging links, multipart uploads and error mapping. Still to verify
+live: that the Page token serves the Instagram endpoints (Meta's references name a
+user token, its guides a Page token), that real `paging.next` links carry no other
+parameters, Page feed reads, hiding and deleting comments, JSON bodies on every
 write, Bearer authentication on `graph-video.facebook.com`, the SETUP labels, and a
 disposable post, comment and message.
 

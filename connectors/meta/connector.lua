@@ -2,7 +2,7 @@
 -- results keep Meta's native field names.
 type Options = {[string]: any}
 type Endpoint = {method: string, path: string, host: string?, query: {string}?, required: {string}?, paging: {string}?,
-	fields: string?, upload: string?, write: boolean?, about: string}
+	fields: string?, upload: boolean?, write: boolean?, about: string}
 
 -- Graph versions work for two years after their successor ships; v26.0 has no sunset date yet.
 local VERSION = "v26.0"
@@ -21,7 +21,8 @@ local IG_COMMENT_FIELDS = "id,text,timestamp,username,like_count,hidden"
 
 -- Edges and parameters of Meta's reference and Business SDK v26.0.2, checked on 2026-10-19.
 -- Page functions act on /me, the Page the token belongs to. Path {fields} are IDs; listed query
--- fields are taken from the options, and the other options form the body of writes.
+-- fields are taken from the options, and the other options form the body of writes. paging lists
+-- the cursor options; any paging list, even an empty one, also accepts next.
 local endpoints: {[string]: Endpoint} = {
 	getPage = {method = "GET", path = "/me",
 		fields = "id,name,username,link,category,about,description,website,phone,emails,followers_count,fan_count,verification_status,instagram_business_account{id,username}",
@@ -83,9 +84,9 @@ local endpoints: {[string]: Endpoint} = {
 		about = "Body {message?, link?, published?, scheduled_publish_time?, attached_media?, place?}. Posts as the Page; returns {id}. Pass message or link."},
 	updatePost = {method = "POST", path = "/{post}",
 		about = "Body {message?, is_published?, scheduled_publish_time?, is_pinned?}. Only posts made through the token's Meta app can change."},
-	uploadPhoto = {method = "POST", path = "/me/photos", upload = "source",
+	uploadPhoto = {method = "POST", path = "/me/photos", upload = true,
 		about = "Body {url | path, caption?, published?, temporary?, scheduled_publish_time?, no_story?, alt_text_custom?}. JPEG, PNG, GIF, BMP or TIFF up to 10 MB; returns {id, post_id}."},
-	uploadVideo = {method = "POST", path = "/me/videos", host = VIDEO_API, upload = "source",
+	uploadVideo = {method = "POST", path = "/me/videos", host = VIDEO_API, upload = true,
 		about = "Body {file_url | path, title?, description?, published?, scheduled_publish_time?, no_story?}. Returns {id}; Meta processes the video afterwards."},
 	createComment = {method = "POST", path = "/{object}/comments",
 		about = "Body {message?, attachment_url?, attachment_id?, attachment_share_url?}. Comments as the Page on a Facebook post, photo, video or comment, or on Instagram media (message only); returns {id}."},
@@ -282,7 +283,7 @@ local function decode(name: string, response: HttpResponse): any
 end
 
 -- Streams a session file with the other options as form fields.
-local function multipart(args: Options, field: string): (any, string)
+local function multipart(args: Options): (any, string)
 	local source = text(args.path, "path")
 	args.path = nil
 	local names: {string} = {}
@@ -298,7 +299,7 @@ local function multipart(args: Options, field: string): (any, string)
 	local file = fs.open(source, "r")
 	local ok, body, contentType = pcall(function()
 		await(file)
-		table.insert(parts, {name = field, filename = string.match(source, "[^/]+$"), body = file})
+		table.insert(parts, {name = "source", filename = string.match(source, "[^/]+$"), body = file})
 		return http.multipart(parts)
 	end)
 	if not ok then
@@ -345,7 +346,7 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 		end
 		if endpoint.upload and args.path ~= nil then
 			local contentType
-			body, contentType = multipart(args, endpoint.upload)
+			body, contentType = multipart(args)
 			headers["Content-Type"] = {contentType}
 		else
 			headers["Content-Type"] = {"application/json"}

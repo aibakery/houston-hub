@@ -78,6 +78,11 @@ return {
 		meta.listFeed({next = feedNext})
 		assert(requests[10].url == feedNext)
 
+		-- Query values are encoded, so they cannot add parameters.
+		respond('{"data":[]}')
+		meta.listReels({fields = "id", since = "1&method=delete", ["until"] = "a=b"})
+		assert(requests[#requests].url == "https://graph.facebook.com/v26.0/me/video_reels?fields=id&since=1%26method%3Ddelete&until=a%3Db", requests[#requests].url)
+
 		-- Token fields, repeated and encoded tokens and tokens in nested links are dropped too.
 		respond(json.encode({id = "101", accounts = {data = {{id = "102", name = "Other", access_token = "EAAOTHER", page_token = "EAAPT"}}},
 			comments = {data = {}, paging = {next = "https://graph.facebook.com/v26.0/101_1/comments?access_token=EAA1&access_token=EAA2&limit=5"}},

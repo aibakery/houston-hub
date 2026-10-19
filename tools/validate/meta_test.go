@@ -21,7 +21,8 @@ func TestMetaAccessRoutes(t *testing.T) {
 			"POST "+api+"/17860000000000001/replies", "DELETE "+api+"/101_1",
 			"POST https://graph-video.facebook.com/v26.0/me/videos")
 		// Token, permission and account endpoints, ads, batch on the root, other versions and
-		// hosts, and unlisted edges get no credential.
+		// hosts, and unlisted edges get no credential. Expanded fields can still reach other
+		// edges of an allowed node, so Lua refuses fields naming a token and drops token fields.
 		assertRoutes(t, r, "EAAPAGE", false,
 			"GET "+api+"/me/accounts", "GET "+api+"/oauth/access_token", "GET "+api+"/me/permissions",
 			"GET "+api+"/me/subscribed_apps", "POST "+api+"/me/subscribed_apps", "GET "+api+"/act_1/ads",
