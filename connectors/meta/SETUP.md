@@ -1,9 +1,10 @@
 # Connect Meta Business Suite
 
-Houston connects to one Facebook Page with a **Page access token** that never
-expires. You make it once, from a system user of your business portfolio: a
-business-owned account meant for integrations, so the connection does not depend
-on anyone's personal Facebook login.
+Houston connects to one Facebook Page with a **Page access token**. You make it
+once, from a system user of your business portfolio: a business-owned account
+meant for integrations, so the connection does not depend on anyone's personal
+Facebook login. A Page access token made from a system user token that never
+expires does not expire either.
 
 You need:
 
@@ -11,8 +12,13 @@ You need:
   has access to it, and admin access to the portfolio;
 - to use Instagram, an Instagram professional account linked to the Page;
 - a Meta developer app connected to the portfolio. Creating one is free, and the
-  steps below create it. App Review is not needed while the app and the Page belong
-  to the same business portfolio.
+  steps below create it. Posts, comments and insights need no App Review while the
+  app and the Page belong to the same business portfolio.
+- to read and answer conversations with your customers, Meta's **Advanced Access**
+  for `pages_messaging` (and `instagram_manage_messages` for Instagram). It requires
+  [business verification](https://developers.facebook.com/docs/development/release/business-verification)
+  and App Review; see [Messaging](#messaging). Without it, Meta only returns
+  conversations with people who have a role on the app, Page or portfolio.
 
 Choose the access level in Houston first: **Read-only** to read posts, comments,
 messages and insights, or **Read and write** to also publish, reply and moderate.
@@ -34,7 +40,8 @@ messages and insights, or **Read and write** to also publish, reply and moderate
 1. Open [Business settings](https://business.facebook.com/settings) and select
    **Users** → **System users**.
 2. Select **Add**, name the system user (for example `Houston`), choose the
-   **Admin** role and select **Create system user**.
+   **Admin** role and select **Create system user**. If the portfolio already has
+   an admin system user, choose **Employee**: the steps below grant it the Page.
 3. Select the system user, then **Assign assets**:
    - under **Apps**, select your app and turn on **Full control** (Manage app);
    - under **Pages**, select your Page and turn on **Full control**;
@@ -43,8 +50,8 @@ messages and insights, or **Read and write** to also publish, reply and moderate
 
 ## 3. Make the Page access token
 
-1. With the system user selected, select **Generate token**. Choose your app, set
-   the token expiration to **Never**, select the permissions listed under
+1. With the system user selected, select **Generate token**. Choose your app, choose
+   the expiration that never expires, select the permissions listed under
    [Permissions](#permissions), and select **Generate token**. Copy the token: this
    is the system user's token, not yet the Page's.
 2. Open the [Graph API Explorer](https://developers.facebook.com/tools/explorer/),
@@ -52,9 +59,10 @@ messages and insights, or **Read and write** to also publish, reply and moderate
    `me/accounts?fields=name,access_token` as the request and select **Submit**.
 3. Copy the `access_token` shown next to your Page's `name`. This is the Page access
    token. Keep it secret: anyone holding it can act as your Page.
-4. Optionally, paste it into the
+4. Paste it into the
    [Access Token Debugger](https://developers.facebook.com/tools/debug/accesstoken/):
-   **Type** should be **Page** and **Expires** should be **Never**.
+   **Type** should be **Page**, and **Expires** should be **Never**. If it shows a
+   date, see [Expiring tokens](#expiring-tokens).
 
 ## 4. Add the connection in Houston
 
@@ -71,8 +79,9 @@ For **Read-only**: `pages_show_list`, `pages_read_engagement`,
 `instagram_basic`, `instagram_manage_comments`, `instagram_manage_insights` and
 `instagram_manage_messages`.
 
-For **Read and write**, also: `pages_manage_posts` and `pages_manage_engagement`;
-for Instagram, `instagram_content_publish` and `instagram_manage_contents`.
+For **Read and write**, also: `pages_manage_posts`, `pages_manage_engagement` and
+`publish_video`; for Instagram, `instagram_content_publish` and
+`instagram_manage_contents`.
 
 Meta grants reading and replying to messages together (`pages_messaging`,
 `instagram_manage_messages`). On a **Read-only** connection Houston blocks every
@@ -80,6 +89,24 @@ write, whatever the token allows. See Meta's
 [permissions reference](https://developers.facebook.com/docs/permissions).
 
 ## Advanced
+
+### Messaging
+
+Meta's [conversations guide](https://developers.facebook.com/documentation/business-messaging/messenger-platform/conversations)
+requires Advanced Access to read conversations with people who have no role on
+your app, Page or portfolio, and Instagram messaging requires an app owned by a
+verified business. Verify the business in **Business settings** → **Business
+info**, then request Advanced Access for `pages_messaging` and
+`instagram_manage_messages` under **App Review** → **Permissions and features** in
+the app dashboard. Until Meta approves it, test with people who have a role on the
+app.
+
+### Expiring tokens
+
+Meta requires some businesses to use system user tokens that expire after 60 days;
+their Page access tokens expire too. Note the date the Access Token Debugger shows,
+and before it passes, generate a new system user token, make a new Page access token
+and update the connection.
 
 ### Changing the access level
 
@@ -95,7 +122,8 @@ connection.
   connection.
 - **Requests fail with code 10 or 200 naming a permission.** Add that permission to
   the app's use case, generate a new system user token with it, make a new Page
-  access token and update the connection.
+  access token and update the connection. If **Generate token** does not offer a
+  permission, such as `instagram_manage_contents`, add it to a use case first.
 - **The Page has no Instagram account.** Link the Instagram professional account to
   the Page in Meta Business Suite, assign it to the system user, then make a new
   Page access token.
@@ -107,7 +135,7 @@ connection.
 - **Requests fail with "appsecret_proof".** Turn off **Require app secret** in the
   app's **App settings** → **Advanced** → **Security**: Houston does not send app
   secret proofs.
-- **Replies after 24 hours fail.** Meta allows messages outside the 24-hour window
+- **Replies after 24 hours fail.** Meta allows replies outside the 24-hour window
   only with its Human Agent feature, which needs App Review; hashtag search similarly
   needs the Instagram Public Content Access feature.
 - **The token stops working.** Removing the system user, its access to the Page or

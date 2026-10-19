@@ -30,7 +30,7 @@
         "token": {
           "type": "secret",
           "label": "Page access token",
-          "description": "A Page access token that never expires, made from a system user in Meta Business Settings.",
+          "description": "A Page access token made from a system user in Meta Business Settings.",
           "required": true
         }
       }

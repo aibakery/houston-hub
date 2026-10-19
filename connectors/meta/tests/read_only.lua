@@ -22,7 +22,7 @@ return {
 		for name in meta do table.insert(names, name) end
 		table.sort(names)
 		assert(table.concat(names, ",") == table.concat({
-			"getInsights", "getInstagramAccount", "getInstagramPublishingLimit", "getObject", "getPage", "listComments",
+			"getInsights", "getInstagramAccount", "getObject", "getPage", "listComments",
 			"listConversations", "listFeed", "listHashtagRecentMedia", "listHashtagTopMedia", "listInstagramChildren",
 			"listInstagramComments", "listInstagramMedia", "listInstagramReplies", "listInstagramStories", "listInstagramTags",
 			"listMessages", "listPhotos", "listPublishedPosts", "listRatings", "listReactions", "listReels",

@@ -2,7 +2,7 @@
 -- results keep Meta's native field names.
 type Options = {[string]: any}
 type Endpoint = {method: string, path: string, host: string?, query: {string}?, required: {string}?, paging: {string}?,
-	fields: string?, upload: string?, about: string}
+	fields: string?, upload: string?, write: boolean?, about: string}
 
 -- Graph versions work for two years after their successor ships; v26.0 has no sunset date yet.
 local VERSION = "v26.0"
@@ -29,7 +29,7 @@ local endpoints: {[string]: Endpoint} = {
 		about = "Any object the Page can see: a post, comment, photo, video, conversation, message, Instagram account, media, comment or container. Without fields Meta returns only a few defaults."},
 
 	listFeed = {method = "GET", path = "/me/feed", query = {"since", "until", "include_hidden", "show_expired"}, paging = CURSORS, fields = POST_FIELDS,
-		about = "Posts on the Page by the Page and by others, newest first. limit is at most 100."},
+		about = "Posts on the Page by the Page and by others, newest first, without reels. limit is at most 100; Meta returns about 600 ranked posts per year."},
 	listPublishedPosts = {method = "GET", path = "/me/published_posts", query = {"since", "until", "include_hidden"}, paging = CURSORS, fields = POST_FIELDS,
 		about = "Posts the Page published."},
 	listScheduledPosts = {method = "GET", path = "/me/scheduled_posts", paging = CURSORS, fields = "id,message,created_time,scheduled_publish_time,permalink_url",
@@ -37,7 +37,7 @@ local endpoints: {[string]: Endpoint} = {
 	listTaggedPosts = {method = "GET", path = "/me/tagged", paging = CURSORS, fields = "id,message,created_time,permalink_url,from",
 		about = "Posts by others that tag the Page."},
 	listPhotos = {method = "GET", path = "/me/photos", query = {"type"}, paging = CURSORS, fields = "id,name,created_time,link,picture,alt_text",
-		about = "type='uploaded' lists the Page's own photos; the default lists photos the Page is tagged in."},
+		about = "type='uploaded' lists the Page's own photos, type='tagged' photos it is tagged in; the default lists its profile pictures."},
 	listVideos = {method = "GET", path = "/me/videos", paging = CURSORS, fields = VIDEO_FIELDS, about = "The Page's videos."},
 	listReels = {method = "GET", path = "/me/video_reels", query = {"since", "until"}, paging = CURSORS, fields = VIDEO_FIELDS, about = "The Page's reels."},
 	listRatings = {method = "GET", path = "/me/ratings", paging = CURSORS, fields = "created_time,recommendation_type,review_text,has_review,reviewer",
@@ -46,13 +46,13 @@ local endpoints: {[string]: Endpoint} = {
 		fields = "id,message,created_time,from,like_count,comment_count,is_hidden,can_hide,can_remove,permalink_url",
 		about = "Comments on a Facebook post, photo, video or comment (replies). filter: toplevel (default) or stream for all; order: chronological or reverse_chronological; summary=true adds summary.total_count."},
 	listReactions = {method = "GET", path = "/{object}/reactions", query = {"type", "summary"}, paging = CURSORS,
-		about = "Reactions to a post or comment. type: LIKE, LOVE, WOW, HAHA, SAD, ANGRY or CARE; summary='total_count' adds summary.total_count. Meta names only the Page among reacting profiles."},
+		about = "Reactions to a post or comment. type: LIKE, LOVE, WOW, HAHA, SORRY, ANGRY or CARE; summary='total_count' adds summary.total_count. Meta names only the Page among reacting profiles."},
 	getInsights = {method = "GET", path = "/{object}/insights",
 		query = {"metric", "period", "since", "until", "date_preset", "breakdown", "metric_type", "timeframe"}, required = {"metric"}, paging = NONE,
 		about = "Metrics of the Page ('me'), a post, the Instagram account or Instagram media; see Insights above. metric and breakdown take an array or a comma-separated string."},
 	listConversations = {method = "GET", path = "/me/conversations", query = {"platform", "user_id", "folder"}, paging = CURSORS,
-		fields = "id,updated_time,link,snippet,message_count,unread_count,can_reply,participants",
-		about = "Inbox threads, latest first. platform: messenger (default) or instagram; user_id finds the thread with one person (PSID or IGSID)."},
+		fields = "id,updated_time,participants",
+		about = "Inbox threads, latest first. platform: messenger or instagram; user_id finds the thread with one person (PSID or IGSID). Messenger threads also have snippet, unread_count, message_count, can_reply and link."},
 	listMessages = {method = "GET", path = "/{conversation}/messages", paging = CURSORS, fields = "id,created_time,from,to,message,attachments",
 		about = "Messages of a conversation, newest first. Only the 20 most recent have details."},
 
@@ -69,14 +69,14 @@ local endpoints: {[string]: Endpoint} = {
 	listInstagramComments = {method = "GET", path = "/{media}/comments", paging = CURSORS, fields = IG_COMMENT_FIELDS .. ",replies{" .. IG_COMMENT_FIELDS .. "}",
 		about = "Top-level comments on Instagram media, newest first, with their replies. limit is at most 50."},
 	listInstagramReplies = {method = "GET", path = "/{comment}/replies", paging = CURSORS, fields = IG_COMMENT_FIELDS, about = "Replies to an Instagram comment."},
-	getInstagramPublishingLimit = {method = "GET", path = "/{ig_user}/content_publishing_limit", query = {"since"}, fields = "config,quota_usage",
-		about = "Posts published through the API in the last 24 hours (quota_usage) and the quota (config.quota_total)."},
+	getInstagramPublishingLimit = {method = "GET", path = "/{ig_user}/content_publishing_limit", query = {"since"}, fields = "config,quota_usage", write = true,
+		about = "Posts published through the API in the last 24 hours (quota_usage) and the quota (config.quota_total). Needs instagram_content_publish, so read-write only."},
 	searchInstagramHashtag = {method = "GET", path = "/ig_hashtag_search", query = {"user_id", "q"}, required = {"user_id", "q"},
 		about = "The ID of a hashtag (q without #); user_id is your ig_user. At most 30 different hashtags per 7 days; needs Meta's Instagram Public Content Access feature."},
-	listHashtagTopMedia = {method = "GET", path = "/{hashtag}/top_media", query = {"user_id"}, required = {"user_id"}, paging = CURSORS,
-		fields = "id,caption,media_type,permalink,timestamp,like_count,comments_count", about = "Most popular public media with a hashtag."},
-	listHashtagRecentMedia = {method = "GET", path = "/{hashtag}/recent_media", query = {"user_id"}, required = {"user_id"}, paging = CURSORS,
-		fields = "id,caption,media_type,permalink,timestamp,like_count,comments_count", about = "Public media with a hashtag from the last 24 hours."},
+	listHashtagTopMedia = {method = "GET", path = "/{hashtag}/top_media", query = {"user_id"}, required = {"user_id"}, paging = {"limit", "after"},
+		fields = "id,caption,media_type,permalink,timestamp,like_count,comments_count", about = "Most popular public media with a hashtag. limit is at most 50."},
+	listHashtagRecentMedia = {method = "GET", path = "/{hashtag}/recent_media", query = {"user_id"}, required = {"user_id"}, paging = {"limit", "after"},
+		fields = "id,caption,media_type,permalink,timestamp,like_count,comments_count", about = "Public media with a hashtag from the last 24 hours. limit is at most 50."},
 
 	createPost = {method = "POST", path = "/me/feed",
 		about = "Body {message?, link?, published?, scheduled_publish_time?, attached_media?, place?}. Posts as the Page; returns {id}. Pass message or link."},
@@ -89,7 +89,7 @@ local endpoints: {[string]: Endpoint} = {
 	createComment = {method = "POST", path = "/{object}/comments",
 		about = "Body {message?, attachment_url?, attachment_id?, attachment_share_url?}. Comments as the Page on a Facebook post, photo, video or comment, or on Instagram media (message only); returns {id}."},
 	updateComment = {method = "POST", path = "/{comment}",
-		about = "Body {is_hidden} or {message} for a Facebook comment, {hide} for an Instagram comment. Hidden comments stay visible to their author and friends."},
+		about = "Body {is_hidden} or {message} for a Facebook comment, {hide} for an Instagram comment."},
 	createInstagramReply = {method = "POST", path = "/{comment}/replies", required = {"message"},
 		about = "Body {message}. Replies as the account to a top-level Instagram comment; returns {id}."},
 	updateInstagramMedia = {method = "POST", path = "/{media}", required = {"comment_enabled"},
@@ -97,7 +97,9 @@ local endpoints: {[string]: Endpoint} = {
 	deleteObject = {method = "DELETE", path = "/{id}",
 		about = "Deletes a Facebook post, photo, video or comment, or Instagram media or comment. Instagram media need the instagram_manage_contents permission; carousels are deleted whole."},
 	sendMessage = {method = "POST", path = "/me/messages", required = {"recipient"},
-		about = "Body {recipient, messaging_type?, message? | sender_action?, tag?, notification_type?, reply_to?}. Sends as the Page on Messenger or Instagram; see Inbox above. Returns {recipient_id, message_id}."},
+		about = "Body {recipient, messaging_type?, message? | sender_action?, tag?, notification_type?, reply_to?}. Sends as the Page on Messenger or Instagram, or privately replies to a Facebook comment; see Inbox above. Returns {recipient_id, message_id}."},
+	sendInstagramPrivateReply = {method = "POST", path = "/{ig_user}/messages", required = {"recipient", "message"},
+		about = "Body {recipient={comment_id}, message={text}}. Sends the commenter the one private message allowed per Instagram comment, within 7 days of it."},
 	createInstagramContainer = {method = "POST", path = "/{ig_user}/media",
 		about = "Body {image_url? (JPEG), video_url?, media_type? (REELS, STORIES, CAROUSEL or VIDEO for carousel items), caption?, children?, is_carousel_item?, alt_text?, cover_url?, share_to_feed?, location_id?, user_tags?, collaborators?}. Returns {id}; see Publishing to Instagram above."},
 	publishInstagramMedia = {method = "POST", path = "/{ig_user}/media_publish", required = {"creation_id"},
@@ -325,7 +327,8 @@ end
 
 local exports: {[string]: any} = {}
 for name, endpoint in endpoints do
-	if endpoint.method == "GET" or config.access == "read-write" then
+	local write = if endpoint.write ~= nil then endpoint.write else endpoint.method ~= "GET"
+	if not write or config.access == "read-write" then
 		exports[name] = function(args: Options?): any return request(name, endpoint, args) end
 	end
 end
@@ -347,16 +350,16 @@ end
 
 exports.help = function(): string
 	local lines = {
-		"Meta Graph API " .. VERSION .. " for one Facebook Page and the Instagram professional account linked to it. Each function takes one options object with Meta's snake_case names (? marks optional; ...body are the body fields after Body). Results are Meta's JSON unchanged, except that access tokens are removed from paging links; writes return {id} or {success=true}. Connector calls return completed values: use them directly, without await.",
-		"Start with local page = meta.getPage(): page.id is the Page and page.instagram_business_account.id the linked Instagram account, the ig_user of Instagram functions (absent when none is linked). Page functions act on the connected Page itself. IDs are strings: posts look like '<page-id>_<post-id>', conversations 't_...', messages 'm_...', Instagram objects are numeric strings.",
-		"fields chooses what Meta returns and accepts field expansion, such as fields='id,message,comments.limit(5){message,from}'. Functions list their default fields; getObject without fields returns only Meta's minimal defaults. Access tokens cannot be requested. Media links (full_picture, picture, media_url, attachments) are signed CDN URLs that expire within days; read the object again for fresh ones.",
-		"Paging: lists return one page, {data, paging}. limit sets its size (default 25) and paging.cursors.after is the next call's after. While paging.next is present, call the same function with {next = result.paging.next} alone for the next page; stop when it is absent, as a page can be empty yet have next.",
-		"Insights: getInsights({object, metric, period?, since?, until?, ...}); since and until take Unix times or dates, at most 90 days apart for the Page, and paging.next or since/until move through time. Page (object='me'): page_media_view, page_total_media_view_unique, page_follows, page_daily_follows_unique, page_daily_unfollows_unique, page_post_engagements, page_total_actions, page_views_total, page_video_views, with period day, week or days_28; needs 100 or more followers. Posts: post_media_view, post_total_media_view_unique, post_clicks, post_reactions_by_type_total, post_video_views (period lifetime). Instagram account: reach, views, accounts_engaged, total_interactions, likes, comments, shares, saves, replies, follows_and_unfollows, profile_links_taps, with period='day' and metric_type='total_value' (breakdown='media_product_type' splits most); follower_demographics and engaged_audience_demographics need period='lifetime', timeframe='this_month' and breakdown age, city, country or gender. Instagram media: views, reach, likes, comments, shares, saved, total_interactions; reels add ig_reels_avg_watch_time, stories navigation (24 hours only). impressions, plays and page_fans no longer exist.",
-		"Inbox: listConversations({platform='messenger' or 'instagram'}), then listMessages({conversation=thread.id}). sendMessage({recipient={id=psid}, messaging_type='RESPONSE', message={text='Thanks!'}}) answers within 24 hours of the person's last message; later only messaging_type='MESSAGE_TAG' with tag='HUMAN_AGENT' works, for 7 days and only once Meta approved Human Agent. recipient={comment_id=id} sends the one private reply allowed to a comment, within 7 days. Instagram texts are at most 1,000 bytes; recipients are the IDs in participants or from.",
-		"Publishing to Facebook: createPost({message='Hello'}) posts now; published=false with scheduled_publish_time (Unix time 10 minutes to 30 days ahead) schedules it. uploadPhoto and uploadVideo take a public url (file_url for videos) or path, a session file streamed to Meta. For several photos in one post, upload each with published=false, then createPost({message, attached_media={{media_fbid=id1}, {media_fbid=id2}}}).",
-		"Publishing to Instagram: createInstagramContainer({ig_user, image_url=jpeg_url, caption}) (or media_type='REELS' with video_url, media_type='STORIES', or media_type='CAROUSEL' with children='id1,id2' made with is_carousel_item=true) returns {id}; poll getObject({id=container.id, fields='status_code'}) about once a minute until FINISHED (EXPIRED after 24 hours, ERROR on failure); then publishInstagramMedia({ig_user, creation_id=container.id}). Meta fetches media from public HTTPS URLs; getInstagramPublishingLimit gives the 24-hour quota.",
+		"Meta Graph API " .. VERSION .. " for one Facebook Page and the Instagram professional account linked to it. Each function takes one options object with Meta's snake_case names (? marks optional; ...body are the body fields after Body). Results are Meta's JSON unchanged, except that access tokens are removed; writes return {id} or {success=true}. Connector calls return completed values: use them directly, without await.",
+		"Start with local page = meta.getPage(): page.id is the Page and page.instagram_business_account.id the linked Instagram account, the ig_user of Instagram functions (absent when none is linked; if Meta rejects that field, call getPage({fields='id,name'})). Page functions act on the connected Page itself. IDs are strings: posts look like '<page-id>_<post-id>', conversations 't_...', Messenger messages 'm_...'; Instagram media, comments and accounts are numeric strings, Instagram threads and messages opaque ones.",
+		"fields chooses what Meta returns and accepts field expansion, such as fields='id,message,comments.limit(5){message,from}' or, to get insights with each post, fields='id,message,insights.metric(post_media_view,post_clicks)'. Functions list their default fields; getObject without fields returns only Meta's minimal defaults. Access tokens cannot be requested. Media links (full_picture, picture, media_url, attachments) are signed CDN URLs that expire within days; read the object again for fresh ones.",
+		"Paging: lists return one page, {data, paging}. limit sets its size (default 25) and paging.cursors.after is the next call's after. While paging.next is present, call the same function with {next = result.paging.next} alone for the next page; stop when it is absent, as a page can be empty yet have next. Expanded edges, such as business_discovery media, are paged with their own .after(cursor) modifier instead.",
+		"Insights: getInsights({object, metric, period?, since?, until?, ...}); since and until take Unix times or dates, at most 90 days apart for the Page, and paging.next or since/until move through time. Page (object='me'): page_media_view, page_total_media_view_unique, page_daily_follows_unique, page_daily_unfollows_unique, page_post_engagements, page_total_actions, page_views_total, page_video_views, with period day, week or days_28, and page_follows with period day; needs 100 or more followers. Posts: post_media_view, post_total_media_view_unique, post_clicks, post_reactions_by_type_total, post_video_views (period lifetime). Instagram account: reach, views, accounts_engaged, total_interactions, likes, comments, shares, saves, replies, follows_and_unfollows, profile_links_taps, with period='day' and metric_type='total_value' (breakdown='media_product_type' splits most), covering the last 24 hours unless since/until are given; follower_demographics and engaged_audience_demographics need period='lifetime', timeframe='this_month' and breakdown age, city, country or gender. Instagram media: views, reach, likes, comments, shares, saved, total_interactions; reels add ig_reels_avg_watch_time, stories navigation (24 hours only). impressions, plays and page_fans no longer exist.",
+		"Inbox: listConversations({platform='messenger' or 'instagram'}), then listMessages({conversation=thread.id}). Meta returns conversations with your customers only once the app has Advanced Access for messaging. sendMessage({recipient={id=psid}, messaging_type='RESPONSE', message={text='Thanks!'}}) answers within 24 hours of the person's last message; after that Meta requires messaging_type='MESSAGE_TAG' with a tag it still accepts, such as 'HUMAN_AGENT' (within 7 days, once Meta approved its Human Agent feature). sendMessage({recipient={comment_id=id}, message}) sends the one private reply allowed to a Facebook comment, within 7 days; Instagram comments use sendInstagramPrivateReply. Instagram texts are at most 1,000 bytes; recipients are the IDs in participants or from.",
+		"Publishing to Facebook: createPost({message='Hello'}) posts now; published=false with scheduled_publish_time (Unix time 10 minutes to 30 days ahead) schedules it. uploadPhoto and uploadVideo take a public url (file_url for videos) or path, a session file streamed to Meta. For several photos in one post, upload each with published=false (and temporary=true when the post is scheduled), then createPost({message, attached_media={{media_fbid=id1}, {media_fbid=id2}}}). Facebook reels cannot be published here.",
+		"Publishing to Instagram: createInstagramContainer({ig_user, image_url=jpeg_url, caption}) (or media_type='REELS' with video_url, media_type='STORIES', or media_type='CAROUSEL' with children='id1,id2', at most 10 made with is_carousel_item=true) returns {id}; poll getObject({id=container.id, fields='status_code'}) about once a minute, for at most 5 minutes, until FINISHED (EXPIRED after 24 hours, ERROR on failure); then publishInstagramMedia({ig_user, creation_id=container.id}). Meta fetches media from public HTTPS URLs. Captions take at most 2,200 characters, 30 hashtags and 20 @ tags; an account creates at most 400 containers a day, and getInstagramPublishingLimit gives the 24-hour publishing quota.",
 		"Moderation: updateComment({comment, is_hidden=true}) hides a Facebook comment and updateComment({comment, hide=true}) an Instagram one; deleteObject({id}) deletes either. Instagram comments can be deleted only on the account's own media.",
-		"Read-only connections omit writes. Meta also applies the token's permissions and the system user's tasks on the Page; a missing one fails with code 10 or 200 naming it. Errors give the HTTP status, Meta's code/subcode, message and fbtrace_id; rate limits (codes 4, 17, 32, 613, 80001-80014) are retryable and may say when calls succeed again. There are no automatic retries: after a timeout or 5xx, read the Page again before repeating a write, since a post or message may already be live.",
+		"Read-only connections omit writes. Meta also applies the token's permissions and the system user's tasks on the Page; a missing one fails with code 10 or 200 naming it. Errors give the HTTP status, Meta's code/subcode, message and fbtrace_id; rate limits (codes 4, 17, 32, 341, 613, 80000-80014) and transient errors are retryable and may say when calls succeed again. There are no automatic retries: after a timeout or 5xx, read the Page again before repeating a write, since a post or message may already be live.",
 	}
 	local names: {string} = {}
 	for name in exports do if name ~= "help" then table.insert(names, name) end end

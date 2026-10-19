@@ -16,7 +16,8 @@ return {
 		function rejected(call, expected)
 			local before = #requests
 			local ok, err = pcall(call)
-			assert(not ok and string.find(tostring(err), expected, 1, true), "expected " .. expected .. ", got " .. tostring(err))
+			local text = if type(err) == "table" then json.encode(err) else tostring(err)
+			assert(not ok and string.find(text, expected, 1, true), "expected " .. expected .. ", got " .. text)
 			assert(#requests == before, "invalid input reached Meta")
 		end
 		function sent(index, method, url)
@@ -28,7 +29,7 @@ return {
 	end,
 	run = function(meta)
 		for _, name in {"createComment", "createInstagramContainer", "createInstagramReply", "createPost", "deleteObject",
-			"publishInstagramMedia", "sendMessage", "updateComment", "updateInstagramMedia", "updatePost", "uploadPhoto", "uploadVideo",
+			"publishInstagramMedia", "sendMessage", "sendInstagramPrivateReply", "getInstagramPublishingLimit", "updateComment", "updateInstagramMedia", "updatePost", "uploadPhoto", "uploadVideo",
 			"getPage", "listFeed"} do
 			assert(meta[name], "missing " .. name)
 		end
@@ -97,6 +98,15 @@ return {
 		meta.uploadVideo({file_url = "https://example.com/baking.mp4"})
 		assert(json.decode(sent(12, "POST", "https://graph-video.facebook.com/v26.0/me/videos").body).file_url == "https://example.com/baking.mp4")
 
+		-- Instagram private replies go through the account; the quota needs the publishing permission.
+		respond('{"recipient_id":"17840000000000002","message_id":"aWdGMTIz"}')
+		meta.sendInstagramPrivateReply({ig_user = "17841400000000001", recipient = {comment_id = "17860000000000001"}, message = {text = "Sent you the details"}})
+		assert(sent(13, "POST", "https://graph.facebook.com/v26.0/17841400000000001/messages").body
+			== json.encode({recipient = {comment_id = "17860000000000001"}, message = {text = "Sent you the details"}}))
+		respond('{"data":[{"quota_usage":2,"config":{"quota_total":50,"quota_duration":86400}}]}')
+		assert(meta.getInstagramPublishingLimit({ig_user = "17841400000000001"}).data[1].config.quota_total == 50)
+		sent(14, "GET", "https://graph.facebook.com/v26.0/17841400000000001/content_publishing_limit?fields=config%2Cquota_usage")
+
 		-- Graph reads method, batch and fields from bodies too: batch could fetch a token and
 		-- fields reads the written object back, its access_token included.
 		rejected(function() meta.updatePost({post = "101_9", message = "x", method = "delete"}) end, "cannot send method")
@@ -108,7 +118,7 @@ return {
 		rejected(function() meta.sendMessage({message = {text = "hi"}}) end, "recipient is required")
 		rejected(function() meta.publishInstagramMedia({ig_user = "17841400000000001"}) end, "creation_id is required")
 		rejected(function() meta.deleteObject({id = "101/feed"}) end, "one Meta ID")
-		rejected(function() meta.uploadPhoto({path = "missing.jpg"}) end, "")
+		rejected(function() meta.uploadPhoto({path = "missing.jpg"}) end, '"code":"not_found"')
 		assert(#responses == 0)
 	end,
 }
