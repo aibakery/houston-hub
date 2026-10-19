@@ -807,3 +807,70 @@ confirm that live.
 The CRM API allowed 8,000 requests per 60 seconds when probed on 2026-10-19,
 reported in `RateLimit-*` headers; Carta documents no limit. The icon is the same
 Carta mark as the [Carta](#carta) connector.
+
+## Meta Business Suite
+
+Register repository `https://github.com/aibakery/houston-hub`, revision `main`,
+manifest path `connectors/meta/houston.json`. The bundle uses the existing manifest
+v1 and async HTTP/file runtime without runtime changes, and has no publisher
+settings: each connection pastes a Page access token, as the
+[account setup guide](../connectors/meta/SETUP.md) describes, so the connection admin
+creates the Meta app, system user and token.
+
+Meta requires a Page access token for nearly every Page call (publishing, comments,
+insights, Messenger) and for Instagram messaging; user and system-user tokens only
+serve to obtain one. Houston cannot derive Page tokens server-side, and passing them
+through Lua would expose a credential, so a connection serves one Page and the
+Instagram professional account linked to it. Facebook Login is not offered: Meta
+issues no refresh tokens, its code exchange returns a token lasting hours, and the
+token would still need the Page-token step. A Page token made from a non-expiring
+system-user token does not expire. A multi-Page connection with **Connect with
+Facebook** would need a runtime feature that exchanges and derives tokens on the
+server.
+
+The connector covers 38 Graph API operations, checked on 2026-10-19 against Meta's
+Graph API reference and the [Business SDK](https://github.com/facebook/facebook-python-business-sdk)
+v26.0.2 (commit `efd8423a`): the Page, its feed, published, scheduled and tagged posts,
+photos, videos, reels and ratings; comments and reactions; Page, post, Instagram
+account and media insights; Messenger and Instagram conversations, messages and the
+Send API; the Instagram account, media, stories, tags, carousel children, comments
+and replies, publishing quota, containers and publishing; hashtag search; and any
+object by ID with field expansion. Lua pins Graph API `v26.0` in every path. Meta
+supports each version for two years after its successor ships; v26.0 has no sunset
+date yet. Move the version forward in Lua and the manifest routes together.
+
+Omitted on purpose: ads and the Marketing API; `/me/accounts` and other token
+endpoints; Page settings, roles, webhooks (`subscribed_apps`) and lead forms;
+Facebook reels and Instagram resumable uploads, which use `rupload.facebook.com`
+with an app ID and a user token; the Resumable Upload API, which also needs them;
+Instagram mentions and likes; and Graph's batch endpoint. Messages outside the
+24-hour window need Meta's Human Agent feature, and hashtag search the Instagram
+Public Content Access feature, both through App Review; the connector exposes the
+calls and reports Meta's errors.
+
+Credentials go only to the listed routes on `graph.facebook.com` and to video
+uploads on `graph-video.facebook.com`; writes require read-write access. Graph reads
+`method` from any query or body and runs it even on GET (`?method=delete` deletes),
+runs `batch` requests on any node, and returns errors as HTTP 200 with `callback` or
+`suppress_http_code`. The proxy cannot filter queries, so Lua builds every query from
+each operation's declared parameters, rejects those names and token parameters in
+bodies and in replayed `paging.next` links, and refuses `fields` naming a token: a
+Page can read its own `access_token` field, also through field expansion or a
+write's read-after-write `fields`. Meta writes the request's token into `paging.next`
+and `paging.previous`; responses drop it. Path IDs pass `url.segment`. The connector
+sends no `appsecret_proof`, so SETUP asks to keep **Require app secret** off.
+
+This is a new registration with no existing connections. Fixtures cover both access
+levels, routes, query and body building, the override and token defenses, paging
+links, multipart uploads and error mapping. Still to verify live: that the Page token
+serves the Instagram endpoints (Meta's references name a user token, its guides a
+Page token), Page feed reads, hiding and deleting comments, JSON bodies on every
+write, Bearer authentication on `graph-video.facebook.com`, the SETUP labels, and a
+disposable post, comment and message.
+
+The icon is Meta's infinity symbol, unchanged, as served by Meta's
+[brand resource center](https://www.meta.com/brand/resources/meta/company-brand/)
+(`static.xx.fbcdn.net/rsrc.php/yf/r/-7pQO6hUGK_.svg`, retrieved 2026-10-19). Meta
+Business Suite has no logo of its own. Meta's guidelines say every use of the Meta
+logo requires its approval; confirm before listing the connector publicly. Meta and
+the Meta logo are trademarks of Meta Platforms, Inc.
