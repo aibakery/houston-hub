@@ -174,7 +174,8 @@ local function unescape(value: string): string
 end
 
 -- A paging.next link from an earlier result of the same function. It is replayed as is once its
--- route and parameters check out: the function's own options plus Meta's paging tokens.
+-- route and parameters check out: the function's own options plus Meta's paging tokens and
+-- pretty, which v26.0 ignores.
 local function nextPage(name: string, endpoint: Endpoint, link: any): string
 	local usage = "next must be the unchanged paging.next link of an earlier " .. name .. " result"
 	assert(type(link) == "string" and #link <= 8192, usage)
@@ -192,7 +193,7 @@ local function nextPage(name: string, endpoint: Endpoint, link: any): string
 	for pair in string.gmatch(query, "[^&]+") do
 		local key, value = string.match(pair, "^([%w_]+)=([%w%%._~+-]*)$")
 		assert(key and value and not seen[key], usage)
-		assert(key == "fields" or key == "__paging_token" or key == "__previous" or table.find(endpoint.query or NONE, key)
+		assert(key == "fields" or key == "pretty" or key == "__paging_token" or key == "__previous" or table.find(endpoint.query or NONE, key)
 			or table.find(endpoint.paging or NONE, key), usage)
 		if key == "fields" then fieldList(unescape(value)) end
 		seen[key] = true
