@@ -720,9 +720,9 @@ Every method shares the proxy rules, which allow only the listed routes on
 `api.carta.com` and `api.playground.carta.team` and strip `X-HTTP-Method-Override`
 from read-only routes; writes require read-write access. Lua chooses the host from
 the selected method. Custom methods such as `capitalCalls/{id}:adjust` match their
-whole-segment placeholder. Open Cap Table uploads take the raw ZIP archive (a
-`google.api.HttpBody`), streamed from a session file; Carta only stores them during its
-beta. Fund document downloads return a temporary signed URL, which the
+whole-segment placeholder. Open Cap Table uploads stream the ZIP archive from a
+session file as the raw body, since the request is a `google.api.HttpBody`; confirm this
+live. Carta only stores them during its beta. Fund document downloads return a temporary signed URL, which the
 connector passes through without fetching. Draft issuers return the primary contact's
 one-time `registrationUrl`, so even reading one needs read-write access. Carta allows
 10 requests per second and 300 per minute (5 and 150 per app on the playground),

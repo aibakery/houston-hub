@@ -69,7 +69,7 @@ return {
 		assert(last().url == API .. "/portfolios/P1/issuers/7/restrictedStockUnits?lastModifiedDatetimeAfter=2026-01-01T00%3A00%3A00Z")
 
 		payload = '{"affectedAssets":[],"asOf":{"value":"2026-10-19T00:00:00Z"},"splitOccurredSince":false}'
-		local split = carta.getStockSplitChanges({issuerId = "7", securities = {{securityType = "CERTIFICATE", securityId = "S1"}}, since = {value = "2026-01-01T00:00:00Z"}})
+		local split = carta.getStockSplitChanges({issuerId = "7", securities = {{securityType = "certificate", securityId = "S1"}}, since = {value = "2026-01-01T00:00:00Z"}})
 		assert(last().method == "POST" and last().url == API .. "/issuers/7/securities:stockSplitChanges")
 		assert(last().headers["Content-Type"][1] == "application/json")
 		local body = json.decode(last().body)

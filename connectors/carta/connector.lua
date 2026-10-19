@@ -12,7 +12,7 @@ local AS_OF = {"asOfDate", "pageSize", "pageToken"}
 
 -- Operations of Carta's API reference, checked on 2026-10-19. Path {fields} are required;
 -- listed query fields are taken from the options and the other fields form the JSON body of
--- POST requests. Reads that need a readwrite_ scope are marked write = true.
+-- POST requests. Reads that need a readwrite_ scope or return a credential are marked write = true.
 local endpoints: {[string]: Endpoint} = {
 	getCurrentUser = {method = "GET", path = "/v1alpha1/user", doc = "user-get-current-user", about = "{user={id, firstName, lastName, email}}."},
 
@@ -20,7 +20,7 @@ local endpoints: {[string]: Endpoint} = {
 	getIssuer = {method = "GET", path = "/v1alpha1/issuers/{id}", doc = "issuers-get-issuer", about = "A company."},
 	listPointsOfContact = {method = "GET", path = "/v1alpha1/issuers/{issuerId}/pointsOfContact", doc = "issuers-list-points-of-contact", about = "The company's contacts."},
 	getStockSplitChanges = {method = "POST", path = "/v1alpha1/issuers/{issuerId}/securities:stockSplitChanges", required = {"securities", "since"}, write = false,
-		doc = "issuers-get-stock-split-asset-changes", about = "Body {securities={{securityType, securityId}}, since={value=date-time}}. Whether a stock split changed those securities since then: {affectedAssets, asOf, splitOccurredSince, ...}."},
+		doc = "issuers-get-stock-split-asset-changes", about = "Body {securities={{securityType (lowercase: option_grant or certificate), securityId}}, since={value=date-time}}. Whether a stock split changed those securities since then: {affectedAssets, asOf, splitOccurredSince, ...}."},
 	getIssuerCapitalizationTable = {method = "GET", path = "/v1alpha1/issuers/{issuerId}/capitalizationTable", query = {"asOfDate"}, doc = "issuers-get-capitalization-table",
 		about = "Cap table summary by share class."},
 	getIssuerStakeholderCapitalizationTable = {method = "GET", path = "/v1alpha1/issuers/{issuerId}/stakeholderCapitalizationTable", query = AS_OF,
@@ -55,7 +55,7 @@ local endpoints: {[string]: Endpoint} = {
 	getDraftOptionGrant = {method = "GET", path = "/v1alpha1/issuers/{issuerId}/draftOptionGrantSets/{draftOptionGrantSetId}/draftOptionGrants/{draftOptionGrantId}",
 		doc = "issuers-draftsecurities-get-draft-option-grant", about = ""},
 	initiateSecondarySettlement = {method = "POST", path = "/v1alpha1/issuers/{issuerId}/secondaryTransactions", required = {"externalReferenceId", "rightOfFirstRefusalOutcome", "pricePerShare", "securities"},
-		doc = "issuers-initiate-settlement", about = "Body {externalReferenceId, rightOfFirstRefusalOutcome, pricePerShare=money, securities={{securityType, securityId, stockOptionType?, quantity={value}}}, buyerInformation?}; buyerInformation is required for WAIVED and EXERCISED_BY_STAKEHOLDER. Soft-locks the securities; keep secondaryTransactionId and follow transactionState."},
+		doc = "issuers-initiate-settlement", about = "Body {externalReferenceId, rightOfFirstRefusalOutcome, pricePerShare=money, securities={{securityType (option_grant or certificate), securityId, stockOptionType? (ISO or NSO), quantity={value}}}, buyerInformation?}; buyerInformation is required for WAIVED and EXERCISED_BY_STAKEHOLDER. Soft-locks the securities; keep secondaryTransactionId and follow transactionState."},
 	getSecondaryTransaction = {method = "GET", path = "/v1alpha1/issuers/{issuerId}/secondaryTransactions/{secondaryTransactionId}", write = true,
 		doc = "issuers-get-secondary-transaction", about = "State and per-security settlement outcome, including tax withholding."},
 	finalizeSecondarySettlement = {method = "POST", path = "/v1alpha1/issuers/{issuerId}/secondaryTransactions/{secondaryTransactionId}:finalize",
@@ -310,6 +310,7 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 	-- uploadOpenCapTable streams a session file as the raw body.
 	if endpoint.upload then
 		assert(type(upload) == "string" and upload ~= "", "path must be a session file path")
+		assert(await(fs.stat(upload)).isFile, "path must be a session file")
 		headers["Content-Type"] = {endpoint.upload}
 		body = fs.open(upload, "r")
 	end

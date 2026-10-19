@@ -60,10 +60,10 @@ return {
 		assert(last().url == API .. "/issuers/7/draftOptionGrantSets/S1/draftOptionGrants" and sent().draftOptionGrant.quantity.value == "1000")
 
 		status = 202
-		payload = '{"secondaryTransactionId":"0b8e6f5a-1c2d-4e3f-8a9b-0c1d2e3f4a5b","transactionState":"PENDING_EXERCISE"}'
+		payload = '{"secondaryTransactionId":"0b8e6f5a-1c2d-4e3f-8a9b-0c1d2e3f4a5b","transactionState":"PENDING_ISSUER_OPTION_COST_REVIEW"}'
 		local trade = carta.initiateSecondarySettlement({issuerId = "7", externalReferenceId = "trade-1", rightOfFirstRefusalOutcome = "WAIVED",
 			pricePerShare = usd("4.20"), buyerInformation = {entityName = "Buyer LLC", email = "buyer@example.com"},
-			securities = {{securityType = "OPTION_GRANT", securityId = "S1", quantity = {value = "10"}}}})
+			securities = {{securityType = "option_grant", securityId = "S1", stockOptionType = "ISO", quantity = {value = "10"}}}})
 		assert(last().url == API .. "/issuers/7/secondaryTransactions" and trade.secondaryTransactionId ~= nil)
 		assert(sent().securities[1].quantity.value == "10" and sent().pricePerShare.amount.value == "4.20")
 		payload = ""
@@ -83,10 +83,10 @@ return {
 		local zip = fs.open("captable.zip", "w")
 		zip:write("PK\3\4ocf")
 		await(zip:close())
-		payload = '{"id":"OCF1","state":"PROCESSING"}'
+		payload = '{"openCapTable":{"id":"OCF1","createTime":"2026-10-19T12:00:00Z","state":"PROCESSING"}}'
 		local ocf = carta.uploadOpenCapTable({path = "captable.zip"})
 		assert(last().method == "POST" and last().url == API .. "/openCapTables" and last().headers["Content-Type"][1] == "application/zip")
-		assert(uploaded == "PK\3\4ocf" and ocf.state == "PROCESSING", "the OCF archive is sent as the raw body")
+		assert(uploaded == "PK\3\4ocf" and ocf.openCapTable.state == "PROCESSING", "the OCF archive is sent as the raw body")
 
 		local before = #requests
 		local function rejected(fn, expected)
@@ -100,6 +100,8 @@ return {
 			interestAmounts = json.decode("[]")}) end, "amount is required")
 		rejected(function() carta.uploadOpenCapTable({}) end, "path is required")
 		rejected(function() carta.uploadOpenCapTable({path = 7}) end, "path must be a session file path")
+		local missing, notFound = pcall(function() carta.uploadOpenCapTable({path = "missing.zip"}) end)
+		assert(not missing and notFound.code == "not_found", "a missing archive never reaches Carta")
 		rejected(function() carta.uploadOpenCapTable({path = "captable.zip", contentType = "application/zip"}) end, "uploadOpenCapTable has no option contentType")
 		assert(#requests == before and #requests == 14)
 	end,

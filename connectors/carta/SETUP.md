@@ -32,7 +32,7 @@ later means submitting a new app.
      `read_issuer_valuations`, `read_issuer_securitiestemplates`,
      `read_issuer_interests`, `read_issuer_draftsecurities`,
      `read_corporation_info`, `read_compensation_benchmarks`,
-     `read_draftissuers`, `read_opencaptables`, `read_investor_firms`,
+     `read_opencaptables`, `read_investor_firms`,
      `read_investor_funds`, `read_investor_investments`,
      `read_investor_capitalizationtables`,
      `read_investor_stakeholdercapitalizationtable`, `read_investor_securities`,

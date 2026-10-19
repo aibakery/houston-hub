@@ -10,7 +10,7 @@ func TestCartaScopesAndAccessRoutes(t *testing.T) {
 	// Write scopes add to the read scopes, so narrowing a caller to read-only keeps a granted set.
 	readScopes := []string{"read_user_info", "read_issuer_info", "read_issuer_capitalizationtablesummary", "read_issuer_stakeholdercapitalizationtable",
 		"read_issuer_shareclasses", "read_issuer_stakeholders", "read_issuer_securities", "read_issuer_valuations", "read_issuer_securitiestemplates",
-		"read_issuer_interests", "read_issuer_draftsecurities", "read_corporation_info", "read_compensation_benchmarks", "read_draftissuers",
+		"read_issuer_interests", "read_issuer_draftsecurities", "read_corporation_info", "read_compensation_benchmarks",
 		"read_opencaptables", "read_investor_firms", "read_investor_funds", "read_investor_investments", "read_investor_capitalizationtables",
 		"read_investor_stakeholdercapitalizationtable", "read_investor_securities", "read_investor_cashbalances", "read_investor_fundperformance",
 		"read_investor_partners", "read_portfolio_info", "read_portfolio_securities", "read_portfolio_issuervaluations", "read_portfolio_transactions",
