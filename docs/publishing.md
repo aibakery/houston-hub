@@ -876,9 +876,8 @@ deleting comments, JSON bodies on every write, Bearer authentication on
 `graph-video.facebook.com`, the SETUP labels, and a disposable post, comment and
 message.
 
-The icon is Meta's infinity symbol, unchanged, as served by Meta's
-[brand resource center](https://www.meta.com/brand/resources/meta/company-brand/)
-(`static.xx.fbcdn.net/rsrc.php/yf/r/-7pQO6hUGK_.svg`, retrieved 2026-10-19). Meta
+The icon is Meta's infinity symbol, byte-identical to Houston's vendor mark
+`app/internal/web/static/marks/meta.svg` (listed in `design/vendor-assets.json`). Meta
 Business Suite has no logo of its own. Meta's guidelines say every use of the Meta
 logo requires its approval; confirm before listing the connector publicly. Meta and
 the Meta logo are trademarks of Meta Platforms, Inc.
