@@ -43,6 +43,30 @@
           "crm-public-api.app.carta.com"
         ],
         "method": [
+          "GET",
+          "PATCH"
+        ],
+        "path": [
+          "/v1/companies/custom-fields",
+          "/v1/contacts/classifier-prompt",
+          "/v1/contacts/custom-fields",
+          "/v1/deals/batch",
+          "/v1/deals/custom-fields",
+          "/v1/email-campaigns/stats",
+          "/v1/fees/custom-fields",
+          "/v1/fundraisings/custom-fields",
+          "/v1/investors/custom-fields"
+        ]
+      },
+      "action": {}
+    },
+    {
+      "match": {
+        "protocol": "http",
+        "host": [
+          "crm-public-api.app.carta.com"
+        ],
+        "method": [
           "GET"
         ],
         "path": [

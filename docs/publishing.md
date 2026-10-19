@@ -765,12 +765,12 @@ data providers; batch deal writes; report writes and email schedules; notificati
 settings and the contact classifier prompt. Not yet covered: attachment, logo and
 photo uploads (multipart), subtheme changes and DELETE requests with bodies, note
 unlinking, relations and interactions of deals, fundraisings and investors, campaign
-statistics and email templates. Path IDs must contain a digit or a dot (ObjectIds,
-integer fund IDs and company domains), so a word such as `batch` cannot reach an
-omitted sibling route. Confirm live that LP catalogue IDs and contacts' common IDs (fees
-by contact) have that form, and that `fundCartaIds` and `prospectPublicIds` accept
-repeated parameters, as the connector sends them; the reference types both as strings.
-The LP capital map and the contact count are not covered either.
+statistics and email templates. The LP capital map and the contact count are not covered
+either. A first, credential-free rule matches the omitted routes that `{id}` placeholders
+would otherwise reach (`PATCH /v1/deals/batch`, the classifier prompt, custom-field
+lists and campaign statistics), so they never receive the key. The reference types
+`fundCartaIds` and `prospectPublicIds` as strings, unlike its repeated array
+parameters, so callers pass comma-separated strings; confirm that live.
 
 The CRM API allowed 8,000 requests per 60 seconds when probed on 2026-10-19,
 reported in `RateLimit-*` headers; Carta documents no limit. The icon is the same

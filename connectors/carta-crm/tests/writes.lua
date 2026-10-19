@@ -60,8 +60,6 @@ return {
 
 		local ok, err = pcall(function() crm.createTask({entityId = ID, entityType = "DEAL", title = "Memo"}) end)
 		assert(not ok and string.find(tostring(err), "dueDate is required", 1, true))
-		ok, err = pcall(function() crm.updateDeal({id = "batch", deals = {}}) end)
-		assert(not ok and string.find(tostring(err), "Carta CRM ID or domain", 1, true), "an ID must not name a sibling route")
 		assert(#requests == 11)
 	end,
 }

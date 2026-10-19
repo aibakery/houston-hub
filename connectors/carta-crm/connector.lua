@@ -110,9 +110,9 @@ local endpoints: {[string]: Endpoint} = {
 	linkInvestorNote = {method = "POST", path = "/v1/investors/{id}/notes/{noteId}", body = false, doc = "investor-linking-controller-link-note", about = ""},
 
 	getFundClosingsStatus = {method = "GET", path = "/v1/funds/closings-status", query = {"fundCartaIds"}, required = {"fundCartaIds"}, doc = "fund-admin-controller-get-closings-status",
-		about = "Whether closings are set up per fund, with the ledger URL."},
+		about = "fundCartaIds is a comma-separated string of up to 25 Carta fund IDs. Whether closings are set up per fund, with the ledger URL."},
 	listClosingProspectStatuses = {method = "GET", path = "/v1/funds/{fundCartaId}/closing-prospect-statuses", query = {"prospectPublicIds"}, doc = "fund-admin-controller-get-closing-prospect-statuses",
-		about = "KYC, risk and commitment state of a fund's closing prospects."},
+		about = "prospectPublicIds? is a comma-separated string. KYC, risk and commitment state of a fund's closing prospects."},
 
 	listFees = {method = "GET", path = "/v1/fees", query = paged("search"), doc = "fees-controller-get-fees", about = "Newest first, with totalAmount."},
 	searchFees = {method = "POST", path = "/v1/fees/search", write = false, doc = "fees-controller-search-fees", about = "Body {filters?, search?, limit?, offset?}."},
@@ -287,13 +287,13 @@ end
 -- End of the shared request layer.
 
 -- IDs are Mongo ObjectIds, UUIDs, integer Carta fund IDs, or for company notes a domain such as
--- acme.com. Requiring a digit or dot keeps an ID from naming a sibling route such as /v1/deals/batch.
+-- acme.com. The manifest sends sibling routes such as /v1/deals/batch without the key.
 local function identifier(value: any, field: string): string
 	if type(value) == "number" then
 		assert(value >= 0 and value % 1 == 0 and value <= 9007199254740991, field .. " must be a Carta CRM ID or domain")
 		return string.format("%d", value)
 	end
-	assert(type(value) == "string" and #value <= 200 and string.match(value, "^[%w][%w%-_.]*$") and string.find(value, "[%d.]"),
+	assert(type(value) == "string" and #value <= 200 and string.match(value, "^[%w][%w%-_.]*$") ~= nil,
 		field .. " must be a Carta CRM ID or domain")
 	return value
 end

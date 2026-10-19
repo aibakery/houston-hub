@@ -110,3 +110,35 @@ func TestCartaReadRoutesStripMethodOverrides(t *testing.T) {
 	const api = "https://crm-public-api.app.carta.com/v1"
 	assertStripsMethodOverrides(t, crm, "GET "+api+"/deals/65a1b2c3d4e5f60718293a4b", "POST "+api+"/companies/search")
 }
+
+// Carta CRM's {id} routes would also match omitted sibling routes such as PATCH
+// /v1/deals/batch; a credential-free rule ahead of them sends those without the key.
+func TestCartaCRMSiblingRoutesGetNoKey(t *testing.T) {
+	r, err := parseManifest(t, "../../connectors/carta-crm/houston.json").Resolve(nil, map[string]any{"access": "read-write"}, map[string]any{"token": "crm-key"}, "token")
+	if err != nil {
+		t.Fatal(err)
+	}
+	const api = "https://crm-public-api.app.carta.com/v1"
+	for _, route := range []string{"PATCH " + api + "/deals/batch", "PATCH " + api + "/contacts/classifier-prompt", "GET " + api + "/contacts/classifier-prompt",
+		"GET " + api + "/deals/custom-fields", "GET " + api + "/email-campaigns/stats", "GET " + api + "/investors/custom-fields"} {
+		method, url, _ := strings.Cut(route, " ")
+		recipe, err := r.Proxy.HTTPRecipe(method, url, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		headers, err := recipe.Prepare(r.Context, http.Header{})
+		if err != nil || headers.Get("Authorization") != "" {
+			t.Fatalf("%s received the key: %v", route, err)
+		}
+	}
+	for _, route := range []string{"PATCH " + api + "/deals/65a1b2c3d4e5f60718293a4b", "GET " + api + "/deals/pipeline-review"} {
+		method, url, _ := strings.Cut(route, " ")
+		recipe, err := r.Proxy.HTTPRecipe(method, url, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if headers, err := recipe.Prepare(r.Context, http.Header{}); err != nil || headers.Get("Authorization") != "crm-key" {
+			t.Fatalf("%s lost the key: %v", route, err)
+		}
+	}
+}
