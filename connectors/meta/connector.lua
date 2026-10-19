@@ -136,6 +136,8 @@ end
 local function segment(value: any, field: string): string
 	assert(type(value) == "string", field .. " must be an ID string, such as '123_456'")
 	assert(string.match(value, ID), field .. " must be one Meta ID, such as '123_456' or 't_123'")
+	-- Post IDs name their Page, so a post update can never reach the Page node itself.
+	assert(field ~= "post" or string.match(value, "^%d+_%d+$"), "post must be a post ID such as '123_456'")
 	return url.segment(value, field)
 end
 

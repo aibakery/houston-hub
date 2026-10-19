@@ -114,7 +114,10 @@ return {
 		rejected(function() meta.createPost({message = "x", batch = "[]"}) end, "cannot send batch")
 		rejected(function() meta.updatePost({post = "101_9", message = "x", fields = "access_token"}) end, "cannot send fields")
 		-- Node updates take their own fields only, so they cannot change the Page itself.
-		rejected(function() meta.updatePost({post = "me", about = "x"}) end, "updatePost cannot send about")
+		rejected(function() meta.updatePost({post = "101_9", about = "x"}) end, "updatePost cannot send about")
+		for _, page in {"me", "101"} do
+			rejected(function() meta.updatePost({post = page, is_published = false}) end, "post must be a post ID")
+		end
 		rejected(function() meta.updateComment({comment = "101", website = "https://x.test"}) end, "updateComment cannot send website")
 		rejected(function() meta.updateInstagramMedia({media = "101", comment_enabled = true, phone = "1"}) end, "updateInstagramMedia cannot send phone")
 		rejected(function() meta.createComment({object = "101_9", message = "x", access_token = "EAAOTHER"}) end, "cannot send access_token")
