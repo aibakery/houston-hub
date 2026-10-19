@@ -72,7 +72,8 @@ func TestCartaScopesAndAccessRoutes(t *testing.T) {
 	}
 }
 
-// Read-only routes drop method-override headers, so a read cannot become a write upstream.
+// Every credentialed route drops method-override headers, so the upstream method is the one
+// the proxy matched.
 func assertStripsMethodOverrides(t *testing.T, r *manifest.Resolved, routes ...string) {
 	t.Helper()
 	for _, route := range routes {
@@ -95,7 +96,7 @@ func assertStripsMethodOverrides(t *testing.T, r *manifest.Resolved, routes ...s
 	}
 }
 
-func TestCartaReadRoutesStripMethodOverrides(t *testing.T) {
+func TestCartaRoutesStripMethodOverrides(t *testing.T) {
 	carta, err := parseManifest(t, "../../connectors/carta/houston.json").Resolve(
 		map[string]any{"client_id": "houston-client", "client_secret": "houston-secret"}, map[string]any{"access": "read-only"}, nil, "carta")
 	if err != nil {
@@ -103,12 +104,19 @@ func TestCartaReadRoutesStripMethodOverrides(t *testing.T) {
 	}
 	carta.Context.Auth["carta"]["access_token"] = "carta-token"
 	assertStripsMethodOverrides(t, carta, "GET https://api.carta.com/v1alpha1/issuers/7", "POST https://api.carta.com/v1alpha1/issuers/7/securities:stockSplitChanges")
-	crm, err := parseManifest(t, "../../connectors/carta-crm/houston.json").Resolve(nil, map[string]any{"access": "read-only"}, map[string]any{"token": "crm-key"}, "token")
+	cartaWrites, err := parseManifest(t, "../../connectors/carta/houston.json").Resolve(
+		map[string]any{"client_id": "houston-client", "client_secret": "houston-secret"}, map[string]any{"access": "read-write"}, nil, "carta")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cartaWrites.Context.Auth["carta"]["access_token"] = "carta-token"
+	assertStripsMethodOverrides(t, cartaWrites, "POST https://api.carta.com/v1alpha1/draftIssuers", "GET https://api.carta.com/v1alpha1/draftIssuers/D1")
+	crm, err := parseManifest(t, "../../connectors/carta-crm/houston.json").Resolve(nil, map[string]any{"access": "read-write"}, map[string]any{"token": "crm-key"}, "token")
 	if err != nil {
 		t.Fatal(err)
 	}
 	const api = "https://crm-public-api.app.carta.com/v1"
-	assertStripsMethodOverrides(t, crm, "GET "+api+"/deals/65a1b2c3d4e5f60718293a4b", "POST "+api+"/companies/search")
+	assertStripsMethodOverrides(t, crm, "GET "+api+"/deals/65a1b2c3d4e5f60718293a4b", "POST "+api+"/companies/search", "POST "+api+"/contacts", "PATCH "+api+"/deals/65a1b2c3d4e5f60718293a4b")
 }
 
 // Carta CRM's {id} routes would also match omitted sibling routes such as PATCH

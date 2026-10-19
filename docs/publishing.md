@@ -718,8 +718,8 @@ calls, management fees and secondary transactions can only be read with their
 
 Every method shares the proxy rules, which allow only the listed
 routes on `api.carta.com` and `api.playground.carta.team` and strip the
-`X-HTTP-Method-Override`, `X-HTTP-Method` and `X-Method-Override` headers from
-read-only routes; writes require read-write access. Lua chooses the host from the
+`X-HTTP-Method-Override`, `X-HTTP-Method` and `X-Method-Override` headers;
+writes require read-write access. Lua chooses the host from the
 selected method. Custom methods such as `capitalCalls/{id}:adjust` match their
 whole-segment placeholder. Open Cap Table uploads stream the ZIP archive from a
 session file as the raw body, since the request is a `google.api.HttpBody`; confirm
@@ -743,7 +743,7 @@ key that an organization admin generates in Carta CRM settings; the
 [account setup guide](../connectors/carta-crm/SETUP.md) covers it. No publisher
 settings are needed. Carta CRM has no OAuth or scopes: the key acts as its user and
 organization, so Houston enforces read-only access with its proxy routes, which strip
-method-override headers from reads, and its exports. The key is sent as the bare
+method-override headers, and its exports. The key is sent as the bare
 `Authorization` value, as the reference's `apiKey` scheme and Postman requests show.
 
 The connector covers 128 of the 261 operations in the
