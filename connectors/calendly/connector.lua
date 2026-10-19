@@ -174,7 +174,7 @@ end
 -- A successful response's JSON object, or nil when a write answers without a body.
 local function object(name: string, endpoint: Endpoint, response: HttpResponse): Options?
 	local raw = await(response.body:readAll())
-	if writes(endpoint) and string.match(raw, "^%s*$") then return nil end
+	if endpoint.method ~= "GET" and writes(endpoint) and string.match(raw, "^%s*$") then return nil end
 	local ok, value = pcall(json.decode, raw)
 	if not ok or type(value) ~= "table" or not string.match(raw, "^%s*{") then
 		fail(name, response, PROVIDER .. " returned an invalid JSON object")

@@ -236,7 +236,7 @@ end
 -- A successful response's JSON object, or nil when a write answers without a body.
 local function object(name: string, endpoint: Endpoint, response: HttpResponse): Options?
 	local raw = await(response.body:readAll())
-	if writes(endpoint) and string.match(raw, "^%s*$") then return nil end
+	if endpoint.method ~= "GET" and writes(endpoint) and string.match(raw, "^%s*$") then return nil end
 	local ok, value = pcall(json.decode, raw)
 	if not ok or type(value) ~= "table" or not string.match(raw, "^%s*{") then
 		fail(name, response, PROVIDER .. " returned an invalid JSON object")
@@ -369,7 +369,7 @@ end
 return operations(endpoints, request, {
 	"Carta CRM public API v1. Every function takes one named options object with Carta CRM's field names; ? marks optional fields and ...body the JSON body fields. Results are Carta CRM's JSON unchanged: lists as {<records>, total?}, records as objects, deletes and note links as {success}; list membership changes return the record. In bodies, pass json.decode('[]') for empty arrays and json.decode('null') to clear a field. Connector calls return completed values: use them directly, without await.",
 	"Start with getMe(): the user and organization the key acts as. IDs are usually ObjectIds; company note routes also take a domain such as acme.com. Custom field values go in fields keyed by fieldId: read the record type's list*Fields first.",
-	"Lists return one page: limit 1..100 (default 100) and offset (default 0); fetch offset + limit until fewer than limit return. Array query filters repeat the parameter and match any value.",
+	"Lists return one page: limit 1..100 (default 100) and offset (default 0); fetch offset + limit until fewer than limit return. Array query filters repeat the parameter and match any value; fundCartaIds and prospectPublicIds are sent comma-separated.",
 	"Search and aggregate bodies take filters {{field_id, operator, value}}: eq, neq, gt, gte, lt, lte, contains, in (array), between ({from, to} as a two-element array), last_x ('12 months'). group_by is a one-element array holding a field ID.",
 	"Examples: crm.listDeals({search='acme', limit=25}); crm.searchCompanies({filters={{field_id='lists', operator='in', value={listId}}}}); crm.getReportData({id=reportId, entityType='deal', offset=100}); crm.createTask({entityId=dealId, entityType='DEAL', title='Send memo', dueDate='2026-11-01'}).",
 	"Read-only connections omit writes; search and aggregate still work. Each record type needs its module enabled (deals, fundraising, investors, fees, themes, companies, contacts, Interactions); Fund Admin reads need Fund Admin access; the key acts as its user and organization.",

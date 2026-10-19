@@ -772,7 +772,8 @@ credentialed `{id}` rule would also match, under each of that rule's methods (su
 the table's own literal routes keep it. Regenerate them from the reference when the
 table changes. The reference types
 `fundCartaIds` and `prospectPublicIds` as strings, unlike its repeated array
-parameters, so callers pass comma-separated strings; confirm that live.
+parameters, so the connector sends them comma-separated, from an array or a string;
+confirm that live.
 
 The CRM API allowed 8,000 requests per 60 seconds when probed on 2026-10-19,
 reported in `RateLimit-*` headers; Carta documents no limit. The icon is the same

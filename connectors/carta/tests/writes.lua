@@ -39,6 +39,11 @@ return {
 
 		carta.getCapitalCall({firmId = "FIRM1", fundId = "FUND1", capitalCallId = "CC1"})
 		assert(last().method == "GET" and last().url == FUND .. "/capitalCalls/CC1" and last().body == nil)
+		local saved = payload
+		payload = ""
+		local blank, blankErr = pcall(function() carta.getCapitalCall({firmId = "FIRM1", fundId = "FUND1", capitalCallId = "CC1"}) end)
+		assert(not blank and string.find(tostring(blankErr), "invalid JSON object", 1, true), "an empty read gated as a write is not a success")
+		payload = saved
 		carta.adjustCapitalCall({firmId = "FIRM1", fundId = "FUND1", capitalCallId = "CC1", externalReferenceId = "ref-2", sourceSystem = "houston",
 			amount = {value = "200000.00"}})
 		assert(last().method == "POST" and last().url == FUND .. "/capitalCalls/CC1:adjust" and sent().amount.value == "200000.00")
@@ -103,6 +108,6 @@ return {
 		local missing, notFound = pcall(function() carta.uploadOpenCapTable({path = "missing.zip"}) end)
 		assert(not missing and notFound.code == "not_found", "a missing archive never reaches Carta")
 		rejected(function() carta.uploadOpenCapTable({path = "captable.zip", contentType = "application/zip"}) end, "uploadOpenCapTable has no option contentType")
-		assert(#requests == before and #requests == 14)
+		assert(#requests == before and #requests == 15)
 	end,
 }
