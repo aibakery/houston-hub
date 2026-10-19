@@ -29,6 +29,7 @@ return {
 		assert(not string.find(long, string.rep("x", 601), 1, true), "error message not bounded")
 		upstream(400, '{"statusCode":400,"message":["emailDetail.email must be an email","name should not be empty"],"error":"Bad Request"}', {},
 			{"HTTP 400: Bad Request", "emailDetail.email must be an email", "name should not be empty"})
+		upstream(404, '{"statusCode":404,"message":"Deal 65a1 not found","error":"Not Found"}', {}, {"HTTP 404: Deal 65a1 not found"})
 		upstream(429, '{"message":"Too many requests"}', {["ratelimit-reset"] = {"42"}}, {"HTTP 429", "rate limit resets in 42s", '"retryable":true'})
 		upstream(502, "<html>Bad gateway</html>", {}, {"HTTP 502", '"retryable":true'})
 		upstream(200, "<html>Maintenance</html>", {}, {"invalid JSON object"})

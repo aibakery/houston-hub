@@ -326,7 +326,8 @@ local function failStatus(name: string, response: HttpResponse): never
 	local ok, value = pcall(json.decode, await(response.body:readPrefix(16 * 1024)))
 	if ok and type(value) == "table" then
 		if type(value.code) == "string" then message ..= " (" .. string.sub(value.code, 1, 100) .. ")" end
-		local text = if type(value.error) == "string" then value.error else value.message
+		-- Carta CRM's own errors carry error; framework errors a specific message and a generic error.
+		local text = if type(value.message) == "string" then value.message else value.error
 		if type(text) == "string" then message ..= ": " .. string.sub(text, 1, 600) end
 		-- Validation failures list their problems in message.
 		if type(value.message) == "table" then message ..= " " .. string.sub(json.encode(value.message), 1, 600) end
