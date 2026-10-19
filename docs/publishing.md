@@ -716,17 +716,19 @@ calls, management fees and secondary transactions can only be read with their
 `readwrite_` scopes, so read-only connections omit those reads;
 `read_issuer_secondarytransactions` appears only in the reference and is not requested.
 
-Every method shares the proxy rules, which allow only the listed routes on
-`api.carta.com` and `api.playground.carta.team` and strip the `X-HTTP-Method-Override`,
-`X-HTTP-Method` and `X-Method-Override` headers from read-only routes; writes require read-write access. Lua chooses the host from
-the selected method. Custom methods such as `capitalCalls/{id}:adjust` match their
+Every method shares the proxy rules, which allow only the listed
+routes on `api.carta.com` and `api.playground.carta.team` and strip the
+`X-HTTP-Method-Override`, `X-HTTP-Method` and `X-Method-Override` headers from
+read-only routes; writes require read-write access. Lua chooses the host from the
+selected method. Custom methods such as `capitalCalls/{id}:adjust` match their
 whole-segment placeholder. Open Cap Table uploads stream the ZIP archive from a
-session file as the raw body, since the request is a `google.api.HttpBody`; confirm this
-live. Carta only stores them during its beta. Fund document downloads return a temporary signed URL, which the
-connector passes through without fetching. Draft issuers return the primary contact's
-one-time `registrationUrl`, so even reading one needs read-write access. Carta allows
-10 requests per second and 300 per minute (5 and 150 per app on the playground),
-reported in `RateLimit-*` headers without `Retry-After`.
+session file as the raw body, since the request is a `google.api.HttpBody`; confirm
+this live. Carta only stores them during its beta. Fund document downloads return
+a temporary signed URL, which the connector passes through without fetching. Draft
+issuers return the primary contact's one-time `registrationUrl`, so even reading
+one needs read-write access. Carta allows 10 requests per second and 300 per minute
+(5 and 150 per app on the playground), reported in `RateLimit-*` headers without
+`Retry-After`.
 
 Carta's icon is the square favicon mark (`carta-favicon-black.svg`) from the approved
 branding folder linked from Carta's production guide, retrieved 2026-10-19,
@@ -739,11 +741,10 @@ manifest path `connectors/carta-crm/houston.json`. The bundle uses the existing
 manifest v1 and async HTTP runtime without runtime changes. Connections paste an API
 key that an organization admin generates in Carta CRM settings; the
 [account setup guide](../connectors/carta-crm/SETUP.md) covers it. No publisher
-settings are needed. Carta CRM has no OAuth or scopes: the key acts as its user
-and organization, so Houston enforces read-only access with its proxy routes, which
-strip method-override headers from reads, and its exports.
-The key is sent as the bare `Authorization` value, as the reference's `apiKey`
-scheme and Postman requests show.
+settings are needed. Carta CRM has no OAuth or scopes: the key acts as its user and
+organization, so Houston enforces read-only access with its proxy routes, which strip
+method-override headers from reads, and its exports. The key is sent as the bare
+`Authorization` value, as the reference's `apiKey` scheme and Postman requests show.
 
 The connector covers 128 of the 261 operations in the
 [CRM API reference](https://docs.carta.com/crm/reference/) (`/v1`, spec 1.1.32),
