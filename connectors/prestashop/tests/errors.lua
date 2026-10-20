@@ -94,7 +94,7 @@ return {
 		upstream(200, '<?xml version="1.0" encoding="UTF-8"?><prestashop><order_carrier/></prestashop>', {}, {"not JSON", "https://shop.example.com/api"})
 		upstream(200, "", {}, {"not JSON"})
 		-- Without display=full's one-item list, PrestaShop 8+ may have dropped fields.
-		upstream(200, '{"order_carrier":{"id":1}}', {}, {"PrestaShop returned no order_carrier record"})
+		upstream(200, '{"order_carrier":{"id":1}}', {}, {"PrestaShop returned no order_carrier record; the change may have been saved"})
 		upstream(200, '{"order_carriers":[]}', {}, {"PrestaShop returned no order_carrier record"})
 	end,
 }
