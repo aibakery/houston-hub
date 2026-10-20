@@ -242,6 +242,13 @@ when their token endpoint requires them (see the
 [Notion manifest](connectors/notion/houston.json)). These headers cannot replace authentication or
 transport framing headers. Credentials still stay outside Luau.
 
+An OAuth method whose provider publishes sign-in button guidelines sets `brand`
+to `google`, `microsoft` or `dropbox`. Houston then renders its authorize button
+as "Continue with <Provider>" with the provider's official mark and colors, as
+Google's OAuth verification requires (see the
+[Google Sheets manifest](connectors/gsheets/houston.json)). Without `brand`, the
+button stays Houston's primary "Authorize account".
+
 An omitted `auth` map permits root-secret injection without a synthetic method.
 Fields activate through the bounded `if` operations `is`, `isDefined`, and `and`.
 Dependencies precede presentation order. Missing required selectors are errors;

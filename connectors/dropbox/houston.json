@@ -78,6 +78,7 @@
       "client_secret": "{{publisher.client_secret}}",
       "if": "{{ is config.own_app false }}",
       "label": "Connect with Dropbox",
+      "brand": "dropbox",
       "pkce": "S256",
       "require_refresh": true,
       "scopes": [
@@ -128,6 +129,7 @@
       "client_secret": "{{config.client_secret}}",
       "if": "{{ is config.own_app true }}",
       "label": "Connect with your Dropbox app",
+      "brand": "dropbox",
       "order": 1,
       "pkce": "S256",
       "require_refresh": true,
