@@ -307,7 +307,9 @@ query from closed option lists, so callers cannot add either, and setup asks for
 key with only the resources and methods the connection needs. Responses keep
 PrestaShop's JSON, except that password hashes, reset tokens and `secure_key` are
 removed and cannot be filtered, sorted or displayed, which would reveal them a
-character at a time.
+character at a time. Since PrestaShop 8 drops a lone record's `0`, empty and
+false fields from JSON, the connector reads single records, and write results,
+with `display=full` and unwraps the one-item list it returns.
 
 PrestaShop's icon is the "P" of the official logo (`PREST_LOGO_RVB_noir.svg` in
 `PRESTASHOP-LOGO.zip` from the [brand book](https://prestashop.com/brand-book),
