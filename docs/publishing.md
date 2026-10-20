@@ -272,6 +272,48 @@ WooCommerce's icon is the official Woo logo (`Woo_logo_color.svg`) from the
 by an equivalent fill attribute and the view box is padded to a centered square.
 WooCommerce and Woo are trademarks of Automattic.
 
+## PrestaShop
+
+Register repository `https://github.com/aibakery/houston-hub`, revision `main`,
+manifest path `connectors/prestashop/houston.json`. No publisher settings or
+provider app are needed: each connection enters its store domain and a 32-character
+webservice key, as the [account setup guide](../connectors/prestashop/SETUP.md)
+describes.
+
+The connector uses the Webservice API (`/api`) of PrestaShop 1.7, 8 and 9, checked
+on 2026-10-20 against the core source (tags 1.7.8.11 to 9.2.0) and the
+[webservice docs](https://devdocs.prestashop-project.org/9/webservice/). It lists
+and reads orders, order details, histories, states, carriers, invoices, payments
+and credit slips; customers, addresses and carts; products, combinations,
+categories, stock, manufacturers and suppliers; carriers, cart rules, countries,
+currencies and languages. Read-write connections can also create order histories
+(status changes), update order carriers (tracking numbers) and stock, and create,
+update and delete products and customers. Writes send XML, the only input format
+PrestaShop accepts; updates use PATCH, which PrestaShop 1.7 lacks.
+
+Deliberate omissions: the Admin API (`/admin-api`, PrestaShop 9 only, with no order
+endpoints yet and an OAuth client-credentials grant Houston does not support),
+`configurations` and `translated_configurations` (SMTP passwords and module
+secrets), `employees`, `shop_urls`, `guests`, customer messages, images and
+attachments, price computation parameters, and stores installed in a subdirectory.
+
+The key is the HTTP Basic username with an empty password. The proxy allows GET on
+the listed resources and their numeric IDs, plus the write routes above on
+read-write connections, and never `/webservice/dispatcher.php`, whose `url` query
+selects any resource. PrestaShop reads a `ps_method` method override from the query
+string, which the proxy cannot filter: the connector builds every query from its
+own options, so callers cannot add it, and setup asks for a key with only the
+methods the connection needs. Responses keep PrestaShop's JSON, except that
+password hashes, reset tokens and `secure_key` are removed and cannot be filtered,
+sorted or displayed, which would reveal them a character at a time.
+
+PrestaShop's icon is the "P" of the official logo (`PREST_LOGO_RVB_noir.svg` in
+`PRESTASHOP-LOGO.zip` from the [brand book](https://prestashop.com/brand-book),
+retrieved 2026-10-20, SHA-256
+`0a74d1d24ff52bf4e1867115382f13fc8e58a74e47ae92df597d2ed0d38c9796`), the monogram
+prestashop.com uses as its favicon. The 2024 kit has no standalone mark. The path
+is unchanged, in a square view box. PrestaShop and the PrestaShop logos are trademarks of PrestaShop SA.
+
 ## Cal.com
 
 Register repository `https://github.com/aibakery/houston-hub`, revision `main`,

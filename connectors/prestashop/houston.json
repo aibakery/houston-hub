@@ -1,0 +1,185 @@
+{
+  "schema_version": 1,
+  "name": "PrestaShop",
+  "files": [
+    "connector.lua"
+  ],
+  "icon": "icon.svg",
+  "config": {
+    "access": {
+      "default": "read-only",
+      "label": "Access",
+      "options": [
+        {
+          "label": "Read-only",
+          "value": "read-only"
+        },
+        {
+          "label": "Read and write",
+          "value": "read-write"
+        }
+      ],
+      "order": 1,
+      "type": "string"
+    },
+    "store_host": {
+      "description": "The domain your store is served from, without https:// or a path.",
+      "label": "Store domain",
+      "max_length": 253,
+      "order": 2,
+      "placeholder": "shop.example.com",
+      "required": true,
+      "type": "string"
+    }
+  },
+  "auth": {
+    "key": {
+      "config": {
+        "token": {
+          "label": "Webservice key",
+          "order": 1,
+          "required": true,
+          "type": "secret",
+          "min_length": 32,
+          "max_length": 32
+        }
+      },
+      "label": "PrestaShop webservice key",
+      "type": "manual"
+    }
+  },
+  "proxy": [
+    {
+      "action": {
+        "basic_auth": {
+          "password": "",
+          "username": "{{auth.key.token}}"
+        }
+      },
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "host": [
+          "{{config.store_host}}"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/api/customers",
+          "/api/order_histories",
+          "/api/products"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "basic_auth": {
+          "password": "",
+          "username": "{{auth.key.token}}"
+        }
+      },
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "host": [
+          "{{config.store_host}}"
+        ],
+        "method": [
+          "PATCH"
+        ],
+        "path": [
+          "/api/customers/{id}",
+          "/api/order_carriers/{id}",
+          "/api/products/{id}",
+          "/api/stock_availables/{id}"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "basic_auth": {
+          "password": "",
+          "username": "{{auth.key.token}}"
+        }
+      },
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "host": [
+          "{{config.store_host}}"
+        ],
+        "method": [
+          "DELETE"
+        ],
+        "path": [
+          "/api/customers/{id}",
+          "/api/products/{id}"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "basic_auth": {
+          "password": "",
+          "username": "{{auth.key.token}}"
+        }
+      },
+      "match": {
+        "host": [
+          "{{config.store_host}}"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/api/addresses",
+          "/api/addresses/{id}",
+          "/api/carriers",
+          "/api/carriers/{id}",
+          "/api/cart_rules",
+          "/api/cart_rules/{id}",
+          "/api/carts",
+          "/api/carts/{id}",
+          "/api/categories",
+          "/api/categories/{id}",
+          "/api/combinations",
+          "/api/combinations/{id}",
+          "/api/countries",
+          "/api/countries/{id}",
+          "/api/currencies",
+          "/api/currencies/{id}",
+          "/api/customers",
+          "/api/customers/{id}",
+          "/api/languages",
+          "/api/languages/{id}",
+          "/api/manufacturers",
+          "/api/manufacturers/{id}",
+          "/api/order_carriers",
+          "/api/order_carriers/{id}",
+          "/api/order_details",
+          "/api/order_details/{id}",
+          "/api/order_histories",
+          "/api/order_histories/{id}",
+          "/api/order_invoices",
+          "/api/order_invoices/{id}",
+          "/api/order_payments",
+          "/api/order_payments/{id}",
+          "/api/order_slip",
+          "/api/order_slip/{id}",
+          "/api/order_states",
+          "/api/order_states/{id}",
+          "/api/orders",
+          "/api/orders/{id}",
+          "/api/products",
+          "/api/products/{id}",
+          "/api/stock_availables",
+          "/api/stock_availables/{id}",
+          "/api/suppliers",
+          "/api/suppliers/{id}"
+        ],
+        "protocol": "http"
+      }
+    }
+  ]
+}

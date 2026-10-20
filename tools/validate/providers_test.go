@@ -27,6 +27,7 @@ func TestEveryProviderAuthenticationAndTransport(t *testing.T) {
 		"x":           {"GET", "https://api.x.com/2/tweets/123"},
 		"linkedin":    {"GET", "https://api.linkedin.com/v2/userinfo"},
 		"woocommerce": {"GET", "https://shop.example.com/wp-json/wc/v3/orders"},
+		"prestashop":  {"GET", "https://shop.example.com/api/orders"},
 		"calcom":      {"GET", "https://api.cal.com/v2/me"},
 		"calendly":    {"GET", "https://api.calendly.com/users/me"},
 		"carta":       {"GET", "https://api.carta.com/v1alpha1/user"},
@@ -96,6 +97,11 @@ func TestEveryProviderAuthenticationAndTransport(t *testing.T) {
 					config["store_host"] = "shop.example.com"
 					input = map[string]any{"consumer_key": "synthetic-method-key", "consumer_secret": "synthetic-method-secret"}
 					authorization = "Basic " + base64.StdEncoding.EncodeToString([]byte("synthetic-method-key:synthetic-method-secret"))
+				}
+				if provider == "prestashop" { // A 32-character key is the Basic username, with no password.
+					config["store_host"] = "shop.example.com"
+					input["token"] = "synthetic-method-secret-32-chars"
+					authorization = "Basic " + base64.StdEncoding.EncodeToString([]byte("synthetic-method-secret-32-chars:"))
 				}
 				r, err := m.Resolve(publisher, config, input, method)
 				if err != nil {
