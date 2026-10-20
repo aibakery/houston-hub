@@ -840,7 +840,8 @@ supports each version for two years after its successor ships; v26.0 has no suns
 date yet. Move the version forward in Lua and the manifest routes together.
 
 Omitted on purpose: ads and the Marketing API; `/me/accounts` and other token
-endpoints; Page settings, roles, webhooks (`subscribed_apps`) and lead forms;
+endpoints; writes to Page settings, roles, webhooks (`subscribed_apps`) and lead forms,
+which `getObject` field expansion can still read within the token's permissions;
 Facebook reels and Instagram resumable uploads, which use `rupload.facebook.com`
 with an app ID and a user token; the Resumable Upload API, which also needs them;
 Instagram mentions and likes; and Graph's batch endpoint. Messages outside the
@@ -860,8 +861,9 @@ goes back to callers sealed with `houston.seal` and the function that produced i
 so `next` replays only Meta's own link, never a URL a caller wrote. `fields` naming
 a token is refused: a Page can read its own `access_token` field, also through
 field expansion or a write's read-after-write `fields`. Responses drop every key
-containing `token` (an expanded `accounts` edge returns Page tokens) and the token
-Meta writes into `paging.next` and `paging.previous`; error messages drop echoed
+containing `token` (an expanded `accounts` edge returns Page tokens), and Meta's links
+lose their `access_token` parameter or become null when one remains nested; a list's
+`paging.previous`, which cannot be replayed, is dropped; error messages drop echoed
 tokens. Path IDs are limited to the characters of Meta's IDs. The connector sends
 no `appsecret_proof`, so SETUP asks to keep **Require app secret** off.
 

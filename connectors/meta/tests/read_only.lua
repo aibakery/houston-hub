@@ -112,6 +112,7 @@ return {
 		-- Token fields and the tokens in Meta's own links, repeated or encoded, are dropped;
 		-- text from people and cursors stay as they are.
 		respond(json.encode({id = "101", accounts = {data = {{id = "102", name = "Other", access_token = "EAAOTHER", page_token = "EAAPT"}}},
+			wrapped = "https://l.facebook.com/l.php?u=https%3A%2F%2Fgraph.facebook.com%2Fme%3Faccess_token%3DEAA6", plain = "http://graph.facebook.com/v26.0/101/feed?access_token=EAA5&limit=1",
 			kept = "https://graph.facebook.com/v26.0/101/feed?since=x%3F&access_token=EAA7", bare = "https://graph.facebook.com/v26.0/101/feed?access_token=EAA9#top", deep = "https://graph.facebook.com/v26.0/101/feed?r=x%253Faccess_token%253DEAA8", piped = "https://graph.facebook.com/v26.0/101/feed?access_token=123%7Csecret&limit=25", nested = "https://graph.facebook.com/v26.0/101/feed?r=x%3Fa%3D1%26access_token%3D123%7Csecret%26b%3D2", named = "https://graph.facebook.com/v26.0/101/feed?limit=5&page_access_token=kept&after=Q",
 			comments = {data = {}, paging = {next = "https://graph.facebook.com/v26.0/101_1/comments?access_token=EAA1&access_token=EAA2&limit=5",
 				previous = "https://graph.facebook.com/v26.0/101_1/comments?limit=5&redirect=x%3Faccess_token%3DEAAGZBpage0123456789abcdefghijklmnopqrstuvwxyz%26ref%3Dabc"}},
@@ -119,10 +120,12 @@ return {
 		local leaky = meta.getObject({id = "101", fields = "id,accounts,comments"})
 		assert(leaky.accounts.data[1].name == "Other" and leaky.accounts.data[1].access_token == nil and leaky.accounts.data[1].page_token == nil)
 		assert(leaky.comments.paging.next == "https://graph.facebook.com/v26.0/101_1/comments?limit=5", leaky.comments.paging.next)
-		assert(leaky.comments.paging.previous == "https://graph.facebook.com/v26.0/101_1/comments?limit=5&redirect=x%3Fref%3Dabc", leaky.comments.paging.previous)
+		-- Links that still name a token become JSON null, keeping arrays dense.
+		local NULL = json.decode("null")
+		assert(leaky.comments.paging.previous == NULL)
 		assert(leaky.note == "see https://x.test/cb?access_token=abc&x=1 and thanks" and leaky.comment == "Is EAAGLES2024 still open?", leaky.note)
-		assert(leaky.piped == "https://graph.facebook.com/v26.0/101/feed?limit=25" and leaky.nested == "https://graph.facebook.com/v26.0/101/feed?r=x%3Fa%3D1%26b%3D2" and leaky.kept == "https://graph.facebook.com/v26.0/101/feed?since=x%3F", leaky.kept)
-		assert(leaky.bare == "https://graph.facebook.com/v26.0/101/feed#top" and leaky.deep == nil and leaky.named == nil, leaky.named)
+		assert(leaky.piped == "https://graph.facebook.com/v26.0/101/feed?limit=25" and leaky.nested == NULL and leaky.wrapped == NULL and leaky.plain == "http://graph.facebook.com/v26.0/101/feed?limit=1" and leaky.kept == "https://graph.facebook.com/v26.0/101/feed?since=x%3F", leaky.kept)
+		assert(leaky.bare == "https://graph.facebook.com/v26.0/101/feed#top" and leaky.deep == NULL and leaky.named == NULL)
 		assert(leaky.cursors.after == "QUFB_EAAGZBpage0123456789abcdefghijklmnopqrstuvwxyz", leaky.cursors.after)
 		-- Graph honours ?method=delete and batch even on GET, and a Page can read its own token.
 		rejected(function() meta.listFeed({method = "delete"}) end, "has no option method")

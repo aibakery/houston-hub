@@ -47,6 +47,7 @@ return {
 			{"Invalid OAuth access token"}, "secret")
 		upstream(400, '{"error":{"message":"Invalid OAuth access token: IGAAKxyz0123456789abcdefghijklmnopqrstuvwx","type":"OAuthException","code":190}}', {},
 			{"Invalid OAuth access token"}, "IGAAKxyz")
+		upstream(500, '{"error":{"message":"(#32) Page request limit reached","type":"OAuthException","code":32}}', {}, {"(#32)", '"retryable":false'})
 		upstream(429, "", {}, {"Meta HTTP 429", '"retryable":true'})
 		upstream(502, "<html>Bad gateway</html>", {}, {"Meta HTTP 502", '"retryable":false'})
 		upstream(400, json.encode({error = {message = string.rep("x", 5000), code = 100}}), {}, {"(#100)"})
