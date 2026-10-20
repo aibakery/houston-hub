@@ -87,3 +87,40 @@ func TestConditionalRequiredMultiline(t *testing.T) {
 		t.Fatal("inactive saved policy exposed")
 	}
 }
+
+func TestOAuthBrandContract(t *testing.T) {
+	const oauth = `"type":"oauth2","label":"OAuth","authorize_url":"https://example.com/auth","token_url":"https://example.com/token","client_id":"{{config.client_id}}","client_auth":"none"`
+	for _, brand := range Brands {
+		m, err := Parse([]byte(brandManifest(oauth+`,"brand":"`+brand+`"`, "access_token")))
+		if err != nil {
+			t.Fatal(err)
+		}
+		snapshot, err := json.Marshal(m)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := Parse(snapshot); err != nil || !strings.Contains(string(snapshot), `"brand":"`+brand+`"`) {
+			t.Fatalf("brand %s lost from snapshot: %v", brand, err)
+		}
+		r, err := m.Resolve(nil, map[string]any{"client_id": "client"}, nil, "oauth")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(r.Methods) != 1 || r.Methods[0].Brand != brand {
+			t.Fatalf("methods = %+v", r.Methods)
+		}
+	}
+	for _, invalid := range [][2]string{
+		{oauth + `,"brand":"github"`, "access_token"},
+		{oauth + `,"brand":""`, "access_token"},
+		{`"type":"manual","label":"Token","brand":"google","config":{"token":{"type":"secret","label":"Token"}}`, "token"},
+	} {
+		if _, err := Parse([]byte(brandManifest(invalid[0], invalid[1]))); err == nil || !strings.Contains(err.Error(), "brand") {
+			t.Fatalf("%s: %v", invalid[0], err)
+		}
+	}
+}
+
+func brandManifest(method, credential string) string {
+	return `{"schema_version":1,"name":"Brand","files":["connector.lua"],"config":{"client_id":{"type":"string","label":"Client ID"}},"auth":{"oauth":{` + method + `}},"proxy":[{"match":{"protocol":"http","host":["example.com"]},"action":{"headers":{"set":{"Authorization":"{{auth.oauth.` + credential + `}}"}}}}]}`
+}

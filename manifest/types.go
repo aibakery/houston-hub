@@ -52,6 +52,7 @@ type AuthMethod struct {
 	Label           string            `json:"label"`
 	Description     string            `json:"description,omitempty"`
 	Order           int64             `json:"order,omitempty"`
+	Brand           string            `json:"brand,omitempty"`
 	Config          map[string]Field  `json:"config,omitempty"`
 	AuthorizeURL    string            `json:"authorize_url,omitempty"`
 	TokenURL        string            `json:"token_url,omitempty"`

@@ -29,6 +29,7 @@
               "account": false,
               "authorize_params": false,
               "authorize_url": false,
+              "brand": false,
               "client_auth": false,
               "client_id": false,
               "client_secret": false,
@@ -99,6 +100,14 @@
           "type": "object"
         },
         "authorize_url": {
+          "type": "string"
+        },
+        "brand": {
+          "enum": [
+            "google",
+            "microsoft",
+            "dropbox"
+          ],
           "type": "string"
         },
         "client_auth": {

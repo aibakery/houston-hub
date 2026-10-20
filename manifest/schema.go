@@ -66,6 +66,7 @@ func Schema() ([]byte, error) {
 	enum("AuthMethod", "client_auth", "basic", "body", "none")
 	enum("AuthMethod", "token_encoding", "form", "json")
 	enum("AuthMethod", "pkce", "S256", "none")
+	enum("AuthMethod", "brand", Brands...)
 	enum("OAuthAccount", "method", "GET", "POST")
 	enum("ResponseCheck", "op", "exists", "equals")
 	enum("ProxyMatch", "protocol", "http", "postgres", "mysql", "clickhouse", "redis", "imap")
@@ -122,7 +123,7 @@ func Schema() ([]byte, error) {
 		},
 	}
 
-	manualKeys := []string{"authorize_url", "token_url", "client_id", "client_secret", "client_auth", "token_encoding", "token_headers", "pkce", "scopes", "scope_parameter", "scope_separator", "authorize_params", "token_params", "refresh_params", "token_response", "refresh_response", "require_refresh", "account"}
+	manualKeys := []string{"brand", "authorize_url", "token_url", "client_id", "client_secret", "client_auth", "token_encoding", "token_headers", "pkce", "scopes", "scope_parameter", "scope_separator", "authorize_params", "token_params", "refresh_params", "token_response", "refresh_response", "require_refresh", "account"}
 	manual := forbid(manualKeys...)
 	manual["required"] = []string{"config"}
 	oauth := forbid("config")

@@ -8,12 +8,16 @@ import (
 	"net/url"
 	"path"
 	"regexp"
+	"slices"
 	"strings"
 	"unicode"
 	"unicode/utf8"
 )
 
 const MaxInteger = 9007199254740991
+
+// Brands are the providers whose official branding an OAuth connect button can show.
+var Brands = []string{"google", "microsoft", "dropbox"}
 
 func ValidateValue(f Field, v any) error {
 	if v == nil {
@@ -399,6 +403,9 @@ func validateResponse(r TokenResponse) error {
 	return validateChecks(r.Checks)
 }
 func (m *Manifest) validateOAuth(key string, a AuthMethod, used map[string]bool) error {
+	if a.Brand != "" && !slices.Contains(Brands, a.Brand) {
+		return fmt.Errorf("invalid brand")
+	}
 	if e := HTTPSURL(a.AuthorizeURL, false); e != nil {
 		return e
 	}
@@ -656,7 +663,7 @@ func checkPresence(data []byte) error {
 				if _, ok := a["config"]; ok {
 					return fmt.Errorf("OAuth forbids config")
 				}
-				for _, k := range []string{"client_auth", "token_encoding", "pkce", "scope_parameter", "scope_separator"} {
+				for _, k := range []string{"brand", "client_auth", "token_encoding", "pkce", "scope_parameter", "scope_separator"} {
 					if v, ok := a[k]; ok && v == "" {
 						return fmt.Errorf("%s must be nonempty", k)
 					}

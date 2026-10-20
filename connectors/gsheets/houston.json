@@ -26,6 +26,7 @@
     "oauth": {
       "type": "oauth2",
       "label": "Connect with Google",
+      "brand": "google",
       "authorize_url": "https://accounts.google.com/o/oauth2/v2/auth",
       "token_url": "https://oauth2.googleapis.com/token",
       "client_id": "{{publisher.client_id}}",
