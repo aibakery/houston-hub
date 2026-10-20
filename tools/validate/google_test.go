@@ -1,9 +1,7 @@
 package main
 
 import (
-	"net/http"
 	"slices"
-	"strings"
 	"testing"
 
 	"github.com/aibakery/houston-hub/manifest"
@@ -27,22 +25,6 @@ func resolveGoogle(t *testing.T, m *manifest.Manifest, access string, scopes ...
 	}
 	r.Context.Auth["oauth"]["access_token"] = "fixture-token"
 	return r
-}
-
-// assertNoMethodOverride checks that allowed routes drop headers asking Google to run another method.
-func assertNoMethodOverride(t *testing.T, r *manifest.Resolved, routes ...string) {
-	t.Helper()
-	for _, route := range routes {
-		method, url, _ := strings.Cut(route, " ")
-		recipe, err := r.Proxy.HTTPRecipe(method, url, nil)
-		if err != nil {
-			t.Fatal(err)
-		}
-		headers, err := recipe.Prepare(r.Context, http.Header{"X-HTTP-Method-Override": {"DELETE"}, "X-HTTP-Method": {"DELETE"}, "X-Method-Override": {"DELETE"}})
-		if err != nil || headers.Get("X-HTTP-Method-Override")+headers.Get("X-HTTP-Method")+headers.Get("X-Method-Override") != "" {
-			t.Fatalf("%s kept a method override: %v %v", route, headers, err)
-		}
-	}
 }
 
 func TestGoogleSheetsScopesAndRoutes(t *testing.T) {
@@ -72,9 +54,9 @@ func TestGoogleSheetsScopesAndRoutes(t *testing.T) {
 			"POST "+api+"/s1/values:batchUpdateByDataFilter", "GET "+api+"/s1/values/%2e%2e/x",
 			// Ranges may carry encoded separators, but never traversal or an encoded spreadsheet ID.
 			"GET "+api+"/s1/values/%2e%2e%2F%2e%2e%2Fdrive", "GET "+api+"/s1/values/%252e%252e%252Fx", "GET "+api+"/s1%2F..%2Fx/values/A1")
-		assertNoMethodOverride(t, r, "GET "+api+"/s1", "GET "+api+"/s1/values/A1")
+		assertStripsMethodOverrides(t, r, "GET "+api+"/s1", "GET "+api+"/s1/values/A1")
 		if access == "read-write" {
-			assertNoMethodOverride(t, r, writes...)
+			assertStripsMethodOverrides(t, r, writes...)
 		}
 	}
 }
@@ -93,12 +75,12 @@ func TestGoogleCalendarScopesAndRoutes(t *testing.T) {
 			"GET " + api + "/calendars/en.usa%23holiday%40group.v.calendar.google.com/events?singleEvents=true",
 			"GET " + team + "/events/e1", "GET " + team + "/events/e1/instances", "POST " + api + "/freeBusy"}
 		assertRoutes(t, r, "fixture-token", true, reads...)
-		assertNoMethodOverride(t, r, reads...)
+		assertStripsMethodOverrides(t, r, reads...)
 		writes := []string{"POST " + team + "/events?sendUpdates=all", "POST " + api + "/calendars/primary/events/quickAdd?text=Lunch",
 			"POST " + team + "/events/e1/move?destination=primary", "PATCH " + team + "/events/e1", "DELETE " + team + "/events/e1"}
 		assertRoutes(t, r, "fixture-token", access == "read-write", writes...)
 		if access == "read-write" {
-			assertNoMethodOverride(t, r, writes...)
+			assertStripsMethodOverrides(t, r, writes...)
 		}
 		// The token stays off Google's OAuth endpoints, other Google APIs, lookalike hosts and
 		// Calendar routes the connector never calls: calendar and ACL changes, imports,
