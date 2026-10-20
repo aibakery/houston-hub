@@ -266,6 +266,16 @@ local function request(name: string, method: string, path: string, query: string
 	return value
 end
 
+-- PrestaShop 8+ drops a lone record's "0", empty and false fields unless display is
+-- set, which returns it as a one-item list instead; unwrap that list.
+local function single(name: string, value: any, one: string, many: string): any
+	local records = value[many]
+	if type(records) ~= "table" or type(records[1]) ~= "table" then
+		return houston.fail({operation = name, layer = "upstream", retryable = false, message = "PrestaShop returned no " .. one .. " record"})
+	end
+	return {[one] = records[1]}
+end
+
 local GET_OPTIONS = {language = true, id_shop = true}
 local exports: {[string]: any} = {}
 local signatures: {[string]: string} = {}
@@ -280,9 +290,9 @@ for _, resource in RESOURCES do
 	end
 	exports[getName] = function(recordID: number, opts: Options?): any
 		local segment = id(recordID, "id")
-		local parts: {string} = {}
+		local parts = {"display=full"}
 		shop(options(opts, GET_OPTIONS), parts)
-		return request(getName, "GET", path .. "/" .. segment, table.concat(parts, "&"), nil)
+		return single(getName, request(getName, "GET", path .. "/" .. segment, table.concat(parts, "&"), nil), one, many)
 	end
 	signatures[listName] = "({display?, filter?, sort?, limit?, offset?, language?, id_shop?, schema?}?) -> {" .. many .. ": [...]}"
 	signatures[getName] = "(id, {language?, id_shop?}?) -> {" .. one .. ": {...}}"
@@ -293,7 +303,7 @@ for _, resource in RESOURCES do
 			local allowed = {id_shop = true, sendemail = SENDS_EMAIL[name]}
 			local function query(input: Options?): string
 				local opts = options(input, allowed)
-				local parts: {string} = {}
+				local parts: {string} = if verb == "delete" then {} else {"display=full"}
 				shop(opts, parts)
 				if opts.sendemail ~= nil then
 					assert(type(opts.sendemail) == "boolean", "sendemail must be a boolean")
@@ -305,13 +315,13 @@ for _, resource in RESOURCES do
 			if verb == "create" then
 				exports[name] = function(fields: Options, opts: Options?): any
 					local q = query(opts)
-					return request(name, "POST", path, q, xml(one, nil, fields))
+					return single(name, request(name, "POST", path, q, xml(one, nil, fields)), one, many)
 				end
 				signatures[name] = "(fields, {id_shop?" .. email .. "}?) -> {" .. one .. ": {...}}"
 			elseif verb == "update" then
 				exports[name] = function(recordID: number, fields: Options, opts: Options?): any
 					local segment, q = id(recordID, "id"), query(opts)
-					return request(name, "PATCH", path .. "/" .. segment, q, xml(one, segment, fields))
+					return single(name, request(name, "PATCH", path .. "/" .. segment, q, xml(one, segment, fields)), one, many)
 				end
 				signatures[name] = "(id, fields, {id_shop?" .. email .. "}?) -> {" .. one .. ": {...}}"
 			else

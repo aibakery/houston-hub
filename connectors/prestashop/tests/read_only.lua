@@ -48,21 +48,23 @@ return {
 		assert(last().url == API .. "order_histories?display=full&filter%5Bid_order%5D=%5B5%5D&limit=0%2C50")
 		assert(json.encode(empty.order_histories) == "[]", "empty list lost its wrapper")
 
-		payload = '{"customer":{"id":5,"email":"ann@example.com","passwd":"$2y$10$abcdefghijklmnopqrstuv","secure_key":"0f3b","reset_password_token":"tok","reset_password_validity":"0000-00-00 00:00:00","last_passwd_gen":"2026-01-01 00:00:00","note":null,"associations":{"groups":[{"id":"3"}]}}}'
+		-- PrestaShop 8+ drops a lone record's "0", empty and false fields; display=full keeps them in a one-item list.
+		payload = '{"customers":[{"id":5,"email":"ann@example.com","newsletter":"0","note":"","passwd":"$2y$10$abcdefghijklmnopqrstuv","secure_key":"0f3b","reset_password_token":"tok","reset_password_validity":"0000-00-00 00:00:00","last_passwd_gen":"2026-01-01 00:00:00","associations":{"groups":[{"id":"3"}]}}]}'
 		local customer = shop.getCustomer(5)
-		assert(last().url == API .. "customers/5", last().url)
+		assert(last().url == API .. "customers/5?display=full", last().url)
 		local record = customer.customer
-		assert(record.email == "ann@example.com" and record.note == json.decode("null") and record.associations.groups[1].id == "3")
+		assert(record.email == "ann@example.com" and record.newsletter == "0" and record.note == "" and record.associations.groups[1].id == "3")
 		for _, secret in {"passwd", "secure_key", "reset_password_token", "reset_password_validity", "last_passwd_gen"} do
 			assert(record[secret] == nil, secret .. " was returned")
 		end
 
-		payload = '{"product":{"id":9,"name":[{"id":"1","value":"Mug"},{"id":"2","value":"Tasse"}]}}'
+		payload = '{"products":[{"id":9,"name":[{"id":"1","value":"Mug"},{"id":"2","value":"Tasse"}]}]}'
 		local product = shop.getProduct(9, {language = 1, id_shop = 2})
-		assert(last().url == API .. "products/9?language=1&id_shop=2", last().url)
+		assert(last().url == API .. "products/9?display=full&language=1&id_shop=2", last().url)
 		assert(product.product.name[2].value == "Tasse")
-		shop.getStockAvailable(31)
-		assert(last().url == API .. "stock_availables/31")
+		payload = '{"stock_availables":[{"id":31,"id_product":"9","quantity":"0","out_of_stock":"0"}]}'
+		assert(shop.getStockAvailable(31).stock_available.quantity == "0", "an empty stock lost its quantity")
+		assert(last().url == API .. "stock_availables/31?display=full")
 		assert(#requests == 9)
 	end,
 }
