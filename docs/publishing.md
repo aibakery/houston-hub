@@ -12,18 +12,17 @@ the manifest paths `connectors/gmail/houston.json`, `connectors/gcalendar/housto
 runtime and a publisher-owned OAuth client, so users only choose an access level and
 select **Connect with Google**.
 
-In the Google Cloud project that owns Houston's client:
+Give each connector its own Google Cloud project, so one connector's scope review never
+holds up another. In each project:
 
-1. Enable the Gmail API, Google Calendar API, Google Drive API and Google Sheets API.
+1. Enable the connector's API: Gmail API, Google Calendar API, Google Drive API or
+   Google Sheets API.
 2. Configure the OAuth consent screen (External) with Houston's name, logo, home
-   page, privacy policy and authorized domain, and declare the scopes below.
-3. Create a **Web application** OAuth client. Add each publication's redirect URI,
+   page, privacy policy and authorized domain, and declare the connector's scopes below.
+3. Create a **Web application** OAuth client. Add the publication's redirect URI,
    `<Houston public URL>/oauth/connectors/<hub-publication-id>/callback`, to its
    authorized redirect URIs.
-4. Enter the client ID and secret in each publication's publisher settings.
-
-One client can serve all four publications, or each publication can have its own
-client in a separate project; the bundles work either way.
+4. Enter the client ID and secret in the publication's publisher settings.
 
 | Connector | Read-only scopes | Read and write scopes |
 | --- | --- | --- |
@@ -50,6 +49,30 @@ paths: Gmail `gmail.googleapis.com/gmail/v1/users/me` and its upload path, Calen
 `/upload/drive/v3`, and Sheets `sheets.googleapis.com/v4/spreadsheets`. Bundles cannot
 share files, so the four `connector.lua` files carry the same request layer;
 `tools/validate` checks that the copies match.
+
+Google Calendar covers 12 of the 38 methods in the
+[Calendar API v3 discovery document](https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest),
+revision `20261014`, checked on 2026-10-20: the calendar list, calendar metadata, the
+color palettes, free/busy queries, and event listing, reads, recurring instances,
+inserts, patches, deletes, moves and quick adds. `events.update` is omitted because
+`patchEvent` covers it without resending the whole event. The other omissions need
+scopes the connector does not request or suit no agent task: calendar creation,
+changes and clearing, calendar-list changes and ACLs (`calendar`); settings, which
+duplicate the calendar's time zone; `events.import`, which only copies events between
+calendars; and the `*.watch` and `channels.stop` push-notification methods, which
+register a webhook Houston cannot receive. Every route is listed explicitly and removes
+method-override headers: Google Calendar honours `X-HTTP-Method-Override`, so a GET
+could otherwise run as a delete. Read-only connections, and read-only callers of
+read-write ones, may only GET the read routes and POST `freeBusy`, which only reads.
+The batch endpoint `www.googleapis.com/batch/calendar/v3` and the API Explorer host
+`content.googleapis.com` stay denied. Google allows 600 Calendar requests per minute
+per user and 10,000 per minute per Cloud project, shared by every connection using the
+publisher's client; it plans to bill projects above 1,000,000 requests a day.
+
+Google Calendar's icon is the official 2026 product logo served by Google at
+[www.gstatic.com/images/branding/productlogos/calendar_2026/v2/web/192px.svg](https://www.gstatic.com/images/branding/productlogos/calendar_2026/v2/web/192px.svg),
+retrieved 2026-10-20, with its paths unchanged; the bundle adds a `viewBox` and renames
+its internal IDs. Google owns the mark.
 
 Google Sheets covers 10 of the 17 `spreadsheets.*` methods in the
 [Sheets API v4 discovery document](https://sheets.googleapis.com/$discovery/rest?version=v4),
