@@ -88,6 +88,10 @@ return {
 			{"[22] The PrestaShop webservice is disabled", '"retryable":false'})
 		upstream(500, '{"errors":[{"code":46,"message":"Unable to save resource"}]}', {}, {"HTTP 500 [46] Unable to save resource", '"retryable":false'})
 		upstream(500, '{"errors":[{"message":"Unknown failure"}]}', {}, {"HTTP 500 Unknown failure"})
+		status, payload, responseHeaders = 500, json.encode({errors = {{code = 127, message = "XML error : String could not be parsed as XML\nOriginal XML : <customer><passwd>correct horse</passwd></customer>"}}}), {}
+		local ok, err = pcall(function() shop.createCustomer({firstname = "Bo", lastname = "Lee", email = "bo@example.com", passwd = "correct horse"}) end)
+		assert(not ok and string.find(tostring(err), "[127] XML error : String could not be parsed as XML", 1, true), tostring(err))
+		assert(not string.find(tostring(err), "correct horse", 1, true), "the error echoed the password")
 		upstream(429, "Too many requests", {["retry-after"] = {"30"}}, {"HTTP 429: Too many requests", "Retry-After: 30", '"retryable":true'})
 		upstream(301, "", {location = {"https://www.shop.example.com/api/order_carriers/1"}},
 			{"HTTP 301", "redirected to https://www.shop.example.com/", "store domain"})

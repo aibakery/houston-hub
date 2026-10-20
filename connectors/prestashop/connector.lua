@@ -221,7 +221,9 @@ local function failStatus(name: string, response: HttpResponse): never
 			if index > 5 then break end
 			if type(item) == "table" then
 				if item.code ~= nil then message ..= " [" .. tostring(item.code) .. "]" end
-				message ..= " " .. string.sub(tostring(item.message), 1, 600)
+				-- An XML error [127] echoes the request body, which can hold a customer password.
+				local text = string.match(tostring(item.message), "^(.-)%s*Original XML") or tostring(item.message)
+				message ..= " " .. string.sub(text, 1, 600)
 			end
 		end
 	elseif string.match(raw, "%S") then
