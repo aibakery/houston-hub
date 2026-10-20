@@ -146,7 +146,10 @@ func TestProxyMatchesEndpointTables(t *testing.T) {
 		for _, match := range matches {
 			write := match[1] != "GET"
 			if flag := override.FindStringSubmatch(match[3]); flag != nil {
-				write = (flag[1] == "write") == (flag[2] == "true")
+				write = flag[2] == "true"
+				if flag[1] == "read" {
+					write = !write
+				}
 			}
 			gate := ""
 			if write {
