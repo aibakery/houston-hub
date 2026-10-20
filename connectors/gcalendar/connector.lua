@@ -116,41 +116,47 @@ end
 -- End of the shared request layer.
 
 local PRIMARY = {calendarId = "primary"}
-local WRITE = {"sendUpdates", "conferenceDataVersion", "supportsAttachments", "maxAttendees"}
+local WRITE = {"sendUpdates", "conferenceDataVersion", "supportsAttachments", "maxAttendees", "eventLabelVersion"}
 local endpoints: {[string]: Endpoint} = {
 	listCalendars = {method = "GET", path = "/users/me/calendarList", read = true, list = "items",
-		query = {"maxResults", "pageToken", "minAccessRole", "showDeleted", "showHidden", "syncToken"},
-		help = "listCalendars(opts?) -> {items, nextPageToken?, nextSyncToken?}. Calendars in the user's list. opts: maxResults (≤250), pageToken, minAccessRole, showDeleted, showHidden, syncToken."},
+		query = {"maxResults", "pageToken", "minAccessRole", "showDeleted", "showHidden", "showOwnOrganizationOnly", "syncToken"},
+		help = "listCalendars({maxResults?, pageToken?, minAccessRole?, showHidden?, ...}?) -> {items=[{id, summary, accessRole, primary?, timeZone, backgroundColor, ...}], nextPageToken?, nextSyncToken?}. Calendars in the user's list, including subscribed ones. maxResults ≤250; minAccessRole='writer' keeps calendars the user can add events to."},
 	getCalendar = {method = "GET", path = "/calendars/{calendarId}", read = true, defaults = PRIMARY,
-		help = "getCalendar({calendarId?}) -> calendar {id, summary, timeZone, ...}. calendarId defaults to primary."},
+		help = "getCalendar({calendarId?}?) -> {id, summary, description?, timeZone, ...}. getCalendar().timeZone is the user's time zone."},
+	getColors = {method = "GET", path = "/colors", read = true,
+		help = "getColors() -> {calendar={[colorId]={background, foreground}}, event={[colorId]={background, foreground}}}. The palettes behind calendar and event colorId values."},
 	listEvents = {method = "GET", path = "/calendars/{calendarId}/events", read = true, defaults = PRIMARY, list = "items",
-		query = {"timeMin", "timeMax", "q", "maxResults", "pageToken", "singleEvents", "orderBy", "timeZone", "showDeleted", "updatedMin", "syncToken", "iCalUID", "eventTypes", "privateExtendedProperty", "sharedExtendedProperty"},
-		help = "listEvents({calendarId?, timeMin?, timeMax?, q?, singleEvents?, orderBy?, maxResults?, pageToken?, ...}) -> {items, nextPageToken?, timeZone, ...}. Times are RFC 3339 (2026-10-12T09:00:00Z). singleEvents=true expands recurring events and allows orderBy='startTime'. maxResults ≤2500."},
+		query = {"timeMin", "timeMax", "q", "maxResults", "pageToken", "singleEvents", "orderBy", "timeZone", "showDeleted", "updatedMin", "syncToken", "iCalUID", "eventTypes", "privateExtendedProperty", "sharedExtendedProperty", "maxAttendees", "showHiddenInvitations"},
+		help = "listEvents({calendarId?, timeMin?, timeMax?, q?, singleEvents?, orderBy?, maxResults?, pageToken?, eventTypes?, syncToken?, ...}?) -> {items=[event], nextPageToken?, nextSyncToken?, timeZone, ...}. Items already carry id, summary, start, end, attendees and status: don't getEvent each one. timeMin and timeMax are RFC 3339 with an offset (2026-10-12T09:00:00Z) and keep events that end after timeMin and start before timeMax. singleEvents=true expands recurring events into instances and allows orderBy='startTime'. q searches text fields. maxResults ≤2500 (default 250); a page may hold fewer events while more remain. The last page has nextSyncToken: listEvents({syncToken}) later returns only changes, cancelled events included, and accepts none of timeMin, timeMax, q, orderBy, iCalUID, updatedMin or the extended-property filters; HTTP 410 [fullSyncRequired] means list again without syncToken."},
 	getEvent = {method = "GET", path = "/calendars/{calendarId}/events/{eventId}", read = true, defaults = PRIMARY,
 		query = {"timeZone", "maxAttendees"},
-		help = "getEvent({calendarId?, eventId, timeZone?}) -> event."},
+		help = "getEvent({calendarId?, eventId, timeZone?, maxAttendees?}) -> event {id, status, summary, description?, location?, start, end, recurrence?, recurringEventId?, attendees?, organizer, conferenceData?, htmlLink, ...}."},
 	listEventInstances = {method = "GET", path = "/calendars/{calendarId}/events/{eventId}/instances", read = true, defaults = PRIMARY, list = "items",
-		query = {"timeMin", "timeMax", "maxResults", "pageToken", "timeZone", "showDeleted", "originalStart"},
-		help = "listEventInstances({calendarId?, eventId, timeMin?, timeMax?, maxResults?, pageToken?}) -> {items, nextPageToken?}. Occurrences of a recurring event."},
+		query = {"timeMin", "timeMax", "maxResults", "pageToken", "timeZone", "showDeleted", "originalStart", "maxAttendees"},
+		help = "listEventInstances({calendarId?, eventId, timeMin?, timeMax?, maxResults?, pageToken?, originalStart?}) -> {items, nextPageToken?}. Occurrences of a recurring event; each has its own id and recurringEventId."},
 	queryFreeBusy = {method = "POST", path = "/freeBusy", read = true, body = true,
-		help = "queryFreeBusy({timeMin, timeMax, items={{id='primary'}}, timeZone?}) -> {calendars={[id]={busy={{start,end}}}}}. Busy intervals only; event details stay private."},
+		help = "queryFreeBusy({timeMin, timeMax, items={{id='primary'}, {id='ana@example.com'}}, timeZone?}) -> {calendars={[id]={busy={{start=..., ['end']=...}}, errors?}}}. Busy intervals only, without event details; works for colleagues whose calendars share free/busy. Up to 50 calendars per call; a calendar it cannot read reports errors instead of busy."},
 	insertEvent = {method = "POST", path = "/calendars/{calendarId}/events", read = false, body = true, defaults = PRIMARY, query = WRITE,
-		help = "insertEvent({calendarId?, summary, start={dateTime|date, timeZone?}, end={...}, attendees?, description?, location?, recurrence?, sendUpdates?, conferenceDataVersion?, ...}) -> event. sendUpdates: all, externalOnly or none (default none). Use conferenceDataVersion=1 with conferenceData.createRequest to add Google Meet."},
+		help = "insertEvent({calendarId?, summary, start={dateTime='2026-10-13T09:00:00+02:00', timeZone?} or {date='2026-10-13'}, ['end']={...}, attendees?={{email=...}}, description?, location?, recurrence?={'RRULE:FREQ=WEEKLY;COUNT=4'}, reminders?, colorId?, id?, sendUpdates?, conferenceDataVersion?}) -> event. All-day events end on the following date (end is exclusive). sendUpdates: all, externalOnly or none (default none: attendees get no email). For Google Meet, pass conferenceDataVersion=1 and conferenceData={createRequest={requestId='<unique>', conferenceSolutionKey={type='hangoutsMeet'}}}. A caller-chosen id (5 to 1024 characters of lowercase a-v and digits) makes a repeated insert fail with HTTP 409 [duplicate] instead of creating a second event."},
 	patchEvent = {method = "PATCH", path = "/calendars/{calendarId}/events/{eventId}", read = false, body = true, defaults = PRIMARY, query = WRITE,
-		help = "patchEvent({calendarId?, eventId, sendUpdates?, ...fields to change}) -> event. Only the given fields change; arrays such as attendees are replaced whole."},
+		help = "patchEvent({calendarId?, eventId, sendUpdates?, ...fields to change}) -> event. Only the given fields change; arrays such as attendees are replaced whole, so read the event and send the full list. Patching a recurring event's id changes the whole series; patch an instance id from listEventInstances to change one occurrence."},
 	deleteEvent = {method = "DELETE", path = "/calendars/{calendarId}/events/{eventId}", read = false, defaults = PRIMARY, query = {"sendUpdates"},
-		help = "deleteEvent({calendarId?, eventId, sendUpdates?}) -> {success=true}. Cancels the event for its attendees when sendUpdates is all."},
+		help = "deleteEvent({calendarId?, eventId, sendUpdates?}) -> {success=true}. Cancels the event, for attendees too; sendUpdates='all' emails them. Deleting a recurring event's id removes the whole series. HTTP 410 [deleted] means it was already deleted."},
 	moveEvent = {method = "POST", path = "/calendars/{calendarId}/events/{eventId}/move", read = false, defaults = PRIMARY, query = {"destination", "sendUpdates"},
-		help = "moveEvent({calendarId?, eventId, destination, sendUpdates?}) -> event. Changes the event's organizer calendar."},
+		help = "moveEvent({calendarId?, eventId, destination, sendUpdates?}) -> event. Moves the event to the destination calendar ID, which becomes its organizer. Only default events can move."},
 	quickAddEvent = {method = "POST", path = "/calendars/{calendarId}/events/quickAdd", read = false, defaults = PRIMARY, query = {"text", "sendUpdates"},
-		help = "quickAddEvent({calendarId?, text, sendUpdates?}) -> event. Creates an event from text such as 'Lunch with Ana tomorrow 12pm'."},
+		help = "quickAddEvent({calendarId?, text, sendUpdates?}) -> event. Creates an event from text such as 'Lunch with Ana tomorrow 12pm',. Prefer insertEvent when the times are known."},
 }
 
 exportEndpoints(endpoints)
-exports.help = helpWith({
-	"Google Calendar API v3. Every operation takes one named options object with Google's camelCase fields and returns Google's JSON unchanged; deletes return {success=true}.",
-	"calendarId defaults to 'primary' (the connected account's calendar); other IDs come from listCalendars. Lists return one page: pass nextPageToken as pageToken until it is absent.",
-	"No hidden paging or retries. Errors report the HTTP status, Google's message and reason. A failed or timed-out write may already have succeeded; check with getEvent or listEvents before repeating.",
-	"Example: listEvents({timeMin='2026-10-12T00:00:00Z', timeMax='2026-10-19T00:00:00Z', singleEvents=true, orderBy='startTime'}).",
-})
+local overview = {
+	"Google Calendar API v3. Every operation takes one named options object with Google's camelCase fields and returns Google's JSON unchanged; deletes return {success=true}. Calls return completed values: use instance.listEvents(...) directly, without await.",
+	"calendarId defaults to 'primary' (the connected account's calendar); other IDs, such as team@group.calendar.google.com, come from listCalendars. Event times are {dateTime} in RFC 3339 with an offset, or {date='2026-10-13'} for all-day events. Luau reserves end: write event['end'] and {['end']=...}.",
+	"Lists return one page: pass nextPageToken as pageToken until it is absent. Empty lists are []. Example: listEvents({timeMin='2026-10-12T00:00:00Z', timeMax='2026-10-19T00:00:00Z', singleEvents=true, orderBy='startTime'}).",
+	"No hidden paging or retries. Errors report the HTTP status, Google's message and reason, such as [notFound] for a missing event or a calendar the user cannot see. Google allows about 600 requests per minute per user; HTTP 429 and 403 [rateLimitExceeded] or [userRateLimitExceeded] are retryable after a pause.",
+}
+if config.access == "read-write" then
+	table.insert(overview, "Writes can change only events, not calendars or their sharing. Events on calendars the user can only read fail with HTTP 403. A failed or timed-out write may already have succeeded: check with getEvent or listEvents before repeating it, or give insertEvent an id.")
+end
+exports.help = helpWith(overview)
 return exports
