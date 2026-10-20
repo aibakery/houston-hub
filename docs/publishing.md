@@ -64,8 +64,8 @@ full `calendar`); `acl.get` alone is useless because `calendar.readonly` exclude
 `events.import`, which only copies events between calendars; and the `*.watch` and
 `channels.stop` push-notification methods, which register a webhook Houston cannot
 receive. Every route is listed explicitly and removes method-override headers:
-Google Calendar honours `X-HTTP-Method-Override`, so a POST to an allowed route could
-otherwise run as a DELETE or PATCH. Read-only connections, and read-only callers of
+Google Calendar honours `X-HTTP-Method-Override`, so any allowed request could
+otherwise run as another method. Read-only connections, and read-only callers of
 read-write ones, may only GET the read routes and POST `freeBusy`, which only reads.
 The batch endpoint `www.googleapis.com/batch/calendar/v3` and the API Explorer host
 `content.googleapis.com` stay denied. Google allows 600 Calendar requests per minute
