@@ -7,9 +7,9 @@ a SuperAdmin. No developer app is required.
 1. In your PrestaShop back office, open **Advanced Parameters → Webservice**. Under
    **Configuration**, set **Enable PrestaShop's webservice** to **Yes** and select
    **Save**.
-2. Select **Add new webservice key**. Select **Generate!** to create a 32-character
-   **Key**, and enter a **Key description** such as `Houston`. Keep **Status** on
-   **Yes**.
+2. Select **Add new webservice key**. Select **Generate** to create a 32-character
+   **Key**, and enter a **Key description** such as `Houston`. Keep **Enable
+   webservice key** on **Yes**.
 3. Under **Permissions**, tick the **View (GET)** column for these resources:
    `addresses`, `carriers`, `cart_rules`, `carts`, `categories`, `combinations`,
    `countries`, `currencies`, `customers`, `languages`, `manufacturers`,
@@ -37,7 +37,7 @@ See PrestaShop's [webservice guide](https://devdocs.prestashop-project.org/9/web
 Choose **Read and write** in Houston, and in the key's **Permissions** also tick:
 
 - **Add (POST)** for `customers`, `order_histories` and `products`;
-- **Modify (PATCH)** for `customers`, `order_carriers`, `products` and
+- **Patch (PATCH)** for `customers`, `order_carriers`, `products` and
   `stock_availables` (PrestaShop 8 and 9 only; 1.7 has no PATCH column, so edits
   are unavailable there);
 - **Delete (DELETE)** for `customers` and `products`, only if agents may delete
@@ -50,8 +50,9 @@ customer when an agent asks for it.
 
 ### Multistore
 
-Under **Shop association**, select the stores the key may access. Agents use your
-default store unless they name another store or all stores.
+Under **Store association** (**Shop association** on PrestaShop 1.7 and 8.0),
+select the stores the key may access. Agents use your default store unless they
+name another store or all stores.
 
 ### Troubleshooting
 
@@ -61,18 +62,19 @@ default store unless they name another store or all stores.
   example `www.shop.example.com`. Houston does not follow redirects and connects
   only over HTTPS.
 - **Requests fail with "not found" or "not JSON".** The webservice must answer at
-  `https://<your domain>/api`. Check that the webservice is enabled and that
-  **Shop Parameters → Traffic & SEO → Friendly URL** is on, and regenerate
-  `.htaccess` by saving that page. On nginx, add PrestaShop's `/api` rewrite rule.
-  Stores installed in a subdirectory, such as `example.com/shop`, are not
-  supported.
+  `https://<your domain>/api`. Check that the webservice is enabled, and save
+  the key again to regenerate PrestaShop's `.htaccess`, which routes `/api`. On
+  nginx, add PrestaShop's `/api` rewrite rule. Stores installed in a
+  subdirectory, such as `example.com/shop`, are not supported.
 - **Every request fails with "401 Unauthorized" and "received no key".** Your web
   server drops the `Authorization` header before PHP sees it, which happens with
-  PHP-FPM or CGI behind Apache. Make sure the `.htaccess` PrestaShop generated is
-  in place, or ask your host to pass the header through (Apache `CGIPassAuth On`).
+  PHP-FPM or CGI behind Apache. On the **Webservice** page, set **Enable CGI mode
+  for PHP** to **Yes**, select **Save**, then open the key and save it again so
+  PrestaShop rewrites `.htaccess`. Otherwise ask your host to pass the header
+  through (Apache `CGIPassAuth On`).
 - **A request fails with HTTP 401 [26] or HTTP 405 [25].** The key lacks
   permission for that resource or method: tick it under **Permissions**.
 - **A request fails with HTTP 503 [22].** The webservice is disabled; turn it on in
   step 1.
-- **You need to stop access.** Set the key's **Status** to **No** or delete it in
-  PrestaShop, or remove the connection in Houston.
+- **You need to stop access.** Set the key's **Enable webservice key** to **No** or
+  delete it in PrestaShop, or remove the connection in Houston.
