@@ -199,6 +199,14 @@ local function upload(input: any): any
 end
 
 exportEndpoints(endpoints)
+-- DELETE /files/trash is Drive's emptyTrash, which the {fileId} route would otherwise reach.
+local deleteFile = exports.deleteFile
+if deleteFile then
+	exports.deleteFile = function(args: any): any
+		assert(type(args) ~= "table" or args.fileId ~= "trash", "fileId 'trash' is not a file")
+		return deleteFile(args)
+	end
+end
 for name, endpoint in downloads do
 	export(name, true, function(args: Options): Options return download(name, endpoint, args) end, endpoint.help)
 end
