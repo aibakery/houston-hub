@@ -119,34 +119,40 @@ func TestCalendlyScopesAndAccessRoutes(t *testing.T) {
 }
 
 // The proxy must allow exactly the routes in each connector's endpoint table, and the
-// writes only on read-write connections. Only GET reads unless an entry sets write.
+// writes only on read-write connections. Only GET reads unless an entry sets write or read.
+// Paths are relative to the connector's API base URL, such as Calendar's /calendar/v3.
 // Credential-free rules, such as Resend's signed attachment links, are not API routes.
 // A {format} placeholder expands to the connector's FORMATS list (Wise statements). A custom
 // method such as Carta's {capitalCallId}:adjust is routed by its whole-segment placeholder.
 func TestProxyMatchesEndpointTables(t *testing.T) {
 	const readWrite = `{{ is config.access "read-write" }}`
 	endpoint := regexp.MustCompile(`(?m)^\t\w+ = \{method = "([A-Z]+)", path = "([^"]+)"(.*)$`)
-	override := regexp.MustCompile(`\bwrite = (true|false)\b`)
+	override := regexp.MustCompile(`\b(write|read) = (true|false)\b`)
+	base := regexp.MustCompile(`(?m)^local API = "https://[^/"]+([^"]*)"`)
 	formats := regexp.MustCompile(`local FORMATS = table\.freeze\(\{([^}]*)\}\)`)
 	customMethod := regexp.MustCompile(`\}:\w+$`)
-	for _, name := range []string{"calcom", "calendly", "carta", "carta-crm", "resend", "stripe", "wise", "github"} {
+	for _, name := range []string{"calcom", "calendly", "carta", "carta-crm", "resend", "stripe", "wise", "github", "gcalendar"} {
 		raw, err := os.ReadFile("../../connectors/" + name + "/connector.lua")
 		if err != nil {
 			t.Fatal(err)
 		}
 		lua := string(raw)
+		prefix := ""
+		if api := base.FindStringSubmatch(lua); api != nil {
+			prefix = api[1]
+		}
 		var want, got []string
 		matches := endpoint.FindAllStringSubmatch(lua, -1)
 		for _, match := range matches {
 			write := match[1] != "GET"
 			if flag := override.FindStringSubmatch(match[3]); flag != nil {
-				write = flag[1] == "true"
+				write = (flag[1] == "write") == (flag[2] == "true")
 			}
 			gate := ""
 			if write {
 				gate = readWrite
 			}
-			paths := []string{customMethod.ReplaceAllString(match[2], "}")}
+			paths := []string{prefix + customMethod.ReplaceAllString(match[2], "}")}
 			if strings.Contains(match[2], "{format}") {
 				list := formats.FindStringSubmatch(lua)
 				if list == nil {
@@ -154,7 +160,7 @@ func TestProxyMatchesEndpointTables(t *testing.T) {
 				}
 				paths = nil
 				for _, format := range strings.Split(list[1], ",") {
-					paths = append(paths, strings.Replace(match[2], "{format}", strings.Trim(format, ` "`), 1))
+					paths = append(paths, prefix+strings.Replace(match[2], "{format}", strings.Trim(format, ` "`), 1))
 				}
 			}
 			for _, path := range paths {
