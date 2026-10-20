@@ -77,6 +77,8 @@ func TestPrestaShopStoreHostAndAccessBoundaries(t *testing.T) {
 			{"GET", "https://shop.example.com/webservice/dispatcher.php?url=configurations"},
 			{"PUT", api + "products/1"}, {"POST", api + "orders"}, {"PATCH", api + "orders/1"}, {"DELETE", api + "orders/1"},
 			{"POST", api + "products/1"}, {"DELETE", api + "order_histories/1"}, {"HEAD", api + "orders"},
+			// PrestaShop deletes every listed ID on a collection DELETE.
+			{"DELETE", api + "products?id=%5B1%2C2%5D"}, {"DELETE", api + "customers"},
 			{"GET", "https://www.shop.example.com/api/orders"},
 			{"GET", "https://shop.example.com.attacker.test/api/orders"},
 			{"GET", "https://shop.example.com:8443/api/orders"},

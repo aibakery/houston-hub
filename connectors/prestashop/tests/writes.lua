@@ -15,13 +15,16 @@ return {
 		local function last() return requests[#requests] end
 		local function sentXML() return last().headers["Content-Type"][1] == "application/xml" end
 
-		local count = 0
-		for name in shop do if name ~= "help" then count += 1 end end
-		assert(count == 53, "wrong read-write surface: " .. count)
-		for _, name in {"createOrder", "updateOrder", "deleteOrder", "createStockAvailable", "deleteStockAvailable",
-			"deleteOrderHistory", "updateCategory"} do
-			assert(shop[name] == nil, "unexpected write " .. name)
+		-- The reads are read_only.lua's exact 44; everything else must be these writes.
+		local names, reads = {}, 0
+		for name in shop do
+			if string.match(name, "^get%u") or string.match(name, "^list%u") then reads += 1
+			elseif name ~= "help" then table.insert(names, name) end
 		end
+		assert(reads == 44, "wrong read count: " .. reads)
+		table.sort(names)
+		assert(table.concat(names, ",") == "createCustomer,createOrderHistory,createProduct,deleteCustomer,deleteProduct,updateCustomer,updateOrderCarrier,updateProduct,updateStockAvailable",
+			"wrong writes: " .. table.concat(names, ","))
 
 		payload = '{"product":{"id":"10","price":"9.500000","name":[{"id":"1","value":"Mug & co"}]}}'
 		local product = shop.createProduct({price = 9.5, active = true, name = {{id = 1, value = "Mug & co"}},

@@ -15,15 +15,10 @@ return {
 
 		local names = {}
 		for name in shop do if name ~= "help" then table.insert(names, name) end end
-		assert(#names == 44, "wrong read-only surface: " .. #names)
-		for _, name in {"listOrders", "getOrder", "listOrderSlips", "getOrderSlip", "listOrderHistories", "getOrderHistory",
-			"listStockAvailables", "getStockAvailable", "listCartRules", "getAddress", "listCountries", "getCurrency"} do
-			assert(type(shop[name]) == "function", "missing " .. name)
-		end
-		for _, name in {"createProduct", "updateProduct", "deleteProduct", "createCustomer", "updateCustomer", "deleteCustomer",
-			"createOrderHistory", "updateOrderCarrier", "updateStockAvailable", "listConfigurations", "listEmployees"} do
-			assert(shop[name] == nil, "read-only leaked " .. name)
-		end
+		table.sort(names)
+		assert(table.concat(names, ",") == "getAddress,getCarrier,getCart,getCartRule,getCategory,getCombination,getCountry,getCurrency,getCustomer,getLanguage,getManufacturer,getOrder,getOrderCarrier,getOrderDetail,getOrderHistory,getOrderInvoice,getOrderPayment,getOrderSlip,getOrderState,getProduct,getStockAvailable,getSupplier,"
+			.. "listAddresses,listCarriers,listCartRules,listCarts,listCategories,listCombinations,listCountries,listCurrencies,listCustomers,listLanguages,listManufacturers,listOrderCarriers,listOrderDetails,listOrderHistories,listOrderInvoices,listOrderPayments,listOrderSlips,listOrderStates,listOrders,listProducts,listStockAvailables,listSuppliers",
+			"wrong read-only surface: " .. table.concat(names, ","))
 		assert(#requests == 0, "initialization reached PrestaShop")
 
 		payload = '{"orders":[{"id":7,"reference":"XKBKNABJK","current_state":"2","secure_key":"b44a6d9efd7a0076a0fbce6b15eaf3b1","associations":{"order_rows":[{"id":"1","product_id":"9"}]}}]}'
