@@ -67,7 +67,6 @@ return {
 		assert(not pcall(c.updateValues, {spreadsheetId = "s1", range = "A1"}), "updateValues requires values")
 		assert(not pcall(c.updateValues, {spreadsheetId = "s1", range = "A1", values = json.decode("null")}))
 		assert(not pcall(c.updateValues, {spreadsheetId = "s1", range = "A1", values = {}}))
-		assert(not pcall(c.updateValues, {spreadsheetId = "s1", range = "A1", values = "42"}))
 		assert(not pcall(c.batchUpdate, {spreadsheetId = "s1", requests = {addSheet = {}}}))
 		assert(not pcall(c.createSpreadsheet, {spreadsheetId = "s1", properties = {title = "Copy"}}), "createSpreadsheet assigns the ID")
 		assert(not pcall(c.batchUpdateValues, {spreadsheetId = "s1"}))

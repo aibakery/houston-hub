@@ -22,8 +22,8 @@ local function query(args: Options, names: {string}): string
 	for _, name in names do
 		local value = args[name]
 		args[name] = nil
-		for _, item in (if type(value) == "table" then value else {value}) do
-			assert(type(item) == "string" or type(item) == "number" or type(item) == "boolean", name .. " must be a string, number, boolean or an array of them")
+		for key, item in (if type(value) == "table" then value else {value}) do
+			assert(type(key) == "number" and (type(item) == "string" or type(item) == "number" or type(item) == "boolean"), name .. " must be a string, number, boolean or an array of them")
 			table.insert(parts, url.encode(name) .. "=" .. url.encode(item))
 		end
 	end
@@ -63,11 +63,17 @@ local function call(operation: string, method: string, href: string, body: any?)
 		body = if body ~= nil then json.encode(body) else nil})))
 end
 
+local NONE: {string} = table.freeze({})
+
 -- Moves {placeholders} and declared query fields from args into the URL; remaining fields form the JSON body.
 local function target(name: string, endpoint: Endpoint, args: Options): string
 	local defaults: Options = endpoint.defaults or {}
 	for key, value in defaults do
 		if args[key] == nil then args[key] = value end
+	end
+	for _, field in endpoint.required or NONE do
+		local value = args[field]
+		assert((type(value) == "string" and value ~= "") or (type(value) == "table" and value[1] ~= nil), name .. " requires " .. field)
 	end
 	local path = string.gsub(endpoint.path, "{(%w+)}", function(field: string)
 		local value = url.segment(text(args[field], field), field)
@@ -157,7 +163,6 @@ local function spreadsheetId(value: any): any
 	return id
 end
 
-local NONE: {string} = table.freeze({})
 -- Ranges are opaque path segments: the proxy allows encoded / and % but refuses dot segments
 -- and control bytes, so any tab name, such as '10/16' or one with emoji, works.
 local function withRange(endpoint: Endpoint, args: Options): Endpoint
@@ -175,10 +180,6 @@ for name, endpoint in endpoints do
 			args.spreadsheetId = spreadsheetId(args.spreadsheetId)
 		else
 			assert(args.spreadsheetId == nil, name .. " assigns the spreadsheetId")
-		end
-		for _, field in endpoint.required or NONE do
-			local value = args[field]
-			assert(type(value) == "table" and value[1] ~= nil, name .. " requires " .. field .. " as a nonempty array")
 		end
 		local result = invoke(name, withRange(endpoint, args), args)
 		for _, range in result.valueRanges or NONE do

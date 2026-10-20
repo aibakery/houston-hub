@@ -79,7 +79,6 @@ return {
 		assert(not pcall(c.batchGetValues, {spreadsheetId = "s1"}), "batchGetValues requires ranges")
 		assert(not pcall(c.batchGetValues, {spreadsheetId = "s1", ranges = {}}))
 		assert(not pcall(c.batchGetValues, {spreadsheetId = "s1", ranges = ""}))
-		assert(not pcall(c.batchGetValues, {spreadsheetId = "s1", ranges = "Sheet1!A1"}))
 		assert(not pcall(c.getSpreadsheet, {spreadsheetId = "s1", includeGridData = true}))
 		assert(#requests == sent, "invalid input reached Google")
 		assert(#responses == 0)

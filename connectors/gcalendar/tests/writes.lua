@@ -56,6 +56,11 @@ return {
 		assert(not pcall(c.quickAddEvent, {text = "Lunch", start = {}}), "quickAddEvent takes no body")
 		assert(not pcall(c.insertEvent, {calendarId = "..", summary = "x"}))
 		assert(not pcall(c.insertEvent, "Planning"))
+		for _, args in {{eventId = "e"}, {eventId = "e", destination = ""}, {eventId = "e", destination = {}}} do
+			assert(not pcall(c.moveEvent, args), "moveEvent requires destination")
+		end
+		assert(not pcall(c.quickAddEvent, {}), "quickAddEvent requires text")
+		assert(not pcall(c.quickAddEvent, {text = ""}))
 		assert(#requests == count, "invalid input reached Google")
 		assert(#responses == 0)
 	end,

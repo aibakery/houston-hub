@@ -70,6 +70,12 @@ return {
 		assert(not pcall(c.listEvents, {eventTypes = {{}}}))
 		assert(not pcall(c.listEvents, {key = "api-key"}), "unknown query options must fail")
 		assert(not pcall(c.listCalendars, {fields = "items"}))
+		assert(not pcall(c.listEvents, {q = {a = "b"}}), "query lists must be arrays")
+		assert(not pcall(c.listEvents, {eventTypes = {"default", extra = "focusTime"}}))
+		local day = {timeMin = "2026-10-13T00:00:00Z", timeMax = "2026-10-14T00:00:00Z"}
+		for _, args in {{}, day, {timeMin = day.timeMin, timeMax = "", items = {{id = "primary"}}}, {timeMin = day.timeMin, timeMax = day.timeMax, items = {}}} do
+			assert(not pcall(c.queryFreeBusy, args), "queryFreeBusy requires timeMin, timeMax and items: " .. json.encode(args))
+		end
 		assert(#requests == count, "invalid input reached Google")
 		assert(#responses == 0)
 	end,
