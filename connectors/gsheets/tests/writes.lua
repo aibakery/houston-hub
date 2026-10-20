@@ -72,6 +72,8 @@ return {
 		assert(not pcall(c.createSpreadsheet, {spreadsheetId = "s1", properties = {title = "Copy"}}), "createSpreadsheet assigns the ID")
 		assert(not pcall(c.batchUpdateValues, {spreadsheetId = "s1"}))
 		assert(not pcall(c.batchClearValues, {spreadsheetId = "s1"}))
+		assert(not pcall(c.batchClearValues, {spreadsheetId = "s1", ranges = "Sheet1!A1"}), "batchClearValues ranges must be an array")
+		assert(not pcall(c.batchUpdate, {spreadsheetId = "s1", requests = "x"}))
 		assert(not pcall(c.batchUpdate, {spreadsheetId = "s1"}))
 		assert(not pcall(c.clearValues, {spreadsheetId = "s1"}))
 		assert(not pcall(c.batchUpdate, {spreadsheetId = "https://docs.google.com/spreadsheets/d/e/2PACX-1vT/pubhtml", requests = {}}))

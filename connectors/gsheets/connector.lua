@@ -1,9 +1,10 @@
 -- Google Sheets API v4. Arguments and results keep Google's native field names.
-type Options = {[string]: any}
-type Endpoint = {method: string, path: string, read: boolean, query: {string}?, body: boolean?, defaults: Options?, list: string?, required: {string}?, help: string}
 local API = "https://sheets.googleapis.com/v4"
 
 -- Request layer shared verbatim by the Google connectors (tools/validate checks they match).
+type Options = {[string]: any}
+type Endpoint = {method: string, path: string, read: boolean, query: {string}?, body: boolean?, defaults: Options?, list: string?, required: {[string]: string}?, help: string}
+
 local function text(value: any, field: string): string
 	assert(type(value) == "string" and value ~= "", field .. " must be a nonempty string")
 	return value
@@ -22,8 +23,8 @@ local function query(args: Options, names: {string}): string
 	for _, name in names do
 		local value = args[name]
 		args[name] = nil
-		for _, item in (if type(value) == "table" then value else {value}) do
-			assert(type(item) == "string" or type(item) == "number" or type(item) == "boolean", name .. " must be a string, number, boolean or an array of them")
+		for key, item in (if type(value) == "table" then value else {value}) do
+			assert(type(key) == "number" and (type(item) == "string" or type(item) == "number" or type(item) == "boolean"), name .. " must be a string, number, boolean or an array of them")
 			table.insert(parts, url.encode(name) .. "=" .. url.encode(item))
 		end
 	end
@@ -68,6 +69,12 @@ local function target(name: string, endpoint: Endpoint, args: Options): string
 	local defaults: Options = endpoint.defaults or {}
 	for key, value in defaults do
 		if args[key] == nil then args[key] = value end
+	end
+	local required: {[string]: string} = endpoint.required or {}
+	for field, kind in required do
+		local value = args[field]
+		assert(if kind == "array" then type(value) == "table" and value[1] ~= nil elseif kind == "string" then type(value) == "string" and value ~= "" else false,
+			name .. " requires " .. field .. " as a nonempty " .. kind)
 	end
 	local path = string.gsub(endpoint.path, "{(%w+)}", function(field: string)
 		local value = url.segment(text(args[field], field), field)
@@ -127,22 +134,22 @@ local endpoints: {[string]: Endpoint} = {
 		help = "getSpreadsheet({spreadsheetId, fields?, ranges?}) -> {spreadsheetId, spreadsheetUrl, properties, sheets=[{properties={sheetId, title, index, gridProperties={rowCount, columnCount, ...}}}], namedRanges}. Lists the tabs and their sizes; namedRanges is [] when there are none. fields is a Google field mask: e.g. fields='sheets(data(rowData(values(formattedValue,note,hyperlink))))' with ranges={'Sheet1!A1:C3'} reads cell notes and links. Always pass ranges with data fields: responses over 8 MiB fail."},
 	getValues = {method = "GET", path = "/spreadsheets/{spreadsheetId}/values/{range}", read = true, list = "values", query = READ_QUERY,
 		help = "getValues({spreadsheetId, range, valueRenderOption?, dateTimeRenderOption?, majorDimension?}) -> {range, majorDimension, values}. One cell: getValues({spreadsheetId=..., range='Sheet1!B2'}).values[1] is {'42'}, or nil when B2 is empty."},
-	batchGetValues = {method = "GET", path = "/spreadsheets/{spreadsheetId}/values:batchGet", read = true, list = "valueRanges", required = {"ranges"},
+	batchGetValues = {method = "GET", path = "/spreadsheets/{spreadsheetId}/values:batchGet", read = true, list = "valueRanges", required = {ranges = "array"},
 		query = {"ranges", table.unpack(READ_QUERY)},
 		help = "batchGetValues({spreadsheetId, ranges={'Sheet1!A1:B2', 'Totals!C3'}, valueRenderOption?, dateTimeRenderOption?, majorDimension?}) -> {spreadsheetId, valueRanges=[{range, majorDimension, values}]}. Reads several ranges in one request, in the order given; an empty range has values=[]."},
-	updateValues = {method = "PUT", path = "/spreadsheets/{spreadsheetId}/values/{range}", read = false, body = true, defaults = RAW, query = WRITE_QUERY, required = {"values"},
+	updateValues = {method = "PUT", path = "/spreadsheets/{spreadsheetId}/values/{range}", read = false, body = true, defaults = RAW, query = WRITE_QUERY, required = {values = "array"},
 		help = "updateValues({spreadsheetId, range, values, valueInputOption?, majorDimension?, includeValuesInResponse?}) -> {spreadsheetId, updatedRange, updatedRows, updatedColumns, updatedCells}. Writes values from range's top-left cell, e.g. range='Sheet1!B2', values={{42}}."},
-	appendValues = {method = "POST", path = "/spreadsheets/{spreadsheetId}/values/{range}:append", read = false, body = true, defaults = RAW, required = {"values"}, query = APPEND_QUERY,
+	appendValues = {method = "POST", path = "/spreadsheets/{spreadsheetId}/values/{range}:append", read = false, body = true, defaults = RAW, required = {values = "array"}, query = APPEND_QUERY,
 		help = "appendValues({spreadsheetId, range, values, valueInputOption?, insertDataOption?}) -> {spreadsheetId, tableRange, updates}. Adds rows after the table Google finds in range, e.g. range='Log!A:D', values={{'2026-10-16', 'paid', 120}}, valueInputOption='USER_ENTERED' to store the date as a date. insertDataOption='INSERT_ROWS' inserts rows rather than filling the empty cells below (OVERWRITE, the default). Repeating it adds the rows again."},
 	clearValues = {method = "POST", path = "/spreadsheets/{spreadsheetId}/values/{range}:clear", read = false, body = true,
 		help = "clearValues({spreadsheetId, range}) -> {spreadsheetId, clearedRange}. Clears values and keeps formatting."},
-	batchUpdateValues = {method = "POST", path = "/spreadsheets/{spreadsheetId}/values:batchUpdate", read = false, body = true, defaults = RAW, required = {"data"},
+	batchUpdateValues = {method = "POST", path = "/spreadsheets/{spreadsheetId}/values:batchUpdate", read = false, body = true, defaults = RAW, required = {data = "array"},
 		help = "batchUpdateValues({spreadsheetId, data={{range='Sheet1!A1', values={{1, 2}}}, ...}, valueInputOption?, includeValuesInResponse?}) -> {spreadsheetId, totalUpdatedCells, responses}. Writes several ranges in one request."},
-	batchClearValues = {method = "POST", path = "/spreadsheets/{spreadsheetId}/values:batchClear", read = false, body = true, required = {"ranges"},
+	batchClearValues = {method = "POST", path = "/spreadsheets/{spreadsheetId}/values:batchClear", read = false, body = true, required = {ranges = "array"},
 		help = "batchClearValues({spreadsheetId, ranges={'Sheet1!A2:D', ...}}) -> {spreadsheetId, clearedRanges}."},
 	createSpreadsheet = {method = "POST", path = "/spreadsheets", read = false, body = true,
 		help = "createSpreadsheet({properties={title='Report'}, sheets?={{properties={title='Data'}}}}) -> the new spreadsheet, with spreadsheetId and spreadsheetUrl. It is created in the root of My Drive."},
-	batchUpdate = {method = "POST", path = "/spreadsheets/{spreadsheetId}:batchUpdate", read = false, body = true, required = {"requests"},
+	batchUpdate = {method = "POST", path = "/spreadsheets/{spreadsheetId}:batchUpdate", read = false, body = true, required = {requests = "array"},
 		help = "batchUpdate({spreadsheetId, requests, includeSpreadsheetInResponse?}) -> {spreadsheetId, replies}. Structure and formatting, applied all or nothing, e.g. requests={{addSheet={properties={title='Archive'}}}}. Request kinds include addSheet, deleteSheet, duplicateSheet, updateSheetProperties (rename or freeze, with a fields mask), insertDimension, deleteDimension (rows or columns), findReplace, sortRange, repeatCell (formatting), mergeCells, setDataValidation and addTable. They address cells with GridRange {sheetId, startRowIndex, endRowIndex, startColumnIndex, endColumnIndex}: zero-based, ends exclusive, sheetId from getSpreadsheet. Deleting a tab, rows or columns removes their data; only the spreadsheet's version history restores it."},
 }
 
@@ -175,10 +182,6 @@ for name, endpoint in endpoints do
 			args.spreadsheetId = spreadsheetId(args.spreadsheetId)
 		else
 			assert(args.spreadsheetId == nil, name .. " assigns the spreadsheetId")
-		end
-		for _, field in endpoint.required or NONE do
-			local value = args[field]
-			assert(type(value) == "table" and value[1] ~= nil, name .. " requires " .. field .. " as a nonempty array")
 		end
 		local result = invoke(name, withRange(endpoint, args), args)
 		for _, range in result.valueRanges or NONE do

@@ -92,19 +92,149 @@
           "gmail.googleapis.com"
         ],
         "method": [
-          "GET",
-          "POST",
-          "PUT",
-          "PATCH",
-          "DELETE"
+          "GET"
         ],
         "path": [
-          "/gmail/v1/users/me/*",
-          "/upload/gmail/v1/users/me/*"
+          "/gmail/v1/users/me/profile",
+          "/gmail/v1/users/me/labels",
+          "/gmail/v1/users/me/labels/{id}",
+          "/gmail/v1/users/me/messages",
+          "/gmail/v1/users/me/messages/{id}",
+          "/gmail/v1/users/me/messages/{id}/attachments/{attachmentId}",
+          "/gmail/v1/users/me/threads",
+          "/gmail/v1/users/me/threads/{id}",
+          "/gmail/v1/users/me/drafts",
+          "/gmail/v1/users/me/drafts/{id}",
+          "/gmail/v1/users/me/history",
+          "/gmail/v1/users/me/settings/sendAs"
         ]
       },
       "action": {
         "headers": {
+          "remove": [
+            "X-HTTP-Method-Override",
+            "X-HTTP-Method",
+            "X-Method-Override"
+          ],
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "gmail.googleapis.com"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/gmail/v1/users/me/messages/batchModify",
+          "/gmail/v1/users/me/messages/{id}/modify",
+          "/gmail/v1/users/me/messages/{id}/trash",
+          "/gmail/v1/users/me/messages/{id}/untrash",
+          "/gmail/v1/users/me/threads/{id}/modify",
+          "/gmail/v1/users/me/threads/{id}/trash",
+          "/gmail/v1/users/me/threads/{id}/untrash",
+          "/gmail/v1/users/me/labels",
+          "/gmail/v1/users/me/drafts/send",
+          "/upload/gmail/v1/users/me/messages/send",
+          "/upload/gmail/v1/users/me/drafts"
+        ]
+      },
+      "action": {
+        "headers": {
+          "remove": [
+            "X-HTTP-Method-Override",
+            "X-HTTP-Method",
+            "X-Method-Override"
+          ],
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "gmail.googleapis.com"
+        ],
+        "method": [
+          "PATCH",
+          "DELETE"
+        ],
+        "path": [
+          "/gmail/v1/users/me/labels/{id}"
+        ]
+      },
+      "action": {
+        "headers": {
+          "remove": [
+            "X-HTTP-Method-Override",
+            "X-HTTP-Method",
+            "X-Method-Override"
+          ],
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "gmail.googleapis.com"
+        ],
+        "method": [
+          "DELETE"
+        ],
+        "path": [
+          "/gmail/v1/users/me/drafts/{id}"
+        ]
+      },
+      "action": {
+        "headers": {
+          "remove": [
+            "X-HTTP-Method-Override",
+            "X-HTTP-Method",
+            "X-Method-Override"
+          ],
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "gmail.googleapis.com"
+        ],
+        "method": [
+          "PUT"
+        ],
+        "path": [
+          "/upload/gmail/v1/users/me/drafts/{id}"
+        ]
+      },
+      "action": {
+        "headers": {
+          "remove": [
+            "X-HTTP-Method-Override",
+            "X-HTTP-Method",
+            "X-Method-Override"
+          ],
           "set": {
             "Authorization": "Bearer {{auth.oauth.access_token}}"
           }

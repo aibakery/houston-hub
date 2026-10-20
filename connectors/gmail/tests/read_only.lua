@@ -8,12 +8,10 @@ return {
 		end}
 	end,
 	run = function(c)
-		for _, name in {"sendMessage", "createDraft", "updateDraft", "sendDraft", "deleteDraft", "modifyMessage", "batchModifyMessages", "trashMessage", "untrashMessage", "modifyThread", "trashThread", "untrashThread", "createLabel", "updateLabel", "deleteLabel"} do
-			assert(c[name] == nil, "read-only leaked " .. name)
-		end
-		for _, name in {"getProfile", "listLabels", "listMessages", "listThreads", "listDrafts", "listHistory", "listSendAs", "getMessage", "getMessages", "getThread", "getDraft", "getAttachment", "listMailFolders"} do
-			assert(type(c[name]) == "function", "missing " .. name)
-		end
+		local names = {}
+		for name in c do table.insert(names, name) end
+		table.sort(names)
+		assert(table.concat(names, ",") == "getAttachment,getDraft,getLabel,getMessage,getMessages,getProfile,getThread,listDrafts,listHistory,listLabels,listMailFolders,listMessages,listSendAs,listThreads", "read-only got " .. table.concat(names, ","))
 		assert(not pcall(c.listMailFolders, "unexpected"))
 		local folders = c.listMailFolders()
 		assert(json.encode(folders) == "[]", "empty folders must remain a JSON array")

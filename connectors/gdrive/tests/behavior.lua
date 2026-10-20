@@ -82,6 +82,7 @@ return {
 		assert(not pcall(c.uploadFile, {path = "uploads/report.pdf"}), "upload without a session URL")
 		sent = #requests
 		for _, id in {"..", "up/1", "up%2F1"} do assert(not pcall(c.uploadFile, {path = "uploads/report.pdf", fileId = id})) end
+		assert(not pcall(c.deleteFile, {fileId = "trash"}), "DELETE /files/trash would empty the trash")
 		assert(#requests == sent, "invalid file IDs must not reach Google")
 
 		responses = {{body = '{"id":"moved"}'}, {status = 204}}

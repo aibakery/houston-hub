@@ -1,11 +1,12 @@
 -- Google Drive API v3. Arguments and results keep Google's native field names.
-type Options = {[string]: any}
-type Endpoint = {method: string, path: string, read: boolean, query: {string}?, body: boolean?, defaults: Options?, list: string?, help: string}
 local API = "https://www.googleapis.com/drive/v3"
 local UPLOAD = "https://www.googleapis.com/upload/drive/v3"
 local FOLDER = "application/vnd.google-apps.folder"
 
 -- Request layer shared verbatim by the Google connectors (tools/validate checks they match).
+type Options = {[string]: any}
+type Endpoint = {method: string, path: string, read: boolean, query: {string}?, body: boolean?, defaults: Options?, list: string?, required: {[string]: string}?, help: string}
+
 local function text(value: any, field: string): string
 	assert(type(value) == "string" and value ~= "", field .. " must be a nonempty string")
 	return value
@@ -24,8 +25,8 @@ local function query(args: Options, names: {string}): string
 	for _, name in names do
 		local value = args[name]
 		args[name] = nil
-		for _, item in (if type(value) == "table" then value else {value}) do
-			assert(type(item) == "string" or type(item) == "number" or type(item) == "boolean", name .. " must be a string, number, boolean or an array of them")
+		for key, item in (if type(value) == "table" then value else {value}) do
+			assert(type(key) == "number" and (type(item) == "string" or type(item) == "number" or type(item) == "boolean"), name .. " must be a string, number, boolean or an array of them")
 			table.insert(parts, url.encode(name) .. "=" .. url.encode(item))
 		end
 	end
@@ -70,6 +71,12 @@ local function target(name: string, endpoint: Endpoint, args: Options): string
 	local defaults: Options = endpoint.defaults or {}
 	for key, value in defaults do
 		if args[key] == nil then args[key] = value end
+	end
+	local required: {[string]: string} = endpoint.required or {}
+	for field, kind in required do
+		local value = args[field]
+		assert(if kind == "array" then type(value) == "table" and value[1] ~= nil elseif kind == "string" then type(value) == "string" and value ~= "" else false,
+			name .. " requires " .. field .. " as a nonempty " .. kind)
 	end
 	local path = string.gsub(endpoint.path, "{(%w+)}", function(field: string)
 		local value = url.segment(text(args[field], field), field)
@@ -192,6 +199,14 @@ local function upload(input: any): any
 end
 
 exportEndpoints(endpoints)
+-- DELETE /files/trash is Drive's emptyTrash, which the {fileId} route would otherwise reach.
+local deleteFile = exports.deleteFile
+if deleteFile then
+	exports.deleteFile = function(args: any): any
+		assert(type(args) ~= "table" or args.fileId ~= "trash", "fileId 'trash' is not a file")
+		return deleteFile(args)
+	end
+end
 for name, endpoint in downloads do
 	export(name, true, function(args: Options): Options return download(name, endpoint, args) end, endpoint.help)
 end
