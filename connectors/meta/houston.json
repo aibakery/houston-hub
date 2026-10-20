@@ -1,0 +1,176 @@
+{
+  "schema_version": 1,
+  "name": "Meta Business Suite",
+  "files": [
+    "connector.lua"
+  ],
+  "icon": "icon.svg",
+  "config": {
+    "access": {
+      "default": "read-only",
+      "label": "Access",
+      "options": [
+        {
+          "label": "Read-only",
+          "value": "read-only"
+        },
+        {
+          "label": "Read and write",
+          "value": "read-write"
+        }
+      ],
+      "type": "string"
+    }
+  },
+  "auth": {
+    "token": {
+      "type": "manual",
+      "label": "Page access token",
+      "config": {
+        "token": {
+          "type": "secret",
+          "label": "Page access token",
+          "description": "A Page access token made from a system user in Meta Business Settings.",
+          "required": true
+        }
+      }
+    }
+  },
+  "proxy": [
+    {
+      "match": {
+        "protocol": "http",
+        "host": [
+          "graph.facebook.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/v26.0/{id}",
+          "/v26.0/{id}/children",
+          "/v26.0/{id}/comments",
+          "/v26.0/{id}/content_publishing_limit",
+          "/v26.0/{id}/conversations",
+          "/v26.0/{id}/feed",
+          "/v26.0/{id}/insights",
+          "/v26.0/{id}/media",
+          "/v26.0/{id}/messages",
+          "/v26.0/{id}/photos",
+          "/v26.0/{id}/published_posts",
+          "/v26.0/{id}/ratings",
+          "/v26.0/{id}/reactions",
+          "/v26.0/{id}/recent_media",
+          "/v26.0/{id}/replies",
+          "/v26.0/{id}/scheduled_posts",
+          "/v26.0/{id}/stories",
+          "/v26.0/{id}/tagged",
+          "/v26.0/{id}/tags",
+          "/v26.0/{id}/top_media",
+          "/v26.0/{id}/video_reels",
+          "/v26.0/{id}/videos"
+        ]
+      },
+      "action": {
+        "headers": {
+          "remove": [
+            "X-HTTP-Method-Override",
+            "X-HTTP-Method",
+            "X-Method-Override"
+          ],
+          "set": {
+            "Authorization": "Bearer {{auth.token.token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "graph.facebook.com"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/v26.0/{id}",
+          "/v26.0/{id}/comments",
+          "/v26.0/{id}/feed",
+          "/v26.0/{id}/media",
+          "/v26.0/{id}/media_publish",
+          "/v26.0/{id}/messages",
+          "/v26.0/{id}/photos",
+          "/v26.0/{id}/replies"
+        ]
+      },
+      "action": {
+        "headers": {
+          "remove": [
+            "X-HTTP-Method-Override",
+            "X-HTTP-Method",
+            "X-Method-Override"
+          ],
+          "set": {
+            "Authorization": "Bearer {{auth.token.token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "graph.facebook.com"
+        ],
+        "method": [
+          "DELETE"
+        ],
+        "path": [
+          "/v26.0/{id}"
+        ]
+      },
+      "action": {
+        "headers": {
+          "remove": [
+            "X-HTTP-Method-Override",
+            "X-HTTP-Method",
+            "X-Method-Override"
+          ],
+          "set": {
+            "Authorization": "Bearer {{auth.token.token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "graph-video.facebook.com"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/v26.0/{id}/videos"
+        ]
+      },
+      "action": {
+        "headers": {
+          "remove": [
+            "X-HTTP-Method-Override",
+            "X-HTTP-Method",
+            "X-Method-Override"
+          ],
+          "set": {
+            "Authorization": "Bearer {{auth.token.token}}"
+          }
+        }
+      }
+    }
+  ]
+}

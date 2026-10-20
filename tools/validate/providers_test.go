@@ -35,6 +35,7 @@ func TestEveryProviderAuthenticationAndTransport(t *testing.T) {
 		"stripe":      {"GET", "https://api.stripe.com/v1/balance"},
 		"wise":        {"GET", "https://api.wise.com/v2/profiles"},
 		"github":      {"GET", "https://api.github.com/user"},
+		"meta":        {"GET", "https://graph.facebook.com/v26.0/me"},
 	}
 	for _, path := range paths {
 		provider := filepath.Base(filepath.Dir(path))
