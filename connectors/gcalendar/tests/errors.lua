@@ -21,14 +21,15 @@ return {
 		end
 		upstream(403, '{"error":{"code":403,"message":"Rate Limit Exceeded","errors":[{"domain":"usageLimits","reason":"rateLimitExceeded"}]}}', {},
 			{"Google HTTP 403: Rate Limit Exceeded [rateLimitExceeded]", '"retryable":true'})
-		upstream(403, '{"error":{"code":403,"message":"User Rate Limit Exceeded","errors":[{"domain":"usageLimits","reason":"userRateLimitExceeded"}]}}', {},
-			{"[userRateLimitExceeded]", '"retryable":true'})
+		upstream(403, '{"error":{"code":403,"message":"User Rate Limit Exceeded","errors":[{"domain":"usageLimits","reason":"userRateLimitExceeded"}]}}', {["retry-after"] = {"7"}},
+			{"[userRateLimitExceeded]", "Retry-After: 7", '"retryable":true'})
 		upstream(403, '{"error":{"code":403,"message":"Request had insufficient authentication scopes.","status":"PERMISSION_DENIED","errors":[{"reason":"insufficientPermissions"}]}}', {},
 			{"HTTP 403 (PERMISSION_DENIED): Request had insufficient authentication scopes. [insufficientPermissions]", '"retryable":false'})
 		upstream(409, '{"error":{"code":409,"message":"The requested identifier already exists.","errors":[{"reason":"duplicate"}]}}', {},
 			{"HTTP 409", "[duplicate]", '"retryable":false'})
 		upstream(429, '{"error":{"code":429,"message":"Too many requests","status":"RESOURCE_EXHAUSTED"}}', {["retry-after"] = {"30"}},
 			{"HTTP 429 (RESOURCE_EXHAUSTED)", "Retry-After: 30", '"retryable":true'})
+		upstream(401, "not json", {}, {"Google HTTP 401", '"retryable":false'})
 		upstream(400, "<html><title>Error 400 (Bad Request)</title></html>", {}, {"Google HTTP 400", '"retryable":false'})
 		upstream(503, '{"error":{"code":503,"message":"Backend Error","errors":[{"reason":"backendError"}]}}', {}, {"HTTP 503", '"retryable":true'})
 		upstream(200, "<html>Maintenance</html>", {}, {"invalid JSON object"})
