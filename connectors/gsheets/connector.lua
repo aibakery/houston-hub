@@ -1,9 +1,10 @@
 -- Google Sheets API v4. Arguments and results keep Google's native field names.
-type Options = {[string]: any}
-type Endpoint = {method: string, path: string, read: boolean, query: {string}?, body: boolean?, defaults: Options?, list: string?, required: {[string]: string}?, help: string}
 local API = "https://sheets.googleapis.com/v4"
 
 -- Request layer shared verbatim by the Google connectors (tools/validate checks they match).
+type Options = {[string]: any}
+type Endpoint = {method: string, path: string, read: boolean, query: {string}?, body: boolean?, defaults: Options?, list: string?, required: {[string]: string}?, help: string}
+
 local function text(value: any, field: string): string
 	assert(type(value) == "string" and value ~= "", field .. " must be a nonempty string")
 	return value
@@ -63,18 +64,16 @@ local function call(operation: string, method: string, href: string, body: any?)
 		body = if body ~= nil then json.encode(body) else nil})))
 end
 
--- Required fields map to "string" or "array", each of which must be nonempty.
-local NO_FIELDS: {[string]: string} = table.freeze({})
-
 -- Moves {placeholders} and declared query fields from args into the URL; remaining fields form the JSON body.
 local function target(name: string, endpoint: Endpoint, args: Options): string
 	local defaults: Options = endpoint.defaults or {}
 	for key, value in defaults do
 		if args[key] == nil then args[key] = value end
 	end
-	for field, kind in endpoint.required or NO_FIELDS do
+	local required: {[string]: string} = endpoint.required or {}
+	for field, kind in required do
 		local value = args[field]
-		assert(if kind == "array" then type(value) == "table" and value[1] ~= nil else type(value) == "string" and value ~= "",
+		assert(if kind == "array" then type(value) == "table" and value[1] ~= nil elseif kind == "string" then type(value) == "string" and value ~= "" else false,
 			name .. " requires " .. field .. " as a nonempty " .. kind)
 	end
 	local path = string.gsub(endpoint.path, "{(%w+)}", function(field: string)
