@@ -96,3 +96,81 @@ func TestGoogleCalendarScopesAndRoutes(t *testing.T) {
 			"POST "+api+"/channels/stop", "GET "+team+"/events/%2e%2e/acl", "GET "+api+"/calendars/primary%2F..%2Facl/events")
 	}
 }
+
+func TestGmailScopesAndRoutes(t *testing.T) {
+	m := parseManifest(t, "../../connectors/gmail/houston.json")
+	const api = "https://gmail.googleapis.com/gmail/v1/users/me"
+	const upload = "https://gmail.googleapis.com/upload/gmail/v1/users/me"
+	for _, access := range []string{"read-only", "read-write"} {
+		scope := "gmail.readonly"
+		if access == "read-write" {
+			scope = "gmail.modify"
+		}
+		r := resolveGoogle(t, m, access, scope)
+		reads := []string{"GET " + api + "/profile", "GET " + api + "/labels", "GET " + api + "/labels/Label_1",
+			"GET " + api + "/messages?q=is%3Aunread", "GET " + api + "/messages/m1?format=full", "GET " + api + "/messages/m1/attachments/a1",
+			"GET " + api + "/threads", "GET " + api + "/threads/t1", "GET " + api + "/drafts", "GET " + api + "/drafts/d1",
+			"GET " + api + "/history?startHistoryId=1", "GET " + api + "/settings/sendAs"}
+		assertRoutes(t, r, "fixture-token", true, reads...)
+		assertStripsMethodOverrides(t, r, reads...)
+		writes := []string{"POST " + api + "/messages/batchModify", "POST " + api + "/messages/m1/modify", "POST " + api + "/messages/m1/trash",
+			"POST " + api + "/messages/m1/untrash", "POST " + api + "/threads/t1/modify", "POST " + api + "/threads/t1/trash",
+			"POST " + api + "/threads/t1/untrash", "POST " + api + "/labels", "PATCH " + api + "/labels/Label_1", "DELETE " + api + "/labels/Label_1",
+			"POST " + api + "/drafts/send", "DELETE " + api + "/drafts/d1", "POST " + upload + "/messages/send?uploadType=multipart",
+			"POST " + upload + "/drafts?uploadType=multipart", "PUT " + upload + "/drafts/d1?uploadType=multipart"}
+		assertRoutes(t, r, "fixture-token", access == "read-write", writes...)
+		if access == "read-write" {
+			assertStripsMethodOverrides(t, r, writes...)
+		}
+		// The token stays off Google's OAuth endpoints, other Google APIs, lookalike hosts and Gmail
+		// routes the connector never calls: permanent deletes, imports, inserts, settings, watches and batches.
+		assertRoutes(t, r, "fixture-token", false,
+			"POST https://oauth2.googleapis.com/token", "GET https://www.googleapis.com/drive/v3/files",
+			"GET https://gmail.googleapis.com.evil.test/gmail/v1/users/me/profile", "GET https://www.googleapis.com/gmail/v1/users/me/profile",
+			"GET https://gmail.googleapis.com/gmail/v1/users/other@example.com/profile", "POST https://gmail.googleapis.com/batch/gmail/v1",
+			"DELETE "+api+"/messages/m1", "POST "+api+"/messages/batchDelete", "DELETE "+api+"/threads/t1", "POST "+api+"/messages/import",
+			"POST "+api+"/messages", "POST "+api+"/messages/send", "POST "+upload+"/messages/import", "POST "+upload+"/messages",
+			"PUT "+api+"/labels/Label_1", "PUT "+api+"/drafts/d1", "POST "+api+"/drafts", "POST "+api+"/watch", "POST "+api+"/stop",
+			"GET "+api+"/settings/forwardingAddresses", "POST "+api+"/settings/filters", "PUT "+api+"/settings/vacation",
+			"POST "+api+"/settings/sendAs", "GET "+api+"/messages/%2e%2e/profile", "GET "+api+"/messages/m1%2F..%2Fx")
+	}
+}
+
+func TestGoogleDriveScopesAndRoutes(t *testing.T) {
+	m := parseManifest(t, "../../connectors/gdrive/houston.json")
+	const api = "https://www.googleapis.com/drive/v3"
+	const upload = "https://www.googleapis.com/upload/drive/v3"
+	for _, access := range []string{"read-only", "read-write"} {
+		scope := "drive.readonly"
+		if access == "read-write" {
+			scope = "drive"
+		}
+		r := resolveGoogle(t, m, access, scope)
+		reads := []string{"GET " + api + "/about?fields=user", "GET " + api + "/files?q=trashed%3Dfalse", "GET " + api + "/files/f1",
+			"GET " + api + "/files/f1?alt=media", "GET " + api + "/files/f1/export?mimeType=text%2Fplain", "GET " + api + "/files/f1/permissions",
+			"GET " + api + "/drives"}
+		assertRoutes(t, r, "fixture-token", true, reads...)
+		assertStripsMethodOverrides(t, r, reads...)
+		writes := []string{"POST " + api + "/files", "PATCH " + api + "/files/f1", "POST " + api + "/files/f1/copy", "DELETE " + api + "/files/f1",
+			"POST " + api + "/files/f1/permissions", "DELETE " + api + "/files/f1/permissions/p1",
+			"POST " + upload + "/files?uploadType=resumable", "PATCH " + upload + "/files/f1?uploadType=resumable",
+			"PUT " + upload + "/files?uploadType=resumable&upload_id=xyz", "PUT " + upload + "/files/f1?uploadType=resumable&upload_id=xyz"}
+		assertRoutes(t, r, "fixture-token", access == "read-write", writes...)
+		// emptyTrash shares the {fileId} route, so only the connector's deleteFile check refuses it.
+		assertRoutes(t, r, "fixture-token", access == "read-write", "DELETE "+api+"/files/trash")
+		if access == "read-write" {
+			assertStripsMethodOverrides(t, r, writes...)
+		}
+		// The token stays off Google's OAuth endpoints, other Google APIs, lookalike hosts and Drive
+		// routes the connector never calls: emptying the trash, shared-drive and permission changes,
+		// comments, revisions, watches and batches.
+		assertRoutes(t, r, "fixture-token", false,
+			"POST https://oauth2.googleapis.com/token", "GET https://www.googleapis.com/calendar/v3/calendars/primary",
+			"GET https://www.googleapis.com.evil.test/drive/v3/files", "GET https://content.googleapis.com/drive/v3/files",
+			"POST https://www.googleapis.com/batch/drive/v3", "POST "+api+"/drives", "DELETE "+api+"/drives/d1",
+			"PATCH "+api+"/files/f1/permissions/p1", "POST "+api+"/files/f1/watch", "POST "+api+"/changes/watch", "GET "+api+"/changes",
+			"POST "+api+"/files/f1/comments", "GET "+api+"/files/f1/revisions", "PUT "+api+"/files/f1", "POST "+api+"/files/generateIds",
+			"GET "+api+"/files/f1/permissions/p1", "POST "+upload+"/files/f1", "GET "+upload+"/files/f1",
+			"GET "+api+"/files/%2e%2e/about", "GET "+api+"/files/f1%2F..%2Fx")
+	}
+}

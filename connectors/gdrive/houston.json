@@ -92,19 +92,138 @@
           "www.googleapis.com"
         ],
         "method": [
-          "GET",
-          "POST",
-          "PUT",
-          "PATCH",
-          "DELETE"
+          "GET"
         ],
         "path": [
-          "/drive/v3/*",
-          "/upload/drive/v3/*"
+          "/drive/v3/about",
+          "/drive/v3/files",
+          "/drive/v3/files/{fileId}",
+          "/drive/v3/files/{fileId}/export",
+          "/drive/v3/files/{fileId}/permissions",
+          "/drive/v3/drives"
         ]
       },
       "action": {
         "headers": {
+          "remove": [
+            "X-HTTP-Method-Override",
+            "X-HTTP-Method",
+            "X-Method-Override"
+          ],
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "www.googleapis.com"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/drive/v3/files",
+          "/drive/v3/files/{fileId}/copy",
+          "/drive/v3/files/{fileId}/permissions",
+          "/upload/drive/v3/files"
+        ]
+      },
+      "action": {
+        "headers": {
+          "remove": [
+            "X-HTTP-Method-Override",
+            "X-HTTP-Method",
+            "X-Method-Override"
+          ],
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "www.googleapis.com"
+        ],
+        "method": [
+          "PATCH"
+        ],
+        "path": [
+          "/drive/v3/files/{fileId}",
+          "/upload/drive/v3/files/{fileId}"
+        ]
+      },
+      "action": {
+        "headers": {
+          "remove": [
+            "X-HTTP-Method-Override",
+            "X-HTTP-Method",
+            "X-Method-Override"
+          ],
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "www.googleapis.com"
+        ],
+        "method": [
+          "DELETE"
+        ],
+        "path": [
+          "/drive/v3/files/{fileId}",
+          "/drive/v3/files/{fileId}/permissions/{permissionId}"
+        ]
+      },
+      "action": {
+        "headers": {
+          "remove": [
+            "X-HTTP-Method-Override",
+            "X-HTTP-Method",
+            "X-Method-Override"
+          ],
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "www.googleapis.com"
+        ],
+        "method": [
+          "PUT"
+        ],
+        "path": [
+          "/upload/drive/v3/files",
+          "/upload/drive/v3/files/{fileId}"
+        ]
+      },
+      "action": {
+        "headers": {
+          "remove": [
+            "X-HTTP-Method-Override",
+            "X-HTTP-Method",
+            "X-Method-Override"
+          ],
           "set": {
             "Authorization": "Bearer {{auth.oauth.access_token}}"
           }
