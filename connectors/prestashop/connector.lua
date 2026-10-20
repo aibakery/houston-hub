@@ -6,21 +6,20 @@ local API = "https://" .. STORE .. "/api/"
 local DOCS = "https://devdocs.prestashop-project.org/9/webservice/resources/"
 local NONE: Options = table.freeze({})
 
--- Each resource's singular and plural JSON nodes; the plural is also its path,
--- except for order_slip.
-local NODES = {
-	{"address", "addresses"}, {"carrier", "carriers"}, {"cart", "carts"}, {"cart_rule", "cart_rules"},
-	{"category", "categories"}, {"combination", "combinations"}, {"country", "countries"},
-	{"currency", "currencies"}, {"customer", "customers"}, {"language", "languages"},
-	{"manufacturer", "manufacturers"}, {"order", "orders"}, {"order_carrier", "order_carriers"},
-	{"order_detail", "order_details"}, {"order_history", "order_histories"}, {"order_invoice", "order_invoices"},
-	{"order_payment", "order_payments"}, {"order_slip", "order_slips", "order_slip"}, {"order_state", "order_states"},
-	{"product", "products"}, {"stock_available", "stock_availables"}, {"supplier", "suppliers"},
-}
-local WRITES: {[string]: {string}} = {
-	create = {"customer", "order_history", "product"},
-	update = {"customer", "order_carrier", "product", "stock_available"},
-	delete = {"customer", "product"},
+-- Each resource's singular and plural JSON nodes, its path where that is not the
+-- plural, and the writes read-write connections get.
+type Resource = {one: string, many: string, path: string?, writes: {string}?}
+local RESOURCES: {Resource} = {
+	{one = "address", many = "addresses"}, {one = "carrier", many = "carriers"}, {one = "cart", many = "carts"},
+	{one = "cart_rule", many = "cart_rules"}, {one = "category", many = "categories"},
+	{one = "combination", many = "combinations"}, {one = "country", many = "countries"},
+	{one = "currency", many = "currencies"}, {one = "customer", many = "customers", writes = {"create", "update", "delete"}},
+	{one = "language", many = "languages"}, {one = "manufacturer", many = "manufacturers"}, {one = "order", many = "orders"},
+	{one = "order_carrier", many = "order_carriers", writes = {"update"}}, {one = "order_detail", many = "order_details"},
+	{one = "order_history", many = "order_histories", writes = {"create"}}, {one = "order_invoice", many = "order_invoices"},
+	{one = "order_payment", many = "order_payments"}, {one = "order_slip", many = "order_slips", path = "order_slip"},
+	{one = "order_state", many = "order_states"}, {one = "product", many = "products", writes = {"create", "update", "delete"}},
+	{one = "stock_available", many = "stock_availables", writes = {"update"}}, {one = "supplier", many = "suppliers"},
 }
 -- Only these resources email customers, when sendemail is set.
 local SENDS_EMAIL = {createOrderHistory = true, updateOrderCarrier = true}
@@ -270,10 +269,8 @@ end
 local GET_OPTIONS = {language = true, id_shop = true}
 local exports: {[string]: any} = {}
 local signatures: {[string]: string} = {}
-local resources: {[string]: {string}} = {}
-for _, nodes in NODES do
-	local one, many, path = nodes[1], nodes[2], nodes[3] or nodes[2]
-	resources[one] = {one, many, path}
+for _, resource in RESOURCES do
+	local one, many, path = resource.one, resource.many, resource.path or resource.many
 	local listName, getName = "list" .. camel(many), "get" .. camel(one)
 	exports[listName] = function(opts: Options?): any
 		local value = request(listName, "GET", path, listQuery(opts), nil)
@@ -289,12 +286,9 @@ for _, nodes in NODES do
 	end
 	signatures[listName] = "({display?, filter?, sort?, limit?, offset?, language?, id_shop?, schema?}?) -> {" .. many .. ": [...]}"
 	signatures[getName] = "(id, {language?, id_shop?}?) -> {" .. one .. ": {...}}"
-end
 
-if config.access == "read-write" then
-	for verb, nodes in WRITES do
-		for _, node in nodes do
-			local one, path = resources[node][1], resources[node][3]
+	if config.access == "read-write" and resource.writes then
+		for _, verb in resource.writes do
 			local name = verb .. camel(one)
 			local allowed = {id_shop = true, sendemail = SENDS_EMAIL[name]}
 			local function query(input: Options?): string
