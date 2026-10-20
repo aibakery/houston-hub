@@ -93,17 +93,107 @@
           "www.googleapis.com"
         ],
         "method": [
-          "GET",
-          "POST",
-          "PATCH",
-          "DELETE"
+          "GET"
         ],
         "path": [
-          "/calendar/v3/*"
+          "/calendar/v3/users/me/calendarList",
+          "/calendar/v3/colors",
+          "/calendar/v3/calendars/{calendarId}",
+          "/calendar/v3/calendars/{calendarId}/events",
+          "/calendar/v3/calendars/{calendarId}/events/{eventId}",
+          "/calendar/v3/calendars/{calendarId}/events/{eventId}/instances"
         ]
       },
       "action": {
         "headers": {
+          "remove": [
+            "X-HTTP-Method-Override",
+            "X-HTTP-Method",
+            "X-Method-Override"
+          ],
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      }
+    },
+    {
+      "match": {
+        "protocol": "http",
+        "host": [
+          "www.googleapis.com"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/calendar/v3/freeBusy"
+        ]
+      },
+      "action": {
+        "headers": {
+          "remove": [
+            "X-HTTP-Method-Override",
+            "X-HTTP-Method",
+            "X-Method-Override"
+          ],
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "www.googleapis.com"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/calendar/v3/calendars/{calendarId}/events",
+          "/calendar/v3/calendars/{calendarId}/events/quickAdd",
+          "/calendar/v3/calendars/{calendarId}/events/{eventId}/move"
+        ]
+      },
+      "action": {
+        "headers": {
+          "remove": [
+            "X-HTTP-Method-Override",
+            "X-HTTP-Method",
+            "X-Method-Override"
+          ],
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "www.googleapis.com"
+        ],
+        "method": [
+          "PATCH",
+          "DELETE"
+        ],
+        "path": [
+          "/calendar/v3/calendars/{calendarId}/events/{eventId}"
+        ]
+      },
+      "action": {
+        "headers": {
+          "remove": [
+            "X-HTTP-Method-Override",
+            "X-HTTP-Method",
+            "X-Method-Override"
+          ],
           "set": {
             "Authorization": "Bearer {{auth.oauth.access_token}}"
           }
