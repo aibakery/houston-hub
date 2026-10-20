@@ -43,8 +43,8 @@ return {
 
 		shop.listProducts({display = {"id", "reference", "price"}, filter = {reference = "%[MUG]%"}, sort = {"price_ASC", "id_DESC"}})
 		assert(last().url == API .. "products?display=%5Bid%2Creference%2Cprice%5D&filter%5Breference%5D=%25%5BMUG%5D%25&sort=%5Bprice_ASC%2Cid_DESC%5D&limit=0%2C50", last().url)
-		shop.listOrderSlips({filter = {id_order = 12}, limit = 1000})
-		assert(last().url == API .. "order_slip?display=full&filter%5Bid_order%5D=%5B12%5D&limit=0%2C1000", last().url)
+		shop.listOrderSlips({filter = {id_order = 12}, limit = 100})
+		assert(last().url == API .. "order_slip?display=full&filter%5Bid_order%5D=%5B12%5D&limit=0%2C100", last().url)
 		shop.listProducts({schema = "synopsis", language = 2})
 		assert(last().url == API .. "products?schema=synopsis&language=2", last().url)
 
