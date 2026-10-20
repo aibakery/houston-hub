@@ -116,6 +116,9 @@ return {
 		-- An error body beyond the 16 KiB prefix no longer decodes as JSON.
 		hidden(500, '{"errors":[{"code":127,"message":"XML error Original XML : <customer><passwd>correct &amp; horse</passwd><website>' .. string.rep("x", 17000))
 		hidden(500, "<b>Warning</b>: correct & horse")
+		upstream(400, '{"errors":{"email":"taken"}}', {}, {"HTTP 400: {", "taken"})
+		upstream(503, "<html><head><style>\nbody { color: red }</style><script>var challenge = 1</script></head><body><!-- WAF --><h1>Blocked</h1></body></html>",
+			{}, {"HTTP 503: WAF Blocked ;"})
 		upstream(429, "Too many requests", {["retry-after"] = {"30"}}, {"HTTP 429: Too many requests", "Retry-After: 30", '"retryable":true'})
 		upstream(301, "", {location = {"https://www.shop.example.com/api/order_carriers/1"}},
 			{"HTTP 301", "redirected to https://www.shop.example.com/", "store domain"})

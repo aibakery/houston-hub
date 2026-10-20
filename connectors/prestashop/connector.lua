@@ -221,6 +221,15 @@ end
 
 -- PrestaShop's XML errors and PHP warnings quote the request body, so a new customer's
 -- password never appears in an error, raw or XML-escaped.
+-- Host firewalls answer with HTML pages; keep their visible text and comments, which
+-- name the blocking layer.
+local function excerpt(raw: string): string
+	local text = string.gsub(raw, "<!%-%-(.-)%-%->", " %1 ")
+	for _, tag in {"script", "style"} do text = string.gsub(text, "<" .. tag .. "[%s>].-</" .. tag .. ">", " ") end
+	text = string.gsub(string.gsub(text, "<[^>]*>", " "), "%s+", " ")
+	return string.sub((string.gsub(text, "^ ", "")), 1, 300)
+end
+
 -- A write that failed late or answered unreadably may still have been applied.
 local SAVED = "; the change may have been saved: read the record before repeating it"
 
@@ -236,10 +245,10 @@ local function failStatus(name: string, response: HttpResponse, method: string, 
 	local message = "PrestaShop HTTP " .. tostring(response.statusCode)
 	local raw = await(response.body:readPrefix(16 * 1024))
 	local ok, value = pcall(json.decode, raw)
-	local envelope = ok and type(value) == "table" and type(value.errors) == "table"
+	local envelope = ok and type(value) == "table" and type(value.errors) == "table" and #value.errors > 0
 	if envelope then
-		for index, item in value.errors do
-			if index > 5 then break end
+		for index = 1, math.min(#value.errors, 5) do
+			local item = value.errors[index]
 			if type(item) == "table" then
 				if item.code ~= nil then message ..= " [" .. tostring(item.code) .. "]" end
 				-- An XML error [127] echoes the request body, which can hold a customer password.
@@ -249,9 +258,7 @@ local function failStatus(name: string, response: HttpResponse, method: string, 
 		end
 	elseif string.match(raw, "%S") then
 		-- A body cut by the prefix limit no longer decodes; still drop the echoed XML.
-		local text = string.match(raw, "^(.-)Original XML") or raw
-		text = string.gsub(string.gsub(string.gsub(text, "<!%-%-(.-)%-%->", " %1 "), "<[^>]*>", " "), "%s+", " ")
-		message ..= ": " .. string.sub((string.gsub(text, "^ ", "")), 1, 300)
+		message ..= ": " .. excerpt(string.match(raw, "^(.-)Original XML") or raw)
 	end
 	if response.statusCode == 401 and string.match(raw, "^%s*401 Unauthorized%s*$") then
 		message ..= ". PrestaShop received no key: the web server may drop the Authorization header"
