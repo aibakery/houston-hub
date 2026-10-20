@@ -96,7 +96,12 @@ local function filterValue(value: any, name: string): string
 	end
 	if type(value) == "table" then
 		local values: {string} = {}
-		for _, item in list(value, name) do table.insert(values, scalar(item, name)) end
+		for _, item in list(value, name) do
+			local text = scalar(item, name)
+			-- These would turn an exact match into an OR, a range or another value.
+			assert(text ~= "" and not string.find(text, "[|,%[%]]"), name .. " values must be nonempty without | , [ or ]; use a filter string")
+			table.insert(values, text)
+		end
 		return "[" .. table.concat(values, "|") .. "]"
 	end
 	return "[" .. scalar(value, name) .. "]"

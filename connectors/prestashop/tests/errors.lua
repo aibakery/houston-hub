@@ -35,6 +35,9 @@ return {
 		rejected(function() shop.listOrders({filter = {reference = ""}}) end, "filter.reference must be nonempty")
 		rejected(function() shop.listOrders({filter = {id = json.decode("[]")}}) end, "filter.id must be a nonempty array")
 		rejected(function() shop.listOrders({filter = {id = {nested = 1}}}) end, "filter.id must be")
+		for _, value in {"A|B", "10,20", "[x]", ""} do
+			rejected(function() shop.listProducts({filter = {reference = {"MUG", value}}}) end, "filter.reference values must be nonempty without")
+		end
 		-- Filtering on a withheld field would reveal it one character at a time.
 		rejected(function() shop.listCustomers({filter = {passwd = "[$2y]%"}}) end, "passwd is withheld")
 		rejected(function() shop.listOrders({filter = {secure_key = "[a]%"}}) end, "secure_key is withheld")
