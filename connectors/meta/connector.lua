@@ -203,8 +203,10 @@ end
 local ECHOED = string.rep("[%w_-]", 30) .. "[%w_-]*"
 local function scrubError(text: string): string
 	local value = string.gsub(text, "access_token=[^&#%s\"]*", "access_token=[redacted]")
-	value = string.gsub(value, "%f[%w]EAA" .. ECHOED, "EAA[redacted]")
-	return (string.gsub(value, "%f[%w]IG" .. ECHOED, "IG[redacted]"))
+	value = string.gsub(value, "access_token%%3[Dd][^&#%s\"]*", "access_token%%3D[redacted]")
+	-- No word boundary: an echoed token may follow %3D or %22.
+	value = string.gsub(value, "EAA" .. ECHOED, "EAA[redacted]")
+	return (string.gsub(value, "IG" .. ECHOED, "IG[redacted]"))
 end
 
 -- Results never carry credentials: Meta's links (graph, l.facebook.com redirects and the like)
@@ -216,7 +218,7 @@ local function redact(value: any)
 		if type(key) == "string" and string.find(string.lower(key), "token", 1, true) then
 			value[key] = nil
 		elseif type(child) == "string" and string.find(child, "access_token", 1, true)
-			and string.match(child, "^https?://[%w.-]*facebook%.com/") then
+			and string.match(child, "^https?://[%w.-]*facebook%.com/[^%s]*$") then
 			-- A link still naming access_token wraps it more deeply than scrub reaches, so it
 			-- becomes null, which also keeps an array's shape.
 			local clean = scrub(child)
@@ -236,9 +238,9 @@ local function sealPaging(name: string, value: any)
 	if type(paging) ~= "table" then return end
 	if type(paging.next) == "string" then
 		local link = scrub(paging.next)
-		if string.find(link, "access_token", 1, true) then
+		if string.find(link, "access_token", 1, true) or string.sub(link, 1, #API + 1) ~= API .. "/" then
 			houston.fail({operation = name, layer = "upstream", retryable = false,
-				message = "Meta returned a paging link that still carries a token; narrow the request with since, until or limit"})
+				message = "Meta returned a paging link Houston cannot replay (it carries a token or leaves API " .. VERSION .. "); narrow the request with since, until or limit"})
 		end
 		paging.next = houston.seal({operation = name, url = link})
 	end
@@ -276,7 +278,10 @@ local function fail(name: string, response: HttpResponse, write: boolean, raw: s
 	if problem then
 		local code, subcode = int(problem.code), int(problem.error_subcode)
 		if code then message ..= " (#" .. code .. (if subcode then "/" .. subcode else "") .. ")" end
-		if type(problem.message) == "string" then message ..= ": " .. string.sub(scrubError(problem.message), 1, 600) end
+		-- Meta repeats the code at the start of its message, as in "(#10) This endpoint requires...".
+		if type(problem.message) == "string" then
+			message ..= ": " .. string.sub((string.gsub(scrubError(problem.message), "^%(#[%d/]+%)%s*", "")), 1, 600)
+		end
 		if type(problem.error_user_msg) == "string" then message ..= " " .. string.sub(scrubError(problem.error_user_msg), 1, 600) end
 		-- Meta's code decides, so a 500 for an unsupported request is final.
 		local number = tonumber(code)
@@ -323,10 +328,15 @@ local function multipart(args: Options): (any, string)
 		table.insert(parts, {name = key, body = if type(value) == "table" then json.encode(value) else plain(value)})
 	end
 	assert(await(fs.stat(source)).isFile, "path must be a session file")
-	-- http.multipart owns the file and closes it with the body.
-	table.insert(parts, {name = "source", filename = string.match(source, "[^/]+$"), contentType = "application/octet-stream",
-		body = fs.open(source, "r")})
-	return http.multipart(parts)
+	-- http.multipart owns the file and closes it with the body; close it here if that fails.
+	local file = fs.open(source, "r")
+	table.insert(parts, {name = "source", filename = string.match(source, "[^/]+$"), contentType = "application/octet-stream", body = file})
+	local ok, body, contentType = pcall(http.multipart, parts)
+	if not ok then
+		pcall(function() await(file:close()) end)
+		error(body, 0)
+	end
+	return body, contentType
 end
 
 local function request(name: string, endpoint: Endpoint, input: Options?): any
@@ -415,7 +425,7 @@ exports.help = function(): string
 		"Paging: lists return one page, {data, paging}. limit sets its size (default 25) and paging.cursors.after is the next call's after. While paging.next is present, call the same function with {next = result.paging.next} alone for the next page; stop when it is absent, as a page can be empty yet have next. To page backward, functions listing before? take before=result.paging.cursors.before; time-paged lists such as listFeed and getInsights take an earlier since/until. Expanded edges, such as business_discovery media, are paged with their own .after(cursor) modifier instead. until is a Luau keyword: write it [\"until\"] = value.",
 		"Insights: getInsights({object, metric, period?, since?, until?, ...}); since and until take Unix times or dates, at most 90 days apart for the Page, and paging.next moves to the following window; insights links continue past today, so stop once a window ends after the range you need. Page (object='me'): page_media_view, page_total_media_view_unique, page_daily_follows_unique, page_daily_unfollows_unique, page_post_engagements, page_total_actions, page_views_total, page_video_views, with period day, week or days_28, and page_follows with period day; needs 100 or more followers. Posts: post_media_view, post_total_media_view_unique, post_clicks, post_reactions_by_type_total, post_video_views (period lifetime). Instagram account: reach, views, accounts_engaged, total_interactions, likes, comments, shares, saves, replies, follows_and_unfollows, profile_links_taps, with period='day' and metric_type='total_value' (breakdown='media_product_type' splits most), covering the last 24 hours unless since/until are given; follower_demographics and engaged_audience_demographics need period='lifetime', timeframe='this_month' and breakdown age, city, country or gender. Instagram media: views, reach, likes, comments, shares, saved, total_interactions; reels add ig_reels_avg_watch_time, stories navigation (24 hours only). impressions, plays and page_fans no longer exist.",
 		"Inbox: listConversations({platform='messenger' or 'instagram'}), then listMessages({conversation=thread.id}). Meta returns conversations with your customers only once the app has Advanced Access for messaging.",
-		"Read-only connections omit writes. Meta also applies the token's permissions and the system user's tasks on the Page; a missing one fails with code 10 or 200 naming it. Errors give the HTTP status, Meta's code/subcode, message and fbtrace_id; rate limits (codes 4, 17, 32, 341, 613, 80000-80014) are retryable and may say when calls succeed again; temporary errors and 5xx are retryable for reads only, since a write may already have been applied.",
+		"Read-only connections omit writes. Meta also applies the token's permissions and the system user's tasks on the Page; a missing one fails with code 10 or 200 naming it. Errors give the HTTP status, Meta's code/subcode, message and fbtrace_id; retryable says whether repeating the call is safe: rate limits (codes 4, 17, 32, 341, 613, 80000-80014, which may say when calls succeed again) unless a write got a 5xx, and for reads also temporary errors (codes 1, 2) and a 5xx without another Meta code; a write that may already have been applied never is.",
 	}
 	local writing = {
 		"Replying: sendMessage({recipient={id=psid}, messaging_type='RESPONSE', message={text='Thanks!'}}) answers within 24 hours of the person's last message; after that Meta requires messaging_type='MESSAGE_TAG' with a tag it still accepts, such as 'HUMAN_AGENT' (within 7 days, once Meta approved its Human Agent feature). sendMessage({recipient={comment_id=id}, message}) sends the one private reply allowed to a Facebook comment, within 7 days; Instagram comments use sendInstagramPrivateReply, and if Meta refuses that route, sendMessage with the Instagram comment_id. Instagram texts are at most 1,000 bytes; recipients are the IDs in participants or from.",

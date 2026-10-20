@@ -116,14 +116,14 @@ return {
 			kept = "https://graph.facebook.com/v26.0/101/feed?since=x%3F&access_token=EAA7", bare = "https://graph.facebook.com/v26.0/101/feed?access_token=EAA9#top", deep = "https://graph.facebook.com/v26.0/101/feed?r=x%253Faccess_token%253DEAA8", piped = "https://graph.facebook.com/v26.0/101/feed?access_token=123%7Csecret&limit=25", nested = "https://graph.facebook.com/v26.0/101/feed?r=x%3Fa%3D1%26access_token%3D123%7Csecret%26b%3D2", named = "https://graph.facebook.com/v26.0/101/feed?limit=5&page_access_token=kept&after=Q",
 			comments = {data = {}, paging = {next = "https://graph.facebook.com/v26.0/101_1/comments?access_token=EAA1&access_token=EAA2&limit=5",
 				previous = "https://graph.facebook.com/v26.0/101_1/comments?limit=5&redirect=x%3Faccess_token%3DEAAGZBpage0123456789abcdefghijklmnopqrstuvwxyz%26ref%3Dabc"}},
-			note = "see https://x.test/cb?access_token=abc&x=1 and thanks", cursors = {after = "QUFB_EAAGZBpage0123456789abcdefghijklmnopqrstuvwxyz"}, comment = "Is EAAGLES2024 still open?"}))
+			note = "see https://x.test/cb?access_token=abc&x=1 and thanks", message = "https://www.facebook.com/x?access_token=abc is this the right link? thanks", cursors = {after = "QUFB_EAAGZBpage0123456789abcdefghijklmnopqrstuvwxyz"}, comment = "Is EAAGLES2024 still open?"}))
 		local leaky = meta.getObject({id = "101", fields = "id,accounts,comments"})
 		assert(leaky.accounts.data[1].name == "Other" and leaky.accounts.data[1].access_token == nil and leaky.accounts.data[1].page_token == nil)
 		assert(leaky.comments.paging.next == "https://graph.facebook.com/v26.0/101_1/comments?limit=5", leaky.comments.paging.next)
 		-- Links that still name a token become JSON null, keeping arrays dense.
 		local NULL = json.decode("null")
 		assert(leaky.comments.paging.previous == NULL)
-		assert(leaky.note == "see https://x.test/cb?access_token=abc&x=1 and thanks" and leaky.comment == "Is EAAGLES2024 still open?", leaky.note)
+		assert(leaky.message == "https://www.facebook.com/x?access_token=abc is this the right link? thanks" and leaky.note == "see https://x.test/cb?access_token=abc&x=1 and thanks" and leaky.comment == "Is EAAGLES2024 still open?", leaky.note)
 		assert(leaky.piped == "https://graph.facebook.com/v26.0/101/feed?limit=25" and leaky.nested == NULL and leaky.wrapped == NULL and leaky.plain == "http://graph.facebook.com/v26.0/101/feed?limit=1" and leaky.kept == "https://graph.facebook.com/v26.0/101/feed?since=x%3F", leaky.kept)
 		assert(leaky.bare == "https://graph.facebook.com/v26.0/101/feed#top" and leaky.deep == NULL and leaky.named == NULL)
 		assert(leaky.cursors.after == "QUFB_EAAGZBpage0123456789abcdefghijklmnopqrstuvwxyz", leaky.cursors.after)
@@ -141,6 +141,10 @@ return {
 		rejected(function() meta.listFeed({next = "https://graph.facebook.com/v26.0/101/feed?method=delete"}) end, "paging.next value of an earlier")
 		rejected(function() meta.listFeed({next = comments.paging.next}) end, "paging.next value of an earlier")
 		rejected(function() meta.listComments({next = houston.seal({operation = "listComments", url = "https://evil.test/v26.0/me"})}) end, "paging.next value of an earlier")
+		-- So does a link outside the pinned API version.
+		respond(json.encode({data = {}, paging = {next = "https://graph.facebook.com/101/feed?after=QUZU"}}))
+		local oldOk, oldErr = pcall(function() meta.listFeed() end)
+		assert(not oldOk and string.find(tostring(oldErr), "paging link", 1, true), tostring(oldErr))
 		-- A paging link the scrub cannot clean fails the call instead of ending the list early.
 		respond(json.encode({data = {{id = "101_1"}}, paging = {next = "https://graph.facebook.com/v26.0/101/feed?r=x%253Faccess_token%253DEAA8"}}))
 		local dirtyOk, dirtyErr = pcall(function() meta.listFeed() end)

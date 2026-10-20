@@ -48,6 +48,8 @@ return {
 		upstream(400, '{"error":{"message":"Invalid OAuth access token: IGAAKxyz0123456789abcdefghijklmnopqrstuvwx","type":"OAuthException","code":190}}', {},
 			{"Invalid OAuth access token"}, "IGAAKxyz")
 		upstream(500, '{"error":{"message":"(#32) Page request limit reached","type":"OAuthException","code":32}}', {}, {"(#32)", '"retryable":false'})
+		upstream(400, '{"error":{"message":"Bad redirect https%3A%2F%2Fx%3Fr%3Daccess_token%3DEAAGZBpage0123456789abcdefghijklmnopqrstuvwxyz","type":"OAuthException","code":100}}', {},
+			{"Bad redirect"}, "EAAGZBpage")
 		upstream(429, "", {}, {"Meta HTTP 429", '"retryable":true'})
 		upstream(502, "<html>Bad gateway</html>", {}, {"Meta HTTP 502", '"retryable":false'})
 		upstream(400, json.encode({error = {message = string.rep("x", 5000), code = 100}}), {}, {"(#100)"})
@@ -66,6 +68,6 @@ return {
 		-- Reads map errors the same way.
 		status, payload, responseHeaders = 400, '{"error":{"message":"(#10) This endpoint requires the pages_read_engagement permission","type":"OAuthException","code":10}}', {}
 		local ok, err = pcall(function() meta.listFeed() end)
-		assert(not ok and string.find(tostring(err), "Meta HTTP 400 (#10): (#10) This endpoint requires the pages_read_engagement permission", 1, true), tostring(err))
+		assert(not ok and string.find(tostring(err), "Meta HTTP 400 (#10): This endpoint requires the pages_read_engagement permission", 1, true), tostring(err))
 	end,
 }
