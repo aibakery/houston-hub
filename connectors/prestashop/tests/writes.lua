@@ -37,6 +37,9 @@ return {
 		shop.updateProduct(10, {price = "12.00", name = "Mug"}, {id_shop = 2})
 		assert(last().method == "PATCH" and last().url == API .. "products/10?display=full&id_shop=2" and sentXML())
 		assert(last().body == XML .. "<product><id>10</id><name>Mug</name><price>12.00</price></product></prestashop>", last().body)
+		-- An empty association clears it; PrestaShop replaces the whole set.
+		shop.updateProduct(10, {associations = {categories = json.decode("[]")}})
+		assert(last().body == XML .. "<product><id>10</id><associations><categories></categories></associations></product></prestashop>", last().body)
 
 		payload = '{"stock_availables":[{"id":31,"quantity":"12"}]}'
 		assert(shop.updateStockAvailable(31, {quantity = 12}).stock_available.quantity == "12")
@@ -69,6 +72,6 @@ return {
 		payload = '{"products":[{"id":10}]}'
 		assert(shop.listProducts({display = {"id"}}).products[1].id == 10)
 		assert(last().method == "GET" and last().url == API .. "products?display=%5Bid%5D&limit=0%2C50")
-		assert(#requests == 9)
+		assert(#requests == 10)
 	end,
 }

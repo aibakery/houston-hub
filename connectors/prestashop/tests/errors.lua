@@ -61,6 +61,9 @@ return {
 		rejected(function() shop.updateProduct(3, {associations = "categories"}) end, "associations must be an object")
 		rejected(function() shop.createCustomer({firstname = "Bo\0", passwd = "secret"}) end, "firstname must not contain control characters")
 		rejected(function() shop.updateProduct(3, {name = {{id = 1, value = "Mug\27"}}}) end, "name must not contain control characters")
+		-- A chosen reset token would let its writer take over the customer's account.
+		rejected(function() shop.updateCustomer(3, {reset_password_token = "known"}) end, "reset_password_token cannot be written")
+		rejected(function() shop.updateCustomer(3, {secure_key = "known"}) end, "secure_key cannot be written")
 		rejected(function() shop.createProduct({price = 1}, {sendemail = true}) end, "sendemail is not a supported option")
 		rejected(function() shop.createOrderHistory({id_order = 1, id_order_state = 4}, {sendemail = "yes"}) end, "sendemail must be a boolean")
 

@@ -25,7 +25,8 @@ local RESOURCES: {Resource} = {
 local SENDS_EMAIL = {createOrderHistory = true, updateOrderCarrier = true}
 
 -- Password hashes, reset tokens and the guest order-tracking key never leave the
--- connector, and cannot be filtered or sorted on, which would reveal them.
+-- connector, and cannot be filtered or sorted on, which would reveal them. Only a
+-- customer's passwd, a plain password PrestaShop hashes, can be written.
 local SECRET = {passwd = true, secure_key = true, reset_password_token = true,
 	reset_password_validity = true, last_passwd_gen = true}
 
@@ -76,8 +77,8 @@ local function scalar(value: any, name: string): string
 	return value
 end
 
-local function list(value: any, name: string): {any}
-	assert(type(value) == "table" and #value > 0, name .. " must be a nonempty array")
+local function list(value: any, name: string, empty: boolean?): {any}
+	assert(type(value) == "table" and (empty or #value > 0), name .. " must be a nonempty array")
 	local count = 0
 	for _ in value do count += 1 end
 	assert(count == #value, name .. " must be an array")
@@ -181,13 +182,14 @@ local function xml(node: string, recordID: string?, fields: any): string
 	local parts = {"<?xml version=\"1.0\" encoding=\"UTF-8\"?><prestashop><" .. node .. ">"}
 	if recordID then table.insert(parts, "<id>" .. recordID .. "</id>") end
 	for _, name in sortedKeys(fields, "fields") do
+		assert(name == "passwd" or not SECRET[name], name .. " cannot be written by the connector")
 		local value = fields[name]
 		if name == "associations" then
 			assert(type(value) == "table", "associations must be an object")
 			table.insert(parts, "<associations>")
 			for _, association in sortedKeys(value, "associations") do
 				table.insert(parts, "<" .. association .. ">")
-				for _, item in list(value[association], "associations." .. association) do
+				for _, item in list(value[association], "associations." .. association, true) do
 					assert(type(item) == "table", "associations." .. association .. " must contain objects")
 					table.insert(parts, "<item>")
 					for _, key in sortedKeys(item, "associations." .. association) do table.insert(parts, element(key, item[key])) end
