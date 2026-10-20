@@ -57,6 +57,9 @@ return {
 		rejected(function() shop.updateProduct(3, {name = {{value = "Mug"}}}) end, "name.id must be a positive integer ID")
 		rejected(function() shop.updateProduct(3, {name = {lang = "Mug"}}) end, "name must be a nonempty array")
 		rejected(function() shop.updateProduct(3, {associations = {categories = {2}}}) end, "associations.categories must contain objects")
+		rejected(function() shop.updateProduct(3, {associations = {["a></associations><price>0</price><x"] = {{id = 1}}}}) end, "associations must be a PrestaShop field name")
+		rejected(function() shop.updateProduct(3, {associations = {categories = {{["id></id><price>0</price><x"] = 1}}}}) end, "associations.categories must be a PrestaShop field name")
+		rejected(function() shop.updateProduct(3, {associations = "categories"}) end, "associations must be an object")
 		rejected(function() shop.createProduct({price = 1}, {sendemail = true}) end, "sendemail is not a supported option")
 		rejected(function() shop.createOrderHistory({id_order = 1, id_order_state = 4}, {sendemail = "yes"}) end, "sendemail must be a boolean")
 
