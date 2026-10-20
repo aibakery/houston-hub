@@ -25,10 +25,12 @@ local RESOURCES: {Resource} = {
 local SENDS_EMAIL = {createOrderHistory = true, updateOrderCarrier = true}
 
 -- Password hashes, reset tokens and the guest order-tracking key never leave the
--- connector, and cannot be filtered or sorted on, which would reveal them. Only a
--- customer's passwd, a plain password PrestaShop hashes, can be written.
+-- connector, and cannot be filtered or sorted on, which would reveal them. Only a new
+-- customer's passwd, a plain password PrestaShop hashes, can be written: setting an
+-- existing customer's password, like a reset token, would take over their account.
 local SECRET = {passwd = true, secure_key = true, reset_password_token = true,
 	reset_password_validity = true, last_passwd_gen = true}
+local CREATE_ONLY = {passwd = true}
 
 local function camel(node: string): string
 	return (string.gsub("_" .. node, "_(%a)", string.upper))
@@ -182,7 +184,7 @@ local function xml(node: string, recordID: string?, fields: any): string
 	local parts = {"<?xml version=\"1.0\" encoding=\"UTF-8\"?><prestashop><" .. node .. ">"}
 	if recordID then table.insert(parts, "<id>" .. recordID .. "</id>") end
 	for _, name in sortedKeys(fields, "fields") do
-		assert(name == "passwd" or not SECRET[name], name .. " cannot be written by the connector")
+		assert(not SECRET[name] or (recordID == nil and CREATE_ONLY[name]), name .. " cannot be written by the connector")
 		local value = fields[name]
 		if name == "associations" then
 			assert(type(value) == "table", "associations must be an object")
@@ -350,7 +352,7 @@ exports.help = function(): string
 		"Orders link to customers, addresses, carts, carriers and currencies through id_* fields; an order's current status is current_state, an order_states ID. The webservice key's own resource and method permissions apply: a resource it does not allow fails with HTTP 401 [26], a method with HTTP 405 [25]. Errors report the HTTP status and PrestaShop's [code] messages; a plain 401 Unauthorized means the key did not reach PrestaShop. Houston retries HTTP 429 at most twice unless Retry-After asks for more than 5 seconds.",
 	}
 	if config.access == "read-write" then
-		table.insert(lines, "Writes take fields as an object of PrestaShop field names (see the field reference below), sent as PrestaShop's XML; the result is the saved record. Translated fields take [{id=languageID, value='...'}] or one string for every language, associations take arrays of objects such as associations={categories={{id=2}}} and replace the whole set (json.decode('[]') clears it), and booleans become 1 or 0. Updates use PATCH and change only the given fields, which needs PrestaShop 8 or later; on PrestaShop 1.7 only creates and deletes work. createProduct needs at least price; createCustomer needs firstname, lastname, email and passwd (the plain password, which PrestaShop hashes). createOrderHistory({id_order=123, id_order_state=4}, {sendemail=true}) changes an order's status and, with sendemail, emails the customer when that status sends emails. updateOrderCarrier(id, {tracking_number='1Z...'}, {sendemail=true}) sets a shipment's tracking number and sends the in-transit email; if that email fails, PrestaShop answers HTTP 500 [46] although the number was saved. updateStockAvailable(id, {quantity=12}) sets a quantity: find the row with listStockAvailables({filter={id_product=9, id_product_attribute=0}}), but for a product with combinations update each combination's row (id_product_attribute=<combination ID>), as PrestaShop recomputes the 0 row as their total. Deleting a product or customer is permanent. Only HTTP 429 is retried: after a timeout or 5xx, read the record again before repeating a write.")
+		table.insert(lines, "Writes take fields as an object of PrestaShop field names (see the field reference below), sent as PrestaShop's XML; the result is the saved record. Translated fields take [{id=languageID, value='...'}] or one string for every language, associations take arrays of objects such as associations={categories={{id=2}}} and replace the whole set (json.decode('[]') clears it), and booleans become 1 or 0. Updates use PATCH and change only the given fields, which needs PrestaShop 8 or later; on PrestaShop 1.7 only creates and deletes work. createProduct needs at least price; createCustomer needs firstname, lastname, email and passwd (the plain password, which PrestaShop hashes; updates cannot change it). createOrderHistory({id_order=123, id_order_state=4}, {sendemail=true}) changes an order's status and, with sendemail, emails the customer when that status sends emails. updateOrderCarrier(id, {tracking_number='1Z...'}, {sendemail=true}) sets a shipment's tracking number and sends the in-transit email; if that email fails, PrestaShop answers HTTP 500 [46] although the number was saved. updateStockAvailable(id, {quantity=12}) sets a quantity: find the row with listStockAvailables({filter={id_product=9, id_product_attribute=0}}), but for a product with combinations update each combination's row (id_product_attribute=<combination ID>), as PrestaShop recomputes the 0 row as their total. Deleting a product or customer is permanent. Only HTTP 429 is retried: after a timeout or 5xx, read the record again before repeating a write.")
 	end
 	table.insert(lines, "Field reference: " .. DOCS .. "<path>/, where the path is the plural, or order_slip for credit slips.")
 	for _, name in names do table.insert(lines, name .. signatures[name]) end

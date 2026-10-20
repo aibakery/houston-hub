@@ -64,6 +64,7 @@ return {
 		-- A chosen reset token would let its writer take over the customer's account.
 		rejected(function() shop.updateCustomer(3, {reset_password_token = "known"}) end, "reset_password_token cannot be written")
 		rejected(function() shop.updateCustomer(3, {secure_key = "known"}) end, "secure_key cannot be written")
+		rejected(function() shop.updateCustomer(3, {passwd = "known"}) end, "passwd cannot be written")
 		rejected(function() shop.createProduct({price = 1}, {sendemail = true}) end, "sendemail is not a supported option")
 		rejected(function() shop.createOrderHistory({id_order = 1, id_order_state = 4}, {sendemail = "yes"}) end, "sendemail must be a boolean")
 
