@@ -106,18 +106,10 @@ local function shop(opts: Options, parts: {string})
 	end
 end
 
-local LIST_OPTIONS = {display = true, filter = true, sort = true, limit = true, offset = true, language = true, id_shop = true, schema = true}
+local LIST_OPTIONS = {display = true, filter = true, sort = true, limit = true, offset = true, language = true, id_shop = true}
 local function listQuery(input: any): string
 	local opts = options(input, LIST_OPTIONS)
 	local parts: {string} = {}
-	if opts.schema ~= nil then
-		assert(opts.schema == "blank" or opts.schema == "synopsis", "schema must be blank or synopsis")
-		assert(opts.display == nil and opts.filter == nil and opts.sort == nil and opts.limit == nil and opts.offset == nil,
-			"schema takes no display, filter, sort, limit or offset")
-		table.insert(parts, "schema=" .. opts.schema)
-		shop(opts, parts)
-		return table.concat(parts, "&")
-	end
 	local display = opts.display or "full"
 	if display ~= "full" then
 		local fields: {string} = {}
@@ -294,7 +286,7 @@ for _, resource in RESOURCES do
 		shop(options(opts, GET_OPTIONS), parts)
 		return single(getName, request(getName, "GET", path .. "/" .. segment, table.concat(parts, "&"), nil), one, many)
 	end
-	signatures[listName] = "({display?, filter?, sort?, limit?, offset?, language?, id_shop?, schema?}?) -> {" .. many .. ": [...]}"
+	signatures[listName] = "({display?, filter?, sort?, limit?, offset?, language?, id_shop?}?) -> {" .. many .. ": [...]}"
 	signatures[getName] = "(id, {language?, id_shop?}?) -> {" .. one .. ": {...}}"
 
 	if config.access == "read-write" and resource.writes then
@@ -341,12 +333,12 @@ exports.help = function(): string
 	table.sort(names)
 	local lines = {
 		"PrestaShop Webservice API for " .. STORE .. ". Results keep PrestaShop's native snake_case fields and wrappers: lists return {<plural>: [...]}, an empty list included, and get returns {<singular>: {...}}. PrestaShop sends every value as a string, translated fields as [{id, value}] per language unless language=<id> is passed, and links under associations. Password hashes, reset tokens and secure_key are removed from results and cannot be filtered on. Connector calls return completed values: use them directly, without await.",
-		"Lists fetch one page with every field (display='full'): pass limit (1-100, default 50) and offset (default 0), and fetch the next offset while a page returns limit records; PrestaShop gives no total. display={'id','reference'} returns only those fields. filter maps a field to a value: a number or array matches exactly ({current_state={2,3}}), and a string uses PrestaShop's syntax: '[v]' equal, '[a|b]' either, '[1,10]' between, '>[v]', '<[v]', '![v]' not, '[mug]%' starts with, '%[mug]%' contains. Dates are 'YYYY-MM-DD HH:MM:SS' in the store's time zone, for example filter={date_upd='>[2026-10-01 00:00:00]'}. sort is 'field_ASC', 'field_DESC' or an array of those. language and id_shop (an ID, or 'all') pick a language and a multistore shop; the default shop is used otherwise. schema='synopsis' returns a resource's fields, formats and required flags instead of records, and schema='blank' an empty record.",
+		"Lists fetch one page with every field (display='full'): pass limit (1-100, default 50) and offset (default 0), and fetch the next offset while a page returns limit records; PrestaShop gives no total. display={'id','reference'} returns only those fields. filter maps a field to a value: a number or array matches exactly ({current_state={2,3}}), and a string uses PrestaShop's syntax: '[v]' equal, '[a|b]' either, '[1,10]' between, '>[v]', '<[v]', '![v]' not, '[mug]%' starts with, '%[mug]%' contains. Dates are 'YYYY-MM-DD HH:MM:SS' in the store's time zone, for example filter={date_upd='>[2026-10-01 00:00:00]'}. sort is 'field_ASC', 'field_DESC' or an array of those. language and id_shop (an ID, or 'all') pick a language and a multistore shop; the default shop is used otherwise.",
 		"Examples: listOrders({filter={current_state=2}, sort='date_add_DESC', limit=20}); getOrder(123); listOrderDetails({filter={id_order=123}}); listOrderHistories({filter={id_order=123}, sort='date_add_DESC'}); listOrderStates({language=1, display={'id','name'}}); listCustomers({filter={email='[ann@example.com]'}}); listProducts({filter={reference='%[MUG]%'}, display={'id','reference','price','name'}, language=1}); listStockAvailables({filter={id_product=9}}).",
 		"Orders link to customers, addresses, carts, carriers and currencies through id_* fields; an order's current status is current_state, an order_states ID. The webservice key's own resource and method permissions apply: a resource it does not allow fails with HTTP 401 [26], a method with HTTP 405 [25]. Errors report the HTTP status and PrestaShop's [code] messages; a plain 401 Unauthorized means the key did not reach PrestaShop.",
 	}
 	if config.access == "read-write" then
-		table.insert(lines, "Writes take fields as an object of PrestaShop field names (see schema='synopsis'), sent as PrestaShop's XML; the result is the saved record. Translated fields take [{id=languageID, value='...'}] or one string for every language, associations take arrays of objects such as associations={categories={{id=2}}}, and booleans become 1 or 0. Updates use PATCH and change only the given fields, which needs PrestaShop 8 or later; on PrestaShop 1.7 only creates and deletes work. createProduct needs at least price; createCustomer needs firstname, lastname, email and passwd (the plain password, which PrestaShop hashes). createOrderHistory({id_order=123, id_order_state=4}, {sendemail=true}) changes an order's status, and updateOrderCarrier(id, {tracking_number='1Z...'}, {sendemail=true}) sets its tracking number: sendemail emails the customer. updateStockAvailable(id, {quantity=12}) sets a quantity; find its ID with listStockAvailables({filter={id_product=9, id_product_attribute=0}}). Deleting a product or customer is permanent. Nothing is retried: after a timeout or 5xx, read the record again before repeating a write.")
+		table.insert(lines, "Writes take fields as an object of PrestaShop field names (see the field reference below), sent as PrestaShop's XML; the result is the saved record. Translated fields take [{id=languageID, value='...'}] or one string for every language, associations take arrays of objects such as associations={categories={{id=2}}}, and booleans become 1 or 0. Updates use PATCH and change only the given fields, which needs PrestaShop 8 or later; on PrestaShop 1.7 only creates and deletes work. createProduct needs at least price; createCustomer needs firstname, lastname, email and passwd (the plain password, which PrestaShop hashes). createOrderHistory({id_order=123, id_order_state=4}, {sendemail=true}) changes an order's status, and updateOrderCarrier(id, {tracking_number='1Z...'}, {sendemail=true}) sets its tracking number: sendemail emails the customer. updateStockAvailable(id, {quantity=12}) sets a quantity; find its ID with listStockAvailables({filter={id_product=9, id_product_attribute=0}}). Deleting a product or customer is permanent. Nothing is retried: after a timeout or 5xx, read the record again before repeating a write.")
 	end
 	table.insert(lines, "Field reference per resource: " .. DOCS .. "<plural>/.")
 	for _, name in names do table.insert(lines, name .. signatures[name]) end

@@ -48,8 +48,7 @@ return {
 		rejected(function() shop.listOrders({offset = -1}) end, "offset must be an integer")
 		rejected(function() shop.listOrders({language = "fr"}) end, "language must be a positive integer ID")
 		rejected(function() shop.getOrder(1, {id_shop = "default"}) end, "id_shop must be a positive integer ID")
-		rejected(function() shop.listOrders({schema = "full"}) end, "schema must be blank or synopsis")
-		rejected(function() shop.listOrders({schema = "synopsis", limit = 5}) end, "schema takes no display")
+		rejected(function() shop.listOrders({schema = "synopsis"}) end, "schema is not a supported option")
 
 		rejected(function() shop.createProduct("mug") end, "fields must be an object")
 		rejected(function() shop.createProduct({id = 3, price = 1}) end, "fields must not contain id")

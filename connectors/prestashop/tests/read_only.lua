@@ -40,8 +40,6 @@ return {
 		assert(last().url == API .. "products?display=%5Bid%2Creference%2Cprice%5D&filter%5Breference%5D=%25%5BMUG%5D%25&sort=%5Bprice_ASC%2Cid_DESC%5D&limit=0%2C50", last().url)
 		shop.listOrderSlips({filter = {id_order = 12}, limit = 100})
 		assert(last().url == API .. "order_slip?display=full&filter%5Bid_order%5D=%5B12%5D&limit=0%2C100", last().url)
-		shop.listProducts({schema = "synopsis", language = 2})
-		assert(last().url == API .. "products?schema=synopsis&language=2", last().url)
 
 		payload = "[]"
 		local empty = shop.listOrderHistories({filter = {id_order = 5}})
@@ -65,6 +63,6 @@ return {
 		payload = '{"stock_availables":[{"id":31,"id_product":"9","quantity":"0","out_of_stock":"0"}]}'
 		assert(shop.getStockAvailable(31).stock_available.quantity == "0", "an empty stock lost its quantity")
 		assert(last().url == API .. "stock_availables/31?display=full")
-		assert(#requests == 9)
+		assert(#requests == 8)
 	end,
 }
