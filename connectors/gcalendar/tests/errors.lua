@@ -34,6 +34,7 @@ return {
 		upstream(503, '{"error":{"code":503,"message":"Backend Error","errors":[{"reason":"backendError"}]}}', {}, {"HTTP 503", '"retryable":true'})
 		upstream(200, "<html>Maintenance</html>", {}, {"invalid JSON object"})
 		upstream(200, "[]", {}, {"invalid JSON object"})
+		upstream(200, "null", {}, {"invalid JSON object"})
 
 		status, payload = 410, '{"error":{"code":410,"message":"Sync token is no longer valid, a full sync is required.","errors":[{"reason":"fullSyncRequired"}]}}'
 		local ok, err = pcall(c.listEvents, {syncToken = "old"})

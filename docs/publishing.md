@@ -51,23 +51,24 @@ share files, so the four `connector.lua` files carry the same request layer;
 `tools/validate` checks that the copies match.
 
 Google Calendar covers 12 of the 38 methods in the [Calendar API v3 discovery
-document](https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest), revision
-`20261014`, checked on 2026-10-20: the calendar list, calendar metadata, the
-color palettes, free/busy queries, and event listing, reads, recurring instances,
-inserts, patches, deletes, moves and quick adds. `events.update` is omitted because
-`patchEvent` covers it without resending the whole event, and `calendarList.get`
-because `listCalendars` returns the same entries. Calendar creation, changes and
-clearing, calendar-list changes and ACL changes need scopes the connector does
-not request (`calendar.calendars`, `calendar.calendarlist`, `calendar.acls` or the
-full `calendar`); `acl.get` alone is useless because `calendar.readonly` excludes
-`acl.list`. Also omitted: settings, which duplicate the calendar's time zone;
-`events.import`, which only copies events between calendars; and the `*.watch` and
-`channels.stop` push-notification methods, which register a webhook Houston cannot
-receive. Every route is listed explicitly and removes method-override headers:
-Google Calendar honours `X-HTTP-Method-Override`, so any allowed request could
-otherwise run as another method. Read-only connections, and read-only callers of
-read-write ones, may only GET the read routes and POST `freeBusy`, which only reads.
-The batch endpoint `www.googleapis.com/batch/calendar/v3` and the API Explorer host
+document](https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest),
+revision `20261014`, checked on 2026-10-20: the calendar list, calendar metadata,
+the color palettes, free/busy queries, and event listing, reads, recurring
+instances, inserts, patches, deletes, moves and quick adds. `events.update` is
+omitted because `patchEvent` covers it without resending the whole event, and
+`calendarList.get` because `listCalendars` returns the same entries. Calendar
+creation, changes, clearing and ownership transfers, calendar-list changes and
+ACL changes need scopes the connector does not request (`calendar.calendars`,
+`calendar.calendarlist`, `calendar.acls` or the full `calendar`); `acl.get`
+alone is useless because `calendar.readonly` excludes `acl.list`. Also omitted:
+settings, which duplicate the calendar's time zone; `events.import`, which
+only copies events between calendars; and the `*.watch` and `channels.stop`
+push-notification methods, which register a webhook Houston cannot receive. Every
+route is listed explicitly and removes method-override headers: Google Calendar
+honours `X-HTTP-Method-Override`, so any allowed request could otherwise run as
+another method. Read-only connections, and read-only callers of read-write ones,
+may only GET the read routes and POST `freeBusy`, which only reads.  The batch
+endpoint `www.googleapis.com/batch/calendar/v3` and the API Explorer host
 `content.googleapis.com` stay denied. Google allows 600 Calendar requests per minute
 per user and 10,000 per minute per Cloud project, shared by every connection using
 the publisher's client; it plans to bill projects above 1,000,000 requests a day.
