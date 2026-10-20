@@ -1,6 +1,6 @@
 -- Google Calendar API v3. Arguments and results keep Google's native field names.
 type Options = {[string]: any}
-type Endpoint = {method: string, path: string, read: boolean, query: {string}?, body: boolean?, defaults: Options?, list: string?, required: {string}?, help: string}
+type Endpoint = {method: string, path: string, read: boolean, query: {string}?, body: boolean?, defaults: Options?, list: string?, required: {[string]: string}?, help: string}
 local API = "https://www.googleapis.com/calendar/v3"
 
 -- Request layer shared verbatim by the Google connectors (tools/validate checks they match).
@@ -63,7 +63,8 @@ local function call(operation: string, method: string, href: string, body: any?)
 		body = if body ~= nil then json.encode(body) else nil})))
 end
 
-local NONE: {string} = table.freeze({})
+-- Required fields map to "string" or "array", each of which must be nonempty.
+local NO_FIELDS: {[string]: string} = table.freeze({})
 
 -- Moves {placeholders} and declared query fields from args into the URL; remaining fields form the JSON body.
 local function target(name: string, endpoint: Endpoint, args: Options): string
@@ -71,9 +72,10 @@ local function target(name: string, endpoint: Endpoint, args: Options): string
 	for key, value in defaults do
 		if args[key] == nil then args[key] = value end
 	end
-	for _, field in endpoint.required or NONE do
+	for field, kind in endpoint.required or NO_FIELDS do
 		local value = args[field]
-		assert((type(value) == "string" and value ~= "") or (type(value) == "table" and value[1] ~= nil), name .. " requires " .. field)
+		assert(if kind == "array" then type(value) == "table" and value[1] ~= nil else type(value) == "string" and value ~= "",
+			name .. " requires " .. field .. " as a nonempty " .. kind)
 	end
 	local path = string.gsub(endpoint.path, "{(%w+)}", function(field: string)
 		local value = url.segment(text(args[field], field), field)
@@ -140,7 +142,7 @@ local endpoints: {[string]: Endpoint} = {
 	listEventInstances = {method = "GET", path = "/calendars/{calendarId}/events/{eventId}/instances", read = true, defaults = PRIMARY, list = "items",
 		query = {"timeMin", "timeMax", "maxResults", "pageToken", "timeZone", "showDeleted", "originalStart", "maxAttendees"},
 		help = "listEventInstances({calendarId?, eventId, timeMin?, timeMax?, maxResults?, pageToken?, originalStart?}) -> {items, nextPageToken?}. Occurrences of a recurring event; each has its own id and recurringEventId."},
-	queryFreeBusy = {method = "POST", path = "/freeBusy", read = true, body = true, required = {"timeMin", "timeMax", "items"},
+	queryFreeBusy = {method = "POST", path = "/freeBusy", read = true, body = true, required = {timeMin = "string", timeMax = "string", items = "array"},
 		help = "queryFreeBusy({timeMin, timeMax, items={{id='primary'}, {id='ana@example.com'}}, timeZone?}) -> {calendars={[id]={busy={{start=..., ['end']=...}}, errors?}}}. Busy intervals only, without event details; works for colleagues whose calendars share free/busy. Up to 50 calendars per call; a calendar it cannot read reports errors with an empty busy list, so check errors before treating anyone as free."},
 	insertEvent = {method = "POST", path = "/calendars/{calendarId}/events", read = false, body = true, defaults = PRIMARY, query = WRITE,
 		help = "insertEvent({calendarId?, summary, start={dateTime='2026-10-13T09:00:00+02:00', timeZone?} or {date='2026-10-13'}, ['end']={...}, attendees?={{email=...}}, description?, location?, recurrence?={'RRULE:FREQ=WEEKLY;COUNT=4'}, reminders?, colorId?, id?, sendUpdates?, conferenceDataVersion?}) -> event. All-day events end on the following date (end is exclusive). With recurrence, start.timeZone and ['end'].timeZone are required (an IANA name such as 'Europe/Paris'). sendUpdates: all, externalOnly or none (default none: attendees get no email). For Google Meet, pass conferenceDataVersion=1 and conferenceData={createRequest={requestId='<unique>', conferenceSolutionKey={type='hangoutsMeet'}}}. A caller-chosen id (5 to 1024 characters of lowercase a-v and digits) makes a repeated insert usually fail with HTTP 409 [duplicate] instead of creating a second event."},
@@ -148,9 +150,9 @@ local endpoints: {[string]: Endpoint} = {
 		help = "patchEvent({calendarId?, eventId, sendUpdates?, ...fields to change}) -> event. Only the given fields change; arrays such as attendees are replaced whole, so read the event and send the full list. Patching a recurring event's id changes the whole series; patch an instance id from listEventInstances to change one occurrence."},
 	deleteEvent = {method = "DELETE", path = "/calendars/{calendarId}/events/{eventId}", read = false, defaults = PRIMARY, query = {"sendUpdates"},
 		help = "deleteEvent({calendarId?, eventId, sendUpdates?}) -> {success=true}. If the user organizes the event, attendees see it cancelled and sendUpdates='all' emails them; deleting an invitation only removes it from this calendar. Deleting a recurring event's id removes the whole series. HTTP 410 [deleted] means it was already deleted."},
-	moveEvent = {method = "POST", path = "/calendars/{calendarId}/events/{eventId}/move", read = false, defaults = PRIMARY, query = {"destination", "sendUpdates"}, required = {"destination"},
+	moveEvent = {method = "POST", path = "/calendars/{calendarId}/events/{eventId}/move", read = false, defaults = PRIMARY, query = {"destination", "sendUpdates"}, required = {destination = "string"},
 		help = "moveEvent({calendarId?, eventId, destination, sendUpdates?}) -> event. Moves the event to the destination calendar ID, which becomes its organizer. Only default events can move."},
-	quickAddEvent = {method = "POST", path = "/calendars/{calendarId}/events/quickAdd", read = false, defaults = PRIMARY, query = {"text", "sendUpdates"}, required = {"text"},
+	quickAddEvent = {method = "POST", path = "/calendars/{calendarId}/events/quickAdd", read = false, defaults = PRIMARY, query = {"text", "sendUpdates"}, required = {text = "string"},
 		help = "quickAddEvent({calendarId?, text, sendUpdates?}) -> event. Creates an event from text such as 'Lunch with Ana tomorrow 12pm'. Prefer insertEvent when the times are known."},
 }
 

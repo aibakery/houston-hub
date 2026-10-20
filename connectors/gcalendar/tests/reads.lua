@@ -73,7 +73,7 @@ return {
 		assert(not pcall(c.listEvents, {q = {a = "b"}}), "query lists must be arrays")
 		assert(not pcall(c.listEvents, {eventTypes = {"default", extra = "focusTime"}}))
 		local day = {timeMin = "2026-10-13T00:00:00Z", timeMax = "2026-10-14T00:00:00Z"}
-		for _, args in {{}, day, {timeMin = day.timeMin, timeMax = "", items = {{id = "primary"}}}, {timeMin = day.timeMin, timeMax = day.timeMax, items = {}}} do
+		for _, args in {{}, day, {timeMin = day.timeMin, timeMax = "", items = {{id = "primary"}}}, {timeMin = day.timeMin, timeMax = day.timeMax, items = {}}, {timeMin = day.timeMin, timeMax = day.timeMax, items = "primary"}, {timeMin = {day.timeMin}, timeMax = day.timeMax, items = {{id = "primary"}}}} do
 			assert(not pcall(c.queryFreeBusy, args), "queryFreeBusy requires timeMin, timeMax and items: " .. json.encode(args))
 		end
 		assert(#requests == count, "invalid input reached Google")
