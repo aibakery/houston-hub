@@ -85,7 +85,7 @@ return {
 		upstream(405, '{"errors":[{"code":25,"message":"Method PATCH is not allowed for this resource"}]}', {}, {"[25] Method PATCH"})
 		upstream(400, json.encode({errors = {{code = 85, message = "Validation error: " .. string.rep("x", 5000)}, {code = 41, message = "parameter \"id_order\" required"}}}), {},
 			{"[85] Validation error", "[41] parameter", "id_order"})
-		upstream(500, "<br />\n<b>Fatal error</b>: Allowed memory size exhausted", {}, {"HTTP 500: Fatal error : Allowed memory", '"retryable":true'})
+		upstream(500, "<br />\n<b>Fatal error</b>: Allowed memory size exhausted", {}, {"HTTP 500: Fatal error : Allowed memory", "may have been saved", '"retryable":false'})
 		upstream(503, '{"errors":[{"code":22,"message":"The PrestaShop webservice is disabled. Please activate it in the PrestaShop Back Office"}]}', {},
 			{"[22] The PrestaShop webservice is disabled", '"retryable":false'})
 		upstream(500, '{"errors":[{"code":46,"message":"Unable to save resource"}]}', {}, {"HTTP 500 [46] Unable to save resource", '"retryable":false'})
@@ -94,6 +94,10 @@ return {
 		local ok, err = pcall(function() shop.createCustomer({firstname = "Bo", lastname = "Lee", email = "bo@example.com", passwd = "correct horse"}) end)
 		assert(not ok and string.find(tostring(err), "[127] XML error : String could not be parsed as XML", 1, true), tostring(err))
 		assert(not string.find(tostring(err), "correct horse", 1, true), "the error echoed the password")
+		-- A read that failed upstream is safe to repeat.
+		status, payload, responseHeaders = 502, "<html><body>Bad gateway</body></html>", {}
+		local readOK, readErr = pcall(function() shop.getOrder(1) end)
+		assert(not readOK and string.find(tostring(readErr), '"retryable":true', 1, true) and not string.find(tostring(readErr), "may have been saved", 1, true), tostring(readErr))
 		local function hidden(code, body)
 			status, payload, responseHeaders = code, body, {}
 			local failed, message = pcall(function() shop.createCustomer({firstname = "Bo", lastname = "Lee", email = "bo@example.com", passwd = "correct & horse"}) end)
@@ -112,7 +116,7 @@ return {
 		upstream(429, "Too many requests", {["retry-after"] = {"30"}}, {"HTTP 429: Too many requests", "Retry-After: 30", '"retryable":true'})
 		upstream(301, "", {location = {"https://www.shop.example.com/api/order_carriers/1"}},
 			{"HTTP 301", "redirected to https://www.shop.example.com/", "store domain"})
-		upstream(200, '<?xml version="1.0" encoding="UTF-8"?><prestashop><order_carrier/></prestashop>', {}, {"not JSON", "https://shop.example.com/api"})
+		upstream(200, '<?xml version="1.0" encoding="UTF-8"?><prestashop><order_carrier/></prestashop>', {}, {"not JSON", "https://shop.example.com/api", "may have been saved"})
 		upstream(200, "", {}, {"not JSON"})
 		-- Without display=full's one-item list, PrestaShop 8+ may have dropped fields.
 		upstream(200, '{"order_carrier":{"id":1}}', {}, {"PrestaShop returned no order_carrier record; the change may have been saved"})

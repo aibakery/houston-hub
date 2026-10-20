@@ -216,6 +216,9 @@ end
 
 -- PrestaShop's XML errors and PHP warnings quote the request body, so a new customer's
 -- password never appears in an error, raw or XML-escaped.
+-- A write that failed late or answered unreadably may still have been applied.
+local SAVED = "; the change may have been saved: read the record before repeating it"
+
 local function redact(message: string, secret: string?): string
 	if secret == nil or secret == "" then return message end
 	for _, form in {secret, escape(secret, "passwd")} do
@@ -224,7 +227,7 @@ local function redact(message: string, secret: string?): string
 	return message
 end
 
-local function failStatus(name: string, response: HttpResponse, secret: string?): never
+local function failStatus(name: string, response: HttpResponse, method: string, secret: string?): never
 	local message = "PrestaShop HTTP " .. tostring(response.statusCode)
 	local raw = await(response.body:readPrefix(16 * 1024))
 	local ok, value = pcall(json.decode, raw)
@@ -254,10 +257,13 @@ local function failStatus(name: string, response: HttpResponse, secret: string?)
 	end
 	local retry = header(response, "retry-after")
 	if retry then message ..= "; Retry-After: " .. string.sub(retry, 1, 40) end
+	local write = method ~= "GET"
+	if write and response.statusCode >= 500 then message ..= SAVED end
 	-- PrestaShop reports its own failures, such as a duplicate email or a disabled
-	-- webservice, as 5xx with an error list; those fail again on retry.
+	-- webservice, as 5xx with an error list; those fail again on retry. Other 5xx
+	-- are retryable only for reads, as a write may have been applied.
 	return houston.fail({operation = name, layer = "upstream", upstream_status = response.statusCode,
-		retryable = response.statusCode == 429 or (response.statusCode >= 500 and not envelope), message = redact(message, secret)})
+		retryable = response.statusCode == 429 or (response.statusCode >= 500 and not envelope and not write), message = redact(message, secret)})
 end
 
 local function withhold(value: any)
@@ -272,13 +278,13 @@ local function request(name: string, method: string, path: string, query: string
 	if body then headers["Content-Type"] = {"application/xml"} end
 	local target = API .. path .. (if query ~= "" then "?" .. query else "")
 	local response = await(http.request({method = method, url = target, headers = headers, body = body}))
-	if response.statusCode < 200 or response.statusCode >= 300 then failStatus(name, response, secret) end
+	if response.statusCode < 200 or response.statusCode >= 300 then failStatus(name, response, method, secret) end
 	local raw = await(response.body:readAll())
 	if method == "DELETE" and not string.match(raw, "%S") then return true end
 	local ok, value = pcall(json.decode, raw)
 	if not ok or type(value) ~= "table" then
 		return houston.fail({operation = name, layer = "upstream", upstream_status = response.statusCode, retryable = false,
-			message = "PrestaShop returned a response that is not JSON; check that the webservice is enabled and served at https://" .. STORE .. "/api"})
+			message = "PrestaShop returned a response that is not JSON; check that the webservice is enabled and served at https://" .. STORE .. "/api" .. (if method == "GET" then "" else SAVED)})
 	end
 	withhold(value)
 	return value
@@ -289,8 +295,8 @@ end
 local function single(name: string, value: any, one: string, many: string): any
 	local records = value[many]
 	if type(records) ~= "table" or type(records[1]) ~= "table" then
-		local saved = if string.sub(name, 1, 3) == "get" then "" else "; the change may have been saved: read the record before repeating it"
-		return houston.fail({operation = name, layer = "upstream", retryable = false, message = "PrestaShop returned no " .. one .. " record" .. saved})
+		return houston.fail({operation = name, layer = "upstream", retryable = false,
+			message = "PrestaShop returned no " .. one .. " record" .. (if string.sub(name, 1, 3) == "get" then "" else SAVED)})
 	end
 	return {[one] = records[1]}
 end
