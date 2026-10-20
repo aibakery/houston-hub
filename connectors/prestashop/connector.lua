@@ -155,7 +155,8 @@ end
 -- XML 1.0 forbids these control characters; PrestaShop would answer HTTP 500 and echo
 -- the whole body, a customer password included.
 local function escape(value: string, name: string): string
-	assert(not string.find(value, "[%z\1-\8\11\12\14-\31]"), name .. " must not contain control characters")
+	assert(not string.find(value, "[%z\1-\8\11\12\14-\31]") and not string.find(value, "\239\191[\190\191]"),
+		name .. " must not contain control characters or U+FFFE/U+FFFF")
 	return (string.gsub(value, "[&<>\"]", {["&"] = "&amp;", ["<"] = "&lt;", [">"] = "&gt;", ['"'] = "&quot;"}))
 end
 
@@ -213,7 +214,17 @@ local function header(response: HttpResponse, name: string): string?
 	return if values then values[1] else nil
 end
 
-local function failStatus(name: string, response: HttpResponse): never
+-- PrestaShop's XML errors and PHP warnings quote the request body, so a new customer's
+-- password never appears in an error, raw or XML-escaped.
+local function redact(message: string, secret: string?): string
+	if secret == nil or secret == "" then return message end
+	for _, form in {secret, escape(secret, "passwd")} do
+		message = string.gsub(message, (string.gsub(form, "%W", "%%%0")), "[redacted]")
+	end
+	return message
+end
+
+local function failStatus(name: string, response: HttpResponse, secret: string?): never
 	local message = "PrestaShop HTTP " .. tostring(response.statusCode)
 	local raw = await(response.body:readPrefix(16 * 1024))
 	local ok, value = pcall(json.decode, raw)
@@ -229,7 +240,9 @@ local function failStatus(name: string, response: HttpResponse): never
 			end
 		end
 	elseif string.match(raw, "%S") then
-		local text = string.gsub(string.gsub(string.gsub(raw, "<!%-%-(.-)%-%->", " %1 "), "<[^>]*>", " "), "%s+", " ")
+		-- A body cut by the prefix limit no longer decodes; still drop the echoed XML.
+		local text = string.match(raw, "^(.-)Original XML") or raw
+		text = string.gsub(string.gsub(string.gsub(text, "<!%-%-(.-)%-%->", " %1 "), "<[^>]*>", " "), "%s+", " ")
 		message ..= ": " .. string.sub((string.gsub(text, "^ ", "")), 1, 300)
 	end
 	if response.statusCode == 401 and string.match(raw, "^%s*401 Unauthorized%s*$") then
@@ -244,7 +257,7 @@ local function failStatus(name: string, response: HttpResponse): never
 	-- PrestaShop reports its own failures, such as a duplicate email or a disabled
 	-- webservice, as 5xx with an error list; those fail again on retry.
 	return houston.fail({operation = name, layer = "upstream", upstream_status = response.statusCode,
-		retryable = response.statusCode == 429 or (response.statusCode >= 500 and not envelope), message = message})
+		retryable = response.statusCode == 429 or (response.statusCode >= 500 and not envelope), message = redact(message, secret)})
 end
 
 local function withhold(value: any)
@@ -254,12 +267,12 @@ local function withhold(value: any)
 	end
 end
 
-local function request(name: string, method: string, path: string, query: string, body: string?): any
+local function request(name: string, method: string, path: string, query: string, body: string?, secret: string?): any
 	local headers: HttpHeaders = {Accept = {"application/json"}, ["Output-Format"] = {"JSON"}}
 	if body then headers["Content-Type"] = {"application/xml"} end
 	local target = API .. path .. (if query ~= "" then "?" .. query else "")
 	local response = await(http.request({method = method, url = target, headers = headers, body = body}))
-	if response.statusCode < 200 or response.statusCode >= 300 then failStatus(name, response) end
+	if response.statusCode < 200 or response.statusCode >= 300 then failStatus(name, response, secret) end
 	local raw = await(response.body:readAll())
 	if method == "DELETE" and not string.match(raw, "%S") then return true end
 	local ok, value = pcall(json.decode, raw)
@@ -321,7 +334,9 @@ for _, resource in RESOURCES do
 			if verb == "create" then
 				exports[name] = function(fields: Options, opts: Options?): any
 					local q = query(opts)
-					return single(name, request(name, "POST", path, q, xml(one, nil, fields)), one, many)
+					local body = xml(one, nil, fields)
+					local secret = if fields.passwd ~= nil then scalar(fields.passwd, "passwd") else nil
+					return single(name, request(name, "POST", path, q, body, secret), one, many)
 				end
 				signatures[name] = "(fields, {id_shop?" .. email .. "}?) -> {" .. one .. ": {...}}"
 			elseif verb == "update" then

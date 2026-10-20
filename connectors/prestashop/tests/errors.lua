@@ -61,6 +61,7 @@ return {
 		rejected(function() shop.updateProduct(3, {associations = "categories"}) end, "associations must be an object")
 		rejected(function() shop.createCustomer({firstname = "Bo\0", passwd = "secret"}) end, "firstname must not contain control characters")
 		rejected(function() shop.updateProduct(3, {name = {{id = 1, value = "Mug\27"}}}) end, "name must not contain control characters")
+		rejected(function() shop.createCustomer({firstname = "Bo", website = "a\u{FFFE}", passwd = "secret"}) end, "website must not contain control characters or U+FFFE/U+FFFF")
 		-- A chosen reset token would let its writer take over the customer's account.
 		rejected(function() shop.updateCustomer(3, {reset_password_token = "known"}) end, "reset_password_token cannot be written")
 		rejected(function() shop.updateCustomer(3, {secure_key = "known"}) end, "secure_key cannot be written")
@@ -93,6 +94,21 @@ return {
 		local ok, err = pcall(function() shop.createCustomer({firstname = "Bo", lastname = "Lee", email = "bo@example.com", passwd = "correct horse"}) end)
 		assert(not ok and string.find(tostring(err), "[127] XML error : String could not be parsed as XML", 1, true), tostring(err))
 		assert(not string.find(tostring(err), "correct horse", 1, true), "the error echoed the password")
+		local function hidden(code, body)
+			status, payload, responseHeaders = code, body, {}
+			local failed, message = pcall(function() shop.createCustomer({firstname = "Bo", lastname = "Lee", email = "bo@example.com", passwd = "correct & horse"}) end)
+			assert(not failed and string.find(tostring(message), "HTTP " .. code, 1, true), tostring(message))
+			for _, form in {"correct & horse", "correct &amp; horse"} do
+				assert(not string.find(tostring(message), form, 1, true), "the error echoed the password: " .. tostring(message))
+			end
+			return tostring(message)
+		end
+		-- PHP warnings quote the XML being parsed.
+		local warned = hidden(500, json.encode({errors = {{code = 3, message = "[PHP Warning #2] SimpleXMLElement::__construct(): <passwd>correct &amp; horse</passwd>"}}}))
+		assert(string.find(warned, "<passwd>[redacted]</passwd>", 1, true), warned)
+		-- An error body beyond the 16 KiB prefix no longer decodes as JSON.
+		hidden(500, '{"errors":[{"code":127,"message":"XML error Original XML : <customer><passwd>correct &amp; horse</passwd><website>' .. string.rep("x", 17000))
+		hidden(500, "<b>Warning</b>: correct & horse")
 		upstream(429, "Too many requests", {["retry-after"] = {"30"}}, {"HTTP 429: Too many requests", "Retry-After: 30", '"retryable":true'})
 		upstream(301, "", {location = {"https://www.shop.example.com/api/order_carriers/1"}},
 			{"HTTP 301", "redirected to https://www.shop.example.com/", "store domain"})
