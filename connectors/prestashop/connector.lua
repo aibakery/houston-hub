@@ -55,6 +55,9 @@ local function integer(value: any, name: string, min: number, max: number): numb
 	return value
 end
 
+-- PrestaShop reads ps_method (the HTTP method) and url (the resource) from any query
+-- string, overriding the request and the proxy's path rules. Every query is built
+-- from these closed option lists, so callers can never add a parameter.
 local function options(input: any, allowed: {[string]: boolean}): Options
 	if input == nil then return NONE end
 	assert(type(input) == "table", "opts must be an object")

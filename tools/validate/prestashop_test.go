@@ -73,7 +73,7 @@ func TestPrestaShopStoreHostAndAccessBoundaries(t *testing.T) {
 			// Configuration values hold SMTP passwords and module secrets; employees hold password hashes.
 			{"GET", api + "configurations"}, {"GET", api + "translated_configurations"}, {"GET", api + "employees/1"},
 			{"GET", api + "shop_urls"}, {"GET", api + "images/customizations/1/1"}, {"GET", api}, {"GET", api + "orders/1/extra"},
-			// The dispatcher takes its resource from the query string, past any path rule.
+			// The dispatcher entry point is never needed; /api paths reach it through the rewrite.
 			{"GET", "https://shop.example.com/webservice/dispatcher.php?url=configurations"},
 			{"PUT", api + "products/1"}, {"POST", api + "orders"}, {"PATCH", api + "orders/1"}, {"DELETE", api + "orders/1"},
 			{"POST", api + "products/1"}, {"DELETE", api + "order_histories/1"}, {"HEAD", api + "orders"},

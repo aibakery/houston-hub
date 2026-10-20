@@ -298,14 +298,16 @@ secrets), `employees`, `shop_urls`, `guests`, customer messages, images and
 attachments, price computation parameters, and stores installed in a subdirectory.
 
 The key is the HTTP Basic username with an empty password. The proxy allows GET on
-the listed resources and their numeric IDs, plus the write routes above on
-read-write connections, and never `/webservice/dispatcher.php`, whose `url` query
-selects any resource. PrestaShop reads a `ps_method` method override from the query
-string, which the proxy cannot filter: the connector builds every query from its
-own options, so callers cannot add it, and setup asks for a key with only the
-methods the connection needs. Responses keep PrestaShop's JSON, except that
-password hashes, reset tokens and `secure_key` are removed and cannot be filtered,
-sorted or displayed, which would reveal them a character at a time.
+the listed resources and one path segment below them, plus the write routes above
+on read-write connections, and never `/webservice/dispatcher.php`. These path rules
+do not bound what a request can reach: PrestaShop reads a `ps_method` method
+override and a `url` resource override from any query string, including on `/api`
+paths, and the proxy cannot filter queries. The connector therefore builds every
+query from closed option lists, so callers cannot add either, and setup asks for a
+key with only the resources and methods the connection needs. Responses keep
+PrestaShop's JSON, except that password hashes, reset tokens and `secure_key` are
+removed and cannot be filtered, sorted or displayed, which would reveal them a
+character at a time.
 
 PrestaShop's icon is the "P" of the official logo (`PREST_LOGO_RVB_noir.svg` in
 `PRESTASHOP-LOGO.zip` from the [brand book](https://prestashop.com/brand-book),
