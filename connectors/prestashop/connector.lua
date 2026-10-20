@@ -149,18 +149,21 @@ local function listQuery(input: any): string
 	return table.concat(parts, "&")
 end
 
-local function escape(value: string): string
+-- XML 1.0 forbids these control characters; PrestaShop would answer HTTP 500 and echo
+-- the whole body, a customer password included.
+local function escape(value: string, name: string): string
+	assert(not string.find(value, "[%z\1-\8\11\12\14-\31]"), name .. " must not contain control characters")
 	return (string.gsub(value, "[&<>\"]", {["&"] = "&amp;", ["<"] = "&lt;", [">"] = "&gt;", ['"'] = "&quot;"}))
 end
 
 -- A field is a scalar, or a translated value as [{id = languageID, value}];
 -- associations map names to arrays of objects, such as {categories = {{id = 2}}}.
 local function element(name: string, value: any): string
-	if type(value) ~= "table" then return "<" .. name .. ">" .. escape(scalar(value, name)) .. "</" .. name .. ">" end
+	if type(value) ~= "table" then return "<" .. name .. ">" .. escape(scalar(value, name), name) .. "</" .. name .. ">" end
 	local languages: {string} = {}
 	for _, item in list(value, name) do
 		assert(type(item) == "table" and item.value ~= nil, name .. " must be a scalar or an array of {id, value}")
-		table.insert(languages, '<language id="' .. id(item.id, name .. ".id") .. '">' .. escape(scalar(item.value, name)) .. "</language>")
+		table.insert(languages, '<language id="' .. id(item.id, name .. ".id") .. '">' .. escape(scalar(item.value, name), name) .. "</language>")
 	end
 	return "<" .. name .. ">" .. table.concat(languages) .. "</" .. name .. ">"
 end
@@ -210,11 +213,13 @@ local function failStatus(name: string, response: HttpResponse): never
 	local message = "PrestaShop HTTP " .. tostring(response.statusCode)
 	local raw = await(response.body:readPrefix(16 * 1024))
 	local ok, value = pcall(json.decode, raw)
-	if ok and type(value) == "table" and type(value.errors) == "table" then
+	local envelope = ok and type(value) == "table" and type(value.errors) == "table"
+	if envelope then
 		for index, item in value.errors do
 			if index > 5 then break end
 			if type(item) == "table" then
-				message ..= " [" .. tostring(item.code) .. "] " .. string.sub(tostring(item.message), 1, 600)
+				if item.code ~= nil then message ..= " [" .. tostring(item.code) .. "]" end
+				message ..= " " .. string.sub(tostring(item.message), 1, 600)
 			end
 		end
 	elseif string.match(raw, "%S") then
@@ -230,8 +235,10 @@ local function failStatus(name: string, response: HttpResponse): never
 	end
 	local retry = header(response, "retry-after")
 	if retry then message ..= "; Retry-After: " .. string.sub(retry, 1, 40) end
+	-- PrestaShop reports its own failures, such as a duplicate email or a disabled
+	-- webservice, as 5xx with an error list; those fail again on retry.
 	return houston.fail({operation = name, layer = "upstream", upstream_status = response.statusCode,
-		retryable = response.statusCode == 429 or response.statusCode >= 500, message = message})
+		retryable = response.statusCode == 429 or (response.statusCode >= 500 and not envelope), message = message})
 end
 
 local function withhold(value: any)

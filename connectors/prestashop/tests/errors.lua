@@ -59,6 +59,8 @@ return {
 		rejected(function() shop.updateProduct(3, {associations = {["a></associations><price>0</price><x"] = {{id = 1}}}}) end, "associations must be a PrestaShop field name")
 		rejected(function() shop.updateProduct(3, {associations = {categories = {{["id></id><price>0</price><x"] = 1}}}}) end, "associations.categories must be a PrestaShop field name")
 		rejected(function() shop.updateProduct(3, {associations = "categories"}) end, "associations must be an object")
+		rejected(function() shop.createCustomer({firstname = "Bo\0", passwd = "secret"}) end, "firstname must not contain control characters")
+		rejected(function() shop.updateProduct(3, {name = {{id = 1, value = "Mug\27"}}}) end, "name must not contain control characters")
 		rejected(function() shop.createProduct({price = 1}, {sendemail = true}) end, "sendemail is not a supported option")
 		rejected(function() shop.createOrderHistory({id_order = 1, id_order_state = 4}, {sendemail = "yes"}) end, "sendemail must be a boolean")
 
@@ -80,7 +82,9 @@ return {
 			{"[85] Validation error", "[41] parameter", "id_order"})
 		upstream(500, "<br />\n<b>Fatal error</b>: Allowed memory size exhausted", {}, {"HTTP 500: Fatal error : Allowed memory", '"retryable":true'})
 		upstream(503, '{"errors":[{"code":22,"message":"The PrestaShop webservice is disabled. Please activate it in the PrestaShop Back Office"}]}', {},
-			{"[22] The PrestaShop webservice is disabled", '"retryable":true'})
+			{"[22] The PrestaShop webservice is disabled", '"retryable":false'})
+		upstream(500, '{"errors":[{"code":46,"message":"Unable to save resource"}]}', {}, {"HTTP 500 [46] Unable to save resource", '"retryable":false'})
+		upstream(500, '{"errors":[{"message":"Unknown failure"}]}', {}, {"HTTP 500 Unknown failure"})
 		upstream(429, "Too many requests", {["retry-after"] = {"30"}}, {"HTTP 429: Too many requests", "Retry-After: 30", '"retryable":true'})
 		upstream(301, "", {location = {"https://www.shop.example.com/api/order_carriers/1"}},
 			{"HTTP 301", "redirected to https://www.shop.example.com/", "store domain"})
