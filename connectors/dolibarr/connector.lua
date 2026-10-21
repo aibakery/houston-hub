@@ -100,10 +100,11 @@ local function column(value: string, name: string)
 	assert(not SECRET[field], name .. " cannot use " .. field .. ", which the connector withholds")
 end
 
--- Dolibarr reads a field only at the start of each (field:operator:value) term, and a
--- value cannot contain parentheses, so words inside values stay allowed.
+-- Dolibarr reads a field only between a term's ( and its first :, and a value cannot
+-- contain parentheses, so words inside values stay allowed. Dolibarr 16-17 keep only the
+-- letters, digits, _ and . of that field, so the check does too.
 local function withheld(value: string, name: string): string
-	for field in string.gmatch(value, "%(([%w_%.]+):[<>!=%a]+:") do column(field, name) end
+	for field in string.gmatch(value, "%(([^:()]*):") do column((string.gsub(field, "[^%w_%.]", "")), name) end
 	return value
 end
 
