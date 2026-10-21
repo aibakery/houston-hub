@@ -84,9 +84,19 @@ local WRITES: {Endpoint} = {
 		required = {"datepaye", "paymentid", "closepaidinvoices", "accountid"}, returns = "paymentID"},
 }
 
--- Dolibarr strips these from user records; the connector also drops them anywhere else.
-local SECRET = {api_key = true, pass = true, pass_crypted = true, pass_indatabase = true,
-	pass_indatabase_crypted = true, pass_temp = true, clicktodial_password = true}
+-- Dolibarr strips the password and key fields from user records; the connector also drops
+-- them anywhere else, with a third party's key for its partner's web service. Filtering or
+-- sorting on them would reveal them a character at a time, so queries cannot name them.
+local SECRET: {[string]: boolean} = {api_key = true, pass = true, pass_crypted = true, pass_indatabase = true,
+	pass_indatabase_crypted = true, pass_temp = true, clicktodial_password = true, webservices_key = true}
+
+local function withheld(value: string, name: string): string
+	local lower = string.lower(value)
+	for secret in SECRET do
+		assert(not string.find(lower, "%f[%w_]" .. secret .. "%f[^%w_]"), name .. " cannot use " .. secret .. ", which the connector withholds")
+	end
+	return value
+end
 
 -- Dolibarr returns IDs as strings, so digit strings are accepted too.
 local function id(value: any, name: string): string
@@ -122,7 +132,7 @@ local ENCODE: {[string]: (any, string) -> string} = {
 	sortfield = function(value, name)
 		assert(type(value) == "string" and (string.match(value, FIELD) or string.match(value, "^[%a_][%w_]*%.[%a_][%w_]*$")),
 			name .. " must be a column such as t.rowid")
-		return value
+		return withheld(value, name)
 	end,
 	sortorder = function(value, name)
 		assert(value == "ASC" or value == "DESC", name .. " must be ASC or DESC")
@@ -130,8 +140,8 @@ local ENCODE: {[string]: (any, string) -> string} = {
 	end,
 	limit = function(value, name) return integer(value, name, 1, 200) end,
 	page = function(value, name) return integer(value, name, 0, MAX_ID) end,
-	sqlfilters = function(value, name) return text(value, name, "%S") end,
-	sqlfilterlines = function(value, name) return text(value, name, "%S") end,
+	sqlfilters = function(value, name) return withheld(text(value, name, "%S"), name) end,
+	sqlfilterlines = function(value, name) return withheld(text(value, name, "%S"), name) end,
 	properties = function(value, name)
 		local names: {string} = {}
 		for _, item in array(value, name) do table.insert(names, text(item, name, FIELD)) end

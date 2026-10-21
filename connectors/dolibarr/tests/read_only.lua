@@ -61,10 +61,12 @@ return {
 		assert(json.encode(erp.listThirdparties({sqlfilters = "(t.nom:like:'zz%')"})) == "[]", "an old empty list failed")
 		status = 200
 
-		payload = '{"id":"12","name":"Ann SARL","client":"1","array_options":{"options_shop":"PS"}}'
+		payload = '{"id":"12","name":"Ann SARL","client":"1","webservices_url":"https://partner.example.com/ws","webservices_key":"partner-secret","array_options":{"options_shop":"PS"}}'
 		local thirdparty = erp.getThirdparty(12)
 		assert(last().url == API .. "/thirdparties/12", last().url)
-		assert(thirdparty.name == "Ann SARL" and thirdparty.array_options.options_shop == "PS")
+		assert(thirdparty.name == "Ann SARL" and thirdparty.array_options.options_shop == "PS" and thirdparty.webservices_url == "https://partner.example.com/ws")
+		-- A third party's web service key is a credential for that partner's system.
+		assert(thirdparty.webservices_key == nil, "webservices_key was returned")
 		erp.getInvoice("42")
 		assert(last().url == API .. "/invoices/42")
 		erp.getProduct(9, {includestockdata = false})

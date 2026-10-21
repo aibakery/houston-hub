@@ -47,6 +47,11 @@ return {
 		rejected(function() erp.listThirdparties({mode = 5}) end, "mode must be an integer from 0 to 4")
 		rejected(function() erp.listProducts({includestockdata = 1}) end, "includestockdata must be a boolean")
 		rejected(function() erp.listBankAccountLines(1) end, "sqlfilters is required")
+		-- Filtering or sorting on a withheld field would reveal it one character at a time.
+		rejected(function() erp.listThirdparties({sqlfilters = "(t.WebServices_Key:like:'a%')"}) end, "sqlfilters cannot use webservices_key")
+		rejected(function() erp.listOrders({sqlfilterlines = "(tl.pass:=:'x')"}) end, "sqlfilterlines cannot use pass")
+		rejected(function() erp.listThirdparties({sortfield = "t.webservices_key"}) end, "sortfield cannot use webservices_key")
+		erp.listThirdparties({sqlfilters = "(t.note_private:like:'%passage%') and (t.webservices_url:!=:'')"})
 
 		rejected(function() erp.createThirdparty("Ann") end, "fields must be an object")
 		rejected(function() erp.createThirdparty({"Ann"}) end, "fields must be an object")
