@@ -46,8 +46,8 @@ return {
 		assert(last().url == API .. "/supplierorders?limit=100&page=0&status=received_end&thirdparty_ids=4", last().url)
 		erp.listCategories({type = "product"})
 		assert(last().url == API .. "/categories?limit=100&page=0&type=product", last().url)
-		erp.listPaymentTypes()
-		assert(last().url == API .. "/setup/dictionary/payment_types?limit=100&page=0", last().url)
+		erp.listPaymentTypes({sortfield = "code"})
+		assert(last().url == API .. "/setup/dictionary/payment_types?limit=100&page=0&sortfield=code", last().url)
 
 		payload = "[]"
 		local empty = erp.listStockMovements({sqlfilters = "(t.fk_product:=:9)"})
@@ -74,8 +74,8 @@ return {
 		payload = '{"stock_reel":"5","stock_warehouses":{"1":{"real":"5"}}}'
 		assert(erp.getProductStock(9, {selected_warehouse_id = 1}).stock_warehouses["1"].real == "5")
 		assert(last().url == API .. "/products/9/stock?selected_warehouse_id=1", last().url)
-		erp.listBankAccountLines(1, {sqlfilters = "(t.dateo:>=:'2026-10-01')"})
-		assert(last().url == API .. "/bankaccounts/1/lines?sqlfilters=%28t.dateo%3A%3E%3D%3A%272026-10-01%27%29", last().url)
+		erp.listBankAccountLines(1, {sqlfilters = "(dateo:>=:'2026-10-01')"})
+		assert(last().url == API .. "/bankaccounts/1/lines?sqlfilters=%28dateo%3A%3E%3D%3A%272026-10-01%27%29", last().url)
 		payload = "1250.5"
 		assert(erp.getBankAccountBalance(1) == 1250.5)
 		assert(last().url == API .. "/bankaccounts/1/balance")

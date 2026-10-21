@@ -31,6 +31,8 @@ return {
 		end
 		rejected(function() erp.getStatus({limit = 1}) end, "limit is not a supported option")
 		rejected(function() erp.getProduct(1, {limit = 1}) end, "limit is not a supported option")
+		rejected(function() erp.listPaymentTypes({properties = {"id"}}) end, "properties is not a supported option")
+		rejected(function() erp.listInvoices({page = -1}) end, "page must be an integer from 0 to 9007199254740991")
 		rejected(function() erp.listInvoices({limit = 0}) end, "limit must be an integer from 1 to 200")
 		rejected(function() erp.listInvoices({limit = 201}) end, "limit must be an integer from 1 to 200")
 		rejected(function() erp.listInvoices({page = -1}) end, "page must be an integer")

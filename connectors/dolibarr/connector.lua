@@ -1,7 +1,7 @@
 -- Dolibarr REST API (Dolibarr 16 to 24). Arguments and results keep Dolibarr's native field names.
 type Options = {[string]: any}
 type Endpoint = {name: string, method: string?, path: string, list: {string}?, query: {string}?, required: {string}?,
-	fields: string?, returns: string?, choices: {[string]: {any}}?}
+	fields: string?, returns: string?, choices: {[string]: {any}}?, paging: {string}?}
 
 local HOST = string.lower(config.host)
 local DOCS = "https://wiki.dolibarr.org/index.php/Module_Web_Services_API_REST_(developer)"
@@ -39,7 +39,7 @@ local READS: {Endpoint} = {
 	{name = "listProducts", path = "/products", list = {"mode", "category", "includestockdata"}, choices = {mode = {1, 2}}},
 	{name = "getProduct", path = "/products/{id}", query = {"includestockdata"}},
 	{name = "getProductStock", path = "/products/{id}/stock", query = {"selected_warehouse_id"},
-		returns = "{stock_reel, stock_theorique, stock_warehouses: {[warehouseID]: {real, ...}}}"},
+		returns = "{stock_warehouses: {[warehouseID]: {real, ...}}, stock_reel, stock_theorique}"},
 	{name = "listWarehouses", path = "/warehouses", list = {"category"}},
 	{name = "getWarehouse", path = "/warehouses/{id}"},
 	{name = "listStockMovements", path = "/stockmovements", list = {}},
@@ -65,7 +65,7 @@ local READS: {Endpoint} = {
 	{name = "listBankAccountLines", path = "/bankaccounts/{id}/lines", query = {"sqlfilters"}, required = {"sqlfilters"},
 		returns = "[line]"},
 	{name = "getBankAccountBalance", path = "/bankaccounts/{id}/balance", returns = "number"},
-	{name = "listPaymentTypes", path = "/setup/dictionary/payment_types", list = {}},
+	{name = "listPaymentTypes", path = "/setup/dictionary/payment_types", list = {}, paging = {"sortfield", "sortorder", "limit", "page", "sqlfilters"}},
 }
 -- Endpoints read-write connections add. A POST create answers with the new record's ID.
 local WRITES: {Endpoint} = {
@@ -113,7 +113,7 @@ end
 
 local function integer(value: any, name: string, min: number, max: number): string
 	assert(type(value) == "number" and value % 1 == 0 and value >= min and value <= max,
-		name .. " must be an integer from " .. min .. " to " .. max)
+		name .. " must be an integer from " .. string.format("%d", min) .. " to " .. string.format("%d", max))
 	return string.format("%d", value)
 end
 
@@ -171,7 +171,7 @@ local ENCODE: {[string]: (any, string) -> string} = {
 
 local function optionNames(endpoint: Endpoint): {string}
 	local names: {string} = {}
-	local groups: {{string}} = {if endpoint.list then PAGE else EMPTY, endpoint.list or EMPTY, endpoint.query or EMPTY}
+	local groups: {{string}} = {if endpoint.list then endpoint.paging or PAGE else EMPTY, endpoint.list or EMPTY, endpoint.query or EMPTY}
 	for _, group in groups do
 		for _, name in group do table.insert(names, name) end
 	end
@@ -354,12 +354,12 @@ exports.help = function(): string
 	table.sort(names)
 	local lines = {
 		"Dolibarr REST API for " .. HOST .. ". Results keep Dolibarr's native JSON: records are objects whose IDs and amounts are usually strings (\"id\":\"12\", \"total_ttc\":\"120.00000000\"), dates are Unix timestamps (payment lists use 'YYYY-MM-DD HH:MM:SS'), and lists are arrays, an empty list included. IDs can be passed as numbers or digit strings. Extra fields sit in array_options as options_<code>. Connector calls return completed values: use them directly, without await.",
-		"Lists fetch one page: limit (1-200, default 100) and page (from 0); fetch the next page while a page returns limit records. sortfield is a database column with its alias, such as t.rowid, t.ref, t.datec or t.tms, and sortorder ASC or DESC. properties={'id','ref','total_ttc'} returns only those fields (Dolibarr 19+). sqlfilters uses Dolibarr's syntax on database columns, not JSON names: \"(t.ref:like:'FA26%') and (t.fk_soc:=:12)\", with operators = != < > <= >= like notlike in notin is isnot, quoted strings and no parentheses inside values; for example (t.tms:>:'2026-10-01 00:00:00') finds records changed since a date. thirdparty_ids is an ID or an array of IDs. listThirdparties mode: 1 customers, 2 prospects, 3 neither, 4 suppliers; listProducts mode: 1 products, 2 services. listInvoices and listSupplierInvoices status: draft, unpaid, paid or cancelled; listSupplierOrders status: draft, validated, approved, running, received_start, received_end, cancelled or refused. listOrders sqlfilterlines filters by line columns, such as (tl.fk_product:=:9).",
-		"Examples: listInvoices({status='unpaid', sortfield='t.datef', sortorder='DESC', limit=20}); getInvoice(42); listOrders({sqlfilters=\"(t.ref_ext:=:'PS-1042')\"}); listThirdparties({sqlfilters=\"(t.email:=:'ann@example.com')\"}); listProducts({sqlfilters=\"(t.ref:=:'MUG-01')\", properties={'id','ref','label','price'}}); getProductStock(9); listStockMovements({sqlfilters='(t.fk_product:=:9)', sortorder='DESC'}); listBankAccountLines(1, {sqlfilters=\"(t.dateo:>=:'2026-10-01')\"}).",
-		"Customer orders, invoices and proposals link to a third party through socid (fk_soc in sqlfilters) and carry their lines. Statuses (status, statut or fk_statut) are numeric strings: an order is 0 draft, 1 validated, 2 shipping, 3 delivered, -1 cancelled; an invoice 0 draft, 1 unpaid, 2 paid, 3 abandoned. ref_ext holds an external reference such as a shop order ID. listBankAccountLines requires sqlfilters, as Dolibarr returns every matching line at once; getBankAccountBalance needs Dolibarr 21+. The API key's Dolibarr user permissions apply: a missing permission or disabled module fails with HTTP 403 (401 before Dolibarr 20), an endpoint this Dolibarr lacks or blocks with HTTP 501, and a missing record with HTTP 404; Dolibarr reports its own errors, such as an invalid sqlfilters column, as HTTP 400 or 503. Errors carry Dolibarr's message.",
+		"Lists fetch one page: limit (1-200, default 100) and page (from 0); fetch the next page while a page returns limit records. sortfield is a database column with its alias, such as t.rowid, t.ref, t.datec or t.tms, and sortorder ASC or DESC. properties={'id','ref','total_ttc'} returns only those fields (Dolibarr 19+). sqlfilters uses Dolibarr's syntax on database columns, not JSON names: \"(t.ref:like:'FA26%') and (t.fk_soc:=:12)\", with operators = != < > <= >= like notlike in notin is isnot, quoted strings and no parentheses inside values; for example (t.tms:>:'2026-10-01 00:00:00') finds records changed since a date. thirdparty_ids is an ID or an array of IDs. listThirdparties mode: 1 customers, 2 prospects, 3 neither, 4 suppliers; listProducts mode: 1 products, 2 services. listInvoices and listSupplierInvoices status: draft, unpaid, paid or cancelled; listSupplierOrders status: draft, validated, approved, running, received_start, received_end, cancelled or refused. listOrders sqlfilterlines (Dolibarr 18+) filters by line columns, such as (tl.fk_product:=:9). listPaymentTypes sorts and filters on code, id or libelle.",
+		"Examples: listInvoices({status='unpaid', sortfield='t.datef', sortorder='DESC', limit=20}); getInvoice(42); listOrders({sqlfilters=\"(t.ref_ext:=:'PS-1042')\"}); listThirdparties({sqlfilters=\"(t.email:=:'ann@example.com')\"}); listProducts({sqlfilters=\"(t.ref:=:'MUG-01')\", properties={'id','ref','label','price'}}); getProductStock(9); listStockMovements({sqlfilters='(t.fk_product:=:9)', sortorder='DESC'}); listBankAccountLines(1, {sqlfilters=\"(dateo:>=:'2026-10-01')\"}).",
+		"Customer orders, invoices and proposals link to a third party through socid (fk_soc in sqlfilters) and carry their lines. Statuses (status, statut or fk_statut) are numeric strings: an order is 0 draft, 1 validated, 2 shipping, 3 delivered, -1 cancelled; an invoice 0 draft, 1 unpaid, 2 paid, 3 abandoned. ref_ext holds an external reference such as a shop order ID. listBankAccountLines requires sqlfilters on bare column names without t. (dateo, datev, amount, label, num_releve), as Dolibarr returns every matching line at once; getProductStock returns stock_reel and stock_theorique from Dolibarr 21, and before 19 fails with HTTP 404 \"No stock found\" for a product without stock; getBankAccountBalance needs Dolibarr 21+. The API key's Dolibarr user permissions apply: a missing permission or disabled module fails with HTTP 403 (401 before Dolibarr 20), an endpoint this Dolibarr lacks or blocks with HTTP 501, and a missing record with HTTP 404; Dolibarr reports its own errors, such as an invalid sqlfilters column, as HTTP 400 or 503. Errors carry Dolibarr's message.",
 	}
 	if config.access == "read-write" then
-		table.insert(lines, "Writes send fields as a JSON object of Dolibarr field names (see Dolibarr's API explorer for each object); a create returns the new record's ID, so read it back with the matching get, while updates and actions return the record. Updates change only the given fields. Dates are Unix timestamps. createOrder({socid=12, date=1792540800, ref_ext='PS-1042'}) creates a draft order; add lines with addOrderLine(orderID, {fk_product=9, qty=2, subprice='12.50', tva_tx='20'}) or {desc='Shipping', qty=1, subprice='5', tva_tx='20', product_type=1}, then validateOrder(orderID) gives it its reference (pass {idwarehouse=1} when validation moves stock). createInvoiceFromOrder(orderID) returns a draft invoice copied from the order; validateInvoice(id) numbers it, which cannot be undone, and addInvoicePayment(id, {datepaye=1792540800, paymentid=<listPaymentTypes id>, accountid=<bank account id>, closepaidinvoices='yes'}) records a payment of the whole remaining amount. createStockMovement({product_id=9, warehouse_id=1, qty=-2, label='Shop order PS-1042'}) moves stock (negative qty removes it). Validation and closing may run Dolibarr's workflows and notifications; they answer HTTP 304 when the record is already in that state. Only HTTP 429 is retried: after a timeout or 5xx, read the record before repeating a write.")
+		table.insert(lines, "Writes send fields as a JSON object of Dolibarr field names (see Dolibarr's API explorer for each object); a create returns the new record's ID, so read it back with the matching get, while updates and actions return the record. Updates change only the given fields. Dates are Unix timestamps. createOrder({socid=12, date=1792540800, ref_ext='PS-1042'}) creates a draft order; add lines with addOrderLine(orderID, {fk_product=9, qty=2, subprice='12.50', tva_tx='20'}) or {desc='Shipping', qty=1, subprice='5', tva_tx='20', product_type=1}, then validateOrder(orderID) gives it its reference (pass {idwarehouse=1} when validation moves stock). createInvoiceFromOrder(orderID) returns a draft invoice copied from the order; validateInvoice(id) numbers it, which cannot be undone, and addInvoicePayment(id, {datepaye=1792540800, paymentid=<listPaymentTypes id>, accountid=<bank account id>, closepaidinvoices='yes'}) records a payment of the whole remaining amount. createStockMovement({product_id=9, warehouse_id=1, qty=-2, label='Shop order PS-1042'}) moves stock (negative qty removes it); before Dolibarr 23, pass movementlabel instead of label, batch as lot, and sellBy and eatBy as dlc and dluo. Validation and closing may run Dolibarr's workflows and notifications; they answer HTTP 304 when the record is already in that state. Only HTTP 429 is retried: after a timeout or 5xx, read the record before repeating a write.")
 	end
 	table.insert(lines, "Reference: " .. DOCS .. " and the API explorer at <your Dolibarr>/api/index.php/explorer.")
 	for _, name in names do table.insert(lines, name .. signatures[name]) end
