@@ -22,6 +22,7 @@ return {
 			local req = last()
 			assert(req.method == method and req.url == API .. path, req.method .. " " .. req.url)
 			assert(req.headers.DOLAPIKEY == nil and req.headers.Authorization == nil, "connector set credentials")
+			assert(req.headers.Accept[1] == "application/json")
 			if expected == nil then
 				assert(req.body == nil and req.headers["Content-Type"] == nil, "unexpected body")
 				return

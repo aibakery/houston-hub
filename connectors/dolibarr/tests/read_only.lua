@@ -82,7 +82,10 @@ return {
 		payload = '{"success":{"code":200,"dolibarr_version":"24.0.2","access_locked":"0"}}'
 		assert(erp.getStatus().success.dolibarr_version == "24.0.2")
 		assert(last().url == API .. "/status")
-		for _, req in requests do assert(req.method == "GET" and req.body == nil, "a read sent " .. req.method) end
+		for _, req in requests do
+			assert(req.method == "GET" and req.body == nil, "a read sent " .. req.method)
+			assert(req.headers.DOLAPIKEY == nil and req.headers.Authorization == nil and req.headers.Accept[1] == "application/json", "wrong headers on " .. req.url)
+		end
 		assert(#requests == 18, "wrong request count: " .. #requests)
 	end,
 }
