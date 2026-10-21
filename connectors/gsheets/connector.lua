@@ -64,6 +64,17 @@ local function call(operation: string, method: string, href: string, body: any?)
 		body = if body ~= nil then json.encode(body) else nil})))
 end
 
+-- Accepts a docs.google.com editor URL in place of its file ID; published and responder links (/d/e/...) carry no ID.
+local function docsId(value: any, product: string, field: string): any
+	if type(value) ~= "string" then return value end
+	local rest = string.match(value, "^https://docs%.google%.com/" .. product .. "/d/(.*)$")
+		or string.match(value, "^https://docs%.google%.com/" .. product .. "/u/%d+/d/(.*)$")
+		or string.match(value, "^https://docs%.google%.com/a/[^/]+/" .. product .. "/d/(.*)$")
+	local id: string = if rest then string.match(rest, "^[^/?#]*") or "" else value
+	assert(string.match(id, "^[%w_%-]+$") and id ~= "e", field .. " must be an ID or its https://docs.google.com/" .. product .. "/d/<id> URL")
+	return id
+end
+
 -- Moves {placeholders} and declared query fields from args into the URL; remaining fields form the JSON body.
 local function target(name: string, endpoint: Endpoint, args: Options): string
 	local defaults: Options = endpoint.defaults or {}
@@ -73,7 +84,7 @@ local function target(name: string, endpoint: Endpoint, args: Options): string
 	local required: {[string]: string} = endpoint.required or {}
 	for field, kind in required do
 		local value = args[field]
-		assert(if kind == "array" then type(value) == "table" and value[1] ~= nil elseif kind == "string" then type(value) == "string" and value ~= "" else false,
+		assert(if kind == "array" then type(value) == "table" and value[1] ~= nil elseif kind == "string" then type(value) == "string" and value ~= "" elseif kind == "object" then type(value) == "table" and next(value) ~= nil and value[1] == nil else false,
 			name .. " requires " .. field .. " as a nonempty " .. kind)
 	end
 	local path = string.gsub(endpoint.path, "{(%w+)}", function(field: string)
@@ -153,17 +164,6 @@ local endpoints: {[string]: Endpoint} = {
 		help = "batchUpdate({spreadsheetId, requests, includeSpreadsheetInResponse?}) -> {spreadsheetId, replies}. Structure and formatting, applied all or nothing, e.g. requests={{addSheet={properties={title='Archive'}}}}. Request kinds include addSheet, deleteSheet, duplicateSheet, updateSheetProperties (rename or freeze, with a fields mask), insertDimension, deleteDimension (rows or columns), findReplace, sortRange, repeatCell (formatting), mergeCells, setDataValidation and addTable. They address cells with GridRange {sheetId, startRowIndex, endRowIndex, startColumnIndex, endColumnIndex}: zero-based, ends exclusive, sheetId from getSpreadsheet. Deleting a tab, rows or columns removes their data; only the spreadsheet's version history restores it."},
 }
 
--- Accepts the spreadsheet's URL in place of its ID; publish-to-web links carry no ID.
-local function spreadsheetId(value: any): any
-	if type(value) ~= "string" then return value end
-	local rest = string.match(value, "^https://docs%.google%.com/spreadsheets/d/(.*)$")
-		or string.match(value, "^https://docs%.google%.com/spreadsheets/u/%d+/d/(.*)$")
-		or string.match(value, "^https://docs%.google%.com/a/[^/]+/spreadsheets/d/(.*)$")
-	local id: string = if rest then string.match(rest, "^[^/?#]*") or "" else value
-	assert(string.match(id, "^[%w_%-]+$") and id ~= "e", "spreadsheetId must be a spreadsheet ID or its https://docs.google.com/spreadsheets/d/<id> URL")
-	return id
-end
-
 local NONE: {string} = table.freeze({})
 -- Ranges are opaque path segments: the proxy allows encoded / and % but refuses dot segments
 -- and control bytes, so any tab name, such as '10/16' or one with emoji, works.
@@ -179,7 +179,7 @@ for name, endpoint in endpoints do
 	export(name, endpoint.read, function(input: any): any
 		local args = options(input)
 		if string.find(endpoint.path, "{spreadsheetId}", 1, true) then
-			args.spreadsheetId = spreadsheetId(args.spreadsheetId)
+			args.spreadsheetId = docsId(args.spreadsheetId, "spreadsheets", "spreadsheetId")
 		else
 			assert(args.spreadsheetId == nil, name .. " assigns the spreadsheetId")
 		end

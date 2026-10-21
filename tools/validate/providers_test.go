@@ -19,7 +19,7 @@ func TestEveryProviderAuthenticationAndTransport(t *testing.T) {
 	}
 	endpoints := map[string][2]string{
 		"attio": {"GET", "https://api.attio.com/v2/self"}, "granola": {"GET", "https://public-api.granola.ai/v1/notes"},
-		"gmail": {"GET", "https://gmail.googleapis.com/gmail/v1/users/me/profile"}, "gdrive": {"GET", "https://www.googleapis.com/drive/v3/files"}, "gsheets": {"GET", "https://sheets.googleapis.com/v4/spreadsheets/s1"},
+		"gmail": {"GET", "https://gmail.googleapis.com/gmail/v1/users/me/profile"}, "gdrive": {"GET", "https://www.googleapis.com/drive/v3/files"}, "gsheets": {"GET", "https://sheets.googleapis.com/v4/spreadsheets/s1"}, "gforms": {"GET", "https://forms.googleapis.com/v1/forms/f1"},
 		"gcalendar": {"GET", "https://www.googleapis.com/calendar/v3/users/me/calendarList"}, "dropbox": {"POST", "https://api.dropboxapi.com/2/files/list_folder"},
 		"slack": {"GET", "https://slack.com/api/auth.test"}, "fastmail": {"GET", "https://api.fastmail.com/jmap/session"},
 		"notion":      {"GET", "https://api.notion.com/v1/users/me"},

@@ -67,6 +67,17 @@ local function call(operation: string, method: string, href: string, body: any?)
 		body = if body ~= nil then json.encode(body) else nil})))
 end
 
+-- Accepts a docs.google.com editor URL in place of its file ID; published and responder links (/d/e/...) carry no ID.
+local function docsId(value: any, product: string, field: string): any
+	if type(value) ~= "string" then return value end
+	local rest = string.match(value, "^https://docs%.google%.com/" .. product .. "/d/(.*)$")
+		or string.match(value, "^https://docs%.google%.com/" .. product .. "/u/%d+/d/(.*)$")
+		or string.match(value, "^https://docs%.google%.com/a/[^/]+/" .. product .. "/d/(.*)$")
+	local id: string = if rest then string.match(rest, "^[^/?#]*") or "" else value
+	assert(string.match(id, "^[%w_%-]+$") and id ~= "e", field .. " must be an ID or its https://docs.google.com/" .. product .. "/d/<id> URL")
+	return id
+end
+
 -- Moves {placeholders} and declared query fields from args into the URL; remaining fields form the JSON body.
 local function target(name: string, endpoint: Endpoint, args: Options): string
 	local defaults: Options = endpoint.defaults or {}
@@ -76,7 +87,7 @@ local function target(name: string, endpoint: Endpoint, args: Options): string
 	local required: {[string]: string} = endpoint.required or {}
 	for field, kind in required do
 		local value = args[field]
-		assert(if kind == "array" then type(value) == "table" and value[1] ~= nil elseif kind == "string" then type(value) == "string" and value ~= "" else false,
+		assert(if kind == "array" then type(value) == "table" and value[1] ~= nil elseif kind == "string" then type(value) == "string" and value ~= "" elseif kind == "object" then type(value) == "table" and next(value) ~= nil and value[1] == nil else false,
 			name .. " requires " .. field .. " as a nonempty " .. kind)
 	end
 	local path = string.gsub(endpoint.path, "{(%w+)}", function(field: string)
