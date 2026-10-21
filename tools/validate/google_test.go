@@ -204,3 +204,30 @@ func TestGoogleFormsScopesAndRoutes(t *testing.T) {
 			"GET "+api+"/f1/responses/%2e%2e")
 	}
 }
+
+func TestGoogleDocsScopesAndRoutes(t *testing.T) {
+	m := parseManifest(t, "../../connectors/gdocs/houston.json")
+	const api = "https://docs.googleapis.com/v1/documents"
+	for _, access := range []string{"read-only", "read-write"} {
+		scope := "documents.readonly"
+		if access == "read-write" {
+			scope = "documents"
+		}
+		r := resolveGoogle(t, m, access, scope)
+		reads := []string{"GET " + api + "/d1?includeTabsContent=true", "GET " + api + "/1DoC_x-9?fields=documentId%2Ctitle%2CrevisionId%2Ctabs"}
+		assertRoutes(t, r, "fixture-token", true, reads...)
+		assertStripsMethodOverrides(t, r, reads...)
+		writes := []string{"POST " + api, "POST " + api + "/d1:batchUpdate"}
+		assertRoutes(t, r, "fixture-token", access == "read-write", writes...)
+		if access == "read-write" {
+			assertStripsMethodOverrides(t, r, writes...)
+		}
+		// The token stays off Google's OAuth endpoints, other Google APIs, lookalike hosts and
+		// methods the API does not have.
+		assertRoutes(t, r, "fixture-token", false,
+			"POST https://oauth2.googleapis.com/token", "GET https://www.googleapis.com/drive/v3/files",
+			"GET https://docs.googleapis.com.evil.test/v1/documents/d1", "GET https://content.googleapis.com/v1/documents/d1",
+			"GET https://docs.googleapis.com/v2/documents/d1", "GET "+api, "DELETE "+api+"/d1", "PATCH "+api+"/d1", "PUT "+api+"/d1",
+			"GET "+api+"/d1/tabs", "GET "+api+"/%2e%2e/d1", "GET "+api+"/d1%2F..%2Fx", "POST "+api+"/d1/batchUpdate")
+	}
+}
