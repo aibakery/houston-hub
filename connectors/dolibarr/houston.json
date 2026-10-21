@@ -1,0 +1,285 @@
+{
+  "schema_version": 1,
+  "name": "Dolibarr",
+  "files": [
+    "connector.lua"
+  ],
+  "icon": "icon.svg",
+  "config": {
+    "access": {
+      "default": "read-only",
+      "description": "Houston sends no changes on a Read-only connection. Dolibarr has the final say: the API key acts as its Dolibarr user, so for a guaranteed read-only connection use the key of a user who can only read.",
+      "label": "Access",
+      "options": [
+        {
+          "label": "Read-only",
+          "value": "read-only"
+        },
+        {
+          "label": "Read and write",
+          "value": "read-write"
+        }
+      ],
+      "order": 1,
+      "type": "string"
+    },
+    "host": {
+      "description": "The domain your Dolibarr is served from, without https:// or a path.",
+      "label": "Dolibarr domain",
+      "max_length": 253,
+      "order": 2,
+      "placeholder": "erp.example.com",
+      "required": true,
+      "type": "string"
+    },
+    "install_path": {
+      "description": "Leave empty when Dolibarr opens at the root of the domain. Otherwise enter the folder before /index.php, such as /dolibarr or /dolibarr/htdocs.",
+      "label": "Install path",
+      "max_length": 200,
+      "order": 3,
+      "placeholder": "/dolibarr",
+      "type": "string"
+    }
+  },
+  "auth": {
+    "key": {
+      "config": {
+        "token": {
+          "label": "API key",
+          "order": 1,
+          "required": true,
+          "type": "secret",
+          "max_length": 128
+        }
+      },
+      "label": "Dolibarr API key",
+      "type": "manual"
+    }
+  },
+  "proxy": [
+    {
+      "action": {
+        "headers": {
+          "remove": [
+            "Authorization",
+            "Cookie",
+            "DOLAPIENTITY",
+            "X-HTTP-Method-Override"
+          ],
+          "set": {
+            "DOLAPIKEY": "{{auth.key.token}}"
+          }
+        }
+      },
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "host": [
+          "{{config.host}}"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/api/index.php/thirdparties",
+          "/api/index.php/contacts",
+          "/api/index.php/products",
+          "/api/index.php/stockmovements",
+          "/api/index.php/orders",
+          "/api/index.php/orders/{id}/lines",
+          "/api/index.php/orders/{id}/validate",
+          "/api/index.php/orders/{id}/close",
+          "/api/index.php/invoices",
+          "/api/index.php/invoices/createfromorder/{id}",
+          "/api/index.php/invoices/{id}/lines",
+          "/api/index.php/invoices/{id}/validate",
+          "/api/index.php/invoices/{id}/payments",
+          "/{base}/api/index.php/thirdparties",
+          "/{base}/api/index.php/contacts",
+          "/{base}/api/index.php/products",
+          "/{base}/api/index.php/stockmovements",
+          "/{base}/api/index.php/orders",
+          "/{base}/api/index.php/orders/{id}/lines",
+          "/{base}/api/index.php/orders/{id}/validate",
+          "/{base}/api/index.php/orders/{id}/close",
+          "/{base}/api/index.php/invoices",
+          "/{base}/api/index.php/invoices/createfromorder/{id}",
+          "/{base}/api/index.php/invoices/{id}/lines",
+          "/{base}/api/index.php/invoices/{id}/validate",
+          "/{base}/api/index.php/invoices/{id}/payments",
+          "/{base}/{sub}/api/index.php/thirdparties",
+          "/{base}/{sub}/api/index.php/contacts",
+          "/{base}/{sub}/api/index.php/products",
+          "/{base}/{sub}/api/index.php/stockmovements",
+          "/{base}/{sub}/api/index.php/orders",
+          "/{base}/{sub}/api/index.php/orders/{id}/lines",
+          "/{base}/{sub}/api/index.php/orders/{id}/validate",
+          "/{base}/{sub}/api/index.php/orders/{id}/close",
+          "/{base}/{sub}/api/index.php/invoices",
+          "/{base}/{sub}/api/index.php/invoices/createfromorder/{id}",
+          "/{base}/{sub}/api/index.php/invoices/{id}/lines",
+          "/{base}/{sub}/api/index.php/invoices/{id}/validate",
+          "/{base}/{sub}/api/index.php/invoices/{id}/payments"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "remove": [
+            "Authorization",
+            "Cookie",
+            "DOLAPIENTITY",
+            "X-HTTP-Method-Override"
+          ],
+          "set": {
+            "DOLAPIKEY": "{{auth.key.token}}"
+          }
+        }
+      },
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "host": [
+          "{{config.host}}"
+        ],
+        "method": [
+          "PUT"
+        ],
+        "path": [
+          "/api/index.php/thirdparties/{id}",
+          "/api/index.php/contacts/{id}",
+          "/api/index.php/products/{id}",
+          "/{base}/api/index.php/thirdparties/{id}",
+          "/{base}/api/index.php/contacts/{id}",
+          "/{base}/api/index.php/products/{id}",
+          "/{base}/{sub}/api/index.php/thirdparties/{id}",
+          "/{base}/{sub}/api/index.php/contacts/{id}",
+          "/{base}/{sub}/api/index.php/products/{id}"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "remove": [
+            "Authorization",
+            "Cookie",
+            "DOLAPIENTITY",
+            "X-HTTP-Method-Override"
+          ],
+          "set": {
+            "DOLAPIKEY": "{{auth.key.token}}"
+          }
+        }
+      },
+      "match": {
+        "host": [
+          "{{config.host}}"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/api/index.php/status",
+          "/api/index.php/thirdparties",
+          "/api/index.php/thirdparties/{id}",
+          "/api/index.php/contacts",
+          "/api/index.php/contacts/{id}",
+          "/api/index.php/products",
+          "/api/index.php/products/{id}",
+          "/api/index.php/products/{id}/stock",
+          "/api/index.php/warehouses",
+          "/api/index.php/warehouses/{id}",
+          "/api/index.php/stockmovements",
+          "/api/index.php/categories",
+          "/api/index.php/categories/{id}",
+          "/api/index.php/orders",
+          "/api/index.php/orders/{id}",
+          "/api/index.php/invoices",
+          "/api/index.php/invoices/{id}",
+          "/api/index.php/invoices/{id}/payments",
+          "/api/index.php/proposals",
+          "/api/index.php/proposals/{id}",
+          "/api/index.php/shipments",
+          "/api/index.php/shipments/{id}",
+          "/api/index.php/supplierorders",
+          "/api/index.php/supplierorders/{id}",
+          "/api/index.php/supplierinvoices",
+          "/api/index.php/supplierinvoices/{id}",
+          "/api/index.php/supplierinvoices/{id}/payments",
+          "/api/index.php/bankaccounts",
+          "/api/index.php/bankaccounts/{id}",
+          "/api/index.php/bankaccounts/{id}/lines",
+          "/api/index.php/bankaccounts/{id}/balance",
+          "/api/index.php/setup/dictionary/payment_types",
+          "/{base}/api/index.php/status",
+          "/{base}/api/index.php/thirdparties",
+          "/{base}/api/index.php/thirdparties/{id}",
+          "/{base}/api/index.php/contacts",
+          "/{base}/api/index.php/contacts/{id}",
+          "/{base}/api/index.php/products",
+          "/{base}/api/index.php/products/{id}",
+          "/{base}/api/index.php/products/{id}/stock",
+          "/{base}/api/index.php/warehouses",
+          "/{base}/api/index.php/warehouses/{id}",
+          "/{base}/api/index.php/stockmovements",
+          "/{base}/api/index.php/categories",
+          "/{base}/api/index.php/categories/{id}",
+          "/{base}/api/index.php/orders",
+          "/{base}/api/index.php/orders/{id}",
+          "/{base}/api/index.php/invoices",
+          "/{base}/api/index.php/invoices/{id}",
+          "/{base}/api/index.php/invoices/{id}/payments",
+          "/{base}/api/index.php/proposals",
+          "/{base}/api/index.php/proposals/{id}",
+          "/{base}/api/index.php/shipments",
+          "/{base}/api/index.php/shipments/{id}",
+          "/{base}/api/index.php/supplierorders",
+          "/{base}/api/index.php/supplierorders/{id}",
+          "/{base}/api/index.php/supplierinvoices",
+          "/{base}/api/index.php/supplierinvoices/{id}",
+          "/{base}/api/index.php/supplierinvoices/{id}/payments",
+          "/{base}/api/index.php/bankaccounts",
+          "/{base}/api/index.php/bankaccounts/{id}",
+          "/{base}/api/index.php/bankaccounts/{id}/lines",
+          "/{base}/api/index.php/bankaccounts/{id}/balance",
+          "/{base}/api/index.php/setup/dictionary/payment_types",
+          "/{base}/{sub}/api/index.php/status",
+          "/{base}/{sub}/api/index.php/thirdparties",
+          "/{base}/{sub}/api/index.php/thirdparties/{id}",
+          "/{base}/{sub}/api/index.php/contacts",
+          "/{base}/{sub}/api/index.php/contacts/{id}",
+          "/{base}/{sub}/api/index.php/products",
+          "/{base}/{sub}/api/index.php/products/{id}",
+          "/{base}/{sub}/api/index.php/products/{id}/stock",
+          "/{base}/{sub}/api/index.php/warehouses",
+          "/{base}/{sub}/api/index.php/warehouses/{id}",
+          "/{base}/{sub}/api/index.php/stockmovements",
+          "/{base}/{sub}/api/index.php/categories",
+          "/{base}/{sub}/api/index.php/categories/{id}",
+          "/{base}/{sub}/api/index.php/orders",
+          "/{base}/{sub}/api/index.php/orders/{id}",
+          "/{base}/{sub}/api/index.php/invoices",
+          "/{base}/{sub}/api/index.php/invoices/{id}",
+          "/{base}/{sub}/api/index.php/invoices/{id}/payments",
+          "/{base}/{sub}/api/index.php/proposals",
+          "/{base}/{sub}/api/index.php/proposals/{id}",
+          "/{base}/{sub}/api/index.php/shipments",
+          "/{base}/{sub}/api/index.php/shipments/{id}",
+          "/{base}/{sub}/api/index.php/supplierorders",
+          "/{base}/{sub}/api/index.php/supplierorders/{id}",
+          "/{base}/{sub}/api/index.php/supplierinvoices",
+          "/{base}/{sub}/api/index.php/supplierinvoices/{id}",
+          "/{base}/{sub}/api/index.php/supplierinvoices/{id}/payments",
+          "/{base}/{sub}/api/index.php/bankaccounts",
+          "/{base}/{sub}/api/index.php/bankaccounts/{id}",
+          "/{base}/{sub}/api/index.php/bankaccounts/{id}/lines",
+          "/{base}/{sub}/api/index.php/bankaccounts/{id}/balance",
+          "/{base}/{sub}/api/index.php/setup/dictionary/payment_types"
+        ],
+        "protocol": "http"
+      }
+    }
+  ]
+}

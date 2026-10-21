@@ -346,6 +346,69 @@ retrieved 2026-10-20, SHA-256
 prestashop.com uses as its favicon. The 2024 kit has no standalone mark. The path
 is unchanged, in a square view box. PrestaShop and the PrestaShop logos are trademarks of PrestaShop SA.
 
+## Dolibarr
+
+Register repository `https://github.com/aibakery/houston-hub`, revision `main`,
+manifest path `connectors/dolibarr/houston.json`. No publisher settings or provider
+app are needed: each connection enters its Dolibarr domain, an optional install path
+and a Dolibarr user's API key, as the [account setup guide](../connectors/dolibarr/SETUP.md)
+describes.
+
+The connector uses the REST API (`/api/index.php`, Luracast Restler) of Dolibarr 16
+to 24, checked on 2026-10-21 against the source of tag 24.0.2 and the API classes
+of branches 16.0 to 23.0. It lists and reads third parties, contacts, products and
+their stock, warehouses, stock movements, categories, customer orders, invoices and
+their payments, proposals, shipments, supplier orders and invoices (with payments),
+bank accounts with their lines and balance (Dolibarr 21+), payment types and the
+API status. Read-write connections can also create and update third parties,
+contacts and products, create stock movements, create orders and invoices and add
+their lines, create an invoice from an order, validate orders and invoices, close
+orders and record invoice payments.
+
+Deliberate omissions: deletes and merges; `/login` (it returns, and with `reset`
+regenerates, an API key); users and groups (`setGroup` changes permissions on a GET);
+`/setup` other than payment types (configuration values) and `/documents` (database
+backups for administrators); the explorer; GET routes that change data
+(`generateBankAccountDocument`, `accountancy/exportdata`, `mailings/clone`);
+third parties' bank accounts; supplier writes, proposals writes, shipments writes
+and bank transfers; `pagination_data` (Dolibarr 21+); the Multicompany
+`DOLAPIENTITY` header; and installs more than two folders deep.
+
+The key is sent in Dolibarr's `DOLAPIKEY` header; the proxy removes caller
+`Authorization` (a bearer key since Dolibarr 22), `DOLAPIENTITY` (the Multicompany
+entity), `Cookie` and `X-HTTP-Method-Override` headers, as Restler reads an
+`http_method` override from the header and from cookies. Paths are allowed at the
+root and below one or two `{base}`/`{sub}` folders, because Dolibarr is often
+installed in a folder such as `/dolibarr` or `/dolibarr/htdocs`; the placeholders
+match any segment, so the connector refuses install paths with a folder containing
+`.ph` (`.php`, `.phtml`, `.phar` and the like),
+which would send the key to another script's path info. A validator test keeps the
+proxy routes equal to the connector's endpoint tables under all three prefixes. The
+proxy allows GET on the listed resources, plus the write routes above on read-write
+connections. Restler also reads an `http_method` override from any query string and
+Dolibarr reads `DOLAPIKEY` and `api_key` there, which the proxy cannot filter, so the
+connector builds every query from closed option lists, and setup asks for a
+non-administrator user with only the permissions the connection needs: the user's
+permissions are the real read-only guarantee. Status and mode filters take closed
+value lists, as Dolibarr ignores an unknown value and returns every record.
+Before Dolibarr 19 (22 for third parties, 21 for contacts), an empty list answers
+HTTP 404 "Not Found: No ... found"; the connector returns an empty array for that
+404 on list routes, but not for Restler's bare "Not Found" for a missing route.
+Errors keep Dolibarr's message and exception details but drop Restler's `debug`
+block, which names source files. Dolibarr's own JSON 5xx errors (such as SQL
+errors, reported as 503) and 503 without `Retry-After` (such as an IP restriction)
+are not retryable. `api_key`, password fields and third parties' `webservices_key`
+are removed from every result and cannot appear in `sqlfilters` or `sortfield`,
+which would reveal them a character at a time; Dolibarr itself strips only the
+user record fields.
+
+Dolibarr's icon is the official mark, `doc/images/dolibarr_256x256_color.svg` in
+[github.com/Dolibarr/dolibarr](https://github.com/Dolibarr/dolibarr) (tag 24.0.2,
+SHA-256 `a57e6ecc5b7d688318abeed86018366499a80b60dbaaab6df798b93568c12e5a`), with
+Inkscape metadata removed and its near-flat gradient (`#263c5c` to `#263c5a`) as
+one color; shapes and transforms are unchanged. Dolibarr's images are licensed CC
+BY-SA; Dolibarr is a trademark of the Dolibarr association.
+
 ## Cal.com
 
 Register repository `https://github.com/aibakery/houston-hub`, revision `main`,

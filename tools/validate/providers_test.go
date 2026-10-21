@@ -28,6 +28,7 @@ func TestEveryProviderAuthenticationAndTransport(t *testing.T) {
 		"linkedin":    {"GET", "https://api.linkedin.com/v2/userinfo"},
 		"woocommerce": {"GET", "https://shop.example.com/wp-json/wc/v3/orders"},
 		"prestashop":  {"GET", "https://shop.example.com/api/orders"},
+		"dolibarr":    {"GET", "https://erp.example.com/api/index.php/status"},
 		"calcom":      {"GET", "https://api.cal.com/v2/me"},
 		"calendly":    {"GET", "https://api.calendly.com/users/me"},
 		"carta":       {"GET", "https://api.carta.com/v1alpha1/user"},
@@ -90,6 +91,7 @@ func TestEveryProviderAuthenticationAndTransport(t *testing.T) {
 					input["token"] = "synthetic-method-secret"
 				}
 				authorization := "Bearer synthetic-method-secret"
+				credentialHeader := "Authorization"
 				if provider == "carta-crm" { // Carta CRM takes the bare API key.
 					authorization = "synthetic-method-secret"
 				}
@@ -102,6 +104,11 @@ func TestEveryProviderAuthenticationAndTransport(t *testing.T) {
 					config["store_host"] = "shop.example.com"
 					input["token"] = "synthetic-method-secret-32-chars"
 					authorization = "Basic " + base64.StdEncoding.EncodeToString([]byte("synthetic-method-secret-32-chars:"))
+				}
+				if provider == "dolibarr" { // Dolibarr reads the bare key from its own header.
+					config["host"] = "erp.example.com"
+					credentialHeader = "DOLAPIKEY"
+					authorization = "synthetic-method-secret"
 				}
 				r, err := m.Resolve(publisher, config, input, method)
 				if err != nil {
@@ -135,8 +142,8 @@ func TestEveryProviderAuthenticationAndTransport(t *testing.T) {
 					if err != nil {
 						t.Fatal(err)
 					}
-					if h.Get("Authorization") != authorization {
-						t.Fatalf("wrong injection %q", h.Get("Authorization"))
+					if h.Get(credentialHeader) != authorization {
+						t.Fatalf("wrong injection %q", h.Get(credentialHeader))
 					}
 					if _, err := r.Proxy.HTTPRecipe("GET", "https://unlisted.example.com/", nil); err == nil {
 						t.Fatal("unlisted origin accepted")
