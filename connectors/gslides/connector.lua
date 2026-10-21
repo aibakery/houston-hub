@@ -251,7 +251,7 @@ local overview = {
 	"No hidden paging or retries. Errors report the HTTP status and Google's message. Google allows about 600 reads, 60 thumbnails and 60 writes per minute per user, and 3000, 300 and 600 per minute across all Houston users; HTTP 429 errors are retryable after a pause.",
 }
 if config.access == "read-write" then
-	table.insert(overview, "Writes change slides, their content and comments. An empty Luau table encodes as a JSON object: write an empty array as json.decode('[]'). Presentations cannot be deleted, renamed, moved or shared here: use the Google Drive connector. A failed or timed-out write may already have succeeded: check with getPresentation before repeating it (getPresentationText leaves out comments), give new slides and elements your own objectId so a repeat fails with HTTP 400 instead of adding them twice, or pass writeControl={requiredRevisionId=deck.revisionId}, with deck read by getPresentation.")
+	table.insert(overview, "Writes change slides, their content and comments. An empty Luau table encodes as a JSON object: write an empty array as json.decode('[]'). Presentations cannot be deleted, renamed, moved or shared here: use the Google Drive connector. A failed or timed-out write may already have succeeded: check with getPresentation, adding commentsViewMode='COMMENTS_VIEW_MODE_INCLUDED' after comment writes, before repeating it, give new slides and elements your own objectId so a repeat fails with HTTP 400 instead of adding them twice, or pass writeControl={requiredRevisionId=deck.revisionId}, with deck read by getPresentation.")
 end
 exports.help = helpWith(overview)
 return exports
