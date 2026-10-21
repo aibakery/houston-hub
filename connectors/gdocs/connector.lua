@@ -31,23 +31,29 @@ local function query(args: Options, names: {string}): string
 	return if #parts > 0 then "?" .. table.concat(parts, "&") else ""
 end
 
+-- Older APIs name the reason in errors[], newer ones in an ErrorInfo detail.
+local function reasonOf(problem: any): string?
+	for _, list in {problem.errors, problem.details} :: {any} do
+		if type(list) == "table" then
+			for _, item in list do
+				if type(item) == "table" and type(item.reason) == "string" then return item.reason end
+			end
+		end
+	end
+	return nil
+end
+
 local function fail(operation: string, response: HttpResponse): never
 	local ok, decoded = pcall(json.decode, await(response.body:readPrefix(4096)))
 	local problem = if ok and type(decoded) == "table" and type(decoded.error) == "table" then decoded.error else {}
-	-- Older APIs name the reason in errors[], newer ones in an ErrorInfo detail.
-	local reason: string? = nil
-	for _, list in {problem.errors, problem.details} :: {any} do
-		for _, item in (if type(list) == "table" then list else {}) :: {any} do
-			if reason == nil and type(item) == "table" and type(item.reason) == "string" then reason = item.reason end
-		end
-	end
+	local reason = reasonOf(problem)
 	local message = "Google HTTP " .. tostring(response.statusCode)
 	if type(problem.status) == "string" then message ..= " (" .. problem.status .. ")" end
 	if type(problem.message) == "string" then message ..= ": " .. string.sub(problem.message, 1, 600) end
 	if reason then message ..= " [" .. reason .. "]" end
 	local retry = response.headers["retry-after"]
 	if retry and retry[1] then message ..= "; Retry-After: " .. retry[1] end
-	local limited = reason ~= nil and string.find((string.gsub(string.lower(reason), "_", "")), "ratelimitexceeded", 1, true) ~= nil
+	local limited = reason ~= nil and string.find(string.lower(reason), "ratelimitexceeded", 1, true) ~= nil
 	return houston.fail({operation = operation, layer = "upstream", upstream_status = response.statusCode,
 		retryable = response.statusCode == 429 or response.statusCode >= 500 or limited, message = message})
 end
@@ -146,7 +152,7 @@ local endpoints: {[string]: Endpoint} = {
 	createDocument = {method = "POST", path = "/documents", read = false, body = true,
 		help = "createDocument({title?}) -> the new document, with documentId and revisionId. Creates an empty document in the root of My Drive; Google ignores any other field, so add content with batchUpdate."},
 	batchUpdate = {method = "POST", path = "/documents/{documentId}:batchUpdate", read = false, body = true, required = {requests = "array"},
-		help = "batchUpdate({documentId, requests, writeControl?}) -> {documentId, replies, writeControl, suggestionResponses?, commentUpdateState?}. Applies requests in order, all or nothing; replies and suggestionResponses (createdSuggestionIds, ...) match requests one to one. Indexes count UTF-16 code units, not the UTF-8 bytes # counts: é is 1 unit and an emoji 2. Take them from getDocument's startIndex and endIndex, never from offsets in getDocumentText. A body's text starts at index 1. Locations and ranges take tabId (omitted: the first tab), and segmentId for a header, footer or footnote. Each request sees the indexes shifted by earlier ones: edit from the end backwards, or use replaceAllText and endOfSegmentLocation, which need no index. Kinds include insertText={text, location={index, tabId?} or endOfSegmentLocation={tabId?}}, deleteContentRange={range={startIndex, endIndex, tabId?}}, replaceAllText={containsText={text, matchCase?, searchByRegex?}, replaceText, tabsCriteria?={tabIds}} (every tab unless tabsCriteria is given), updateTextStyle={range, textStyle={bold?, italic?, link?={url}, ...}, fields='bold,link'}, updateParagraphStyle={range, paragraphStyle={namedStyleType='HEADING_1'}, fields='namedStyleType'}, createParagraphBullets={range, bulletPreset='BULLET_DISC_CIRCLE_SQUARE'|'NUMBERED_DECIMAL_ALPHA_ROMAN'}, insertTable={rows, columns, location or endOfSegmentLocation}, insertTableRow={tableCellLocation={tableStartLocation={index}, rowIndex, columnIndex}, insertBelow}, insertInlineImage={uri, location or endOfSegmentLocation} (a public PNG, JPEG or GIF under 50 MB), insertPageBreak, insertPerson={personProperties={email}, location}, insertDate, insertRichLink, addDocumentTab={tabProperties={title, parentTabId?}}, updateDocumentTabProperties, deleteTab, createHeader={type='DEFAULT'}, createFooter, createFootnote, insertComment={content, range, assigneeEmailAddress?}, addCommentReply={commentId or suggestionId, post={content?, commentAction?='RESOLVE'|'REOPEN'}}, updateCommentPost, deleteComment, deleteCommentReply, acceptSuggestion={suggestionId}, rejectSuggestion and deleteSuggestion. Text edits can be saved while their comments or suggestions fail: check that commentUpdateState is ALL_SAVED, not ALL_FAILED_UNKNOWN_REASON. The final newline of a body, header, footer, footnote or table cell cannot be deleted: end ranges before it. A newline in inserted text starts a new paragraph. writeControl={writeMode='SUGGEST'} records the edits as suggestions for an editor to accept, and refuses addDocumentTab, deleteTab, updateDocumentTabProperties, createNamedRange, deleteNamedRange, deleteHeader, deleteFooter and updateTableColumnProperties. writeControl={requiredRevisionId=doc.revisionId} fails with HTTP 400 if the document changed since that read; targetRevisionId instead merges the edits with changes made since. Example: requests={{replaceAllText={containsText={text='{{client}}', matchCase=true}, replaceText='Acme'}}, {insertText={endOfSegmentLocation={}, text='\\nNext steps'}}}."},
+		help = "batchUpdate({documentId, requests, writeControl?}) -> {documentId, replies, writeControl, suggestionResponses?, commentUpdateState?}. Applies requests in order, all or nothing; replies and suggestionResponses (createdSuggestionIds, ...) match requests one to one. Indexes count UTF-16 code units, not the UTF-8 bytes # counts: é is 1 unit and an emoji 2. Take them from getDocument's startIndex and endIndex, never from offsets in getDocumentText. A body's text starts at index 1. Locations and ranges take tabId (omitted: the first tab), and segmentId for a header, footer or footnote. Each request sees the indexes shifted by earlier ones: edit from the end backwards, or use replaceAllText and endOfSegmentLocation, which need no index. Kinds include insertText={text, location={index, tabId?} or endOfSegmentLocation={tabId?}}, deleteContentRange={range={startIndex, endIndex, tabId?}}, replaceAllText={containsText={text, matchCase?, searchByRegex?}, replaceText, tabsCriteria?={tabIds}} (every tab unless tabsCriteria is given), updateTextStyle={range, textStyle={bold?, italic?, link?={url}, ...}, fields='bold,link'}, updateParagraphStyle={range, paragraphStyle={namedStyleType='HEADING_1'}, fields='namedStyleType'}, createParagraphBullets={range, bulletPreset='BULLET_DISC_CIRCLE_SQUARE'|'NUMBERED_DECIMAL_ALPHA_ROMAN'}, insertTable={rows, columns, location or endOfSegmentLocation}, insertTableRow={tableCellLocation={tableStartLocation={index}, rowIndex, columnIndex}, insertBelow}, insertInlineImage={uri, location or endOfSegmentLocation} (a public PNG, JPEG or GIF under 50 MB), insertPageBreak, insertPerson={personProperties={email}, location}, insertDate, insertRichLink, addDocumentTab={tabProperties={title, parentTabId?}}, updateDocumentTabProperties, deleteTab, createHeader={type='DEFAULT'}, createFooter, createFootnote, insertComment={content, range, assigneeEmailAddress?}, addCommentReply={commentId or suggestionId, post={content?, commentAction?='RESOLVE'|'REOPEN'}}, updateCommentPost, deleteComment, deleteCommentReply, acceptSuggestion={suggestionId}, rejectSuggestion and deleteSuggestion. Text edits can be saved while their comments or suggestions fail: when a batch writes comments or suggestions, check that commentUpdateState is ALL_SAVED, not ALL_FAILED_UNKNOWN_REASON; other batches report NO_UPDATES_REQUESTED or omit it. The final newline of a body, header, footer, footnote or table cell cannot be deleted: end ranges before it. A newline in inserted text starts a new paragraph. writeControl={writeMode='SUGGEST'} records the edits as suggestions for an editor to accept, and refuses addDocumentTab, deleteTab, updateDocumentTabProperties, createNamedRange, deleteNamedRange, deleteHeader, deleteFooter and updateTableColumnProperties. writeControl={requiredRevisionId=doc.revisionId} fails with HTTP 400 if the document changed since that read; targetRevisionId instead merges the edits with changes made since. Example: requests={{replaceAllText={containsText={text='{{client}}', matchCase=true}, replaceText='Acme'}}, {insertText={endOfSegmentLocation={}, text='\\nNext steps'}}}."},
 }
 
 local function withDocument(name: string, endpoint: Endpoint, args: Options): any
@@ -237,7 +243,7 @@ local overview = {
 	"No hidden paging or retries. Errors report the HTTP status and Google's message. Google allows about 300 reads and 60 writes per minute per user, and 3000 and 600 per minute across all Houston users; HTTP 429 errors are retryable after a pause.",
 }
 if config.access == "read-write" then
-	table.insert(overview, "Writes change a document's text, styles, tabs, comments and suggestions. An empty Luau table encodes as a JSON object: write an empty array as json.decode('[]'). Documents cannot be deleted, renamed, moved or shared here: use the Google Drive connector. A failed or timed-out write may already have succeeded: check with getDocumentText before repeating it, or pass writeControl={requiredRevisionId=doc.revisionId} so a repeat fails with HTTP 400 instead of applying twice.")
+	table.insert(overview, "Writes change a document's text, styles, tabs, comments and suggestions. An empty Luau table encodes as a JSON object: write an empty array as json.decode('[]'). Documents cannot be deleted, renamed, moved or shared here: use the Google Drive connector. A failed or timed-out write may already have succeeded: check with getDocumentText before repeating it, or pass writeControl={requiredRevisionId=doc.revisionId}, with doc read by getDocument, so a repeat fails with HTTP 400 instead of applying twice.")
 end
 exports.help = helpWith(overview)
 return exports
