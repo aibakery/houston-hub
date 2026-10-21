@@ -26,6 +26,6 @@ still apply. Passwords and API keys are never shown to agents. Your key stays on
 Houston's server.
 
 Works with Dolibarr 16 or later, served over HTTPS at the root of a domain or in up
-to two folders, such as `example.com/dolibarr`.
+to two folders, such as example.com/dolibarr.
 
 [Connect your Dolibarr](SETUP.md).

@@ -10,18 +10,22 @@ enable the API and create a user. No developer app is required.
 > bypass most permission checks.
 
 1. In Dolibarr, open **Home → Setup → Modules/Applications**, search for **API**,
-   and turn on the **API REST (server)** module.
+   and turn on the **API / Web services (REST server)** module.
 2. Open **Users & Groups → New user**. Create a user named `houston`, not an
    administrator and not an external user, and select **Create user**.
 3. On the user's **Permissions** tab, add the read permissions agents need, such
-   as **Read third parties**, **Read contacts**, **Read products**, **Read stocks**
-   and **Read stock movements**, **Read customer orders**, **Read invoices**,
-   **Read commercial proposals**, **Read shipments**, the supplier and bank
-   **Read** permissions, and **Read tags/categories**. Leave every create, modify
-   and delete permission off: this keeps the connection read-only.
-4. On the user's card, select **Modify**. Next to **API key** (on the
-   **Credentials** tab in recent versions), select the generate icon to create a
-   random key, then select **Save**. Copy the key.
+   as **Read third parties linked to user**, **Read contacts**, **Read products**,
+   **Read warehouses and stocks**, **Read stock movements**, **Read customers
+   orders**, **Read customer invoices (and payments)**, **Read commercial
+   proposals**, **Read shipments**, **Read purchase orders**, **Read vendor invoices
+   (and payments)**, **Read financial accounts** and **Read categories**. Also add
+   **Extend access to all third parties AND their objects**: without it, the user
+   only sees the third parties it is a sales representative for, and their orders
+   and invoices. Leave every create, modify, validate and delete permission off:
+   this keeps the connection read-only.
+4. On the user's card, select **Modify**. In **Credentials for connection**,
+   next to **Token for API** (**Key for API** before Dolibarr 23), select the generate
+   icon to create a random key, then select **Save**. Copy the key.
 5. In Houston, add the Dolibarr connector, shared with your organization or for
    yourself only. Enter the domain of your Dolibarr in **Dolibarr domain**, such as
    `erp.example.com`, without `https://` or a path. If your Dolibarr opens in a
@@ -44,10 +48,12 @@ See Dolibarr's [REST API guide](https://wiki.dolibarr.org/index.php/Module_Web_S
 Choose **Read and write** in Houston, and on the user's **Permissions** tab also
 add the create and modify permissions for what agents may change: third parties,
 contacts, products, stock movements (which need **Create/modify warehouses**),
-customer orders and invoices, and **Issue payments for customer invoices** to
-record payments (Dolibarr 24 and later; earlier versions use the invoice create
-permission). Agents cannot delete records. Validating an order or invoice gives it
-its final number and can send Dolibarr's notifications, as it does in Dolibarr.
+customer orders and invoices, and **Create payments for customer invoices** to
+record payments (Dolibarr 24 and later; earlier versions use **Create/modify
+customer invoices**). If your Dolibarr uses advanced permissions, also add
+**Validate customers orders** and **Validate customer invoices**. Agents cannot
+delete records. Validating an order or invoice gives it its final number and can
+send Dolibarr's notifications, as it does in Dolibarr.
 
 Use a separate key for a **Read and write** connection: a key whose user may make
 changes can change your Dolibarr even on a connection set to **Read-only**.
@@ -58,8 +64,8 @@ changes can change your Dolibarr even on a connection set to **Read-only**.
   without `https://`, a path or a trailing slash. Put any folder in **Install
   path**.
 - **Requests fail with "not JSON" or "not found".** The API must answer at
-  `https://<domain><install path>/api/index.php/status`. Check that the **API REST
-  (server)** module is on and that **Install path** matches the address where you
+  `https://<domain><install path>/api/index.php/status`. Check that the **API / Web
+  services (REST server)** module is on and that **Install path** matches the address where you
   open Dolibarr, such as `/dolibarr` or `/dolibarr/htdocs`. Installs in more than
   two folders are not supported.
 - **Requests are redirected.** Enter the exact domain your Dolibarr redirects to,
