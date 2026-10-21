@@ -80,8 +80,10 @@ changes can change your Dolibarr even on a connection set to **Read-only**.
 - **A request fails with HTTP 501.** Your Dolibarr does not offer that request, or
   an administrator blocked it with the `API_ENDPOINT_RULES` setting.
 - **Requests fail with HTTP 503.** The API may be limited to some IP addresses
-  in the module's settings; allow Houston's or remove the limit.
+  in the module's settings; allow Houston's or remove the limit. A single request
+  can also fail with HTTP 503 when Dolibarr rejects its query; Dolibarr's message
+  names the cause, such as an unknown column.
 - **You use the Multicompany module.** The connection works in the entity of the
   key's user.
-- **You need to stop access.** Delete or change the user's **API key**, or disable
+- **You need to stop access.** Delete or change the user's **Token for API**, or disable
   the user, in Dolibarr, or remove the connection in Houston.
