@@ -28,6 +28,12 @@ func parseManifest(t *testing.T, path string) *manifest.Manifest {
 // allowed routes replace a forged Authorization header with the connection's token.
 func assertRoutes(t *testing.T, r *manifest.Resolved, token string, allowed bool, routes ...string) {
 	t.Helper()
+	assertAuthorizedRoutes(t, r, "Bearer "+token, allowed, routes...)
+}
+
+// assertAuthorizedRoutes is assertRoutes for any Authorization value, such as Basic.
+func assertAuthorizedRoutes(t *testing.T, r *manifest.Resolved, authorization string, allowed bool, routes ...string) {
+	t.Helper()
 	for _, route := range routes {
 		method, url, _ := strings.Cut(route, " ")
 		recipe, err := r.Proxy.HTTPRecipe(method, url, nil)
@@ -38,7 +44,7 @@ func assertRoutes(t *testing.T, r *manifest.Resolved, token string, allowed bool
 			continue
 		}
 		headers, err := recipe.Prepare(r.Context, http.Header{"Authorization": {"forged"}})
-		if err != nil || headers.Get("Authorization") != "Bearer "+token {
+		if err != nil || headers.Get("Authorization") != authorization {
 			t.Fatalf("credential injection for %s: %v", route, err)
 		}
 	}
