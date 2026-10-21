@@ -88,7 +88,7 @@ return {
 		payload = '{"accruing_time_off_hours":[]}'
 		gusto.calculateAccruingTimeOffHours({payroll_id = "p1", employee_id = "e1", regular_hours_worked = 40})
 		assert(last().method == "POST" and last().url == API .. "/payrolls/p1/employees/e1/calculate_accruing_time_off_hours" and last().body == '{"regular_hours_worked":40}')
-		status, payload = 204, ""
+		status, payload = 204, "\n"
 		assert(gusto.getRehire({employee_id = "e1"}) == nil and last().url == API .. "/employees/e1/rehire", "a 204 read is not nil")
 		status = 200
 		local count = #requests

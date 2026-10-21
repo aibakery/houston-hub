@@ -1,6 +1,6 @@
 -- Gusto App Integrations API, X-Gusto-API-Version 2026-06-15. Arguments and results keep Gusto's native snake_case field names.
 type Options = {[string]: any}
-type Endpoint = {method: string, path: string, query: {string}?, required: {string}?, body: {string}?, write: boolean?, about: string}
+type Endpoint = {method: string, path: string, query: {string}?, required: {string}?, allow: {string}?, write: boolean?, about: string}
 
 local API = if auth.method == "demo" then "https://api.gusto-demo.com" else "https://api.gusto.com"
 local VERSION = "2026-06-15"
@@ -9,7 +9,7 @@ local PAGE = {"page", "per"}
 -- The company-token operations of Gusto's App Integrations reference
 -- (https://docs.gusto.com/app-integrations/reference), checked on 2026-10-21.
 -- Path {fields} are required; listed query fields are taken from the options and the other
--- fields form the JSON body of POST, PUT and PATCH requests, limited to body when it is listed.
+-- fields form the JSON body of POST, PUT and PATCH requests, limited to allow when it is listed.
 -- Webhooks, events and salary estimate occupations need an app-level system token, so the
 -- salary estimates built on those occupations are absent too; running payroll and paying
 -- contractors are Gusto Embedded features. The company's contractor-only flag and the
@@ -103,7 +103,7 @@ local endpoints: {[string]: Endpoint} = {
 	updatePayroll = {method = "PUT", path = "/v1/companies/{company_id}/payrolls/{payroll_id}", required = {"employee_compensations"},
 		about = "employee_compensations={{employee_uuid, version, fixed_compensations?, hourly_compensations?, paid_time_off?, excluded?, memo?}}, up to 100, each version from preparePayroll. Also withholding_pay_period, skip_regular_deductions, fixed_withholding_rate. Changes the draft only; omitted entries stay."},
 	calculateAccruingTimeOffHours = {method = "POST", path = "/v1/payrolls/{payroll_id}/employees/{employee_id}/calculate_accruing_time_off_hours", write = false,
-		body = {"regular_hours_worked", "overtime_hours_worked", "double_overtime_hours_worked", "pto_hours_used", "sick_hours_used"},
+		allow = {"regular_hours_worked", "overtime_hours_worked", "double_overtime_hours_worked", "pto_hours_used", "sick_hours_used"},
 		about = "Computes only."},
 	listContractorPayments = {method = "GET", path = "/v1/companies/{company_id}/contractor_payments", query = {"start_date", "end_date", "contractor_uuid", "group_by_date", "page", "per"},
 		required = {"start_date", "end_date"}, about = "Totals and payments in the date range."},
@@ -115,7 +115,7 @@ local endpoints: {[string]: Endpoint} = {
 		about = "Body {name}."},
 	deleteEarningType = {method = "DELETE", path = "/v1/companies/{company_id}/earning_types/{earning_type_uuid}",
 		about = "Deactivates a custom earning type."},
-	createGeneralLedgerReport = {method = "POST", path = "/v1/payrolls/{payroll_uuid}/reports/general_ledger", required = {"aggregation"}, body = {"aggregation", "integration_type"}, write = false,
+	createGeneralLedgerReport = {method = "POST", path = "/v1/payrolls/{payroll_uuid}/reports/general_ledger", required = {"aggregation"}, allow = {"aggregation", "integration_type"}, write = false,
 		about = "aggregation default, job, department or integration, with integration_type (such as xero or qbo) for integration. Returns {request_uuid}; poll getReport until its status is succeeded or failed."},
 	getReport = {method = "GET", path = "/v1/reports/{request_uuid}",
 		about = "{status, report_urls}: temporary download links; treat them as secrets."},
@@ -242,9 +242,8 @@ local function queryValue(value: any, field: string): string
 	return table.concat(parts, ",")
 end
 
-local function fail(name: string, response: HttpResponse, message: string): never
-	return houston.fail({operation = name, layer = "upstream", upstream_status = response.statusCode,
-		retryable = response.statusCode == 429 or response.statusCode >= 500, message = message})
+local function fail(name: string, response: HttpResponse, message: string, retryable: boolean): never
+	return houston.fail({operation = name, layer = "upstream", upstream_status = response.statusCode, retryable = retryable, message = message})
 end
 
 local function header(response: HttpResponse, name: string): string?
@@ -253,13 +252,14 @@ local function header(response: HttpResponse, name: string): string?
 end
 
 -- Gusto errors are {errors={{error_key, category, message, errors?}}}, where nested_errors
--- carry per-item errors one level down; a rejected token answers with an empty body and the
--- reason in WWW-Authenticate.
-local function failStatus(name: string, response: HttpResponse): never
+-- carry per-item errors further down with metadata such as employee_uuid; a rejected token
+-- answers with an empty body and the reason in WWW-Authenticate. A create that failed with a
+-- 5xx may have been stored, so only throttling makes it retryable.
+local function failStatus(name: string, endpoint: Endpoint, response: HttpResponse): never
 	local message = "Gusto HTTP " .. tostring(response.statusCode)
 	local ok, value = pcall(json.decode, await(response.body:readPrefix(16 * 1024)))
 	local details: {string} = {}
-	local function collect(errors: any, nested: boolean)
+	local function collect(errors: any)
 		if type(errors) ~= "table" then return end
 		for _, item in errors do
 			if type(item) == "table" and #details < 5 then
@@ -267,12 +267,20 @@ local function failStatus(name: string, response: HttpResponse): never
 				for _, field in {"category", "error_key", "message"} do
 					if type(item[field]) == "string" and item[field] ~= "" then table.insert(parts, string.sub(item[field], 1, 300)) end
 				end
+				if type(item.metadata) == "table" then
+					local keys: {string} = {}
+					for key, field in item.metadata do
+						if type(key) == "string" and (type(field) == "string" or type(field) == "number") then table.insert(keys, key) end
+					end
+					table.sort(keys)
+					for _, key in keys do table.insert(parts, "(" .. string.sub(key .. "=" .. tostring(item.metadata[key]), 1, 100) .. ")") end
+				end
 				if #parts > 0 then table.insert(details, table.concat(parts, " ")) end
-				if not nested then collect(item.errors, true) end
+				collect(item.errors)
 			end
 		end
 	end
-	if ok and type(value) == "table" then collect(value.errors, false) end
+	if ok and type(value) == "table" then collect(value.errors) end
 	local reason = header(response, "www-authenticate")
 	if #details == 0 and reason then
 		local description = string.match(reason, 'error_description="([^"]*)"')
@@ -281,7 +289,8 @@ local function failStatus(name: string, response: HttpResponse): never
 	if #details > 0 then message ..= ": " .. table.concat(details, "; ") end
 	local retry = header(response, "retry-after")
 	if response.statusCode == 429 and retry and string.match(retry, "^%d+$") then message ..= "; retry after " .. retry .. "s" end
-	return fail(name, response, message)
+	local creates = endpoint.method == "POST" and writes(endpoint)
+	return fail(name, response, message, response.statusCode == 429 or (response.statusCode >= 500 and not creates))
 end
 
 -- Objects return unchanged; arrays become {items, page?, per?, total_count?, total_pages?}, keeping
@@ -290,10 +299,10 @@ end
 local function decode(name: string, endpoint: Endpoint, response: HttpResponse): any
 	local raw = await(response.body:readAll())
 	if writes(endpoint) and string.match(raw, "^%s*$") then return {success = true} end
-	if response.statusCode == 204 and raw == "" then return nil end
+	if response.statusCode == 204 and string.match(raw, "^%s*$") then return nil end
 	local ok, value = pcall(json.decode, raw)
 	if not ok or type(value) ~= "table" or not string.match(raw, "^%s*[%[{]") then
-		fail(name, response, "Gusto returned invalid JSON")
+		fail(name, response, "Gusto returned invalid JSON", false)
 	end
 	if string.match(raw, "^%s*%[") then
 		return {items = value, page = tonumber(header(response, "x-page")), per = tonumber(header(response, "x-per-page")),
@@ -322,7 +331,7 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 	local body: string? = nil
 	if hasBody(endpoint) then
 		for field in args do
-			assert(endpoint.body == nil or table.find(endpoint.body, field), name .. " has no option " .. field)
+			assert(endpoint.allow == nil or table.find(endpoint.allow, field), name .. " has no option " .. field)
 		end
 		headers["Content-Type"] = {"application/json"}
 		body = json.encode(args)
@@ -331,7 +340,7 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 	local unknown = next(args)
 	assert(unknown == nil, name .. " has no option " .. tostring(unknown))
 	local response = await(http.request({method = endpoint.method, url = API .. path, headers = headers, body = body}))
-	if response.statusCode < 200 or response.statusCode >= 300 then failStatus(name, response) end
+	if response.statusCode < 200 or response.statusCode >= 300 then failStatus(name, endpoint, response) end
 	return decode(name, endpoint, response)
 end
 
@@ -347,9 +356,9 @@ local function signature(endpoint: Endpoint): string
 		for _, field in endpoint.required or NONE do
 			if not table.find(endpoint.query or NONE, field) then table.insert(fields, field) end
 		end
-		local rest: {string} = endpoint.body or {"...body"}
+		local rest: {string} = endpoint.allow or {"...body"}
 		for _, field in rest do
-			if not table.find(endpoint.required or NONE, field) then table.insert(fields, if endpoint.body then field .. "?" else field) end
+			if not table.find(endpoint.required or NONE, field) then table.insert(fields, if endpoint.allow then field .. "?" else field) end
 		end
 	end
 	return "({" .. table.concat(fields, ", ") .. "})"
@@ -365,13 +374,13 @@ end
 local INTRO = {
 	"Gusto App Integrations API (version " .. VERSION .. ")" .. (if auth.method == "demo" then " on Gusto's demo environment (sample data)" else "") .. ". Every function takes one named options object with Gusto's snake_case names; ? marks optional fields, required body fields follow the path and query fields, and ...body stands for the other JSON body fields. Objects return unchanged; JSON arrays return {items, page?, per?, total_count?, total_pages?}; a write answered without a body returns {success=true}. Connector calls return completed values: use them directly, without await.",
 	"A connection reaches one company. Start with local company_id = gusto.getTokenInfo().resource.uuid, then getCompany({company_id=company_id}), listEmployees({company_id=company_id}), listPayrolls(...). Employee jobs (getEmployee().jobs) give the job_id for compensations. IDs are UUID strings, except benefit_id (a number).",
-	"Pass page (1-based) and per (default 25, often at most 100) to any list and continue while page < total_pages; without page, most lists return every record, but listPayrolls always pages, and getPayroll and preparePayroll page their employee_compensations. Dates are YYYY-MM-DD; payroll amounts are decimal strings such as '1250.00'. Array filters (include, uuids, payroll_types) are sent comma-separated. A read answered 204 No Content returns nil.",
+	"Pass page (1-based) and per (default 25, often at most 100) to any list and continue while total_pages is set and page < total_pages, or else while a full page came back; without page, most lists return every record, but listPayrolls always pages, and getPayroll and preparePayroll page their employee_compensations. Dates are YYYY-MM-DD; payroll amounts are decimal strings such as '1250.00'. Array filters (include, uuids, payroll_types) are sent comma-separated. A read answered 204 No Content returns nil.",
 	"Examples: local company_id = gusto.getTokenInfo().resource.uuid; gusto.listEmployees({company_id=company_id, terminated=false, include={'custom_fields'}, page=1, per=100}); gusto.listPayrolls({company_id=company_id, start_date='2026-01-01', end_date='2026-06-30', include={'totals'}}); gusto.getPayroll({company_id=company_id, payroll_id=id, include={'taxes', 'deductions'}}).",
 	"Responses include personal and pay data (birth dates, home addresses, pay rates, garnishments); share only what the task needs. Gusto's scopes for the app decide what is visible: pay rates need the compensations scope, and a missing scope fails with 403 missing_oauth_scopes.",
 	"Errors report the HTTP status and Gusto's category, error_key and message, with per-item nested errors (for example 422 invalid_attribute_value or 404 not_found). Gusto allows 200 requests per minute per connection.",
 }
 
-local WRITES = "Updates take the object's current version, read just before: a stale version fails with 409 invalid_resource_version, so read again and reapply. Payrolls are never submitted here: call preparePayroll, then updatePayroll with each employee compensation's version. Changes to pay, reimbursements and draft payrolls are paid by the next payroll, including one Gusto runs automatically for companies on Payroll on AutoPilot. Creates are not idempotent: after a timeout or 5xx, list or read before repeating one."
+local WRITES = "Updates whose signature lists version take the object's current version, read just before: a stale version fails with 409 invalid_resource_version, so read again and reapply. Payrolls are never submitted here: call preparePayroll, then updatePayroll with each employee compensation's version. Changes to pay, reimbursements and draft payrolls are paid by the next payroll, including one Gusto runs automatically for companies on Payroll on AutoPilot. Creates are not idempotent: after a timeout or 5xx, which is reported as not retryable, list or read before repeating one."
 
 exports.help = function(): string
 	local names: {string} = {}
