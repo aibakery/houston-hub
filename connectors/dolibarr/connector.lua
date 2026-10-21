@@ -1,7 +1,7 @@
 -- Dolibarr REST API (Dolibarr 16 to 24). Arguments and results keep Dolibarr's native field names.
 type Options = {[string]: any}
 type Endpoint = {name: string, method: string?, path: string, list: {string}?, query: {string}?, required: {string}?,
-	fields: string?, returns: string?}
+	fields: string?, returns: string?, choices: {[string]: {any}}?}
 
 local HOST = string.lower(config.host)
 local DOCS = "https://wiki.dolibarr.org/index.php/Module_Web_Services_API_REST_(developer)"
@@ -26,13 +26,15 @@ local API = base(config.install_path)
 
 -- Endpoints read on every connection; list endpoints page with PAGE plus their own options.
 local PAGE = {"sortfield", "sortorder", "limit", "page", "sqlfilters", "properties"}
+-- Dolibarr ignores a status or mode it does not know, which would return an unfiltered list.
+local INVOICE_STATUSES = {"draft", "unpaid", "paid", "cancelled"}
 local READS: {Endpoint} = {
 	{name = "getStatus", path = "/status", returns = "{success: {code, dolibarr_version, ...}}"},
-	{name = "listThirdparties", path = "/thirdparties", list = {"mode", "category"}},
+	{name = "listThirdparties", path = "/thirdparties", list = {"mode", "category"}, choices = {mode = {1, 2, 3, 4}}},
 	{name = "getThirdparty", path = "/thirdparties/{id}"},
 	{name = "listContacts", path = "/contacts", list = {"thirdparty_ids", "category"}},
 	{name = "getContact", path = "/contacts/{id}"},
-	{name = "listProducts", path = "/products", list = {"mode", "category", "includestockdata"}},
+	{name = "listProducts", path = "/products", list = {"mode", "category", "includestockdata"}, choices = {mode = {1, 2}}},
 	{name = "getProduct", path = "/products/{id}", query = {"includestockdata"}},
 	{name = "getProductStock", path = "/products/{id}/stock", query = {"selected_warehouse_id"},
 		returns = "{stock_reel, stock_theorique, stock_warehouses: {[warehouseID]: {real, ...}}}"},
@@ -43,16 +45,17 @@ local READS: {Endpoint} = {
 	{name = "getCategory", path = "/categories/{id}"},
 	{name = "listOrders", path = "/orders", list = {"thirdparty_ids", "sqlfilterlines"}},
 	{name = "getOrder", path = "/orders/{id}"},
-	{name = "listInvoices", path = "/invoices", list = {"thirdparty_ids", "status"}},
+	{name = "listInvoices", path = "/invoices", list = {"thirdparty_ids", "status"}, choices = {status = INVOICE_STATUSES}},
 	{name = "getInvoice", path = "/invoices/{id}"},
 	{name = "listInvoicePayments", path = "/invoices/{id}/payments", returns = "[{amount, date, num, ref, type, ...}]"},
 	{name = "listProposals", path = "/proposals", list = {"thirdparty_ids"}},
 	{name = "getProposal", path = "/proposals/{id}"},
 	{name = "listShipments", path = "/shipments", list = {"thirdparty_ids"}},
 	{name = "getShipment", path = "/shipments/{id}"},
-	{name = "listSupplierOrders", path = "/supplierorders", list = {"thirdparty_ids", "status"}},
+	{name = "listSupplierOrders", path = "/supplierorders", list = {"thirdparty_ids", "status"}, choices = {status = {"draft",
+		"validated", "approved", "running", "received_start", "received_end", "cancelled", "refused"}}},
 	{name = "getSupplierOrder", path = "/supplierorders/{id}"},
-	{name = "listSupplierInvoices", path = "/supplierinvoices", list = {"thirdparty_ids", "status"}},
+	{name = "listSupplierInvoices", path = "/supplierinvoices", list = {"thirdparty_ids", "status"}, choices = {status = INVOICE_STATUSES}},
 	{name = "getSupplierInvoice", path = "/supplierinvoices/{id}"},
 	{name = "listSupplierInvoicePayments", path = "/supplierinvoices/{id}/payments", returns = "[{amount, date, num, ref, type, ...}]"},
 	{name = "listBankAccounts", path = "/bankaccounts", list = {"category"}},
@@ -153,10 +156,10 @@ local ENCODE: {[string]: (any, string) -> string} = {
 		for _, item in items do table.insert(ids, id(item, name)) end
 		return table.concat(ids, ",")
 	end,
-	mode = function(value, name) return integer(value, name, 0, 4) end,
+	mode = function(value, name) return integer(value, name, 1, 4) end,
 	category = id,
 	selected_warehouse_id = id,
-	status = function(value, name) return text(value, name, "^[%w_,]+$") end,
+	status = function(value, name) return text(value, name, FIELD) end,
 	type = function(value, name) return text(value, name, FIELD) end,
 	includestockdata = function(value, name)
 		assert(type(value) == "boolean", name .. " must be a boolean")
@@ -197,6 +200,8 @@ local function query(endpoint: Endpoint, input: any): string
 	for _, key in keys do
 		local value = opts[key]
 		if value == nil then value = if key == "limit" then 100 else 0 end
+		local choices = if endpoint.choices then endpoint.choices[key] else nil
+		if choices then assert(table.find(choices, value), key .. " must be one of " .. table.concat(choices, ", ")) end
 		table.insert(parts, key .. "=" .. url.encode(ENCODE[key](value, key)))
 	end
 	return if #parts > 0 then "?" .. table.concat(parts, "&") else ""

@@ -43,8 +43,14 @@ return {
 		rejected(function() erp.listInvoices({properties = "id,ref"}) end, "properties must be a nonempty array")
 		rejected(function() erp.listInvoices({properties = {"id", "ref&http_method=DELETE"}}) end, "properties is not valid")
 		rejected(function() erp.listInvoices({thirdparty_ids = {12, "x"}}) end, "thirdparty_ids must be a positive integer ID")
-		rejected(function() erp.listInvoices({status = "unpaid&http_method=DELETE"}) end, "status is not valid")
-		rejected(function() erp.listThirdparties({mode = 5}) end, "mode must be an integer from 0 to 4")
+		rejected(function() erp.listInvoices({status = "unpaid&http_method=DELETE"}) end, "status must be one of")
+		rejected(function() erp.listThirdparties({mode = 5}) end, "mode must be one of 1, 2, 3, 4")
+		rejected(function() erp.listThirdparties({mode = 0}) end, "mode must be one of 1, 2, 3, 4")
+		rejected(function() erp.listProducts({mode = 3}) end, "mode must be one of 1, 2")
+		-- Dolibarr ignores an unknown status and returns every record.
+		rejected(function() erp.listInvoices({status = "unpaid,paid"}) end, "status must be one of draft, unpaid, paid, cancelled")
+		rejected(function() erp.listInvoices({status = "validated"}) end, "status must be one of draft, unpaid, paid, cancelled")
+		rejected(function() erp.listSupplierOrders({status = "unpaid"}) end, "status must be one of draft, validated, approved")
 		rejected(function() erp.listProducts({includestockdata = 1}) end, "includestockdata must be a boolean")
 		rejected(function() erp.listBankAccountLines(1) end, "sqlfilters is required")
 		-- Filtering or sorting on a withheld field would reveal it one character at a time.
