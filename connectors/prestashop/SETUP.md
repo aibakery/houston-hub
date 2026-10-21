@@ -4,6 +4,14 @@ You need a PrestaShop 1.7, 8 or 9 store served over HTTPS at the root of its
 domain, and a back-office account that can manage **Advanced Parameters**, such as
 a SuperAdmin. No developer app is required.
 
+> **Read-only depends on your key, not only on Houston.** Houston never sends
+> changes on a **Read-only** connection, but PrestaShop lets a request turn a read
+> into an edit or a delete, so the key itself is the only guarantee. For a
+> **Read-only** connection, create a key with **View (GET)** and nothing else
+> ticked. A key with **Add (POST)**, **Modify (PUT)**, **Patch (PATCH)** or
+> **Delete (DELETE)** ticked can change or delete store data whatever **Access**
+> says, so never reuse a read-write key for a read-only connection.
+
 1. In your PrestaShop back office, open **Advanced Parameters → Webservice**. Under
    **Configuration**, set **Enable PrestaShop's webservice** to **Yes** and select
    **Save**.
@@ -16,13 +24,15 @@ a SuperAdmin. No developer app is required.
    `order_carriers`, `order_details`, `order_histories`, `order_invoices`,
    `order_payments`, `order_slip`, `order_states`, `orders`, `products`,
    `stock_availables` and `suppliers`. Leave every other column and resource
-   unticked, then select **Save**.
+   unticked: this is what keeps the connection read-only. Select **Save**.
 4. Copy the key.
-5. In your Houston organization, add the PrestaShop connector. Enter your store's
+5. In Houston, add the PrestaShop connector, shared with your organization or for
+   yourself only. Enter your store's
    domain in **Store domain**, such as `shop.example.com`, without `https://` or a
    path. Paste the key into **Webservice key** and keep **Access** set to
    **Read-only**.
-6. Save the connection and grant the appropriate organization members access.
+6. Save the connection. For a shared connection, grant the appropriate
+   organization members access.
 
 You can then ask about today's orders, an order's status and shipment, a
 customer's history, or products running low on stock. Never paste the key into a
@@ -43,9 +53,9 @@ Choose **Read and write** in Houston, and in the key's **Permissions** also tick
 - **Delete (DELETE)** for `customers` and `products`, only if agents may delete
   them permanently.
 
-Leave the other write columns unticked. The key's permissions are what keeps a
-read-only key read-only, so tick write columns only on a key used by a **Read and
-write** connection. Changing an order's status or tracking number can email your
+Leave the other write columns unticked. Tick write columns only on a key used by
+a **Read and write** connection: a key with write permission can change your
+store even on a connection set to **Read-only**. Changing an order's status or tracking number can email your
 customer when an agent asks for it.
 
 ### Multistore

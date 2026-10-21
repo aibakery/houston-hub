@@ -8,6 +8,7 @@
   "config": {
     "access": {
       "default": "read-only",
+      "description": "Read-only is only guaranteed by your PrestaShop key. Houston sends no changes on a Read-only connection, but PrestaShop lets any request turn a read into an edit or a delete, so give a Read-only connection a key with only View (GET) ticked. A key with Add, Modify, Patch or Delete ticked can change or delete store data.",
       "label": "Access",
       "options": [
         {
