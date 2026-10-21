@@ -375,20 +375,31 @@ and bank transfers; `pagination_data` (Dolibarr 21+); the Multicompany
 `DOLAPIENTITY` header; and installs more than two folders deep.
 
 The key is sent in Dolibarr's `DOLAPIKEY` header; the proxy removes caller
-`Authorization` (a bearer key since Dolibarr 22) and `X-HTTP-Method-Override`
-headers. Paths are allowed at the root and below one or two `{base}`/`{sub}`
-folders, because Dolibarr is often installed in a folder such as `/dolibarr` or
-`/dolibarr/htdocs`. The proxy allows GET on the listed resources, plus the write
-routes above on read-write connections. Restler also reads an `http_method`
-override from any query string and Dolibarr reads `DOLAPIKEY` and `api_key` there,
-which the proxy cannot filter, so the connector builds every query from closed
-option lists, and setup asks for a non-administrator user with only the permissions
-the connection needs: the user's permissions are the real read-only guarantee.
+`Authorization` (a bearer key since Dolibarr 22), `DOLAPIENTITY` (the Multicompany
+entity), `Cookie` and `X-HTTP-Method-Override` headers, as Restler reads an
+`http_method` override from the header and from cookies. Paths are allowed at the
+root and below one or two `{base}`/`{sub}` folders, because Dolibarr is often
+installed in a folder such as `/dolibarr` or `/dolibarr/htdocs`; the placeholders
+match any segment, so the connector refuses install paths with a `.php` folder,
+which would send the key to another script's path info. A validator test keeps the
+proxy routes equal to the connector's endpoint tables under all three prefixes. The
+proxy allows GET on the listed resources, plus the write routes above on read-write
+connections. Restler also reads an `http_method` override from any query string and
+Dolibarr reads `DOLAPIKEY` and `api_key` there, which the proxy cannot filter, so the
+connector builds every query from closed option lists, and setup asks for a
+non-administrator user with only the permissions the connection needs: the user's
+permissions are the real read-only guarantee. Status and mode filters take closed
+value lists, as Dolibarr ignores an unknown value and returns every record.
 Before Dolibarr 19 (22 for third parties, 21 for contacts), an empty list answers
-HTTP 404 "No ... found"; the connector returns an empty array for Dolibarr's JSON
-404 on list routes. Errors keep Dolibarr's message and exception details but drop
-Restler's `debug` block, which names source files. `api_key` and password fields are
-removed from every result, although Dolibarr already strips them from user records.
+HTTP 404 "Not Found: No ... found"; the connector returns an empty array for that
+404 on list routes, but not for Restler's bare "Not Found" for a missing route.
+Errors keep Dolibarr's message and exception details but drop Restler's `debug`
+block, which names source files. Dolibarr's own JSON 5xx errors (such as SQL
+errors, reported as 503) and 503 without `Retry-After` (such as an IP restriction)
+are not retryable. `api_key`, password fields and third parties' `webservices_key`
+are removed from every result and cannot appear in `sqlfilters` or `sortfield`,
+which would reveal them a character at a time; Dolibarr itself strips only the
+user record fields.
 
 Dolibarr's icon is the official mark, `doc/images/dolibarr_256x256_color.svg` in
 [github.com/Dolibarr/dolibarr](https://github.com/Dolibarr/dolibarr) (tag 24.0.2,
