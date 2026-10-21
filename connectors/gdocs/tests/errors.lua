@@ -29,7 +29,9 @@ return {
 		upstream(200, "<html>Maintenance</html>", {}, {"invalid JSON object"})
 		upstream(200, "[]", {}, {"invalid JSON object"})
 		status, payload = 404, '{"error":{"code":404,"message":"Requested entity was not found.","status":"NOT_FOUND"}}'
+		local before = calls
 		local ok, err = pcall(c.getDocument, {documentId = "missing"})
 		assert(not ok and string.find(tostring(err), "NOT_FOUND", 1, true) and string.find(tostring(err), '"operation":"getDocument"', 1, true), tostring(err))
+		assert(string.find(tostring(err), '"retryable":false', 1, true) and calls == before + 1, tostring(err))
 	end,
 }

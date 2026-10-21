@@ -134,13 +134,13 @@ end
 -- End of the shared request layer.
 
 local endpoints: {[string]: Endpoint} = {
-	getDocument = {method = "GET", path = "/documents/{documentId}", read = true, defaults = {includeTabsContent = true}, list = "tabs",
+	getDocument = {method = "GET", path = "/documents/{documentId}", read = true, defaults = {includeTabsContent = true},
 		query = {"includeTabsContent", "suggestionsViewMode", "commentsViewMode", "fields"},
-		help = "getDocument({documentId, includeTabsContent?, suggestionsViewMode?, commentsViewMode?, fields?}) -> {documentId, title, revisionId?, tabs=[{tabProperties={tabId, title, index, parentTabId?, nestingLevel?}, documentTab={body={content}, headers?, footers?, footnotes?, lists?, inlineObjects?, namedStyles, documentStyle}, childTabs?}]}. content is a list of {startIndex, endIndex, paragraph?={elements=[{startIndex, endIndex, textRun?={content, textStyle}, person?, richLink?, dateElement?, inlineObjectElement?}], paragraphStyle={namedStyleType='NORMAL_TEXT'|'TITLE'|'HEADING_1'...}, bullet?}, table?={rows, columns, tableRows=[{tableCells=[{content}]}]}, sectionBreak?, tableOfContents?}. revisionId is present only for editors. Take indexes for batchUpdate from a read with suggestionsViewMode='SUGGESTIONS_INLINE', the default for editors: suggested text shifts them. Responses carry every style and fail over 8 MiB; fields='title,tabs(tabProperties,childTabs(tabProperties,childTabs(tabProperties)))' lists the tabs only, three levels deep. includeTabsContent=false returns the first tab in the legacy body field instead. suggestionsViewMode is SUGGESTIONS_INLINE (suggested text marked with suggestedInsertionIds and suggestedDeletionIds), PREVIEW_SUGGESTIONS_ACCEPTED or PREVIEW_WITHOUT_SUGGESTIONS, the default for viewers. commentsViewMode='COMMENTS_VIEW_MODE_INCLUDED' with suggestionsViewMode='SUGGESTIONS_INLINE' adds comments=[{commentId, headPost={postId, author, content, createTime}, replies, status, plainTextQuote, anchorId}] and suggestions."},
+		help = "getDocument({documentId, includeTabsContent?, suggestionsViewMode?, commentsViewMode?, fields?}) -> {documentId, title, revisionId?, tabs=[{tabProperties={tabId, title, index?, parentTabId?, nestingLevel?}, documentTab={body={content}, headers?, footers?, footnotes?, lists?, inlineObjects?, namedStyles, documentStyle, commentAnchors?}, childTabs?}]}. tabs are in display order and nest up to three levels; a link's ?tab=t.<id> names the open tab, tabId 't.<id>'. content is a list of {startIndex?, endIndex, paragraph?={elements=[{startIndex, endIndex, textRun?={content, textStyle}, person?, richLink?, dateElement?, dropdown?, footnoteReference?, inlineObjectElement?}], paragraphStyle={namedStyleType='NORMAL_TEXT'|'TITLE'|'HEADING_1'...}, bullet?}, table?={rows, columns, tableRows=[{tableCells=[{content}]}]}, sectionBreak?, tableOfContents?}. Fields equal to 0 are omitted, such as the first element's startIndex, the first tab's index and a top-level tab's nestingLevel. revisionId is present only for editors and valid for 24 hours. Responses carry every style and fail over 8 MiB; fields='title,tabs(tabProperties,childTabs(tabProperties,childTabs(tabProperties)))' lists the tabs only. includeTabsContent=false returns the first tab in the legacy body field and no tabs. suggestionsViewMode is SUGGESTIONS_INLINE (the default for anyone who can comment or edit, marking suggested text with suggestedInsertionIds and suggestedDeletionIds), PREVIEW_SUGGESTIONS_ACCEPTED or PREVIEW_WITHOUT_SUGGESTIONS (the default for viewers, who get HTTP 403 for the other two). Take indexes for batchUpdate from a SUGGESTIONS_INLINE read: suggested text shifts them. commentsViewMode='COMMENTS_VIEW_MODE_INCLUDED' with suggestionsViewMode='SUGGESTIONS_INLINE' adds comments=[{commentId, anchorId, headPost={postId, author, content, createTime}, replies, status, plainTextQuote}] and suggestions=[{suggestionId, status, summaryText, headPost, replies}]; each tab's documentTab.commentAnchors=[{anchorId, ranges}] locates them."},
 	createDocument = {method = "POST", path = "/documents", read = false, body = true,
 		help = "createDocument({title?}) -> the new document, with documentId and revisionId. Creates an empty document in the root of My Drive; Google ignores any other field, so add content with batchUpdate."},
 	batchUpdate = {method = "POST", path = "/documents/{documentId}:batchUpdate", read = false, body = true, required = {requests = "array"},
-		help = "batchUpdate({documentId, requests, writeControl?}) -> {documentId, replies, writeControl, commentUpdateState?}. Applies requests in order, all or nothing; replies match requests one to one. Indexes count UTF-16 code units (an emoji counts 2) within one tab's body, which starts at 1; take them from getDocument's startIndex and endIndex. Locations and ranges take tabId from getDocument (omitted: the first tab), and segmentId for a header, footer or footnote. Each request sees the indexes shifted by earlier ones: edit from the end backwards, or use replaceAllText and endOfSegmentLocation, which need no index. Kinds include insertText={text, location={index, tabId?} or endOfSegmentLocation={tabId?}}, deleteContentRange={range={startIndex, endIndex, tabId?}}, replaceAllText={containsText={text, matchCase?}, replaceText, tabsCriteria?={tabIds}}, updateTextStyle={range, textStyle={bold?, italic?, link?={url}, ...}, fields='bold,link'}, updateParagraphStyle={range, paragraphStyle={namedStyleType='HEADING_1'}, fields='namedStyleType'}, createParagraphBullets={range, bulletPreset='BULLET_DISC_CIRCLE_SQUARE'|'NUMBERED_DECIMAL_ALPHA_ROMAN'}, insertTable={rows, columns, location or endOfSegmentLocation}, insertTableRow, insertInlineImage={uri, location or endOfSegmentLocation} (a public PNG, JPEG or GIF under 50 MB), insertPageBreak, insertPerson={personProperties={email}, location}, insertDate, addDocumentTab={tabProperties={title, parentTabId?}}, updateDocumentTabProperties, deleteTab, createHeader, createFooter, createFootnote, insertComment={content, range, assigneeEmailAddress?}, addCommentReply={commentId or suggestionId, post={content?, commentAction?='RESOLVE'|'REOPEN'}}, updateCommentPost, deleteComment, acceptSuggestion={suggestionId} and rejectSuggestion. Text edits can be saved while their comments or suggestions fail: check that commentUpdateState is ALL_SAVED, not ALL_FAILED_UNKNOWN_REASON. The final newline of a body or table cell cannot be deleted: end ranges before it. A newline in inserted text starts a new paragraph. writeControl={writeMode='SUGGEST'} records the edits as suggestions for an editor to accept, and refuses tab, header, footer and named range changes; writeControl={requiredRevisionId=doc.revisionId} fails with HTTP 400 if the document changed since that read. Example: requests={{replaceAllText={containsText={text='{{client}}', matchCase=true}, replaceText='Acme'}}, {insertText={endOfSegmentLocation={}, text='\\nNext steps'}}}."},
+		help = "batchUpdate({documentId, requests, writeControl?}) -> {documentId, replies, writeControl, suggestionResponses?, commentUpdateState?}. Applies requests in order, all or nothing; replies and suggestionResponses (createdSuggestionIds, ...) match requests one to one. Indexes count UTF-16 code units, not the UTF-8 bytes # counts: é is 1 unit and an emoji 2. Take them from getDocument's startIndex and endIndex, never from offsets in getDocumentText. A body's text starts at index 1. Locations and ranges take tabId (omitted: the first tab), and segmentId for a header, footer or footnote. Each request sees the indexes shifted by earlier ones: edit from the end backwards, or use replaceAllText and endOfSegmentLocation, which need no index. Kinds include insertText={text, location={index, tabId?} or endOfSegmentLocation={tabId?}}, deleteContentRange={range={startIndex, endIndex, tabId?}}, replaceAllText={containsText={text, matchCase?, searchByRegex?}, replaceText, tabsCriteria?={tabIds}} (every tab unless tabsCriteria is given), updateTextStyle={range, textStyle={bold?, italic?, link?={url}, ...}, fields='bold,link'}, updateParagraphStyle={range, paragraphStyle={namedStyleType='HEADING_1'}, fields='namedStyleType'}, createParagraphBullets={range, bulletPreset='BULLET_DISC_CIRCLE_SQUARE'|'NUMBERED_DECIMAL_ALPHA_ROMAN'}, insertTable={rows, columns, location or endOfSegmentLocation}, insertTableRow={tableCellLocation={tableStartLocation={index}, rowIndex, columnIndex}, insertBelow}, insertInlineImage={uri, location or endOfSegmentLocation} (a public PNG, JPEG or GIF under 50 MB), insertPageBreak, insertPerson={personProperties={email}, location}, insertDate, insertRichLink, addDocumentTab={tabProperties={title, parentTabId?}}, updateDocumentTabProperties, deleteTab, createHeader={type='DEFAULT'}, createFooter, createFootnote, insertComment={content, range, assigneeEmailAddress?}, addCommentReply={commentId or suggestionId, post={content?, commentAction?='RESOLVE'|'REOPEN'}}, updateCommentPost, deleteComment, deleteCommentReply, acceptSuggestion={suggestionId}, rejectSuggestion and deleteSuggestion. Text edits can be saved while their comments or suggestions fail: check that commentUpdateState is ALL_SAVED, not ALL_FAILED_UNKNOWN_REASON. The final newline of a body, header, footer, footnote or table cell cannot be deleted: end ranges before it. A newline in inserted text starts a new paragraph. writeControl={writeMode='SUGGEST'} records the edits as suggestions for an editor to accept, and refuses addDocumentTab, deleteTab, updateDocumentTabProperties, createNamedRange, deleteNamedRange, deleteHeader, deleteFooter and updateTableColumnProperties. writeControl={requiredRevisionId=doc.revisionId} fails with HTTP 400 if the document changed since that read; targetRevisionId instead merges the edits with changes made since. Example: requests={{replaceAllText={containsText={text='{{client}}', matchCase=true}, replaceText='Acme'}}, {insertText={endOfSegmentLocation={}, text='\\nNext steps'}}}."},
 }
 
 local function withDocument(name: string, endpoint: Endpoint, args: Options): any
@@ -160,10 +160,12 @@ local function inline(element: any): string
 	local person = element.person and element.person.personProperties
 	local link = element.richLink and element.richLink.richLinkProperties
 	local date = element.dateElement and element.dateElement.dateElementProperties
+	local dropdown = element.dropdown and element.dropdown.dropdownProperties
 	return if element.textRun then element.textRun.content or ""
 		elseif person then person.name or person.email or ""
 		elseif link then link.title or link.uri or ""
 		elseif date then date.displayText or ""
+		elseif dropdown then dropdown.displayValue or ""
 		else ""
 end
 
@@ -179,47 +181,52 @@ local function collect(content: any, out: {string})
 					local parts: {string} = {}
 					collect(cell.content, parts)
 					local cellText = string.gsub(table.concat(parts), "\n+$", "")
-					table.insert(cells, (string.gsub(cellText, "[\t\n]", " ")))
+					table.insert(cells, (string.gsub(cellText, "[\t\n\v]", " ")))
 				end
 				table.insert(out, table.concat(cells, "\t") .. "\n")
 			end
-		elseif element.tableOfContents then
-			collect(element.tableOfContents.content, out)
 		end
 	end
 end
 
--- Flattens tabs in display order, each child tab after its parent.
+-- Flattens tabs in display order, each child tab after its parent. Google marks embedded objects in
+-- text runs with U+E907 and soft line breaks with U+000B.
 local function tabTexts(tabs: any, wanted: string?, out: {Options})
 	for _, tab in tabs or NONE do
 		local properties = tab.tabProperties or {}
 		if wanted == nil or properties.tabId == wanted then
 			local parts: {string} = {}
 			collect(tab.documentTab and tab.documentTab.body and tab.documentTab.body.content, parts)
+			local tabText = string.gsub(table.concat(parts), "\u{E907}", "")
 			table.insert(out, {tabId = properties.tabId, title = properties.title, parentTabId = properties.parentTabId,
-				nestingLevel = properties.nestingLevel or 0, text = table.concat(parts)})
+				nestingLevel = properties.nestingLevel or 0, text = (string.gsub(tabText, "\v", "\n"))})
 		end
 		tabTexts(tab.childTabs, wanted, out)
 	end
 end
 
+-- Only the text-bearing fields of each tab, three levels deep like the Docs editor.
+local TAB_TEXT = "tabProperties,documentTab.body.content(paragraph.elements(textRun.content,person.personProperties,richLink.richLinkProperties,dateElement.dateElementProperties.displayText,dropdown.dropdownProperties.displayValue),table.tableRows.tableCells.content)"
+local TEXT_FIELDS = "documentId,title,revisionId,tabs(" .. TAB_TEXT .. ",childTabs(" .. TAB_TEXT .. ",childTabs(" .. TAB_TEXT .. ")))"
+local PREVIEWS = table.freeze({PREVIEW_WITHOUT_SUGGESTIONS = true, PREVIEW_SUGGESTIONS_ACCEPTED = true})
 export("getDocumentText", true, function(input: any): Options
 	local args = options(input)
 	local tabId = if args.tabId == nil then nil else text(args.tabId, "tabId")
 	assert(args.includeTabsContent == nil and args.fields == nil and args.commentsViewMode == nil, "getDocumentText received an unknown option")
-	args.tabId, args.includeTabsContent, args.fields = nil, true, "documentId,title,revisionId,tabs"
 	args.suggestionsViewMode = args.suggestionsViewMode or "PREVIEW_WITHOUT_SUGGESTIONS"
+	assert(PREVIEWS[args.suggestionsViewMode], "suggestionsViewMode must be PREVIEW_WITHOUT_SUGGESTIONS or PREVIEW_SUGGESTIONS_ACCEPTED")
+	args.tabId, args.fields = nil, TEXT_FIELDS
 	local document = withDocument("getDocumentText", endpoints.getDocument, args)
 	local tabs: {Options} = json.decode("[]")
 	tabTexts(document.tabs, tabId, tabs)
 	assert(tabId == nil or #tabs > 0, "tabId " .. tostring(tabId) .. " is not a tab of this document")
 	return {documentId = document.documentId, title = document.title, revisionId = document.revisionId, tabs = tabs}
-end, "getDocumentText({documentId, tabId?, suggestionsViewMode?}) -> {documentId, title, revisionId?, tabs=[{tabId, title, parentTabId?, nestingLevel, text}]}. The plain text of every tab's body, or only tabId's, in display order with child tabs after their parent. Paragraphs end with '\\n', table rows are lines of tab-separated cells, and people, dates and rich links appear as their names. Headers, footers, footnotes, images, equations and comments are left out: read them with getDocument. Suggested changes are hidden; suggestionsViewMode='PREVIEW_SUGGESTIONS_ACCEPTED' reads the text as if they were accepted.")
+end, "getDocumentText({documentId, tabId?, suggestionsViewMode?}) -> {documentId, title, revisionId?, tabs=[{tabId, title, parentTabId?, nestingLevel, text}]}. The plain text of every tab's body in display order, child tabs after their parent, or of tabId alone (the whole document is still read). Paragraphs end with '\\n', table rows are lines of tab-separated cells, and people, dates, dropdowns and rich links appear as their names. Headers, footers, footnotes, tables of contents, images, equations and comments are left out: read them with getDocument. Suggested changes are hidden; suggestionsViewMode='PREVIEW_SUGGESTIONS_ACCEPTED' reads the text as if they were accepted, which needs comment or edit access. Offsets in text are not batchUpdate indexes.")
 
 local overview = {
 	"Google Docs API v1. Operations take one named options object with Google's camelCase fields and return Google's JSON unchanged, except getDocumentText. Calls return completed values: use instance.getDocumentText(...) directly, without await.",
 	"documentId is the ID or the document's https://docs.google.com/document/d/<id>/edit URL. Links from Publish to the web (/document/d/e/...) carry no ID. This connector cannot search for files: ask for the URL, or find the ID with the Google Drive connector (listFiles with q=\"mimeType = 'application/vnd.google-apps.document' and trashed = false\"). Word files opened in Docs are refused with HTTP 400 until saved as Google Docs (File > Save as Google Docs).",
-	"A document has one or more tabs, which may have child tabs. Read its words with getDocumentText, and its structure, styles and indexes with getDocument.",
+	"A document has one or more tabs, which may have child tabs. Read its words with getDocumentText, and its structure, styles, comments and indexes with getDocument.",
 	"No hidden paging or retries. Errors report the HTTP status and Google's message. Google allows about 300 reads and 60 writes per minute per user, and 3000 and 600 per minute across all Houston users; HTTP 429 errors are retryable after a pause.",
 }
 if config.access == "read-write" then

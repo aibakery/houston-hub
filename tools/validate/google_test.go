@@ -228,6 +228,7 @@ func TestGoogleDocsScopesAndRoutes(t *testing.T) {
 			"POST https://oauth2.googleapis.com/token", "GET https://www.googleapis.com/drive/v3/files",
 			"GET https://docs.googleapis.com.evil.test/v1/documents/d1", "GET https://content.googleapis.com/v1/documents/d1",
 			"GET https://docs.googleapis.com/v2/documents/d1", "GET "+api, "DELETE "+api+"/d1", "PATCH "+api+"/d1", "PUT "+api+"/d1",
-			"GET "+api+"/d1/tabs", "GET "+api+"/%2e%2e/d1", "GET "+api+"/d1%2F..%2Fx", "POST "+api+"/d1/batchUpdate")
+			"GET "+api+"/d1/tabs", "GET "+api+"/%2e%2e/d1", "GET "+api+"/d1%2F..%2Fx", "POST "+api+"/d1/batchUpdate",
+			"POST https://docs.googleapis.com/batch", "POST https://docs.googleapis.com/batch/docs/v1")
 	}
 }

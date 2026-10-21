@@ -43,7 +43,7 @@ return {
 		assert(reply.replies[1].replaceAllText.occurrencesChanged == 2 and reply.writeControl.requiredRevisionId == "r2")
 		sent(API .. "/d1:batchUpdate", {requests = edits, writeControl = {requiredRevisionId = "r1"}})
 
-		responses = {'{"documentId":"d1","replies":[{"insertComment":{"commentId":"c1"}}],"commentUpdateState":"ALL_SAVED"}'}
+		responses = {'{"documentId":"d1","replies":[{"insertComment":{"commentThread":{"commentId":"c1","anchorId":"a1"}}}],"suggestionResponses":[{}],"commentUpdateState":"ALL_SAVED"}'}
 		local comment = {{insertComment = {content = "Check this figure", range = {startIndex = 5, endIndex = 9}}}}
 		assert(c.batchUpdate({documentId = "d1", requests = comment, writeControl = {writeMode = "SUGGEST"}}).commentUpdateState == "ALL_SAVED")
 		sent(API .. "/d1:batchUpdate", {requests = comment, writeControl = {writeMode = "SUGGEST"}})
