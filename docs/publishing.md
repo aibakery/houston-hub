@@ -1021,3 +1021,87 @@ The icon is Meta's infinity symbol, byte-identical to Houston's vendor mark
 Business Suite has no logo of its own. Meta's guidelines say every use of the Meta
 logo requires its approval; confirm before listing the connector publicly. Meta and
 the Meta logo are trademarks of Meta Platforms, Inc.
+
+## Gusto
+
+Register repository `https://github.com/aibakery/houston-hub`, revision `main`,
+manifest path `connectors/gusto/houston.json`. The bundle uses the existing manifest
+v1 and async HTTP runtime without runtime changes. **Connect with Gusto** uses a
+publisher-owned Gusto app in production; connections can instead enable **Use your
+own Gusto app** and sign in to production or Gusto's demo environment with it, as the
+[account setup guide](../connectors/gusto/SETUP.md) describes.
+
+Gusto's API is open only to App Integration and Embedded Payroll partners: Gusto
+does not support a customer connecting its own company through the API, and points
+customers to its CLI and MCP server instead. At the
+[Gusto Developer Portal](https://dev.gusto.com), create an organization, then under
+**Applications** click **Create application** with the publication's redirect URI
+`<Houston public URL>/oauth/connectors/<hub-publication-id>/callback`. The app gets
+demo credentials only. Production needs Gusto's
+[production pre-approval](https://docs.gusto.com/app-integrations/docs/introduction),
+a [security review](https://docs.gusto.com/app-integrations/docs/security-review)
+and a QA review of a demo integration, and Gusto approves only some applications.
+Production redirect URIs and scopes change by emailing developer@gusto.com. Enter the
+production app's client ID and secret in the publication's publisher settings. Until
+then, test through a connection's own demo app.
+
+Ask Gusto for the scopes behind every exposed operation: `companies:read/write`,
+`company_admin:read`, `departments:read/write`, `employees:read/write/manage`,
+`employments:read/write`, `compensations:read/write`, `contractors:read/write/manage`,
+`pay_schedules:read`, `payrolls:read/write`, `payroll_syncs:read/write`,
+`time_off_policies:read/write`, `time_off_requests:read`,
+`employee_time_off_activities:read`, `benefits:read`, `company_benefits:read/write`,
+`employee_benefits:read/write`, `garnishments:read/write`, `reimbursements:read/write`,
+`company_reports:read/write`, `notifications:read` and `time_sheet:read/write`. Gusto
+assigns scopes to the app rather than per authorization, so the manifest requests
+none: a scope parameter naming one the app lacks would fail the sign-in. Read-only
+access is enforced by the exported functions and the proxy, not by scopes. The demo
+environment does not enforce scopes; production answers 403 `missing_oauth_scopes`.
+
+The connector covers 115 of the 135 operations of Gusto's App Integrations reference
+(`X-Gusto-API-Version: 2026-06-15`, the current stable version), checked on
+2026-10-21 against the reference at
+[docs.gusto.com](https://docs.gusto.com/app-integrations/reference) (Gusto's OpenAPI
+source repository is private; the operations were merged from the reference pages).
+Omitted on purpose: webhook subscriptions, events, provisioning, disconnecting the
+integration and salary estimate occupations, which need an app-level system token
+that Houston's OAuth support does not mint; the rest of salary estimates, which
+need those occupations; updating the company's contractor-only flag; the OAuth token
+and revoke endpoints; and the duplicate `GET /v1/terminations/{employee_id}`. Running,
+calculating, submitting or cancelling payrolls, contractor payments, bank accounts,
+tax details, pay stubs, forms, jobs and time off request management are Gusto
+Embedded features that App Integrations cannot call. Read-write connections prepare
+and edit unprocessed payrolls only; the proxy never allows a payroll submit. Gusto
+supports each API version for at least 12 months after its successor; 2026-06-15 has
+no sunset date yet. Move `VERSION` in Lua forward and recheck the reference.
+
+OAuth uses the authorize page `app.gusto.com` (`app.gusto-demo.com`), which Gusto's
+OAuth discovery document names (`api.gusto.com/oauth/authorize`, the documented URL,
+redirects there), and the token endpoint on `api.gusto.com` (`api.gusto-demo.com`)
+with HTTP Basic client authentication, which the discovery document lists. It
+advertises no PKCE, so the methods send none. Access tokens last two hours and
+refresh tokens rotate on every refresh, so the methods require one. Each grant
+reaches one company, and only its primary or full-access admins can authorize. The
+account label is the company UUID from `/v1/token_info`, which does not echo the
+token.
+
+Every method shares the proxy rules, which allow only the listed routes on
+`api.gusto.com` and `api.gusto-demo.com` and strip the `X-HTTP-Method-Override`,
+`X-HTTP-Method` and `X-Method-Override` headers; writes require read-write access,
+with one rule per method so paths never combine across methods. Lua chooses the host
+from the selected method. The general ledger report request and the accruing time off
+calculation are POSTs that change nothing, so read-only connections keep them.
+Report results return temporary `report_urls`, which the connector passes through
+without fetching. Gusto allows 200 requests per minute per grant.
+
+This is a new registration with no existing connections. Fixtures cover both access
+levels, every method, routes, query and body building, paging headers, input
+validation and error mapping. Still to verify live: sign-in and refresh through a
+demo app, whether the code exchange reply lists scopes, the account label, paging
+headers on an App Integrations list, `Retry-After` on a 429, the SETUP labels, and a
+disposable employee and draft payroll edit in a demo company.
+
+Gusto's icon is its "g" mark (`gusto-favicon.svg`, Guava `#f45d48`) from the settings
+of Gusto's developer documentation, retrieved 2026-10-21, unchanged. Gusto announced a
+brand refresh in 2026; confirm the mark against Gusto's current brand assets before
+listing the connector publicly. Gusto is a trademark of Gusto, Inc.

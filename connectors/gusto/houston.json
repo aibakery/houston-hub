@@ -1,0 +1,398 @@
+{
+  "schema_version": 1,
+  "name": "Gusto",
+  "files": [
+    "connector.lua"
+  ],
+  "icon": "icon.svg",
+  "config": {
+    "access": {
+      "default": "read-only",
+      "label": "Access",
+      "options": [
+        {
+          "label": "Read-only",
+          "value": "read-only"
+        },
+        {
+          "label": "Read and write",
+          "value": "read-write"
+        }
+      ],
+      "type": "string"
+    },
+    "own_app": {
+      "default": false,
+      "label": "Use your own Gusto app",
+      "order": 1,
+      "type": "boolean"
+    },
+    "client_id": {
+      "if": "{{ is config.own_app true }}",
+      "label": "Gusto OAuth client ID",
+      "order": 2,
+      "required": true,
+      "type": "string"
+    },
+    "client_secret": {
+      "if": "{{ is config.own_app true }}",
+      "label": "Gusto OAuth client secret",
+      "order": 3,
+      "required": true,
+      "type": "secret"
+    }
+  },
+  "auth": {
+    "gusto": {
+      "type": "oauth2",
+      "label": "Connect with Gusto",
+      "if": "{{ is config.own_app false }}",
+      "authorize_url": "https://app.gusto.com/oauth/authorize",
+      "token_url": "https://api.gusto.com/oauth/token",
+      "client_id": "{{publisher.client_id}}",
+      "client_secret": "{{publisher.client_secret}}",
+      "pkce": "none",
+      "require_refresh": true,
+      "account": {
+        "url": "https://api.gusto.com/v1/token_info",
+        "headers": {
+          "Authorization": {
+            "value": "Bearer {{auth.gusto.access_token}}"
+          }
+        },
+        "label": "/resource/uuid"
+      }
+    },
+    "own_app": {
+      "type": "oauth2",
+      "label": "Connect with your Gusto app",
+      "order": 1,
+      "if": "{{ is config.own_app true }}",
+      "authorize_url": "https://app.gusto.com/oauth/authorize",
+      "token_url": "https://api.gusto.com/oauth/token",
+      "client_id": "{{config.client_id}}",
+      "client_secret": "{{config.client_secret}}",
+      "pkce": "none",
+      "require_refresh": true,
+      "account": {
+        "url": "https://api.gusto.com/v1/token_info",
+        "headers": {
+          "Authorization": {
+            "value": "Bearer {{auth.own_app.access_token}}"
+          }
+        },
+        "label": "/resource/uuid"
+      }
+    },
+    "demo": {
+      "type": "oauth2",
+      "label": "Connect with your Gusto demo app",
+      "order": 2,
+      "if": "{{ is config.own_app true }}",
+      "authorize_url": "https://app.gusto-demo.com/oauth/authorize",
+      "token_url": "https://api.gusto-demo.com/oauth/token",
+      "client_id": "{{config.client_id}}",
+      "client_secret": "{{config.client_secret}}",
+      "pkce": "none",
+      "require_refresh": true,
+      "account": {
+        "url": "https://api.gusto-demo.com/v1/token_info",
+        "headers": {
+          "Authorization": {
+            "value": "Bearer {{auth.demo.access_token}}"
+          }
+        },
+        "label": "/resource/uuid"
+      }
+    }
+  },
+  "publisher": {
+    "client_id": {
+      "label": "Gusto OAuth client ID",
+      "order": 1,
+      "type": "string"
+    },
+    "client_secret": {
+      "label": "Gusto OAuth client secret",
+      "order": 2,
+      "type": "secret"
+    }
+  },
+  "proxy": [
+    {
+      "match": {
+        "protocol": "http",
+        "host": [
+          "api.gusto.com",
+          "api.gusto-demo.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/v1/benefits",
+          "/v1/benefits/{benefit_id}",
+          "/v1/benefits/{benefit_id}/requirements",
+          "/v1/companies/{company_id}",
+          "/v1/companies/{company_id}/admins",
+          "/v1/companies/{company_id}/company_benefits",
+          "/v1/companies/{company_id}/contractor_payments",
+          "/v1/companies/{company_id}/contractor_payments/{contractor_payment_id}",
+          "/v1/companies/{company_id}/contractors",
+          "/v1/companies/{company_id}/custom_fields",
+          "/v1/companies/{company_id}/departments",
+          "/v1/companies/{company_id}/earning_types",
+          "/v1/companies/{company_id}/employees",
+          "/v1/companies/{company_id}/locations",
+          "/v1/companies/{company_id}/notifications",
+          "/v1/companies/{company_id}/pay_periods",
+          "/v1/companies/{company_id}/pay_periods/unprocessed_termination_pay_periods",
+          "/v1/companies/{company_id}/pay_schedules",
+          "/v1/companies/{company_id}/pay_schedules/assignments",
+          "/v1/companies/{company_id}/pay_schedules/{pay_schedule_id}",
+          "/v1/companies/{company_id}/payrolls",
+          "/v1/companies/{company_id}/payrolls/{payroll_id}",
+          "/v1/companies/{company_id}/time_off_policies",
+          "/v1/companies/{company_id}/time_off_requests",
+          "/v1/companies/{company_id}/time_tracking/time_sheets",
+          "/v1/company_benefits/{company_benefit_id}",
+          "/v1/company_benefits/{company_benefit_id}/contribution_exclusions",
+          "/v1/company_benefits/{company_benefit_id}/employee_benefits",
+          "/v1/company_benefits/{company_benefit_id}/summary",
+          "/v1/compensations/{compensation_id}",
+          "/v1/contractors/{contractor_uuid}",
+          "/v1/departments/{department_uuid}",
+          "/v1/employee_benefits/{employee_benefit_id}",
+          "/v1/employees/{employee_id}",
+          "/v1/employees/{employee_id}/custom_fields",
+          "/v1/employees/{employee_id}/employee_benefits",
+          "/v1/employees/{employee_id}/employment_history",
+          "/v1/employees/{employee_id}/garnishments",
+          "/v1/employees/{employee_id}/home_addresses",
+          "/v1/employees/{employee_id}/recurring_reimbursements",
+          "/v1/employees/{employee_id}/rehire",
+          "/v1/employees/{employee_id}/section603_high_earner_statuses",
+          "/v1/employees/{employee_id}/section603_high_earner_statuses/{effective_year}",
+          "/v1/employees/{employee_id}/terminations",
+          "/v1/employees/{employee_id}/time_off_activities",
+          "/v1/employees/{employee_id}/work_addresses",
+          "/v1/employees/{employee_id}/ytd_benefit_amounts_from_different_company",
+          "/v1/garnishments/child_support",
+          "/v1/garnishments/{garnishment_id}",
+          "/v1/home_addresses/{home_address_uuid}",
+          "/v1/jobs/{job_id}/compensations",
+          "/v1/locations/{location_id}",
+          "/v1/locations/{location_id}/minimum_wages",
+          "/v1/recurring_reimbursements/{id}",
+          "/v1/reports/{request_uuid}",
+          "/v1/time_off_policies/{time_off_policy_uuid}",
+          "/v1/time_tracking/payroll_syncs/{payroll_sync_uuid}",
+          "/v1/time_tracking/time_sheets/{time_sheet_uuid}",
+          "/v1/token_info",
+          "/v1/work_addresses/{work_address_uuid}"
+        ]
+      },
+      "action": {
+        "headers": {
+          "remove": [
+            "X-HTTP-Method-Override",
+            "X-HTTP-Method",
+            "X-Method-Override"
+          ],
+          "set": {
+            "Authorization": "Bearer {{auth.gusto.access_token || auth.own_app.access_token || auth.demo.access_token}}"
+          }
+        }
+      }
+    },
+    {
+      "match": {
+        "protocol": "http",
+        "host": [
+          "api.gusto.com",
+          "api.gusto-demo.com"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/v1/payrolls/{payroll_id}/employees/{employee_id}/calculate_accruing_time_off_hours",
+          "/v1/payrolls/{payroll_uuid}/reports/general_ledger"
+        ]
+      },
+      "action": {
+        "headers": {
+          "remove": [
+            "X-HTTP-Method-Override",
+            "X-HTTP-Method",
+            "X-Method-Override"
+          ],
+          "set": {
+            "Authorization": "Bearer {{auth.gusto.access_token || auth.own_app.access_token || auth.demo.access_token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "api.gusto.com",
+          "api.gusto-demo.com"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/v1/companies/{company_id}/company_benefits",
+          "/v1/companies/{company_id}/contractors",
+          "/v1/companies/{company_id}/departments",
+          "/v1/companies/{company_id}/earning_types",
+          "/v1/companies/{company_id}/employees",
+          "/v1/companies/{company_id}/locations",
+          "/v1/companies/{company_id}/time_tracking/payroll_syncs",
+          "/v1/companies/{company_id}/time_tracking/time_sheets",
+          "/v1/employees/{employee_id}/employee_benefits",
+          "/v1/employees/{employee_id}/garnishments",
+          "/v1/employees/{employee_id}/home_addresses",
+          "/v1/employees/{employee_id}/recurring_reimbursements",
+          "/v1/employees/{employee_id}/rehire",
+          "/v1/employees/{employee_id}/section603_high_earner_statuses",
+          "/v1/employees/{employee_id}/terminations",
+          "/v1/employees/{employee_id}/work_addresses",
+          "/v1/employees/{employee_id}/ytd_benefit_amounts_from_different_company",
+          "/v1/jobs/{job_id}/compensations"
+        ]
+      },
+      "action": {
+        "headers": {
+          "remove": [
+            "X-HTTP-Method-Override",
+            "X-HTTP-Method",
+            "X-Method-Override"
+          ],
+          "set": {
+            "Authorization": "Bearer {{auth.gusto.access_token || auth.own_app.access_token || auth.demo.access_token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "api.gusto.com",
+          "api.gusto-demo.com"
+        ],
+        "method": [
+          "PUT"
+        ],
+        "path": [
+          "/v1/companies/{company_id}/earning_types/{earning_type_uuid}",
+          "/v1/companies/{company_id}/payrolls/{payroll_id}",
+          "/v1/companies/{company_id}/payrolls/{payroll_id}/prepare",
+          "/v1/company_benefits/{company_benefit_id}",
+          "/v1/company_benefits/{company_benefit_id}/contribution_exclusions",
+          "/v1/company_benefits/{company_benefit_id}/employee_benefits",
+          "/v1/compensations/{compensation_id}",
+          "/v1/contractors/{contractor_uuid}",
+          "/v1/departments/{department_uuid}",
+          "/v1/departments/{department_uuid}/add",
+          "/v1/departments/{department_uuid}/remove",
+          "/v1/employee_benefits/{employee_benefit_id}",
+          "/v1/employees/{employee_id}",
+          "/v1/employees/{employee_id}/rehire",
+          "/v1/garnishments/{garnishment_id}",
+          "/v1/home_addresses/{home_address_uuid}",
+          "/v1/locations/{location_id}",
+          "/v1/recurring_reimbursements/{id}",
+          "/v1/terminations/{employee_id}",
+          "/v1/time_off_policies/{time_off_policy_uuid}/add_employees",
+          "/v1/time_tracking/time_sheets/{time_sheet_uuid}",
+          "/v1/work_addresses/{work_address_uuid}"
+        ]
+      },
+      "action": {
+        "headers": {
+          "remove": [
+            "X-HTTP-Method-Override",
+            "X-HTTP-Method",
+            "X-Method-Override"
+          ],
+          "set": {
+            "Authorization": "Bearer {{auth.gusto.access_token || auth.own_app.access_token || auth.demo.access_token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "api.gusto.com",
+          "api.gusto-demo.com"
+        ],
+        "method": [
+          "PATCH"
+        ],
+        "path": [
+          "/v1/employees/{employee_id}/section603_high_earner_statuses/{effective_year}"
+        ]
+      },
+      "action": {
+        "headers": {
+          "remove": [
+            "X-HTTP-Method-Override",
+            "X-HTTP-Method",
+            "X-Method-Override"
+          ],
+          "set": {
+            "Authorization": "Bearer {{auth.gusto.access_token || auth.own_app.access_token || auth.demo.access_token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "api.gusto.com",
+          "api.gusto-demo.com"
+        ],
+        "method": [
+          "DELETE"
+        ],
+        "path": [
+          "/v1/companies/{company_id}/earning_types/{earning_type_uuid}",
+          "/v1/company_benefits/{company_benefit_id}",
+          "/v1/compensations/{compensation_id}",
+          "/v1/departments/{department_uuid}",
+          "/v1/employee_benefits/{employee_benefit_id}",
+          "/v1/employees/{employee_id}",
+          "/v1/employees/{employee_id}/rehire",
+          "/v1/employees/{employee_id}/terminations",
+          "/v1/home_addresses/{home_address_uuid}",
+          "/v1/recurring_reimbursements/{id}",
+          "/v1/time_tracking/time_sheets/{time_sheet_uuid}",
+          "/v1/work_addresses/{work_address_uuid}"
+        ]
+      },
+      "action": {
+        "headers": {
+          "remove": [
+            "X-HTTP-Method-Override",
+            "X-HTTP-Method",
+            "X-Method-Override"
+          ],
+          "set": {
+            "Authorization": "Bearer {{auth.gusto.access_token || auth.own_app.access_token || auth.demo.access_token}}"
+          }
+        }
+      }
+    }
+  ]
+}

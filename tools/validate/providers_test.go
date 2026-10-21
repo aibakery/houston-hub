@@ -38,6 +38,7 @@ func TestEveryProviderAuthenticationAndTransport(t *testing.T) {
 		"wise":        {"GET", "https://api.wise.com/v2/profiles"},
 		"github":      {"GET", "https://api.github.com/user"},
 		"meta":        {"GET", "https://graph.facebook.com/v26.0/me"},
+		"gusto":       {"GET", "https://api.gusto.com/v1/token_info"},
 	}
 	for _, path := range paths {
 		provider := filepath.Base(filepath.Dir(path))
@@ -72,7 +73,7 @@ func TestEveryProviderAuthenticationAndTransport(t *testing.T) {
 				if provider == "dropbox" && method == "own_app" {
 					config["own_app"] = true
 				}
-				if provider == "carta" && method != "carta" {
+				if (provider == "carta" || provider == "gusto") && method != provider {
 					config["own_app"] = true
 				}
 				if m.Proxy[0].Match.Protocol != "http" {
