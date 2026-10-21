@@ -59,7 +59,10 @@ return {
 		rejected(function() erp.listThirdparties({sqlfilters = "(t.WebServices_Key:like:'a%')"}) end, "sqlfilters cannot use webservices_key")
 		rejected(function() erp.listOrders({sqlfilterlines = "(tl.pass:=:'x')"}) end, "sqlfilterlines cannot use pass")
 		rejected(function() erp.listThirdparties({sortfield = "t.webservices_key"}) end, "sortfield cannot use webservices_key")
-		erp.listThirdparties({sqlfilters = "(t.note_private:like:'%passage%') and (t.webservices_url:!=:'')"})
+		rejected(function() erp.listThirdparties({sqlfilters = "(t.name:like:'a%') or (webservices_key:like:'a%')"}) end, "sqlfilters cannot use webservices_key")
+		-- Values may contain those words: Dolibarr reads a field only at the start of a (field:operator:value) term.
+		erp.listProducts({sqlfilters = "(t.label:like:'%Ski pass%') or (t.ref:=:'PASS-2026') or (t.note_private:like:'%api_key%')"})
+		erp.listThirdparties({sqlfilters = "(t.note_private:like:'%passage%') and (t.webservices_url:!=:'')", sortfield = "t.pass_count"})
 
 		rejected(function() erp.createThirdparty("Ann") end, "fields must be an object")
 		rejected(function() erp.createThirdparty({"Ann"}) end, "fields must be an object")

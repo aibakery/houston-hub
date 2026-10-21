@@ -95,11 +95,15 @@ local WRITES: {Endpoint} = {
 local SECRET: {[string]: boolean} = {api_key = true, pass = true, pass_crypted = true, pass_indatabase = true,
 	pass_indatabase_crypted = true, pass_temp = true, clicktodial_password = true, webservices_key = true}
 
+local function column(value: string, name: string)
+	local field = string.lower(string.match(value, "([^%.]*)$") or value)
+	assert(not SECRET[field], name .. " cannot use " .. field .. ", which the connector withholds")
+end
+
+-- Dolibarr reads a field only at the start of each (field:operator:value) term, and a
+-- value cannot contain parentheses, so words inside values stay allowed.
 local function withheld(value: string, name: string): string
-	local lower = string.lower(value)
-	for secret in SECRET do
-		assert(not string.find(lower, "%f[%w_]" .. secret .. "%f[^%w_]"), name .. " cannot use " .. secret .. ", which the connector withholds")
-	end
+	for field in string.gmatch(value, "%(([%w_%.]+):[<>!=%a]+:") do column(field, name) end
 	return value
 end
 
@@ -137,7 +141,8 @@ local ENCODE: {[string]: (any, string) -> string} = {
 	sortfield = function(value, name)
 		assert(type(value) == "string" and (string.match(value, FIELD) or string.match(value, "^[%a_][%w_]*%.[%a_][%w_]*$")),
 			name .. " must be a column such as t.rowid")
-		return withheld(value, name)
+		column(value, name)
+		return value
 	end,
 	sortorder = function(value, name)
 		assert(value == "ASC" or value == "DESC", name .. " must be ASC or DESC")
