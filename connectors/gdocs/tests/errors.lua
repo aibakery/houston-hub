@@ -24,6 +24,10 @@ return {
 			{"HTTP 400 (INVALID_ARGUMENT)", "newline character at the end of the segment", '"retryable":false'})
 		upstream(429, '{"error":{"code":429,"message":"Quota exceeded for quota metric \'Write requests\' and limit \'Write requests per minute per user\'","status":"RESOURCE_EXHAUSTED"}}', {["retry-after"] = {"30"}},
 			{"HTTP 429 (RESOURCE_EXHAUSTED)", "Retry-After: 30", '"retryable":true'})
+		upstream(403, '{"error":{"code":403,"message":"Request had insufficient authentication scopes.","status":"PERMISSION_DENIED","details":[{"@type":"type.googleapis.com/google.rpc.Help"},{"@type":"type.googleapis.com/google.rpc.ErrorInfo","reason":"ACCESS_TOKEN_SCOPE_INSUFFICIENT","domain":"googleapis.com"}]}}', {},
+			{"insufficient authentication scopes. [ACCESS_TOKEN_SCOPE_INSUFFICIENT]", '"retryable":false'})
+		upstream(403, '{"error":{"code":403,"message":"Quota exceeded.","status":"PERMISSION_DENIED","details":[{"@type":"type.googleapis.com/google.rpc.ErrorInfo","reason":"RATE_LIMIT_EXCEEDED"}]}}', {},
+			{"[RATE_LIMIT_EXCEEDED]", '"retryable":true'})
 		upstream(400, "<html><title>Error 400 (Bad Request)</title></html>", {}, {"Google HTTP 400", '"retryable":false'})
 		upstream(503, '{"error":{"code":503,"message":"The service is currently unavailable.","status":"UNAVAILABLE"}}', {}, {"HTTP 503", '"retryable":true'})
 		upstream(200, "<html>Maintenance</html>", {}, {"invalid JSON object"})
