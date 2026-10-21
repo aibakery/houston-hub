@@ -8,15 +8,15 @@ for maintained bundles. For the shared publishing workflow, see
 
 Register repository `https://github.com/aibakery/houston-hub`, revision `main`, and
 the manifest paths `connectors/gmail/houston.json`, `connectors/gcalendar/houston.json`,
-`connectors/gdrive/houston.json` and `connectors/gsheets/houston.json`. The bundles use Houston's async HTTP and file
+`connectors/gdrive/houston.json`, `connectors/gsheets/houston.json` and `connectors/gforms/houston.json`. The bundles use Houston's async HTTP and file
 runtime and a publisher-owned OAuth client, so users only choose an access level and
 select **Connect with Google**.
 
 Give each connector its own Google Cloud project, so one connector's scope review never
 holds up another. In each project:
 
-1. Enable the connector's API: Gmail API, Google Calendar API, Google Drive API or
-   Google Sheets API.
+1. Enable the connector's API: Gmail API, Google Calendar API, Google Drive API,
+   Google Sheets API or Google Forms API.
 2. Configure the OAuth consent screen (External) with Houston's name, logo, home
    page, privacy policy and authorized domain, and declare the connector's scopes below.
 3. Create a **Web application** OAuth client. Add the publication's redirect URI,
@@ -30,6 +30,7 @@ holds up another. In each project:
 | Google Calendar | `calendar.readonly` (sensitive) | `calendar.readonly`, `calendar.events` (sensitive) |
 | Google Drive | `drive.readonly` (restricted) | `drive` (restricted) |
 | Google Sheets | `spreadsheets.readonly` (sensitive) | `spreadsheets` (sensitive) |
+| Google Forms | `forms.body.readonly`, `forms.responses.readonly` | `forms.body`, `forms.responses.readonly` |
 
 Every method also requests `userinfo.email` to label the connected account, and asks
 for offline access so Houston receives a refresh token. Houston requires every
@@ -46,7 +47,8 @@ Gmail cannot permanently delete messages: `gmail.modify` excludes it, and the
 connector moves messages to Trash instead. Each connector's proxy lists exactly the
 routes it calls, under Gmail `gmail.googleapis.com/gmail/v1/users/me` and its upload
 path, Calendar `www.googleapis.com/calendar/v3`, Drive `www.googleapis.com/drive/v3`
-and `/upload/drive/v3`, and Sheets `sheets.googleapis.com/v4/spreadsheets`. Read
+and `/upload/drive/v3`, Sheets `sheets.googleapis.com/v4/spreadsheets` and Forms
+`forms.googleapis.com/v1/forms`. Read
 routes are open at every access level; write routes only on read-write connections,
 so read-only callers of read-write connections cannot write. Every rule removes
 method-override headers: Google honours `X-HTTP-Method-Override`, so any allowed
@@ -54,7 +56,7 @@ request could otherwise run as another method. Batch endpoints, the API Explorer
 `content.googleapis.com`, permanent Gmail deletes, imports, settings and watches
 stay denied. Drive's `emptyTrash` is `DELETE /files/trash`, which the `{fileId}`
 delete route also matches, so `deleteFile` refuses the ID `trash`. Bundles cannot
-share files, so the four `connector.lua` files carry the same request layer;
+share files, so the five `connector.lua` files carry the same request layer;
 `tools/validate` checks that the copies match.
 
 Google Calendar covers 12 of the 38 methods in the [Calendar API v3 discovery
@@ -102,6 +104,31 @@ top of 60 per minute per user; ask Google for a higher quota before broad rollou
 Google Sheets' icon is the official product logo served by Google at
 [fonts.gstatic.com/s/i/productlogos/sheets_2020q4/v11/192px.svg](https://fonts.gstatic.com/s/i/productlogos/sheets_2020q4/v11/192px.svg),
 retrieved 2026-10-16, unchanged. Google owns the mark.
+
+Google Forms covers 6 of the 10 methods in the [Forms API v1 discovery
+document](https://forms.googleapis.com/$discovery/rest?version=v1), revision `20261014`,
+checked on 2026-10-21: form reads, response lists and reads, form creation, the
+structural `batchUpdate` and `setPublishSettings`. The four `watches.*` methods are
+omitted: they push notifications to a Cloud Pub/Sub topic in the publisher's project,
+which Houston cannot receive; callers poll `listResponses` with a `timestamp >` filter
+instead. The API has no list, delete, rename or sharing method for forms, which are
+Drive files, and no way to submit, edit or delete responses. The Forms scopes cannot
+list Drive files, so callers pass a form ID or edit URL, or find it through Google
+Drive. The scope table gives no class for the Forms scopes: check it on the consent
+screen when declaring them. Read-only connections, and read-only callers of
+read-write ones, may only GET the three read routes; writes POST `/v1/forms` and
+`/v1/forms/{formId}`, whose whole-segment placeholder admits the `:batchUpdate` and
+`:setPublishSettings` custom methods. The discovery document says forms created
+without `unpublished` are published, while Google's guides say API-created forms are
+unpublished by default since June 30, 2026, so `createForm` always sends
+`unpublished=true` unless the caller passes `false`. Google allows each Cloud project
+975 reads, 450 response lists and 375 writes per minute, shared by every connection
+using the publisher's client, and each user 390, 180 and 150. Google plans to bill
+the Cloud project for requests above these quotas later in 2026.
+
+Google Forms' icon is the official product logo served by Google at
+[www.gstatic.com/images/branding/productlogos/forms_2020q4/v6/192px.svg](https://www.gstatic.com/images/branding/productlogos/forms_2020q4/v6/192px.svg),
+retrieved 2026-10-21, unchanged. Google owns the mark.
 
 ## Notion
 
