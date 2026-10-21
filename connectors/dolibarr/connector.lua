@@ -256,11 +256,11 @@ local function failure(name: string, response: HttpResponse, raw: string, write:
 	if status == 304 then
 		message ..= ". Dolibarr made no change: the record may already be in that state"
 	elseif status == 401 then
-		message ..= ". Check the API key and that its Dolibarr user is active"
+		message ..= ". Check the API key and that its Dolibarr user is active; before Dolibarr 20, a missing permission also answers 401"
 	elseif status == 403 then
-		message ..= ". The Dolibarr user of this API key lacks the permission"
+		message ..= ". The Dolibarr user of this API key lacks the permission, or the module behind this request is disabled"
 	elseif status == 501 then
-		message ..= ". The Dolibarr module behind this request may be disabled"
+		message ..= ". This Dolibarr does not offer this endpoint, or blocks it with API_ENDPOINT_RULES"
 	elseif status == 404 and not err then
 		message ..= ". Check the connection's domain and install path: the API must answer at " .. tostring(API)
 	end
@@ -271,8 +271,12 @@ local function failure(name: string, response: HttpResponse, raw: string, write:
 	local retry = header(response, "retry-after")
 	if retry then message ..= "; Retry-After: " .. string.sub(retry, 1, 40) end
 	if write and status >= 500 then message ..= SAVED end
+	-- Dolibarr reports its own failures, such as an SQL error, as JSON 5xx, and an IP
+	-- restriction as 503; those fail again on retry. Other 5xx are retryable only for
+	-- reads, as a write may have been applied, and a 503 only when it asks to wait.
+	local transient = status >= 500 and status ~= 501 and (status ~= 503 or retry ~= nil)
 	return houston.fail({operation = name, layer = "upstream", upstream_status = status,
-		retryable = status == 429 or (status >= 500 and status ~= 501 and not write), message = message})
+		retryable = status == 429 or (transient and not err and not write), message = message})
 end
 
 local function withhold(value: any)
@@ -303,7 +307,7 @@ local function call(endpoint: Endpoint, recordID: any, input: any): any
 	local raw = await(response.body:readAll())
 	local ok, value = pcall(json.decode, raw)
 	if not ok or value == nil then
-		-- With the API module disabled, Dolibarr answers HTTP 200 with its login page.
+		-- With the API module disabled, Dolibarr answers HTTP 200 with a plain-text warning.
 		return houston.fail({operation = name, layer = "upstream", upstream_status = response.statusCode, retryable = false,
 			message = "Dolibarr returned a response that is not JSON; check that the API REST module is enabled and answers at "
 				.. API .. "/status" .. (if write then SAVED else "")})
@@ -343,7 +347,7 @@ exports.help = function(): string
 		"Dolibarr REST API for " .. HOST .. ". Results keep Dolibarr's native JSON: records are objects whose IDs and amounts are usually strings (\"id\":\"12\", \"total_ttc\":\"120.00000000\"), dates are Unix timestamps (payment lists use 'YYYY-MM-DD HH:MM:SS'), and lists are arrays, an empty list included. IDs can be passed as numbers or digit strings. Extra fields sit in array_options as options_<code>. Connector calls return completed values: use them directly, without await.",
 		"Lists fetch one page: limit (1-200, default 100) and page (from 0); fetch the next page while a page returns limit records. sortfield is a database column with its alias, such as t.rowid, t.ref, t.datec or t.tms, and sortorder ASC or DESC. properties={'id','ref','total_ttc'} returns only those fields (Dolibarr 19+). sqlfilters uses Dolibarr's syntax on database columns, not JSON names: \"(t.ref:like:'FA26%') and (t.fk_soc:=:12)\", with operators = != < > <= >= like notlike in notin is isnot, quoted strings and no parentheses inside values; for example (t.tms:>:'2026-10-01 00:00:00') finds records changed since a date. thirdparty_ids is an ID or an array of IDs. listThirdparties mode: 1 customers, 2 prospects, 3 neither, 4 suppliers; listProducts mode: 1 products, 2 services. listInvoices and listSupplierInvoices status: draft, unpaid, paid or cancelled; listSupplierOrders status: draft, validated, approved, running, received_start, received_end, cancelled or refused. listOrders sqlfilterlines filters by line columns, such as (tl.fk_product:=:9).",
 		"Examples: listInvoices({status='unpaid', sortfield='t.datef', sortorder='DESC', limit=20}); getInvoice(42); listOrders({sqlfilters=\"(t.ref_ext:=:'PS-1042')\"}); listThirdparties({sqlfilters=\"(t.email:=:'ann@example.com')\"}); listProducts({sqlfilters=\"(t.ref:=:'MUG-01')\", properties={'id','ref','label','price'}}); getProductStock(9); listStockMovements({sqlfilters='(t.fk_product:=:9)', sortorder='DESC'}); listBankAccountLines(1, {sqlfilters=\"(t.dateo:>=:'2026-10-01')\"}).",
-		"Customer orders, invoices and proposals link to a third party through socid (fk_soc in sqlfilters) and carry their lines. Statuses (status, statut or fk_statut) are numeric strings: an order is 0 draft, 1 validated, 2 shipping, 3 delivered, -1 cancelled; an invoice 0 draft, 1 unpaid, 2 paid, 3 abandoned. ref_ext holds an external reference such as a shop order ID. listBankAccountLines requires sqlfilters, as Dolibarr returns every matching line at once; getBankAccountBalance needs Dolibarr 21+. The API key's Dolibarr user permissions apply: a missing permission fails with HTTP 403 (401 before Dolibarr 20), a disabled module with HTTP 501, and a missing record with HTTP 404. Errors carry Dolibarr's message.",
+		"Customer orders, invoices and proposals link to a third party through socid (fk_soc in sqlfilters) and carry their lines. Statuses (status, statut or fk_statut) are numeric strings: an order is 0 draft, 1 validated, 2 shipping, 3 delivered, -1 cancelled; an invoice 0 draft, 1 unpaid, 2 paid, 3 abandoned. ref_ext holds an external reference such as a shop order ID. listBankAccountLines requires sqlfilters, as Dolibarr returns every matching line at once; getBankAccountBalance needs Dolibarr 21+. The API key's Dolibarr user permissions apply: a missing permission or disabled module fails with HTTP 403 (401 before Dolibarr 20), an endpoint this Dolibarr lacks or blocks with HTTP 501, and a missing record with HTTP 404; Dolibarr reports its own errors, such as an invalid sqlfilters column, as HTTP 400 or 503. Errors carry Dolibarr's message.",
 	}
 	if config.access == "read-write" then
 		table.insert(lines, "Writes send fields as a JSON object of Dolibarr field names (see Dolibarr's API explorer for each object); a create returns the new record's ID, so read it back with the matching get, while updates and actions return the record. Updates change only the given fields. Dates are Unix timestamps. createOrder({socid=12, date=1792540800, ref_ext='PS-1042'}) creates a draft order; add lines with addOrderLine(orderID, {fk_product=9, qty=2, subprice='12.50', tva_tx='20'}) or {desc='Shipping', qty=1, subprice='5', tva_tx='20', product_type=1}, then validateOrder(orderID) gives it its reference (pass {idwarehouse=1} when validation moves stock). createInvoiceFromOrder(orderID) returns a draft invoice copied from the order; validateInvoice(id) numbers it, which cannot be undone, and addInvoicePayment(id, {datepaye=1792540800, paymentid=<listPaymentTypes id>, accountid=<bank account id>, closepaidinvoices='yes'}) records a payment of the whole remaining amount. createStockMovement({product_id=9, warehouse_id=1, qty=-2, label='Shop order PS-1042'}) moves stock (negative qty removes it). Validation and closing may run Dolibarr's workflows and notifications; they answer HTTP 304 when the record is already in that state. Only HTTP 429 is retried: after a timeout or 5xx, read the record before repeating a write.")

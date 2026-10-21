@@ -66,11 +66,13 @@ changes can change your Dolibarr even on a connection set to **Read-only**.
   for example `www.example.com`. Houston does not follow redirects and connects only
   over HTTPS.
 - **Requests fail with HTTP 401.** The key is wrong, or its user is disabled.
-  Generate the key again and update it in Houston.
+  Generate the key again and update it in Houston. Before Dolibarr 20, a missing
+  permission also answers HTTP 401.
 - **A request fails with HTTP 403.** The user lacks the permission for that
-  record; add it on the **Permissions** tab.
-- **A request fails with HTTP 501.** The Dolibarr module behind it, such as
-  **Stocks** or **Banks & Cash**, is turned off.
+  record, which you add on the **Permissions** tab, or the Dolibarr module behind
+  it, such as **Stocks** or **Banks & Cash**, is turned off.
+- **A request fails with HTTP 501.** Your Dolibarr does not offer that request, or
+  an administrator blocked it with the `API_ENDPOINT_RULES` setting.
 - **Requests fail with HTTP 503.** The API may be limited to some IP addresses
   in the module's settings; allow Houston's or remove the limit.
 - **You use the Multicompany module.** The connection works in the entity of the

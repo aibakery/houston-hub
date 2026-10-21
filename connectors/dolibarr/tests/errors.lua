@@ -78,20 +78,20 @@ return {
 		local debug = ',"debug":{"source":"api_access.class.php:339 at authenticate stage","stages":{"success":["get"]}}'
 		upstream(401, '{"error":{"code":401,"message":"Unauthorized: Error user not valid (not found or bad password or bad api key)"}' .. debug .. "}", {},
 			{"Dolibarr HTTP 401: Unauthorized: Error user not valid", "Check the API key", '"retryable":false'}, {"api_access.class.php"})
-		upstream(403, '{"error":{"code":403,"message":"Forbidden"}}', {}, {"HTTP 403: Forbidden. The Dolibarr user of this API key lacks the permission"})
+		upstream(403, '{"error":{"code":403,"message":"Forbidden"}}', {}, {"HTTP 403: Forbidden. The Dolibarr user of this API key lacks the permission, or the module behind this request is disabled"})
 		upstream(304, "", {}, {"HTTP 304. Dolibarr made no change", '"retryable":false'})
 		upstream(404, '{"error":{"code":404,"message":"Not Found: Invoice not found"}}', {}, {"HTTP 404: Not Found: Invoice not found"}, {"install path"})
 		-- RestException details arrive as numbered keys beside the message.
 		upstream(500, json.encode({error = {code = 500, message = "Internal Server Error: Error when validating Invoice: " .. string.rep("x", 5000), ["0"] = "ErrorBadValue", ["1"] = "ErrorRefAlreadyExists"}}), {},
 			{"Error when validating Invoice", "; ErrorBadValue; ErrorRefAlreadyExists", "may have been saved", '"retryable":false'})
-		upstream(501, "API not found (failed to include API file)", {}, {"HTTP 501: API not found", "module behind this request may be disabled", '"retryable":false'})
+		upstream(501, "API not found (failed to include API file)", {}, {"HTTP 501: API not found", "does not offer this endpoint", '"retryable":false'})
 		upstream(503, "<html><head><style>\nbody { color: red }</style><script>var x = 1</script></head><body><!-- WAF --><h1>Blocked</h1></body></html>",
 			{}, {"HTTP 503: WAF Blocked", "may have been saved"}, {"color: red", "var x"})
 		upstream(429, "Too many requests", {["retry-after"] = {"30"}}, {"HTTP 429: Too many requests", "Retry-After: 30", '"retryable":true'})
 		upstream(301, "", {location = {"https://www.erp.example.com/api/index.php/invoices/42/validate"}},
 			{"HTTP 301", "redirected to https://www.erp.example.com/", "domain and install path"})
-		-- With the API module off, Dolibarr answers HTTP 200 with its login page.
-		upstream(200, "<html><body><form>Login</form></body></html>", {}, {"not JSON", "https://erp.example.com/api/index.php/status", "may have been saved"})
+		-- With the API module off, Dolibarr answers HTTP 200 with a plain-text warning.
+		upstream(200, "WarningModuleNotActive", {}, {"not JSON", "https://erp.example.com/api/index.php/status", "may have been saved"})
 		upstream(200, "", {}, {"not JSON"})
 
 		local function read(code, body, expected, absent)
@@ -109,5 +109,12 @@ return {
 		-- Only Dolibarr's own 404 is an empty list; a web server's 404 means a wrong address.
 		read(404, "<html><body>Not Found</body></html>", {"HTTP 404: Not Found", "install path", "https://erp.example.com/api/index.php"})
 		read(403, '{"error":{"code":403,"message":"Forbidden: Access not allowed for login houston"}}', {"Access not allowed for login houston", '"retryable":false'})
+		-- Dolibarr reports SQL errors as JSON 503, and an IP restriction as plain 503: retrying fails again.
+		read(503, '{"error":{"code":503,"message":"Service Unavailable: Error when retrieve invoice list : Unknown column t.nosuch"}}', {"Unknown column t.nosuch", '"retryable":false'})
+		read(503, "API not allowed from your IP", {"HTTP 503: API not allowed from your IP", '"retryable":false'})
+		read(500, '{"error":{"code":500,"message":"Internal Server Error: Error when retrieving invoice list"}}', {'"retryable":false'})
+		status, payload, responseHeaders = 503, "Maintenance", {["retry-after"] = {"5"}}
+		local waitOK, waitErr = pcall(function() erp.listInvoices() end)
+		assert(not waitOK and string.find(tostring(waitErr), '"retryable":true', 1, true), tostring(waitErr))
 	end,
 }
