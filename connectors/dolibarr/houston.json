@@ -62,6 +62,8 @@
         "headers": {
           "remove": [
             "Authorization",
+            "Cookie",
+            "DOLAPIENTITY",
             "X-HTTP-Method-Override"
           ],
           "set": {
@@ -126,6 +128,8 @@
         "headers": {
           "remove": [
             "Authorization",
+            "Cookie",
+            "DOLAPIENTITY",
             "X-HTTP-Method-Override"
           ],
           "set": {
@@ -160,6 +164,8 @@
         "headers": {
           "remove": [
             "Authorization",
+            "Cookie",
+            "DOLAPIENTITY",
             "X-HTTP-Method-Override"
           ],
           "set": {

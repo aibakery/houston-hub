@@ -2,14 +2,18 @@ package main
 
 import (
 	"net/http"
+	"os"
+	"regexp"
+	"slices"
 	"strings"
 	"testing"
 
 	"github.com/aibakery/houston-hub/manifest"
 )
 
-// assertDolibarrRoutes checks each "METHOD URL" route's access, and that allowed
-// routes carry the key in DOLAPIKEY and drop forged credentials and method overrides.
+// assertDolibarrRoutes checks each "METHOD URL" route's access, and that allowed routes
+// carry the key in DOLAPIKEY and drop forged credentials, entities and method overrides
+// (Restler also reads http_method from cookies).
 func assertDolibarrRoutes(t *testing.T, r *manifest.Resolved, key string, allowed bool, routes ...string) {
 	t.Helper()
 	for _, route := range routes {
@@ -21,10 +25,48 @@ func assertDolibarrRoutes(t *testing.T, r *manifest.Resolved, key string, allowe
 		if err != nil {
 			continue
 		}
-		headers, err := recipe.Prepare(r.Context, http.Header{"Dolapikey": {"forged"}, "Authorization": {"Bearer forged"}, "X-Http-Method-Override": {"DELETE"}})
-		if err != nil || headers.Get("DOLAPIKEY") != key || headers.Get("Authorization") != "" || headers.Get("X-HTTP-Method-Override") != "" {
+		headers, err := recipe.Prepare(r.Context, http.Header{"Dolapikey": {"forged"}, "Authorization": {"Bearer forged"},
+			"X-Http-Method-Override": {"DELETE"}, "Dolapientity": {"2"}, "Cookie": {"http_method=DELETE"}})
+		if err != nil || headers.Get("DOLAPIKEY") != key {
 			t.Fatalf("credential injection for %s: %v %v", route, headers, err)
 		}
+		for _, name := range []string{"Authorization", "X-HTTP-Method-Override", "DOLAPIENTITY", "Cookie"} {
+			if headers.Get(name) != "" {
+				t.Fatalf("%s kept %s", route, name)
+			}
+		}
+	}
+}
+
+// The proxy allows exactly the connector's endpoint tables at the root and below one or
+// two folders, with writes only on read-write connections.
+func TestDolibarrProxyMatchesEndpointTables(t *testing.T) {
+	lua, err := os.ReadFile("../../connectors/dolibarr/connector.lua")
+	if err != nil {
+		t.Fatal(err)
+	}
+	entry := regexp.MustCompile(`\{name = "\w+", (?:method = "(\w+)", )?path = "([^"]+)"`)
+	var want, got []string
+	for _, match := range entry.FindAllStringSubmatch(string(lua), -1) {
+		method, gate := "GET", ""
+		if match[1] != "" {
+			method, gate = match[1], `{{ is config.access "read-write" }}`
+		}
+		for _, prefix := range []string{"", "/{base}", "/{base}/{sub}"} {
+			want = append(want, method+" "+prefix+"/api/index.php"+match[2]+" "+gate)
+		}
+	}
+	for _, rule := range parseManifest(t, "../../connectors/dolibarr/houston.json").Proxy {
+		for _, method := range rule.Match.Method {
+			for _, path := range rule.Match.Path {
+				got = append(got, method+" "+path+" "+rule.If)
+			}
+		}
+	}
+	slices.Sort(want)
+	slices.Sort(got)
+	if len(want) < 140 || !slices.Equal(got, want) {
+		t.Errorf("proxy routes %v, endpoint tables %v", got, want)
 	}
 }
 
@@ -71,6 +113,9 @@ func TestDolibarrHostInstallPathAndAccessBoundaries(t *testing.T) {
 				"POST "+api+"/thirdparties/12", "PUT "+api+"/orders/7", "HEAD "+api+"/invoices", "PATCH "+api+"/products/9",
 				"GET "+api+"/invoices/%2e%2e/users/1")
 		}
+		// Folder placeholders match any segment, so the proxy cannot refuse another script's
+		// path info on the same host; the connector refuses .php install paths instead.
+		assertDolibarrRoutes(t, r, key, true, "GET https://erp.example.com/index.php/api/index.php/status")
 		assertDolibarrRoutes(t, r, key, false,
 			"GET https://erp.example.com/a/b/c/api/index.php/status", "GET https://erp.example.com/api/status",
 			"GET https://erp.example.com/index.php", "GET https://erp.example.com/api/index.php/",
