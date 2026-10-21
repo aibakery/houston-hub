@@ -243,7 +243,7 @@ local overview = {
 	"No hidden paging or retries. Errors report the HTTP status and Google's message. Google allows about 300 reads and 60 writes per minute per user, and 3000 and 600 per minute across all Houston users; HTTP 429 errors are retryable after a pause.",
 }
 if config.access == "read-write" then
-	table.insert(overview, "Writes change a document's text, styles, tabs, comments and suggestions. An empty Luau table encodes as a JSON object: write an empty array as json.decode('[]'). Documents cannot be deleted, renamed, moved or shared here: use the Google Drive connector. A failed or timed-out write may already have succeeded: check with getDocumentText before repeating it, or pass writeControl={requiredRevisionId=doc.revisionId}, with doc read by getDocument, so a repeat fails with HTTP 400 instead of applying twice.")
+	table.insert(overview, "Writes change a document's text, styles, tabs, comments and suggestions. An empty Luau table encodes as a JSON object: write an empty array as json.decode('[]'). Documents cannot be deleted, renamed, moved or shared here: use the Google Drive connector. A failed or timed-out write may already have succeeded: check with getDocument before repeating it (getDocumentText hides suggestions and comments), or pass writeControl={requiredRevisionId=doc.revisionId}, with doc read by getDocument, so a repeat fails with HTTP 400 instead of applying twice.")
 end
 exports.help = helpWith(overview)
 return exports
