@@ -299,9 +299,11 @@ local function call(endpoint: Endpoint, recordID: any, input: any): any
 	local write = method ~= "GET"
 	if response.statusCode < 200 or response.statusCode >= 300 then
 		local raw = await(response.body:readPrefix(16 * 1024))
-		-- Before Dolibarr 19 (22 for third parties), an empty list answered 404 "No ... found".
+		-- Before Dolibarr 19 (21 for contacts, 22 for third parties), an empty list answered
+		-- 404 "Not Found: No ... found"; a bare "Not Found" is a route this Dolibarr lacks.
 		local err = envelope(raw)
-		if response.statusCode == 404 and endpoint.list and err and err.code == 404 then return json.decode("[]") end
+		if response.statusCode == 404 and endpoint.list and err and err.code == 404
+			and string.match(tostring(err.message), "^Not Found: .") then return json.decode("[]") end
 		failure(name, response, raw, write)
 	end
 	local raw = await(response.body:readAll())

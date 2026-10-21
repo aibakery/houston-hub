@@ -108,6 +108,8 @@ return {
 		read(502, "<html><body>Bad gateway</body></html>", {"HTTP 502: Bad gateway", '"retryable":true'}, {"may have been saved"})
 		-- Only Dolibarr's own 404 is an empty list; a web server's 404 means a wrong address.
 		read(404, "<html><body>Not Found</body></html>", {"HTTP 404: Not Found", "install path", "https://erp.example.com/api/index.php"})
+		-- Restler answers a bare "Not Found" for a route this Dolibarr lacks, which is not an empty list.
+		read(404, '{"error":{"code":404,"message":"Not Found"}}', {"HTTP 404: Not Found", '"retryable":false'})
 		read(403, '{"error":{"code":403,"message":"Forbidden: Access not allowed for login houston"}}', {"Access not allowed for login houston", '"retryable":false'})
 		-- Dolibarr reports SQL errors as JSON 503, and an IP restriction as plain 503: retrying fails again.
 		read(503, '{"error":{"code":503,"message":"Service Unavailable: Error when retrieve invoice list : Unknown column t.nosuch"}}', {"Unknown column t.nosuch", '"retryable":false'})
