@@ -1,5 +1,5 @@
 return {
-	scenario = {publisher = {}, config = {host = "example.com", install_path = " /dolibarr/htdocs/index.php "}, auth_method = "key",
+	scenario = {publisher = {}, config = {host = "example.com", install_path = " /dolibarr/htdocs/index.php/ "}, auth_method = "key",
 		auth_config = {token = "Zx81Kq0PnB2vLm4TcR7wYs9dHf3jGa6E"}},
 	configure = function()
 		requests = {}

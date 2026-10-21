@@ -10,13 +10,15 @@ local EMPTY: {string} = table.freeze({})
 local MAX_ID = 9007199254740991
 
 -- The install path is the part of the address before /index.php, such as /dolibarr;
--- the proxy allows at most two folders. An invalid path fails each call, not help().
+-- the proxy allows at most two folders. A .php folder would send the key to another
+-- script through its path info. An invalid path fails each call, not help().
 local function base(raw: string?): string?
-	local text = string.gsub(string.gsub(raw or "", "^%s+", ""), "%s+$", "")
-	text = string.gsub(string.gsub(string.gsub(text, "/index%.php$", ""), "^/+", ""), "/+$", "")
+	local text = string.gsub(string.gsub(raw or "", "^[%s/]+", ""), "[%s/]+$", "")
+	text = if text == "index.php" then "" else string.gsub(text, "/index%.php$", "")
 	local segments: {string} = {}
 	for segment in string.gmatch(text, "[^/]+") do
-		if not string.match(segment, "^[%w%-_.~]+$") or string.match(segment, "^%.+$") then return nil end
+		if not string.match(segment, "^[%w%-_.~]+$") or string.match(segment, "^%.+$")
+			or string.match(string.lower(segment), "%.php$") then return nil end
 		table.insert(segments, segment)
 	end
 	if #segments > 2 then return nil end
