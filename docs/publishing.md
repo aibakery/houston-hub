@@ -380,7 +380,8 @@ entity), `Cookie` and `X-HTTP-Method-Override` headers, as Restler reads an
 `http_method` override from the header and from cookies. Paths are allowed at the
 root and below one or two `{base}`/`{sub}` folders, because Dolibarr is often
 installed in a folder such as `/dolibarr` or `/dolibarr/htdocs`; the placeholders
-match any segment, so the connector refuses install paths with a `.php` folder,
+match any segment, so the connector refuses install paths with a folder containing
+`.ph` (`.php`, `.phtml`, `.phar` and the like),
 which would send the key to another script's path info. A validator test keeps the
 proxy routes equal to the connector's endpoint tables under all three prefixes. The
 proxy allows GET on the listed resources, plus the write routes above on read-write
