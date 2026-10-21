@@ -45,15 +45,26 @@ func TestDolibarrProxyMatchesEndpointTables(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	entry := regexp.MustCompile(`\{name = "\w+", (?:method = "(\w+)", )?path = "([^"]+)"`)
+	// Each endpoint entry starts a line with its name, method and path in any order.
+	field := regexp.MustCompile(`\b(method|path) = "([^"]+)"`)
 	var want, got []string
-	for _, match := range entry.FindAllStringSubmatch(string(lua), -1) {
-		method, gate := "GET", ""
-		if match[1] != "" {
-			method, gate = match[1], `{{ is config.access "read-write" }}`
+	for _, line := range strings.Split(string(lua), "\n") {
+		if !strings.Contains(line, `{name = "`) {
+			continue
+		}
+		method, path, gate := "GET", "", ""
+		for _, match := range field.FindAllStringSubmatch(line, -1) {
+			if match[1] == "method" {
+				method, gate = match[2], `{{ is config.access "read-write" }}`
+			} else {
+				path = match[2]
+			}
+		}
+		if path == "" {
+			t.Fatalf("endpoint entry without a path on its first line: %s", line)
 		}
 		for _, prefix := range []string{"", "/{base}", "/{base}/{sub}"} {
-			want = append(want, method+" "+prefix+"/api/index.php"+match[2]+" "+gate)
+			want = append(want, method+" "+prefix+"/api/index.php"+path+" "+gate)
 		}
 	}
 	for _, rule := range parseManifest(t, "../../connectors/dolibarr/houston.json").Proxy {
