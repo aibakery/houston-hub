@@ -35,12 +35,10 @@ local function fail(operation: string, response: HttpResponse): never
 	local ok, decoded = pcall(json.decode, await(response.body:readPrefix(4096)))
 	local problem = if ok and type(decoded) == "table" and type(decoded.error) == "table" then decoded.error else {}
 	-- Older APIs name the reason in errors[], newer ones in an ErrorInfo detail.
-	local reasons: {any} = if type(problem.errors) == "table" then problem.errors elseif type(problem.details) == "table" then problem.details else {}
 	local reason: string? = nil
-	for _, item in reasons do
-		if type(item) == "table" and type(item.reason) == "string" then
-			reason = item.reason
-			break
+	for _, list in {problem.errors, problem.details} :: {any} do
+		for _, item in (if type(list) == "table" then list else {}) :: {any} do
+			if reason == nil and type(item) == "table" and type(item.reason) == "string" then reason = item.reason end
 		end
 	end
 	local message = "Google HTTP " .. tostring(response.statusCode)
@@ -144,7 +142,7 @@ end
 local endpoints: {[string]: Endpoint} = {
 	getDocument = {method = "GET", path = "/documents/{documentId}", read = true, defaults = {includeTabsContent = true},
 		query = {"includeTabsContent", "suggestionsViewMode", "commentsViewMode", "fields"},
-		help = "getDocument({documentId, includeTabsContent?, suggestionsViewMode?, commentsViewMode?, fields?}) -> {documentId, title, revisionId?, tabs=[{tabProperties={tabId, title, index?, parentTabId?, nestingLevel?}, documentTab={body={content}, headers?, footers?, footnotes?, lists?, inlineObjects?, namedStyles, documentStyle, commentAnchors?}, childTabs?}]}. tabs are in display order and nest up to three levels; a link's ?tab=t.<id> names the open tab, tabId 't.<id>'. content is a list of {startIndex?, endIndex, paragraph?={elements=[{startIndex, endIndex, textRun?={content, textStyle}, person?, richLink?, dateElement?, dropdown?, footnoteReference?, inlineObjectElement?}], paragraphStyle={namedStyleType='NORMAL_TEXT'|'TITLE'|'HEADING_1'...}, bullet?}, table?={rows, columns, tableRows=[{tableCells=[{content}]}]}, sectionBreak?, tableOfContents?}. Fields equal to 0 are omitted, such as the first element's startIndex, the first tab's index and a top-level tab's nestingLevel. revisionId is present only for editors and valid for 24 hours. Responses carry every style and fail over 8 MiB; fields='title,tabs(tabProperties,childTabs(tabProperties,childTabs(tabProperties)))' lists the tabs only. includeTabsContent=false returns the first tab in the legacy body field and no tabs. suggestionsViewMode is SUGGESTIONS_INLINE (the default for anyone who can comment or edit, marking suggested text with suggestedInsertionIds and suggestedDeletionIds), PREVIEW_SUGGESTIONS_ACCEPTED or PREVIEW_WITHOUT_SUGGESTIONS (the default for viewers, who get HTTP 403 for the other two). Take indexes for batchUpdate from a SUGGESTIONS_INLINE read: suggested text shifts them. commentsViewMode='COMMENTS_VIEW_MODE_INCLUDED' with suggestionsViewMode='SUGGESTIONS_INLINE' adds comments=[{commentId, anchorId, headPost={postId, author, content, createTime}, replies, status, plainTextQuote}] and suggestions=[{suggestionId, status, summaryText, headPost, replies}]; each tab's documentTab.commentAnchors=[{anchorId, ranges}] locates them."},
+		help = "getDocument({documentId, includeTabsContent?, suggestionsViewMode?, commentsViewMode?, fields?}) -> {documentId, title, revisionId?, tabs=[{tabProperties={tabId, title, index?, parentTabId?, nestingLevel?}, documentTab={body={content}, headers?, footers?, footnotes?, lists?, inlineObjects?, namedStyles, documentStyle, commentAnchors?}, childTabs?}]}. tabs are in display order and nest up to three levels; a link's ?tab=t.<id> names the open tab, tabId 't.<id>'. content is a list of {startIndex?, endIndex, paragraph?={elements=[{startIndex, endIndex, textRun?={content, textStyle}, person?, richLink?, dateElement?, dropdown?, footnoteReference?, inlineObjectElement?}], paragraphStyle={namedStyleType='NORMAL_TEXT'|'TITLE'|'HEADING_1'...}, bullet?}, table?={rows, columns, tableRows=[{tableCells=[{content}]}]}, sectionBreak?, tableOfContents?}. Fields equal to 0 are omitted, such as the first element's startIndex, the first tab's index and a top-level tab's nestingLevel. revisionId is present only for editors and valid for 24 hours. Responses carry every style and fail over 8 MiB; fields='title,tabs(tabProperties,childTabs(tabProperties,childTabs(tabProperties)))' lists the tabs only. includeTabsContent=false returns the first tab in the legacy body field and no tabs. suggestionsViewMode is SUGGESTIONS_INLINE (the default for anyone who can comment or edit, marking suggested text with suggestedInsertionIds and suggestedDeletionIds), PREVIEW_SUGGESTIONS_ACCEPTED or PREVIEW_WITHOUT_SUGGESTIONS (the default for viewers, who get HTTP 403 for the other two). Take indexes for batchUpdate from a SUGGESTIONS_INLINE read: suggested text shifts them. commentsViewMode='COMMENTS_VIEW_MODE_INCLUDED' with suggestionsViewMode='SUGGESTIONS_INLINE' adds comments=[{commentId, anchorId, headPost={postId, author, content, createTime}, replies, status, plainTextQuote}] and suggestions=[{suggestionId, status, summaryText, headPost, replies}]; each tab's documentTab.commentAnchors[anchorId].ranges locates them."},
 	createDocument = {method = "POST", path = "/documents", read = false, body = true,
 		help = "createDocument({title?}) -> the new document, with documentId and revisionId. Creates an empty document in the root of My Drive; Google ignores any other field, so add content with batchUpdate."},
 	batchUpdate = {method = "POST", path = "/documents/{documentId}:batchUpdate", read = false, body = true, required = {requests = "array"},
@@ -214,7 +212,8 @@ local function tabTexts(tabs: any, wanted: string?, out: {Options})
 end
 
 -- Only the text-bearing fields of each tab, three levels deep like the Docs editor.
-local TAB_TEXT = "tabProperties,documentTab.body.content(paragraph.elements(textRun.content,person.personProperties,richLink.richLinkProperties,dateElement.dateElementProperties.displayText,dropdown.dropdownProperties.displayValue),table.tableRows.tableCells.content)"
+local INLINE = "paragraph.elements(textRun.content,person.personProperties,richLink.richLinkProperties,dateElement.dateElementProperties.displayText,dropdown.dropdownProperties.displayValue)"
+local TAB_TEXT = "tabProperties,documentTab.body.content(" .. INLINE .. ",table.tableRows.tableCells.content(" .. INLINE .. ",table))"
 local TEXT_FIELDS = "documentId,title,revisionId,tabs(" .. TAB_TEXT .. ",childTabs(" .. TAB_TEXT .. ",childTabs(" .. TAB_TEXT .. ")))"
 local PREVIEWS = table.freeze({PREVIEW_WITHOUT_SUGGESTIONS = true, PREVIEW_SUGGESTIONS_ACCEPTED = true})
 export("getDocumentText", true, function(input: any): Options

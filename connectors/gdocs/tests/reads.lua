@@ -43,7 +43,8 @@ return {
 			}},
 			{tabProperties = {tabId = "t.2", title = "Empty", index = 1}, documentTab = {body = {content = {{sectionBreak = {}}, paragraph(run("\n"))}}}},
 		}}
-		local tab = "tabProperties,documentTab.body.content(paragraph.elements(textRun.content,person.personProperties,richLink.richLinkProperties,dateElement.dateElementProperties.displayText,dropdown.dropdownProperties.displayValue),table.tableRows.tableCells.content)"
+		local inline = "paragraph.elements(textRun.content,person.personProperties,richLink.richLinkProperties,dateElement.dateElementProperties.displayText,dropdown.dropdownProperties.displayValue)"
+		local tab = "tabProperties,documentTab.body.content(" .. inline .. ",table.tableRows.tableCells.content(" .. inline .. ",table))"
 		local fields = url.encode("documentId,title,revisionId,tabs(" .. tab .. ",childTabs(" .. tab .. ",childTabs(" .. tab .. ")))")
 		responses = {json.encode(document), json.encode(document), json.encode(document), '{"documentId":"d1","title":"Empty"}'}
 		local all = c.getDocumentText({documentId = "https://docs.google.com/document/d/1DoC_x-9/edit?tab=t.0#heading=h.1"})

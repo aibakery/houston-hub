@@ -38,12 +38,10 @@ local function fail(operation: string, response: HttpResponse): never
 	local ok, decoded = pcall(json.decode, await(response.body:readPrefix(4096)))
 	local problem = if ok and type(decoded) == "table" and type(decoded.error) == "table" then decoded.error else {}
 	-- Older APIs name the reason in errors[], newer ones in an ErrorInfo detail.
-	local reasons: {any} = if type(problem.errors) == "table" then problem.errors elseif type(problem.details) == "table" then problem.details else {}
 	local reason: string? = nil
-	for _, item in reasons do
-		if type(item) == "table" and type(item.reason) == "string" then
-			reason = item.reason
-			break
+	for _, list in {problem.errors, problem.details} :: {any} do
+		for _, item in (if type(list) == "table" then list else {}) :: {any} do
+			if reason == nil and type(item) == "table" and type(item.reason) == "string" then reason = item.reason end
 		end
 	end
 	local message = "Google HTTP " .. tostring(response.statusCode)
