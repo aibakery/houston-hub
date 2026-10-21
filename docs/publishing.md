@@ -1090,7 +1090,8 @@ Every method shares the proxy rules, which allow only the listed routes on
 `X-HTTP-Method` and `X-Method-Override` headers; writes require read-write access,
 with one rule per method so paths never combine across methods. Lua chooses the host
 from the selected method. The general ledger report request and the accruing time off
-calculation are POSTs that change nothing, so read-only connections keep them.
+calculation are POSTs that change nothing, so read-only connections keep them, and Lua
+sends only their documented body fields.
 Report results return temporary `report_urls`, which the connector passes through
 without fetching. Gusto allows 200 requests per minute per grant.
 
@@ -1098,7 +1099,8 @@ This is a new registration with no existing connections. Fixtures cover both acc
 levels, every method, routes, query and body building, paging headers, input
 validation and error mapping. Still to verify live: sign-in and refresh through a
 demo app, whether the code exchange reply lists scopes, the account label, paging
-headers on an App Integrations list, `Retry-After` on a 429, the SETUP labels, and a
+headers on an App Integrations list, comma-separated `entity_uuids` on time sheets,
+`Retry-After` on a 429, the SETUP labels, and a
 disposable employee and draft payroll edit in a demo company.
 
 Gusto's icon is its "g" mark (`gusto-favicon.svg`, Guava `#f45d48`) from the settings

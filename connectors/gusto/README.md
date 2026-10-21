@@ -13,8 +13,9 @@ and general ledger reports.
 
 With read and write access, agents can also add and update employees, contractors,
 addresses, compensations, departments, benefits and enrollments, terminate or rehire
-employees, record time sheets and prepare draft payrolls. Agents never submit a payroll
-or pay anyone: someone at the company still reviews and submits payroll in Gusto.
+employees, record time sheets and edit draft payrolls. Agents never submit a payroll
+or pay anyone themselves, but changes to pay, reimbursements and draft payrolls are paid
+by the next payroll, including one Gusto runs automatically with Payroll on AutoPilot.
 
 Each connection reaches one company, and only a primary or full-access Gusto admin can
 connect it. Gusto's permissions for Houston's app decide which data agents can see. Your

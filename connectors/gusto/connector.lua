@@ -1,6 +1,6 @@
 -- Gusto App Integrations API, X-Gusto-API-Version 2026-06-15. Arguments and results keep Gusto's native snake_case field names.
 type Options = {[string]: any}
-type Endpoint = {method: string, path: string, query: {string}?, required: {string}?, write: boolean?, body: boolean?, about: string}
+type Endpoint = {method: string, path: string, query: {string}?, required: {string}?, body: {string}?, write: boolean?, about: string}
 
 local API = if auth.method == "demo" then "https://api.gusto-demo.com" else "https://api.gusto.com"
 local VERSION = "2026-06-15"
@@ -9,9 +9,11 @@ local PAGE = {"page", "per"}
 -- The company-token operations of Gusto's App Integrations reference
 -- (https://docs.gusto.com/app-integrations/reference), checked on 2026-10-21.
 -- Path {fields} are required; listed query fields are taken from the options and the other
--- fields form the JSON body of POST, PUT and PATCH requests. Webhooks, events and salary
--- estimate occupations need an app-level system token, and running payroll or paying
--- contractors are Gusto Embedded features, so they are absent.
+-- fields form the JSON body of POST, PUT and PATCH requests, limited to body when it is listed.
+-- Webhooks, events and salary estimate occupations need an app-level system token, so the
+-- salary estimates built on those occupations are absent too; running payroll and paying
+-- contractors are Gusto Embedded features. The company's contractor-only flag and the
+-- duplicate GET /v1/terminations/{employee_id} are left out.
 local endpoints: {[string]: Endpoint} = {
 	getTokenInfo = {method = "GET", path = "/v1/token_info",
 		about = "{scope, resource={type='Company', uuid}, resource_owner={type, uuid}}; resource.uuid is the connected company's company_id."},
@@ -38,7 +40,7 @@ local endpoints: {[string]: Endpoint} = {
 
 	listEmployees = {method = "GET", path = "/v1/companies/{company_id}/employees",
 		query = {"search_term", "sort_by", "include", "location_uuid", "payroll_uuid", "onboarded", "onboarded_active", "terminated", "terminated_today", "uuids", "page", "per"},
-		about = "include: all_compensations, all_home_addresses, custom_fields, portal_invitations or current_home_address."},
+		about = "include: all_compensations, all_home_addresses, company_name, current_home_address, custom_fields or portal_invitations."},
 	createEmployee = {method = "POST", path = "/v1/companies/{company_id}/employees", required = {"first_name", "last_name"},
 		about = "Also middle_initial, preferred_first_name, email, date_of_birth, ssn, self_onboarding. Starts onboarding."},
 	getEmployee = {method = "GET", path = "/v1/employees/{employee_id}", query = {"include"}, about = "With jobs; pay rates need the compensations scope."},
@@ -51,7 +53,7 @@ local endpoints: {[string]: Endpoint} = {
 		about = "Also run_termination_payroll. Ends the employment on that date."},
 	updateTermination = {method = "PUT", path = "/v1/terminations/{employee_id}", required = {"effective_date", "version"}, about = ""},
 	deleteTermination = {method = "DELETE", path = "/v1/employees/{employee_id}/terminations", about = "Cancels a termination that hasn't taken effect."},
-	getRehire = {method = "GET", path = "/v1/employees/{employee_id}/rehire", about = ""},
+	getRehire = {method = "GET", path = "/v1/employees/{employee_id}/rehire", about = "nil when no rehire is scheduled."},
 	createRehire = {method = "POST", path = "/v1/employees/{employee_id}/rehire", required = {"effective_date", "file_new_hire_report", "work_location_uuid"}, about = ""},
 	updateRehire = {method = "PUT", path = "/v1/employees/{employee_id}/rehire", required = {"effective_date", "file_new_hire_report", "work_location_uuid", "version"}, about = ""},
 	deleteRehire = {method = "DELETE", path = "/v1/employees/{employee_id}/rehire", about = "Cancels a rehire that hasn't taken effect."},
@@ -74,7 +76,7 @@ local endpoints: {[string]: Endpoint} = {
 		about = "rate is a string; payment_unit Hour, Week, Month, Year or Paycheck. Also effective_date, adjust_for_minimum_wage."},
 	getCompensation = {method = "GET", path = "/v1/compensations/{compensation_id}", about = ""},
 	updateCompensation = {method = "PUT", path = "/v1/compensations/{compensation_id}", required = {"version"}, about = ""},
-	deleteCompensation = {method = "DELETE", path = "/v1/compensations/{compensation_id}", about = "Only a future-dated compensation."},
+	deleteCompensation = {method = "DELETE", path = "/v1/compensations/{compensation_id}", about = "Only a compensation not yet paid on a payroll."},
 
 	listContractors = {method = "GET", path = "/v1/companies/{company_id}/contractors",
 		query = {"search_term", "sort_by", "include", "onboarded", "onboarded_active", "terminated", "terminated_today", "page", "per"}, about = ""},
@@ -93,15 +95,16 @@ local endpoints: {[string]: Endpoint} = {
 
 	listPayrolls = {method = "GET", path = "/v1/companies/{company_id}/payrolls",
 		query = {"processing_statuses", "payroll_types", "processed", "include_off_cycle", "include", "start_date", "end_date", "date_filter_by", "sort_order", "page", "per"},
-		about = "Always paged (per up to 100). processing_statuses: processed, unprocessed; payroll_types: regular, off_cycle, external; include: totals, payroll_status_meta, risk_blockers, reversals."},
+		about = "Always paged (per up to 100). Defaults to processed regular payrolls of the past 6 months: pass processing_statuses={'unprocessed'} for drafts and payroll_types={'regular', 'off_cycle'} for off-cycle ones (also external). start_date and end_date span at most a year, ending at most 3 months ahead. include: totals, taxes, payroll_status_meta, risk_blockers, reversals."},
 	getPayroll = {method = "GET", path = "/v1/companies/{company_id}/payrolls/{payroll_id}", query = {"include", "sort_by", "page", "per"},
-		about = "Gross and net pay, taxes and deductions per employee; page and per page employee_compensations (up to 100). include: benefits, deductions, taxes, payroll_status_meta, totals, risk_blockers, reversals."},
-	preparePayroll = {method = "PUT", path = "/v1/companies/{company_id}/payrolls/{payroll_id}/prepare", query = {"sort_by", "page", "per"}, body = false,
-		about = "Readies an unprocessed payroll for editing and returns it with the version updatePayroll needs. Clears any earlier calculation."},
-	updatePayroll = {method = "PUT", path = "/v1/companies/{company_id}/payrolls/{payroll_id}", required = {"version", "employee_compensations"},
-		about = "employee_compensations={{employee_uuid, fixed_compensations?, hourly_compensations?, paid_time_off?, excluded?, memo?}}, up to 100. Changes the draft only; omitted entries stay."},
+		about = "Gross and net pay, taxes and deductions per employee. Always pages employee_compensations (per default 25, up to 100) without totals: request the next page until fewer than per come back. include: benefits, deductions, taxes, payroll_taxes, payroll_status_meta, totals, risk_blockers, reversals."},
+	preparePayroll = {method = "PUT", path = "/v1/companies/{company_id}/payrolls/{payroll_id}/prepare", query = {"sort_by", "page", "per"},
+		about = "Readies an unprocessed payroll for editing and returns it with each employee_compensations entry's version, paged like getPayroll. Also employee_uuids (up to 100) to prepare only those employees, or add up to 25 to a Bonus, Correction or Adhoc off-cycle payroll. Clears any earlier calculation."},
+	updatePayroll = {method = "PUT", path = "/v1/companies/{company_id}/payrolls/{payroll_id}", required = {"employee_compensations"},
+		about = "employee_compensations={{employee_uuid, version, fixed_compensations?, hourly_compensations?, paid_time_off?, excluded?, memo?}}, up to 100, each version from preparePayroll. Also withholding_pay_period, skip_regular_deductions, fixed_withholding_rate. Changes the draft only; omitted entries stay."},
 	calculateAccruingTimeOffHours = {method = "POST", path = "/v1/payrolls/{payroll_id}/employees/{employee_id}/calculate_accruing_time_off_hours", write = false,
-		about = "Body {regular_hours_worked?, overtime_hours_worked?, ...}; computes only."},
+		body = {"regular_hours_worked", "overtime_hours_worked", "double_overtime_hours_worked", "pto_hours_used", "sick_hours_used"},
+		about = "Computes only."},
 	listContractorPayments = {method = "GET", path = "/v1/companies/{company_id}/contractor_payments", query = {"start_date", "end_date", "contractor_uuid", "group_by_date", "page", "per"},
 		required = {"start_date", "end_date"}, about = "Totals and payments in the date range."},
 	getContractorPayment = {method = "GET", path = "/v1/companies/{company_id}/contractor_payments/{contractor_payment_id}", about = ""},
@@ -112,8 +115,8 @@ local endpoints: {[string]: Endpoint} = {
 		about = "Body {name}."},
 	deleteEarningType = {method = "DELETE", path = "/v1/companies/{company_id}/earning_types/{earning_type_uuid}",
 		about = "Deactivates a custom earning type."},
-	createGeneralLedgerReport = {method = "POST", path = "/v1/payrolls/{payroll_uuid}/reports/general_ledger", required = {"aggregation"}, write = false,
-		about = "aggregation default, job or department; also integration_type. Returns {request_uuid}; poll getReport until its status is Succeeded."},
+	createGeneralLedgerReport = {method = "POST", path = "/v1/payrolls/{payroll_uuid}/reports/general_ledger", required = {"aggregation"}, body = {"aggregation", "integration_type"}, write = false,
+		about = "aggregation default, job, department or integration, with integration_type (such as xero or qbo) for integration. Returns {request_uuid}; poll getReport until its status is succeeded or failed."},
 	getReport = {method = "GET", path = "/v1/reports/{request_uuid}",
 		about = "{status, report_urls}: temporary download links; treat them as secrets."},
 
@@ -168,7 +171,7 @@ local endpoints: {[string]: Endpoint} = {
 	getChildSupportData = {method = "GET", path = "/v1/garnishments/child_support", about = "Child support agencies and their required fields per state."},
 	listRecurringReimbursements = {method = "GET", path = "/v1/employees/{employee_id}/recurring_reimbursements", query = PAGE, about = ""},
 	createRecurringReimbursement = {method = "POST", path = "/v1/employees/{employee_id}/recurring_reimbursements", required = {"description", "amount"},
-		about = "amount is a string. Paid on every regular payroll."},
+		about = "amount is a number. Paid on every regular payroll."},
 	getRecurringReimbursement = {method = "GET", path = "/v1/recurring_reimbursements/{id}", about = ""},
 	updateRecurringReimbursement = {method = "PUT", path = "/v1/recurring_reimbursements/{id}", required = {"version"}, about = ""},
 	deleteRecurringReimbursement = {method = "DELETE", path = "/v1/recurring_reimbursements/{id}", about = ""},
@@ -177,7 +180,7 @@ local endpoints: {[string]: Endpoint} = {
 		query = {"entity_type", "entity_uuids", "status", "after", "before", "sort_by", "sort_order", "page", "per"},
 		about = "entity_type Employee or Contractor; status pending, approved or rejected; after/before filter created_at (ISO 8601)."},
 	createTimeSheet = {method = "POST", path = "/v1/companies/{company_id}/time_tracking/time_sheets", required = {"entity_type", "entity_uuid", "shift_started_at", "time_zone"},
-		about = "Also shift_ended_at, job_uuid, entries, status."},
+		about = "Also shift_ended_at, job_uuid, metadata, entries."},
 	getTimeSheet = {method = "GET", path = "/v1/time_tracking/time_sheets/{time_sheet_uuid}", about = ""},
 	updateTimeSheet = {method = "PUT", path = "/v1/time_tracking/time_sheets/{time_sheet_uuid}", required = {"version"}, about = ""},
 	deleteTimeSheet = {method = "DELETE", path = "/v1/time_tracking/time_sheets/{time_sheet_uuid}", query = {"version"}, required = {"version"}, about = ""},
@@ -189,6 +192,8 @@ local endpoints: {[string]: Endpoint} = {
 		about = "Actions Gusto asks the company to take; status open, resolved or expired."},
 }
 
+-- Unlike the request layer the Cal.com, Calendly and Carta connectors share, this one accepts
+-- top-level JSON arrays: Gusto lists return them, with paging in headers.
 local NULL = json.decode("null")
 local NONE: {string} = table.freeze({})
 
@@ -203,6 +208,10 @@ end
 local function writes(endpoint: Endpoint): boolean
 	if endpoint.write ~= nil then return endpoint.write end
 	return endpoint.method ~= "GET"
+end
+
+local function hasBody(endpoint: Endpoint): boolean
+	return endpoint.method == "POST" or endpoint.method == "PUT" or endpoint.method == "PATCH"
 end
 
 -- Gusto IDs are UUIDs; benefit types and years are numbers.
@@ -243,23 +252,27 @@ local function header(response: HttpResponse, name: string): string?
 	return if values then values[1] else nil
 end
 
--- Gusto errors are {errors={{error_key, category, message}}}; a rejected token answers with an
--- empty body and the reason in WWW-Authenticate.
+-- Gusto errors are {errors={{error_key, category, message, errors?}}}, where nested_errors
+-- carry per-item errors one level down; a rejected token answers with an empty body and the
+-- reason in WWW-Authenticate.
 local function failStatus(name: string, response: HttpResponse): never
 	local message = "Gusto HTTP " .. tostring(response.statusCode)
 	local ok, value = pcall(json.decode, await(response.body:readPrefix(16 * 1024)))
 	local details: {string} = {}
-	if ok and type(value) == "table" and type(value.errors) == "table" then
-		for _, item in value.errors do
+	local function collect(errors: any, nested: boolean)
+		if type(errors) ~= "table" then return end
+		for _, item in errors do
 			if type(item) == "table" and #details < 5 then
 				local parts: {string} = {}
 				for _, field in {"category", "error_key", "message"} do
 					if type(item[field]) == "string" and item[field] ~= "" then table.insert(parts, string.sub(item[field], 1, 300)) end
 				end
 				if #parts > 0 then table.insert(details, table.concat(parts, " ")) end
+				if not nested then collect(item.errors, true) end
 			end
 		end
 	end
+	if ok and type(value) == "table" then collect(value.errors, false) end
 	local reason = header(response, "www-authenticate")
 	if #details == 0 and reason then
 		local description = string.match(reason, 'error_description="([^"]*)"')
@@ -272,10 +285,12 @@ local function failStatus(name: string, response: HttpResponse): never
 end
 
 -- Objects return unchanged; arrays become {items, page?, per?, total_count?, total_pages?}, keeping
--- Gusto's paging headers; a write answered without a body returns {success=true}.
+-- Gusto's paging headers; a write answered without a body returns {success=true} and a read
+-- answered 204 No Content returns nil.
 local function decode(name: string, endpoint: Endpoint, response: HttpResponse): any
 	local raw = await(response.body:readAll())
 	if writes(endpoint) and string.match(raw, "^%s*$") then return {success = true} end
+	if response.statusCode == 204 and raw == "" then return nil end
 	local ok, value = pcall(json.decode, raw)
 	if not ok or type(value) ~= "table" or not string.match(raw, "^%s*[%[{]") then
 		fail(name, response, "Gusto returned invalid JSON")
@@ -305,7 +320,10 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 	if #query > 0 then path ..= "?" .. table.concat(query, "&") end
 	local headers: HttpHeaders = {Accept = {"application/json"}, ["X-Gusto-API-Version"] = {VERSION}}
 	local body: string? = nil
-	if endpoint.method ~= "GET" and endpoint.method ~= "DELETE" and endpoint.body ~= false then
+	if hasBody(endpoint) then
+		for field in args do
+			assert(endpoint.body == nil or table.find(endpoint.body, field), name .. " has no option " .. field)
+		end
 		headers["Content-Type"] = {"application/json"}
 		body = json.encode(args)
 		args = {}
@@ -317,18 +335,22 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 	return decode(name, endpoint, response)
 end
 
--- name({path fields, query fields?, required body fields, ...body}) built from the endpoint itself.
+-- name({path fields, query fields?, required body fields, other body fields? or ...body}) built from
+-- the endpoint itself.
 local function signature(endpoint: Endpoint): string
 	local fields: {string} = {}
 	for field in string.gmatch(endpoint.path, "{([%w_]+)}") do table.insert(fields, field) end
 	for _, field in endpoint.query or NONE do
 		table.insert(fields, if table.find(endpoint.required or NONE, field) then field else field .. "?")
 	end
-	if endpoint.method ~= "GET" and endpoint.method ~= "DELETE" and endpoint.body ~= false then
+	if hasBody(endpoint) then
 		for _, field in endpoint.required or NONE do
 			if not table.find(endpoint.query or NONE, field) then table.insert(fields, field) end
 		end
-		table.insert(fields, "...body")
+		local rest: {string} = endpoint.body or {"...body"}
+		for _, field in rest do
+			if not table.find(endpoint.required or NONE, field) then table.insert(fields, if endpoint.body then field .. "?" else field) end
+		end
 	end
 	return "({" .. table.concat(fields, ", ") .. "})"
 end
@@ -343,22 +365,23 @@ end
 local INTRO = {
 	"Gusto App Integrations API (version " .. VERSION .. ")" .. (if auth.method == "demo" then " on Gusto's demo environment (sample data)" else "") .. ". Every function takes one named options object with Gusto's snake_case names; ? marks optional fields, required body fields follow the path and query fields, and ...body stands for the other JSON body fields. Objects return unchanged; JSON arrays return {items, page?, per?, total_count?, total_pages?}; a write answered without a body returns {success=true}. Connector calls return completed values: use them directly, without await.",
 	"A connection reaches one company. Start with local company_id = gusto.getTokenInfo().resource.uuid, then getCompany({company_id=company_id}), listEmployees({company_id=company_id}), listPayrolls(...). Employee jobs (getEmployee().jobs) give the job_id for compensations. IDs are UUID strings, except benefit_id (a number).",
-	"Lists without page return every record, except listPayrolls, which always pages; pass page (1-based) and per (default 25, often at most 100) and continue while page < total_pages. Dates are YYYY-MM-DD; money amounts are decimal strings such as '1250.00'. Array filters (include, uuids, payroll_types) are sent comma-separated.",
+	"Pass page (1-based) and per (default 25, often at most 100) to any list and continue while page < total_pages; without page, most lists return every record, but listPayrolls always pages, and getPayroll and preparePayroll page their employee_compensations. Dates are YYYY-MM-DD; payroll amounts are decimal strings such as '1250.00'. Array filters (include, uuids, payroll_types) are sent comma-separated. A read answered 204 No Content returns nil.",
 	"Examples: local company_id = gusto.getTokenInfo().resource.uuid; gusto.listEmployees({company_id=company_id, terminated=false, include={'custom_fields'}, page=1, per=100}); gusto.listPayrolls({company_id=company_id, start_date='2026-01-01', end_date='2026-06-30', include={'totals'}}); gusto.getPayroll({company_id=company_id, payroll_id=id, include={'taxes', 'deductions'}}).",
 	"Responses include personal and pay data (birth dates, home addresses, pay rates, garnishments); share only what the task needs. Gusto's scopes for the app decide what is visible: pay rates need the compensations scope, and a missing scope fails with 403 missing_oauth_scopes.",
-	"Read-only connections omit writes. Updates take the object's current version, read just before: a stale version fails with 409 invalid_resource_version, so read again and reapply. Payroll changes stay drafts: call preparePayroll, then updatePayroll with its version; payrolls are submitted in Gusto, not here. Creates are not idempotent: after a timeout or 5xx, list or read before repeating one. Gusto allows 200 requests per minute per connection.",
-	"Errors report the HTTP status and Gusto's category, error_key and message (for example 422 invalid_attribute_value or 404 not_found).",
+	"Errors report the HTTP status and Gusto's category, error_key and message, with per-item nested errors (for example 422 invalid_attribute_value or 404 not_found). Gusto allows 200 requests per minute per connection.",
 }
+
+local WRITES = "Updates take the object's current version, read just before: a stale version fails with 409 invalid_resource_version, so read again and reapply. Payrolls are never submitted here: call preparePayroll, then updatePayroll with each employee compensation's version. Changes to pay, reimbursements and draft payrolls are paid by the next payroll, including one Gusto runs automatically for companies on Payroll on AutoPilot. Creates are not idempotent: after a timeout or 5xx, list or read before repeating one."
 
 exports.help = function(): string
 	local names: {string} = {}
 	for name in exports do if name ~= "help" then table.insert(names, name) end end
 	table.sort(names)
 	local lines = table.clone(INTRO)
+	table.insert(lines, if config.access == "read-write" then WRITES else "Read-only connections omit writes.")
 	for _, name in names do
 		local endpoint = endpoints[name]
-		local about = if endpoint.about == "" then "" else endpoint.about .. " "
-		table.insert(lines, name .. signature(endpoint) .. ": " .. about .. endpoint.method .. " " .. endpoint.path)
+		table.insert(lines, name .. signature(endpoint) .. (if endpoint.about == "" then "" else ": " .. endpoint.about))
 	end
 	return table.concat(lines, "\n")
 end

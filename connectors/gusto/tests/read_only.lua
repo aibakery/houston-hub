@@ -2,11 +2,12 @@ return {
 	scenario = {publisher = {client_id = "fixture-client", client_secret = "fixture-secret"}, config = {}, auth_method = "gusto", auth_config = {}},
 	configure = function()
 		requests = {}
+		status = 200
 		payload = "{}"
 		responseHeaders = {}
 		http = {request = function(req)
 			table.insert(requests, req)
-			return fixture.operation({statusCode = 200, headers = responseHeaders, body = fixture.reader(payload)})
+			return fixture.operation({statusCode = status, headers = responseHeaders, body = fixture.reader(payload)})
 		end}
 	end,
 	run = function(gusto)
@@ -22,12 +23,22 @@ return {
 
 		local names = {}
 		for name in gusto do if name ~= "help" then table.insert(names, name) end end
-		assert(#names == 62, "wrong read-only surface: " .. #names)
-		for _, name in {"createEmployee", "updateEmployee", "deleteEmployee", "createTermination", "preparePayroll", "updatePayroll", "createCompensation",
-			"deleteCompanyBenefit", "createGarnishment", "createTimeSheet", "deleteTimeSheet", "createPayrollSync", "updateSection603HighEarnerStatus", "deleteEarningType"} do
-			assert(gusto[name] == nil, "read-only leaked " .. name)
-		end
-		assert(gusto.createGeneralLedgerReport and gusto.calculateAccruingTimeOffHours, "computing POSTs are missing")
+		table.sort(names)
+		local READS = {
+			"calculateAccruingTimeOffHours", "createGeneralLedgerReport", "getBenefit", "getBenefitRequirements", "getChildSupportData", "getCompany",
+			"getCompanyBenefit", "getCompanyBenefitSummary", "getCompensation", "getContractor", "getContractorPayment", "getContributionExclusions",
+			"getDepartment", "getEmployee", "getEmployeeBenefit", "getEmploymentHistory", "getGarnishment", "getHomeAddress", "getLocation",
+			"getPaySchedule", "getPayScheduleAssignments", "getPayroll", "getPayrollSync", "getRecurringReimbursement", "getRehire", "getReport",
+			"getSection603HighEarnerStatus", "getTimeOffPolicy", "getTimeSheet", "getTokenInfo", "getWorkAddress",
+			"getYtdBenefitAmountsFromDifferentCompany", "listBenefits", "listCompanyAdmins", "listCompanyBenefitEmployeeBenefits",
+			"listCompanyBenefits", "listCompanyCustomFields", "listCompensations", "listContractorPayments", "listContractors", "listDepartments",
+			"listEarningTypes", "listEmployeeBenefits", "listEmployeeCustomFields", "listEmployees", "listGarnishments", "listHomeAddresses",
+			"listLocations", "listMinimumWages", "listNotifications", "listPayPeriods", "listPaySchedules", "listPayrolls",
+			"listRecurringReimbursements", "listSection603HighEarnerStatuses", "listTerminations", "listTimeOffActivities", "listTimeOffPolicies",
+			"listTimeOffRequests", "listTimeSheets", "listUnprocessedTerminationPayPeriods", "listWorkAddresses",
+		}
+		table.sort(READS)
+		assert(table.concat(names, ",") == table.concat(READS, ","), "wrong read-only surface: " .. table.concat(names, ","))
 		assert(#requests == 0, "initialization reached Gusto")
 
 		payload = '{"scope":"companies:read employees:read","resource":{"type":"Company","uuid":"' .. COMPANY .. '"},"resource_owner":{"type":"CompanyAdmin","uuid":"a1"}}'
@@ -65,7 +76,7 @@ return {
 		gusto.listTimeOffActivities({employee_id = "e1", time_off_type = "vacation"})
 		assert(last().url == API .. "/employees/e1/time_off_activities?time_off_type=vacation")
 
-		payload = '{"request_uuid":"r1","status":"Pending"}'
+		payload = '{"request_uuid":"r1","status":"pending"}'
 		local report = gusto.createGeneralLedgerReport({payroll_uuid = "p1", aggregation = "department"})
 		assert(last().method == "POST" and last().url == API .. "/payrolls/p1/reports/general_ledger" and last().headers["Content-Type"][1] == "application/json")
 		local body = json.decode(last().body)
@@ -74,6 +85,12 @@ return {
 		payload = ""
 		local blank, blankErr = pcall(function() gusto.createGeneralLedgerReport({payroll_uuid = "p1", aggregation = "default"}) end)
 		assert(not blank and string.find(tostring(blankErr), "invalid JSON", 1, true), "an empty read is not a success")
+		payload = '{"accruing_time_off_hours":[]}'
+		gusto.calculateAccruingTimeOffHours({payroll_id = "p1", employee_id = "e1", regular_hours_worked = 40})
+		assert(last().method == "POST" and last().url == API .. "/payrolls/p1/employees/e1/calculate_accruing_time_off_hours" and last().body == '{"regular_hours_worked":40}')
+		status, payload = 204, ""
+		assert(gusto.getRehire({employee_id = "e1"}) == nil and last().url == API .. "/employees/e1/rehire", "a 204 read is not nil")
+		status = 200
 		local count = #requests
 
 		rejected(function() gusto.getEmployee() end, "employee_id must be a Gusto ID")
@@ -90,6 +107,8 @@ return {
 		rejected(function() gusto.listEmployees({company_id = COMPANY, uuids = json.decode("[]")}) end, "uuids must not be an empty array")
 		rejected(function() gusto.listEmployees({company_id = COMPANY, include = {a = "x"}}) end, "array, not an object")
 		rejected(function() gusto.listEmployees("all") end, "opts must be an object")
+		rejected(function() gusto.calculateAccruingTimeOffHours({payroll_id = "p1", employee_id = "e1", _method = "PUT"}) end, "calculateAccruingTimeOffHours has no option _method")
+		rejected(function() gusto.createGeneralLedgerReport({payroll_uuid = "p1", aggregation = "job", payroll_id = "p2"}) end, "createGeneralLedgerReport has no option payroll_id")
 		assert(#requests == count)
 	end,
 }
