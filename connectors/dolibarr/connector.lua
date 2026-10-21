@@ -166,10 +166,11 @@ local ENCODE: {[string]: (any, string) -> string} = {
 		for _, item in items do table.insert(ids, id(item, name)) end
 		return table.concat(ids, ",")
 	end,
-	mode = function(value, name) return integer(value, name, 1, 4) end,
+	-- Each endpoint's choices already restrict mode and status.
+	mode = function(value) return string.format("%d", value) end,
 	category = id,
 	selected_warehouse_id = id,
-	status = function(value, name) return text(value, name, FIELD) end,
+	status = function(value) return value end,
 	type = function(value, name) return text(value, name, FIELD) end,
 	includestockdata = function(value, name)
 		assert(type(value) == "boolean", name .. " must be a boolean")
