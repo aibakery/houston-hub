@@ -29,7 +29,8 @@ return {
 		end
 
 		responses = {'{"formId":"new","info":{"title":"Lunch"},"responderUri":"https://docs.google.com/forms/d/e/1FAIpQL/viewform"}', '{"formId":"live"}'}
-		assert(c.createForm({info = {title = "Lunch"}}).formId == "new")
+		local created = c.createForm({info = {title = "Lunch"}})
+		assert(created.formId == "new" and json.encode(created.items) == "[]")
 		sent(API .. "?unpublished=true", {info = {title = "Lunch"}})
 		c.createForm({info = {title = "Live"}, unpublished = false})
 		sent(API .. "?unpublished=false", {info = {title = "Live"}})
@@ -58,6 +59,11 @@ return {
 		assert(not pcall(c.batchUpdate, {formId = "f1", requests = "x"}))
 		assert(not pcall(c.batchUpdate, {formId = "f1", requests = {deleteItem = {}}}))
 		assert(not pcall(c.batchUpdate, {formId = "https://docs.google.com/forms/d/e/1FAIpQL/viewform", requests = {{deleteItem = {location = {index = 0}}}}}))
+		assert(not pcall(c.createForm, {}), "createForm requires info")
+		assert(not pcall(c.createForm, {info = "Lunch"}))
+		assert(not pcall(c.setPublishSettings, {formId = "f1"}), "setPublishSettings requires publishSettings")
+		assert(not pcall(c.setPublishSettings, {formId = "f1", publishSettings = {}}))
+		assert(not pcall(c.setPublishSettings, {formId = "f1", publishSettings = {{isPublished = true}}}))
 		assert(not pcall(c.setPublishSettings, {publishSettings = {}}))
 		assert(not pcall(c.setPublishSettings, {formId = "f/1", publishSettings = {}}))
 		assert(#requests == count, "invalid input reached Google")

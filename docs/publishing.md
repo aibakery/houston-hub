@@ -117,8 +117,9 @@ list Drive files, so callers pass a form ID or edit URL, or find it through Goog
 Drive. The scope table gives no class for the Forms scopes: check it on the consent
 screen when declaring them. Read-only connections, and read-only callers of
 read-write ones, may only GET the three read routes; writes POST `/v1/forms` and
-`/v1/forms/{formId}`, whose whole-segment placeholder admits the `:batchUpdate` and
-`:setPublishSettings` custom methods. The discovery document says forms created
+`/v1/forms/{formId}`, whose whole-segment placeholder admits `:batchUpdate`,
+`:setPublishSettings` and any other custom method on a form; the connector calls
+only those two. The discovery document says forms created
 without `unpublished` are published, while Google's guides say API-created forms are
 unpublished by default since June 30, 2026, so `createForm` always sends
 `unpublished=true` unless the caller passes `false`. Google allows each Cloud project
