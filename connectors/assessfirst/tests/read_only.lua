@@ -49,6 +49,8 @@ return {
 
 		responses[API .. "/webhooks?actions%5B%5D=user.linked&actions%5B%5D=assessment.finished"] = '{"data":[{"uuid":"d21e1601bd6c498aba228e0f54438f7d","url":"https://hooks.example.com/af","actions":["user.linked"]}],"meta":{}}'
 		assert(af.listWebhooks({actions = {"user.linked", "assessment.finished"}}).data[1].actions[1] == "user.linked")
+		local ok, err = pcall(af.listCandidates, {_method = "DELETE"})
+		assert(not ok and string.find(tostring(err), "listCandidates has no option _method", 1, true), tostring(err))
 		assert(calls == 8)
 	end,
 }

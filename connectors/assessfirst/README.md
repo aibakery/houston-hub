@@ -13,10 +13,10 @@ predictive models, AssessFirst's job benchmarks, recruiters, candidate groups an
 webhooks.
 
 With read and write access, agents can also invite candidates by email, add
-candidates who have already agreed to share their results, start voice
-assessments, organize candidates in groups and set up webhooks that notify your
-own systems when a candidate finishes. AssessFirst sends invitation emails and
-reminders itself.
+candidates directly, start voice assessments, organize candidates in groups and
+set up webhooks that notify your own systems when a candidate finishes.
+AssessFirst sends invitation emails and reminders itself. Adding a candidate
+directly skips asking them, so collect their consent first.
 
 Assessment results are personal data. The API token gives access to all your
 company's AssessFirst data and stays on Houston's server; keep the connection

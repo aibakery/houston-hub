@@ -43,7 +43,7 @@ return {
 			{email = "ana@example.com", first_name = "Ana", last_name = "Silva", gender = "f", recruiter_email = "rh@example.com", message = "Bonjour Ana", predictive_model_uuid = PM},
 			200, '{"uuid":"' .. C .. '","last_invited_at":"2025-05-16T09:15:43.000000Z","status":"invitation_sent"}')
 		assert(invited.uuid == C and invited.status == "invitation_sent")
-		local again = write("sendInvitation", {email = "ana@example.com"}, "POST", API .. "/candidate/send-invitation", {email = "ana@example.com"},
+		local again = write("sendInvitation", {email = "ana@example.com", first_name = json.decode("null")}, "POST", API .. "/candidate/send-invitation", {email = "ana@example.com"},
 			200, '{"uuid":"' .. C .. '","status":"user_already_invited_24_hours_ago"}')
 		assert(again.status == "user_already_invited_24_hours_ago")
 		local added = write("createCandidate", {email = "ana@example.com", gender = "n"}, "POST", API .. "/candidate", {email = "ana@example.com", gender = "n"},
@@ -65,7 +65,8 @@ return {
 		assert(member.user.iframe_candidate_token == nil and member.user.profile_url == "https://app.assessfirst.com/recruiter/profile/" .. C, "nested secrets exposed")
 		assert(json.encode(write("removeGroupUser", {group_uuid = G, user_uuid = C}, "DELETE", API .. "/groups/" .. G .. "/user/" .. C, nil, 204, "")) == "{}")
 		assert(json.encode(write("deleteGroup", {group_uuid = G}, "DELETE", API .. "/groups/" .. G, nil, 204, "")) == "{}")
-		assert(calls == 10)
+		assert(json.encode(write("startVoiceAssessment", {candidate_uuid = C, pm_uuid = PM}, "POST", API .. "/candidate/" .. C .. "/init-voice/" .. PM, nil, 204, "")) == "{}")
+		assert(calls == 11)
 
 		local function rejected(fn, expected)
 			local before = calls
@@ -83,6 +84,9 @@ return {
 		rejected(function() af.createWebhook({name = "ATS", url = "https://hooks.example.com/af", actions = {"user.deleted", "user.created"}}) end, "actions must contain only")
 		rejected(function() af.createWebhook({name = "ATS", url = "https://hooks.example.com/af", actions = {one = "user.linked"}}) end, "actions must be a nonempty array")
 		rejected(function() af.createGroup({color = "#000000"}) end, "label is required")
+		-- Laravel reads _method from the query or body; the allow-lists never send it.
+		rejected(function() af.sendInvitation({email = "ana@example.com", _method = "DELETE"}) end, "sendInvitation has no option _method")
+		rejected(function() af.addGroupUser({group_uuid = G, user_uuid = C, _method = "DELETE"}) end, "addGroupUser has no option _method")
 		rejected(function() af.addGroupUser({group_uuid = G}) end, "user_uuid must be an AssessFirst UUID")
 		rejected(function() af.deleteGroup({group_uuid = G .. "/user/" .. C}) end, "group_uuid")
 		rejected(function() af.deleteWebhook({webhook_uuid = "%2e%2e"}) end, "webhook_uuid")

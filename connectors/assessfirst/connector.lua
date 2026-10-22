@@ -90,7 +90,7 @@ local function uuid(value: any, field: string): string
 end
 
 local function integer(value: any, field: string, maximum: number): number
-	assert(type(value) == "number" and value % 1 == 0 and value >= 1 and value <= maximum, field .. " must be an integer from 1 to " .. tostring(maximum))
+	assert(type(value) == "number" and value % 1 == 0 and value >= 1 and value <= maximum, field .. " must be an integer from 1 to " .. string.format("%d", maximum))
 	return value
 end
 
@@ -108,7 +108,7 @@ end
 -- Each query or body value as AssessFirst expects it; other fields are nonempty strings.
 local FIELDS: {[string]: (any, string) -> any} = {
 	uuid = uuid, pm_uuid = uuid, predictive_model_uuid = uuid, actions = events,
-	page = function(value: any, field: string): any return integer(value, field, 9007199254740991) end,
+	page = function(value: any, field: string): any return integer(value, field, 1e9) end,
 	per_page = function(value: any, field: string): any return integer(value, field, 50) end,
 	is_public = function(value: any, field: string): any
 		assert(type(value) == "boolean", field .. " must be a boolean")
@@ -130,45 +130,7 @@ local function check(field: string, value: any): any
 	return text(value, field)
 end
 
-local function fail(name: string, response: HttpResponse, message: string, retryable: boolean?): never
-	return houston.fail({operation = name, layer = "upstream", upstream_status = response.statusCode,
-		retryable = retryable == true, message = message})
-end
-
--- AssessFirst errors are {code, message, data, status}; validation errors may add errors={field={...}}.
-local function failStatus(name: string, endpoint: Endpoint, response: HttpResponse): never
-	local ok, value = pcall(json.decode, await(response.body:readPrefix(16 * 1024)))
-	local message = "AssessFirst HTTP " .. tostring(response.statusCode)
-	local revoked = false
-	if ok and type(value) == "table" then
-		if type(value.message) == "string" then message ..= ": " .. string.sub(value.message, 1, 600) end
-		if type(value.errors) == "table" then message ..= " " .. string.sub(json.encode(value.errors), 1, 600) end
-		revoked = response.statusCode == 500 and value.message == "an error occured"
-		if revoked then message ..= " (AssessFirst also answers this way when the API token is invalid or revoked)" end
-	end
-	local retry = response.headers["retry-after"]
-	if retry and retry[1] then message ..= "; Retry-After: " .. retry[1] end
-	-- A throttled request was refused; a failed write may already have applied, and a revoked token stays revoked.
-	local retryable = response.statusCode == 429 or (response.statusCode >= 500 and endpoint.method == "GET" and not revoked)
-	return fail(name, response, message, retryable)
-end
-
-local function download(name: string, endpoint: Endpoint, response: HttpResponse, path: string): Options
-	local contentType = (response.headers["content-type"] or NONE)[1] or ""
-	local mediaType = string.lower(string.match(contentType, "^%s*([^;%s]*)") or "")
-	-- A report that cannot be produced is explained in JSON; anything else but a file is a sign-in or error page.
-	if string.find(mediaType, "json", 1, true) then failStatus(name, endpoint, response) end
-	if mediaType ~= "application/pdf" and mediaType ~= "application/octet-stream" then
-		response.body:close()
-		fail(name, response, "AssessFirst returned " .. (if mediaType == "" then "an untyped response" else mediaType) .. " instead of a PDF")
-	end
-	local file = fs.open(path, "w")
-	file:write(response.body)
-	await(file:close())
-	return {path = path, size = await(fs.stat(path)).size, url = await(fs.signedGetUrl(path)), contentType = contentType}
-end
-
--- Withheld from every response: the iframe token takes assessments as the candidate, and an
+-- Withheld from every response and error: the iframe token takes assessments as the candidate, and an
 -- sso parameter, such as predict_success_url's, signs in whoever opens the link.
 local function withhold(value: any)
 	if type(value) ~= "table" then return end
@@ -186,9 +148,48 @@ local function withhold(value: any)
 	end
 end
 
+local function fail(name: string, response: HttpResponse, message: string, retryable: boolean?): never
+	return houston.fail({operation = name, layer = "upstream", upstream_status = response.statusCode,
+		retryable = retryable == true, message = message})
+end
+
+-- AssessFirst errors are {code, message, data, status}; validation errors may add errors={field={...}}.
+local function failStatus(name: string, endpoint: Endpoint, response: HttpResponse): never
+	local ok, value = pcall(json.decode, await(response.body:readPrefix(16 * 1024)))
+	local message = "AssessFirst HTTP " .. tostring(response.statusCode)
+	local revoked = false
+	if ok and type(value) == "table" then
+		withhold(value)
+		if type(value.message) == "string" then message ..= ": " .. string.sub(value.message, 1, 600) end
+		if type(value.errors) == "table" then message ..= " " .. string.sub(json.encode(value.errors), 1, 600) end
+		revoked = response.statusCode == 500 and value.message == "an error occured"
+		if revoked then message ..= " (AssessFirst also answers this way when the API token is invalid or revoked)" end
+	end
+	local retry = response.headers["retry-after"]
+	if retry and retry[1] then message ..= "; Retry-After: " .. retry[1] end
+	-- A throttled request was refused; a failed write may already have applied, and a revoked token stays revoked.
+	local retryable = response.statusCode == 429 or (response.statusCode >= 500 and endpoint.method == "GET" and not revoked)
+	return fail(name, response, message, retryable)
+end
+
+local function download(name: string, endpoint: Endpoint, response: HttpResponse, path: string): Options
+	local contentType = (response.headers["content-type"] or NONE)[1] or ""
+	local mediaType = string.lower(string.match(contentType, "^%s*([^;%s]*)") or "")
+	-- A report that cannot be produced is explained in JSON; text is a sign-in or error page. PHP labels PDFs variously.
+	if string.find(mediaType, "json", 1, true) then failStatus(name, endpoint, response) end
+	if mediaType == "" or string.sub(mediaType, 1, 5) == "text/" then
+		response.body:close()
+		fail(name, response, "AssessFirst returned " .. (if mediaType == "" then "an untyped response" else mediaType) .. " instead of a PDF")
+	end
+	local file = fs.open(path, "w")
+	file:write(response.body)
+	await(file:close())
+	return {path = path, size = await(fs.stat(path)).size, url = await(fs.signedGetUrl(path)), contentType = contentType}
+end
+
 local function decode(name: string, endpoint: Endpoint, response: HttpResponse): any
 	local raw = await(response.body:readAll())
-	if endpoint.method == "DELETE" and string.match(raw, "^%s*$") then return {} end
+	if endpoint.method ~= "GET" and string.match(raw, "^%s*$") then return {} end
 	local ok, value = pcall(json.decode, raw)
 	local array = string.match(raw, "^%s*%[") ~= nil
 	-- PHP encodes an empty object as [], so only array endpoints insist on the shape.
@@ -215,13 +216,13 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 	local query: {string} = {}
 	for _, field in list(endpoint.query or NONE, {"locale"}) do
 		local value = args[field]
-		if value ~= nil then
+		args[field] = nil
+		if value ~= nil and value ~= NULL then
 			if field == "actions" then
 				for _, event in events(value, field) do table.insert(query, "actions%5B%5D=" .. url.encode(event)) end
 			else
 				table.insert(query, field .. "=" .. url.encode(check(field, value)))
 			end
-			args[field] = nil
 		end
 	end
 	if #query > 0 then path ..= "?" .. table.concat(query, "&") end
@@ -236,7 +237,7 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 	if endpoint.body then
 		local fields: Options = {}
 		for _, field in endpoint.body do
-			if args[field] ~= nil then fields[field] = check(field, args[field]) end
+			if args[field] ~= nil and args[field] ~= NULL then fields[field] = check(field, args[field]) end
 			args[field] = nil
 		end
 		headers["Content-Type"] = {"application/json"}

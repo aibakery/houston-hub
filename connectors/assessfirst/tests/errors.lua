@@ -36,6 +36,9 @@ return {
 			{"HTTP 422: The email field must be a valid email address.", 'email address. {\\"email\\":[\\"The email field', '"retryable":false'}, "revoked")
 		upstream(candidate, 404, '{"code":0,"message":"candidate_not_found","data":[],"status":404}', {},
 			{"HTTP 404: candidate_not_found", '"retryable":false'})
+		upstream(candidate, 422, '{"message":"invalid","errors":{"user":{"iframe_candidate_token":"secret-iframe-token","url":"https://app.assessfirst.com/p?sso=6db2e7"}}}', {},
+			{"HTTP 422: invalid", "https://app.assessfirst.com/p"}, "secret-iframe-token")
+		upstream(candidate, 422, '{"message":"See https://app.assessfirst.com/p?sso=6db2e7","errors":{}}', {}, {"HTTP 422: See https://app.assessfirst.com/p"}, "6db2e7")
 		upstream(candidate, 401, '{"code":401,"status":"error","message":"Unauthenticated."}', {}, {"HTTP 401: Unauthenticated."})
 		upstream(candidate, 400, json.encode({message = string.rep("x", 5000), errors = {uuid = {"invalid"}}}), {}, {"HTTP 400", '{\\"uuid\\":[\\"invalid\\"]}'}, string.rep("x", 601))
 		upstream(candidate, 429, '{"message":"Too Many Attempts."}', {["retry-after"] = {"60"}}, {"HTTP 429: Too Many Attempts.", "Retry-After: 60", '"retryable":true'})

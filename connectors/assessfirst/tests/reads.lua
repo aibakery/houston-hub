@@ -39,6 +39,7 @@ return {
 			assert(fit.predict_success_url == link[2] and fit.adequacies.global_adequacy == 14.29, "kept " .. fit.predict_success_url)
 		end
 		get("getCandidateCompletion", {candidate_uuid = C}, API .. "/candidate/" .. C .. "/completion")
+		get("getCandidateCompletion", {candidate_uuid = C, pm_uuid = json.decode("null")}, API .. "/candidate/" .. C .. "/completion")
 		local completion = get("getCandidateCompletion", {candidate_uuid = C, pm_uuid = PM}, API .. "/candidate/" .. C .. "/completion?pm_uuid=" .. PM,
 			'{"assessments":{"swipe":"finish","voice":"todo"},"is_completed":false}')
 		assert(completion.assessments.voice == "todo" and completion.is_completed == false)
@@ -78,9 +79,11 @@ return {
 			assert(not ok and string.find(tostring(err), "instead of a PDF", 1, true) and string.find(tostring(err), '"retryable":false', 1, true), tostring(err))
 			assert(not await(fs.exists("login.pdf")), kind .. " page saved as a PDF")
 		end
-		contentType = "application/octet-stream"
 		payload = "%PDF-1.7 binary"
-		assert(af.downloadCandidateReport({candidate_uuid = C, report_id = 10, path = "brain.pdf"}).size == #payload)
+		for _, kind in {"application/octet-stream", "application/x-pdf", "application/force-download"} do
+			contentType = kind
+			assert(af.downloadCandidateReport({candidate_uuid = C, report_id = 10, path = "brain.pdf"}).size == #payload, kind)
+		end
 
 		local function rejected(fn, expected)
 			local before = calls
@@ -95,10 +98,11 @@ return {
 		rejected(function() af.getCandidate({candidate_uuid = C, extra = true}) end, "getCandidate has no option extra")
 		rejected(function() af.getCandidate("ab4699c9") end, "opts must be an object")
 		rejected(function() af.getCandidateCompletion({candidate_uuid = C, pm_uuid = "web designer"}) end, "pm_uuid")
-		for _, size in {0, 51, 1.5, "10", json.decode("null")} do
+		for _, size in {0, 51, 1.5, "10"} do
 			rejected(function() af.listCandidates({per_page = size}) end, "per_page must be an integer from 1 to 50")
 		end
 		rejected(function() af.listCandidates({page = 0}) end, "page must be an integer")
+		rejected(function() af.listCandidates({page = 1e15}) end, "page must be an integer from 1 to 1000000000")
 		rejected(function() af.listCandidates({email = ""}) end, "email must be a nonempty string")
 		rejected(function() af.listPredictiveModels({is_public = 1}) end, "is_public must be a boolean")
 		rejected(function() af.listWebhooks({actions = "user.linked"}) end, "actions must be a nonempty array")
