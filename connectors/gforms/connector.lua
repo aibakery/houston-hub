@@ -31,17 +31,29 @@ local function query(args: Options, names: {string}): string
 	return if #parts > 0 then "?" .. table.concat(parts, "&") else ""
 end
 
+-- Older APIs name the reason in errors[], newer ones in an ErrorInfo detail.
+local function reasonOf(problem: any): string?
+	for _, list in {problem.errors, problem.details} :: {any} do
+		if type(list) == "table" then
+			for _, item in list do
+				if type(item) == "table" and type(item.reason) == "string" then return item.reason end
+			end
+		end
+	end
+	return nil
+end
+
 local function fail(operation: string, response: HttpResponse): never
 	local ok, decoded = pcall(json.decode, await(response.body:readPrefix(4096)))
 	local problem = if ok and type(decoded) == "table" and type(decoded.error) == "table" then decoded.error else {}
-	local reason = type(problem.errors) == "table" and type(problem.errors[1]) == "table" and problem.errors[1].reason
+	local reason = reasonOf(problem)
 	local message = "Google HTTP " .. tostring(response.statusCode)
 	if type(problem.status) == "string" then message ..= " (" .. problem.status .. ")" end
 	if type(problem.message) == "string" then message ..= ": " .. string.sub(problem.message, 1, 600) end
-	if type(reason) == "string" then message ..= " [" .. reason .. "]" end
+	if reason then message ..= " [" .. reason .. "]" end
 	local retry = response.headers["retry-after"]
 	if retry and retry[1] then message ..= "; Retry-After: " .. retry[1] end
-	local limited = type(reason) == "string" and string.find(string.lower(reason), "ratelimitexceeded", 1, true) ~= nil
+	local limited = reason ~= nil and string.find(string.lower(reason), "ratelimitexceeded", 1, true) ~= nil
 	return houston.fail({operation = operation, layer = "upstream", upstream_status = response.statusCode,
 		retryable = response.statusCode == 429 or response.statusCode >= 500 or limited, message = message})
 end
