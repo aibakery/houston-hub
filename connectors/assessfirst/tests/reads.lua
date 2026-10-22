@@ -72,7 +72,7 @@ return {
 		local ok, err = pcall(af.downloadCandidateReport, {candidate_uuid = C, report_id = 8, path = "brain.pdf"})
 		assert(not ok and string.find(tostring(err), "HTTP 200: report_not_available", 1, true), tostring(err))
 		assert(not await(fs.exists("brain.pdf")), "JSON explanation saved as a PDF")
-		for _, kind in {"text/html; charset=UTF-8", "text/plain", ""} do
+		for _, kind in {"text/html; charset=UTF-8", "text/plain", "", "application/xhtml+xml", "image/png"} do
 			contentType = kind
 			payload = "<html>Sign in to AssessFirst</html>"
 			local ok, err = pcall(af.downloadCandidateReport, {candidate_uuid = C, report_id = 10, path = "login.pdf"})
@@ -111,6 +111,7 @@ return {
 		rejected(function() af.listLocales({locale = "fr-FR&page=2"}) end, "locale must be a locale")
 		rejected(function() af.downloadCandidateReport({candidate_uuid = C, report_id = 20}) end, "path must be a nonempty string")
 		rejected(function() af.downloadCandidateReport({candidate_uuid = C, report_id = 18, path = "fit.pdf"}) end, "report_id 18 requires pm_uuid")
+		rejected(function() af.downloadCandidateReport({candidate_uuid = C, report_id = 17, pm_uuid = json.decode("null"), path = "fit.pdf"}) end, "report_id 17 requires pm_uuid")
 		rejected(function() af.downloadCandidateReport({candidate_uuid = C, report_id = "20", path = "x.pdf"}) end, "report_id must be an integer")
 		rejected(function() af.downloadCandidateReport({candidate_uuid = C, report_id = 0, path = "x.pdf"}) end, "report_id must be an integer")
 	end,

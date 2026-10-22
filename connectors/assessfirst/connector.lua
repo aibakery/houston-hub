@@ -175,9 +175,9 @@ end
 local function download(name: string, endpoint: Endpoint, response: HttpResponse, path: string): Options
 	local contentType = (response.headers["content-type"] or NONE)[1] or ""
 	local mediaType = string.lower(string.match(contentType, "^%s*([^;%s]*)") or "")
-	-- A report that cannot be produced is explained in JSON; text is a sign-in or error page. PHP labels PDFs variously.
+	-- A report that cannot be produced is explained in JSON; other types are sign-in or error pages. PHP labels PDFs variously.
 	if string.find(mediaType, "json", 1, true) then failStatus(name, endpoint, response) end
-	if mediaType == "" or string.sub(mediaType, 1, 5) == "text/" then
+	if not (string.find(mediaType, "pdf", 1, true) or mediaType == "application/octet-stream" or mediaType == "application/force-download") then
 		response.body:close()
 		fail(name, response, "AssessFirst returned " .. (if mediaType == "" then "an untyped response" else mediaType) .. " instead of a PDF")
 	end
@@ -203,7 +203,7 @@ end
 local function request(name: string, endpoint: Endpoint, input: Options?): any
 	local args = options(input)
 	if endpoint.pdf and table.find(PREDICTIVE_REPORTS, args.report_id) then
-		assert(args.pm_uuid ~= nil, "report_id " .. tostring(args.report_id) .. " requires pm_uuid")
+		assert(args.pm_uuid ~= nil and args.pm_uuid ~= NULL, "report_id " .. tostring(args.report_id) .. " requires pm_uuid")
 	end
 	for _, field in endpoint.required or NONE do
 		assert(args[field] ~= nil and args[field] ~= NULL, field .. " is required")
