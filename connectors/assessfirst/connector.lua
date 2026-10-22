@@ -31,7 +31,7 @@ local endpoints: {[string]: Endpoint} = {
 	downloadCandidateReport = {method = "GET", path = "/candidate/{candidate_uuid}/report/{report_id}", query = {"pm_uuid"}, pdf = true,
 		about = "Saves a report PDF to the session file path and returns {path, size, url, contentType}; url is Houston's signed download link. report_id: 1, 2, 3 personality (Swipe) in-depth, summary, key behaviors; 13, 15 motivations (Drive) in-depth, summary; 8, 10 reasoning (Brain) in-depth, summary; 20 complete summary; 50 HR report; 51 report for recruiters and managers; 17, 18 fit with a predictive model, full and short; 35 voice. 17, 18 and 35 require pm_uuid."},
 	getCandidateAdequacies = {method = "GET", path = "/candidate/{candidate_uuid}/adequacies/{pm_uuid}",
-		about = "Fit with a predictive model: {adequacies={global_adequacy, success_adequacy, fulfillment_adequacy, adequacy_shape, adequacy_drive, adequacy_brain}, reports={{id, name, web_link}}, voice={{score, status, skill_label, skill_level, user_level, ...}}}."},
+		about = "Fit with a predictive model: {adequacies={global_adequacy, success_adequacy, fulfillment_adequacy, adequacy_shape, adequacy_drive, adequacy_brain} (percentages), reports={{id, name, web_link}}, voice={{score, status, skill_label, skill_definition, skill_type, skill_level, user_level, web_link}}, predict_success_url}. predict_success_url opens the fit in AssessFirst for signed-in recruiters; its single sign-on parameter is removed."},
 	getCandidateCompletion = {method = "GET", path = "/candidate/{candidate_uuid}/completion", query = {"pm_uuid"},
 		about = "Which assessments are done: {assessments={swipe='finish', drive='finish', brain='todo', ...}, is_completed}. Checked against pm_uuid's assessments, or your company's default set without it."},
 	getCandidateScores = {method = "GET", path = "/candidate/{candidate_uuid}/scores", array = true,
@@ -169,7 +169,13 @@ local function decode(name: string, endpoint: Endpoint, response: HttpResponse):
 	if not ok or type(value) ~= "table" or (endpoint.array and not array) then
 		fail(name, response, "AssessFirst returned an invalid JSON " .. (if endpoint.array then "array" else "object"))
 	end
-	if name == "getCandidate" and not array then value.iframe_candidate_token = nil end
+	-- Neither may leave AssessFirst: the iframe token takes assessments as the candidate, sso signs in whoever opens the link.
+	if name == "getCandidate" then value.iframe_candidate_token = nil end
+	if name == "getCandidateAdequacies" and type(value.predict_success_url) == "string" then
+		local link = string.gsub(value.predict_success_url, "([?&])sso=[^&#]*&?", "%1")
+		link = string.gsub(link, "[?&]$", "")
+		value.predict_success_url = string.gsub(link, "[?&]#", "#")
+	end
 	return value
 end
 

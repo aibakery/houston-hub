@@ -26,7 +26,14 @@ return {
 		end
 		get("listRecruiters", {uuid = C, email = "rh@example.com", page = 1, per_page = 1}, API .. "/recruiters?uuid=" .. C .. "&email=rh%40example.com&page=1&per_page=1")
 		get("listCandidateReports", {candidate_uuid = C}, API .. "/candidate/" .. C .. "/reports", "[]")
-		get("getCandidateAdequacies", {candidate_uuid = C, pm_uuid = PM, locale = "en-GB"}, API .. "/candidate/" .. C .. "/adequacies/" .. PM .. "?locale=en-GB")
+		-- The sso parameter may sign whoever opens the link in to AssessFirst.
+		local profile = "https://app.assessfirst.com/recruiter/profile/" .. C .. "/predict/" .. PM
+		for _, link in {{profile .. "?sso=6db2e7", profile}, {profile .. "?sso=6db2e7&tab=voice", profile .. "?tab=voice"},
+			{profile .. "?tab=voice&sso=6db2e7", profile .. "?tab=voice"}, {profile .. "?tab=voice&sso=6db2e7#top", profile .. "?tab=voice#top"}} do
+			local fit = get("getCandidateAdequacies", {candidate_uuid = C, pm_uuid = PM, locale = "en-GB"}, API .. "/candidate/" .. C .. "/adequacies/" .. PM .. "?locale=en-GB",
+				json.encode({adequacies = {global_adequacy = 14.29}, predict_success_url = link[1]}))
+			assert(fit.predict_success_url == link[2] and fit.adequacies.global_adequacy == 14.29, "kept " .. fit.predict_success_url)
+		end
 		get("getCandidateCompletion", {candidate_uuid = C}, API .. "/candidate/" .. C .. "/completion")
 		local completion = get("getCandidateCompletion", {candidate_uuid = C, pm_uuid = PM}, API .. "/candidate/" .. C .. "/completion?pm_uuid=" .. PM,
 			'{"assessments":{"swipe":"finish","voice":"todo"},"is_completed":false}')
