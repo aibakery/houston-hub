@@ -7,7 +7,7 @@ required.
 1. In AssessFirst, open your recruiter space at
    [app.assessfirst.com](https://app.assessfirst.com).
 2. Select your picture or the unicorn icon at the top right, then
-   **Integration**.
+   **Integration** (**Integrations** in some accounts).
 3. Select **AssessFirst API**, open **Activate**, and select **Generate token**.
    Copy the token. If the button is missing, your subscription may not include
    API access: ask your AssessFirst contact or write to

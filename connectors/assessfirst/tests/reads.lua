@@ -25,7 +25,10 @@ return {
 			return result
 		end
 		get("listRecruiters", {uuid = C, email = "rh@example.com", page = 1, per_page = 1}, API .. "/recruiters?uuid=" .. C .. "&email=rh%40example.com&page=1&per_page=1")
-		get("listCandidateReports", {candidate_uuid = C}, API .. "/candidate/" .. C .. "/reports", "[]")
+		assert(json.encode(get("listCandidateReports", {candidate_uuid = C}, API .. "/candidate/" .. C .. "/reports", "[]")) == "[]", "empty report array lost")
+		local reports = get("listCandidateReports", {candidate_uuid = C}, API .. "/candidate/" .. C .. "/reports",
+			'[{"id":20,"name":"Summary of findings","assessment":"All assessments","web_link":"https://report.assessfirst.com/report/summary_report/' .. C .. '?from=api"}]')
+		assert(reports[1].id == 20 and string.find(reports[1].web_link, "?from=api", 1, true))
 		-- The sso parameter may sign whoever opens the link in to AssessFirst.
 		local profile = "https://app.assessfirst.com/recruiter/profile/" .. C .. "/predict/" .. PM
 		for _, link in {{profile .. "?sso=6db2e7", profile}, {profile .. "?sso=6db2e7&tab=voice", profile .. "?tab=voice"},

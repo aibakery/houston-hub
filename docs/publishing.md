@@ -1133,8 +1133,12 @@ are the references. Request bodies are JSON, as in the guide's examples.
 
 Omitted on purpose: `GET /candidate/iframe/{token}/assessment` and the
 `iframe_candidate_token` that `GET /candidate/{uuid}` returns, which the connector
-removes: the token lets anyone take assessments as the candidate, and embedding is
-a browser flow. API v1 (`/betty`), the legacy version, is not routed; its
+withholds from every response: the token lets anyone take assessments as the
+candidate, and embedding is a browser flow. It also removes `sso` parameters from
+returned links, such as the adequacy `predict_success_url`, which may sign whoever
+opens them in. OnePager links stay available on read-only connections: they expire
+after 15 minutes and open reports that read-only callers can already download.
+Group paging is undocumented, so help tells callers to check `meta.current_page`. API v1 (`/betty`), the legacy version, is not routed; its
 campaigns and consents have no v2 equivalent yet. The staging host
 `simu.assessfirst.com` is not allowed. AssessFirst documents no error responses
 for v2: an invalid token returns HTTP 500 `an error occured`, which the connector
