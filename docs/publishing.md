@@ -8,7 +8,7 @@ for maintained bundles. For the shared publishing workflow, see
 
 Register repository `https://github.com/aibakery/houston-hub`, revision `main`, and
 the manifest paths `connectors/gmail/houston.json`, `connectors/gcalendar/houston.json`,
-`connectors/gdrive/houston.json`, `connectors/gsheets/houston.json`, `connectors/gforms/houston.json` and `connectors/gdocs/houston.json`. The bundles use Houston's async HTTP and file
+`connectors/gdrive/houston.json`, `connectors/gsheets/houston.json`, `connectors/gforms/houston.json`, `connectors/gdocs/houston.json` and `connectors/gslides/houston.json`. The bundles use Houston's async HTTP and file
 runtime and a publisher-owned OAuth client, so users only choose an access level and
 select **Connect with Google**.
 
@@ -16,7 +16,7 @@ Give each connector its own Google Cloud project, so one connector's scope revie
 holds up another. In each project:
 
 1. Enable the connector's API: Gmail API, Google Calendar API, Google Drive API,
-   Google Sheets API, Google Forms API or Google Docs API.
+   Google Sheets API, Google Forms API, Google Docs API or Google Slides API.
 2. Configure the OAuth consent screen (External) with Houston's name, logo, home
    page, privacy policy and authorized domain, and declare the connector's scopes below.
 3. Create a **Web application** OAuth client. Add the publication's redirect URI,
@@ -32,6 +32,7 @@ holds up another. In each project:
 | Google Sheets | `spreadsheets.readonly` (sensitive) | `spreadsheets` (sensitive) |
 | Google Forms | `forms.body.readonly`, `forms.responses.readonly` | `forms.body`, `forms.responses.readonly` |
 | Google Docs | `documents.readonly` (sensitive) | `documents` (sensitive) |
+| Google Slides | `presentations.readonly` (sensitive) | `presentations` (sensitive) |
 
 Every method also requests `userinfo.email` to label the connected account, and asks
 for offline access so Houston receives a refresh token. Houston requires every
@@ -49,7 +50,7 @@ connector moves messages to Trash instead. Each connector's proxy lists exactly 
 routes it calls, under Gmail `gmail.googleapis.com/gmail/v1/users/me` and its upload
 path, Calendar `www.googleapis.com/calendar/v3`, Drive `www.googleapis.com/drive/v3`
 and `/upload/drive/v3`, Sheets `sheets.googleapis.com/v4/spreadsheets`, Forms
-`forms.googleapis.com/v1/forms` and Docs `docs.googleapis.com/v1/documents`. Read
+`forms.googleapis.com/v1/forms`, Docs `docs.googleapis.com/v1/documents` and Slides `slides.googleapis.com/v1/presentations`. Read
 routes are open at every access level; write routes only on read-write connections,
 so read-only callers of read-write connections cannot write. Every rule removes
 method-override headers: Google honours `X-HTTP-Method-Override`, so any allowed
@@ -57,7 +58,7 @@ request could otherwise run as another method. Batch endpoints, the API Explorer
 `content.googleapis.com`, permanent Gmail deletes, imports, settings and watches
 stay denied. Drive's `emptyTrash` is `DELETE /files/trash`, which the `{fileId}`
 delete route also matches, so `deleteFile` refuses the ID `trash`. Bundles cannot
-share files, so the six `connector.lua` files carry the same request layer;
+share files, so the seven `connector.lua` files carry the same request layer;
 `tools/validate` checks that the copies match.
 
 Google Calendar covers 12 of the 38 methods in the [Calendar API v3 discovery
@@ -150,6 +151,31 @@ to its Workspace MCP servers, not to the REST API the connector calls.
 
 Google Docs' icon is the official product logo served by Google at
 [www.gstatic.com/images/branding/productlogos/docs_2020q4/v12/192px.svg](https://www.gstatic.com/images/branding/productlogos/docs_2020q4/v12/192px.svg),
+retrieved 2026-10-21, unchanged. Google owns the mark.
+
+Google Slides covers the 5 methods in the [Slides API v1 discovery
+document](https://slides.googleapis.com/$discovery/rest?version=v1), revision `20261020`,
+checked on 2026-10-21: presentation and page reads, page thumbnails, presentation
+creation and the structural `batchUpdate`, which also writes comments since Google's
+September 30, 2026 release. `getPresentationText` reads the presentation route with a
+field mask and returns each slide's text and speaker notes. The API has no list, delete,
+rename, copy, sharing or export method for presentations, which are Drive files, and the
+Slides scopes cannot list Drive files, so callers pass a presentation ID or URL, or find
+it through Google Drive. Read-only connections, and read-only callers of read-write ones,
+may only GET the three read routes; writes POST `/v1/presentations` and
+`/v1/presentations/{presentationId}`, whose whole-segment placeholder admits
+`:batchUpdate`, the API's only custom method. `getThumbnail` returns Google's
+`contentUrl`, which opens without credentials, as the connected account, for 30 minutes;
+the connector never fetches it, so no image host is allowed. Linked Sheets charts need a
+Sheets scope the connector does not request. Google allows each Cloud project 3,000
+reads, 300 thumbnails and 600 writes per minute, shared by every connection using the
+publisher's client, and each user 600, 60 and 60. Google plans to bill the Cloud project
+for requests above these quotas later in 2026. Google's requirement to mark OAuth clients
+as agentic applies only to its Workspace MCP servers, not to the REST API the connector
+calls.
+
+Google Slides' icon is the official product logo served by Google at
+[www.gstatic.com/images/branding/productlogos/slides_2020q4/v12/192px.svg](https://www.gstatic.com/images/branding/productlogos/slides_2020q4/v12/192px.svg),
 retrieved 2026-10-21, unchanged. Google owns the mark.
 
 ## Notion

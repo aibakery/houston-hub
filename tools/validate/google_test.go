@@ -232,3 +232,39 @@ func TestGoogleDocsScopesAndRoutes(t *testing.T) {
 			"POST https://docs.googleapis.com/batch", "POST https://docs.googleapis.com/batch/docs/v1")
 	}
 }
+
+func TestGoogleSlidesScopesAndRoutes(t *testing.T) {
+	m := parseManifest(t, "../../connectors/gslides/houston.json")
+	const api = "https://slides.googleapis.com/v1/presentations"
+	for _, access := range []string{"read-only", "read-write"} {
+		scope := "presentations.readonly"
+		if access == "read-write" {
+			scope = "presentations"
+		}
+		r := resolveGoogle(t, m, access, scope)
+		// Object IDs may contain ':', which url.segment encodes.
+		reads := []string{"GET " + api + "/p1", "GET " + api + "/1PrE_x-9?fields=presentationId%2Ctitle%2CrevisionId%2Cslides",
+			"GET " + api + "/p1?commentsViewMode=COMMENTS_VIEW_MODE_INCLUDED", "GET " + api + "/p1/pages/g1",
+			"GET " + api + "/p1/pages/q3%3Asummary", "GET " + api + "/p1/pages/g1/thumbnail",
+			"GET " + api + "/p1/pages/SLIDES_API1_0/thumbnail?thumbnailProperties.thumbnailSize=SMALL"}
+		assertRoutes(t, r, "fixture-token", true, reads...)
+		assertStripsMethodOverrides(t, r, reads...)
+		writes := []string{"POST " + api, "POST " + api + "/p1:batchUpdate"}
+		assertRoutes(t, r, "fixture-token", access == "read-write", writes...)
+		if access == "read-write" {
+			assertStripsMethodOverrides(t, r, writes...)
+		}
+		// The token stays off Google's OAuth endpoints, other Google APIs, lookalike hosts,
+		// methods the API does not have and encoded traversal in either ID.
+		assertRoutes(t, r, "fixture-token", false,
+			"POST https://oauth2.googleapis.com/token", "GET https://www.googleapis.com/drive/v3/files",
+			"GET https://slides.googleapis.com.evil.test/v1/presentations/p1", "GET https://content.googleapis.com/v1/presentations/p1",
+			"GET https://slides.googleapis.com/v2/presentations/p1", "GET https://docs.googleapis.com/v1/documents/p1",
+			"GET "+api, "DELETE "+api+"/p1", "PATCH "+api+"/p1", "PUT "+api+"/p1", "POST "+api+"/p1/batchUpdate",
+			"GET "+api+"/p1/pages", "POST "+api+"/p1/pages/g1", "POST "+api+"/p1/pages/g1/thumbnail",
+			"GET "+api+"/p1/pages/g1/thumbnail/x", "GET "+api+"/p1/comments",
+			"GET "+api+"/%2e%2e/p1", "GET "+api+"/p1%2F..%2Fx", "GET "+api+"/p1/pages/%2e%2e/thumbnail",
+			"GET "+api+"/p1/pages/g1%2Fthumbnail", "GET "+api+"/p1/pages/%252e%252e",
+			"POST https://slides.googleapis.com/batch", "POST https://slides.googleapis.com/batch/slides/v1")
+	}
+}
