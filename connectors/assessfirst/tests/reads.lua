@@ -67,6 +67,16 @@ return {
 		local ok, err = pcall(af.downloadCandidateReport, {candidate_uuid = C, report_id = 8, path = "brain.pdf"})
 		assert(not ok and string.find(tostring(err), "HTTP 200: report_not_available", 1, true), tostring(err))
 		assert(not await(fs.exists("brain.pdf")), "JSON explanation saved as a PDF")
+		for _, kind in {"text/html; charset=UTF-8", "text/plain", ""} do
+			contentType = kind
+			payload = "<html>Sign in to AssessFirst</html>"
+			local ok, err = pcall(af.downloadCandidateReport, {candidate_uuid = C, report_id = 10, path = "login.pdf"})
+			assert(not ok and string.find(tostring(err), "instead of a PDF", 1, true) and string.find(tostring(err), '"retryable":false', 1, true), tostring(err))
+			assert(not await(fs.exists("login.pdf")), kind .. " page saved as a PDF")
+		end
+		contentType = "application/octet-stream"
+		payload = "%PDF-1.7 binary"
+		assert(af.downloadCandidateReport({candidate_uuid = C, report_id = 10, path = "brain.pdf"}).size == #payload)
 
 		local function rejected(fn, expected)
 			local before = calls

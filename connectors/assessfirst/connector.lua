@@ -154,8 +154,13 @@ end
 
 local function download(name: string, endpoint: Endpoint, response: HttpResponse, path: string): Options
 	local contentType = (response.headers["content-type"] or NONE)[1] or ""
-	-- A report that cannot be produced is explained in JSON.
-	if string.find(string.lower(contentType), "json", 1, true) then failStatus(name, endpoint, response) end
+	local mediaType = string.lower(string.match(contentType, "^%s*([^;%s]*)") or "")
+	-- A report that cannot be produced is explained in JSON; anything else but a file is a sign-in or error page.
+	if string.find(mediaType, "json", 1, true) then failStatus(name, endpoint, response) end
+	if mediaType ~= "application/pdf" and mediaType ~= "application/octet-stream" then
+		response.body:close()
+		fail(name, response, "AssessFirst returned " .. (if mediaType == "" then "an untyped response" else mediaType) .. " instead of a PDF")
+	end
 	local file = fs.open(path, "w")
 	file:write(response.body)
 	await(file:close())
