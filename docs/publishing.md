@@ -1108,3 +1108,41 @@ Gusto's icon is its "g" mark (`gusto-favicon.svg`, Guava `#f45d48`) from the set
 of Gusto's developer documentation, retrieved 2026-10-21, unchanged. Gusto announced a
 brand refresh in 2026; confirm the mark against Gusto's current brand assets before
 listing the connector publicly. Gusto is a trademark of Gusto, Inc.
+
+## AssessFirst
+
+Register repository `https://github.com/aibakery/houston-hub`, revision `main`,
+manifest path `connectors/assessfirst/houston.json`. The bundle uses the existing
+manifest v1 and async HTTP runtime; no publisher settings or provider app are
+needed. Each connection enters its company's AssessFirst API token, which an
+administrator with a recruiter licence generates in AssessFirst, as the
+[account setup guide](../connectors/assessfirst/SETUP.md) describes. AssessFirst
+has no OAuth and no token scopes, so read-only access is enforced by the exports
+and proxy rules.
+
+The connector covers every operation of AssessFirst's
+[API v2 Postman documentation](https://documenter.getpostman.com/view/12154847/2sB2qWGjNX),
+checked on 2026-10-22, except the candidate iframe: locales, recruiters,
+candidates and their reports, report PDFs, fit with predictive models, completion,
+scores, synthesis, top careers, OnePager links and voice status, predictive models,
+benchmarks, webhooks and groups, plus invitations, candidate creation, voice
+initialization, and webhook and group management on read-write connections. API v2
+is an open beta. There is no OpenAPI file or SDK; the Postman collection and the
+[help center's v2 integration guide](https://help.assessfirst.com/en/knowledge/examples-of-integrations-that-can-be-done-with-our-api-v2)
+are the references. Request bodies are JSON, as in the guide's examples.
+
+Omitted on purpose: `GET /candidate/iframe/{token}/assessment` and the
+`iframe_candidate_token` that `GET /candidate/{uuid}` returns, which the connector
+removes: the token lets anyone take assessments as the candidate, and embedding is
+a browser flow. API v1 (`/betty`), the legacy version, is not routed; its
+campaigns and consents have no v2 equivalent yet. The staging host
+`simu.assessfirst.com` is not allowed. AssessFirst documents no error responses
+for v2: an invalid token returns HTTP 500 `an error occured`, which the connector
+reports with a token hint. The documented rate limit (100 requests a minute)
+comes from the v1 documentation.
+
+AssessFirst's icon is the official unicorn logo (`AF_logo-unicorn-color-BD.png`)
+from the [AssessFirst help center](https://help.assessfirst.com/hubfs/AF_logo-unicorn-color-BD.png),
+retrieved 2026-10-22, centered unchanged on a transparent 1024×1024 canvas to meet
+the PNG icon contract. AssessFirst has no public brand kit, and the website's SVG
+logo embeds its gradient as a bitmap. AssessFirst owns the mark.

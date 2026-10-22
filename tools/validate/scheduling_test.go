@@ -165,7 +165,7 @@ func TestProxyMatchesEndpointTables(t *testing.T) {
 	base := regexp.MustCompile(`(?m)^local API = "https://[^/"]+([^"]*)"`)
 	formats := regexp.MustCompile(`local FORMATS = table\.freeze\(\{([^}]*)\}\)`)
 	customMethod := regexp.MustCompile(`\}:\w+$`)
-	for _, name := range []string{"calcom", "calendly", "carta", "carta-crm", "gusto", "resend", "stripe", "wise", "github", "gcalendar", "gsheets", "gforms"} {
+	for _, name := range []string{"assessfirst", "calcom", "calendly", "carta", "carta-crm", "gusto", "resend", "stripe", "wise", "github", "gcalendar", "gsheets", "gforms"} {
 		lua, entries := endpointTable(t, name)
 		prefix := ""
 		if api := base.FindStringSubmatch(lua); api != nil {
@@ -193,7 +193,7 @@ func TestProxyMatchesEndpointTables(t *testing.T) {
 			}
 		}
 		for _, rule := range parseManifest(t, "../../connectors/"+name+"/houston.json").Proxy {
-			if rule.Action.Headers.Set["Authorization"] == "" {
+			if len(rule.Action.Headers.Set) == 0 {
 				continue
 			}
 			for _, method := range rule.Match.Method {
