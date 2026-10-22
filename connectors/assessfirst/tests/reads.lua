@@ -32,7 +32,8 @@ return {
 		-- The sso parameter may sign whoever opens the link in to AssessFirst.
 		local profile = "https://app.assessfirst.com/recruiter/profile/" .. C .. "/predict/" .. PM
 		for _, link in {{profile .. "?sso=6db2e7", profile}, {profile .. "?sso=6db2e7&tab=voice", profile .. "?tab=voice"},
-			{profile .. "?tab=voice&sso=6db2e7", profile .. "?tab=voice"}, {profile .. "?tab=voice&sso=6db2e7#top", profile .. "?tab=voice#top"}} do
+			{profile .. "?tab=voice&sso=6db2e7", profile .. "?tab=voice"}, {profile .. "?tab=voice&sso=6db2e7#top", profile .. "?tab=voice#top"},
+			{profile .. "?sso=a&sso=b", profile}, {profile .. "?a=1&sso=a&sso=b&c=2", profile .. "?a=1&c=2"}, {"Why use sso=1? Is it safe?", "Why use sso=1? Is it safe?"}} do
 			local fit = get("getCandidateAdequacies", {candidate_uuid = C, pm_uuid = PM, locale = "en-GB"}, API .. "/candidate/" .. C .. "/adequacies/" .. PM .. "?locale=en-GB",
 				json.encode({adequacies = {global_adequacy = 14.29}, predict_success_url = link[1]}))
 			assert(fit.predict_success_url == link[2] and fit.adequacies.global_adequacy == 14.29, "kept " .. fit.predict_success_url)

@@ -176,9 +176,10 @@ local function withhold(value: any)
 		if key == "iframe_candidate_token" then
 			value[key] = nil
 		elseif type(item) == "string" and string.find(item, "sso=", 1, true) then
-			local link = string.gsub(item, "([?&])sso=[^&#]*&?", "%1")
-			link = string.gsub(link, "[?&]$", "")
-			value[key] = string.gsub(link, "[?&]#", "#")
+			local link, removed = string.gsub(item, "[?&]sso=[^&#]*", "")
+			-- Removing the first parameter leaves the next one after an &.
+			if removed > 0 and not string.find(link, "?", 1, true) then link = string.gsub(link, "&", "?", 1) end
+			value[key] = link
 		else
 			withhold(item)
 		end
