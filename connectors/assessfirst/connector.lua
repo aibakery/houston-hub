@@ -25,13 +25,13 @@ local endpoints: {[string]: Endpoint} = {
 	listCandidates = {method = "GET", path = "/candidates", query = list({"uuid", "email"}, PAGE),
 		about = "Candidates available to your company: {data={{uuid, first_name, last_name, email, created_at}}, meta}. Filter by uuid or email."},
 	getCandidate = {method = "GET", path = "/candidate/{candidate_uuid}",
-		about = "A candidate: {uuid, email, first_name, last_name, locale, status, aplayer_score, remote_score, candidate_url, assessments={{id, name, status, end_date}}}. iframe_candidate_token is removed: it lets anyone take assessments as the candidate."},
+		about = "A candidate: {uuid, email, first_name, last_name, locale, status, aplayer_score, remote_score, candidate_url, assessments={{id, name, status, end_date}}}."},
 	listCandidateReports = {method = "GET", path = "/candidate/{candidate_uuid}/reports", array = true,
 		about = "Reports available for the candidate: {{id, name, assessment, web_link}}; web_link opens the report on AssessFirst's report site."},
 	downloadCandidateReport = {method = "GET", path = "/candidate/{candidate_uuid}/report/{report_id}", query = {"pm_uuid"}, pdf = true,
 		about = "Saves a report PDF to the session file path and returns {path, size, url, contentType}; url is Houston's signed download link. report_id: 1, 2, 3 personality (Swipe) in-depth, summary, key behaviors; 13, 15 motivations (Drive) in-depth, summary; 8, 10 reasoning (Brain) in-depth, summary; 20 complete summary; 50 HR report; 51 report for recruiters and managers; 17, 18 fit with a predictive model, full and short; 35 voice. 17, 18 and 35 require pm_uuid."},
 	getCandidateAdequacies = {method = "GET", path = "/candidate/{candidate_uuid}/adequacies/{pm_uuid}",
-		about = "Fit with a predictive model: {adequacies={global_adequacy, success_adequacy, fulfillment_adequacy, adequacy_shape, adequacy_drive, adequacy_brain} (percentages), reports={{id, name, web_link}}, voice={{score, status, skill_label, skill_definition, skill_type, skill_level, user_level, web_link}}, predict_success_url}. predict_success_url opens the fit in AssessFirst for signed-in recruiters; its single sign-on parameter is removed."},
+		about = "Fit with a predictive model: {adequacies={global_adequacy, success_adequacy, fulfillment_adequacy, adequacy_shape, adequacy_drive, adequacy_brain} (percentages), reports={{id, name, web_link}}, voice={{score, status, skill_label, skill_definition, skill_type, skill_level, user_level, web_link}}, predict_success_url}. predict_success_url opens the fit in AssessFirst for signed-in recruiters."},
 	getCandidateCompletion = {method = "GET", path = "/candidate/{candidate_uuid}/completion", query = {"pm_uuid"},
 		about = "Which assessments are done: {assessments={swipe='finish', drive='finish', brain='todo', ...}, is_completed}. Checked against pm_uuid's assessments, or your company's default set without it."},
 	getCandidateScores = {method = "GET", path = "/candidate/{candidate_uuid}/scores", array = true,
@@ -160,6 +160,23 @@ local function download(name: string, response: HttpResponse, path: string): Opt
 	return {path = path, size = await(fs.stat(path)).size, url = await(fs.signedGetUrl(path)), contentType = contentType}
 end
 
+-- Withheld from every response: the iframe token takes assessments as the candidate, and an
+-- sso parameter, such as predict_success_url's, signs in whoever opens the link.
+local function withhold(value: any)
+	if type(value) ~= "table" then return end
+	for key, item in value do
+		if key == "iframe_candidate_token" then
+			value[key] = nil
+		elseif type(item) == "string" and string.find(item, "sso=", 1, true) then
+			local link = string.gsub(item, "([?&])sso=[^&#]*&?", "%1")
+			link = string.gsub(link, "[?&]$", "")
+			value[key] = string.gsub(link, "[?&]#", "#")
+		else
+			withhold(item)
+		end
+	end
+end
+
 local function decode(name: string, endpoint: Endpoint, response: HttpResponse): any
 	local raw = await(response.body:readAll())
 	if endpoint.method == "DELETE" and string.match(raw, "^%s*$") then return {} end
@@ -169,13 +186,7 @@ local function decode(name: string, endpoint: Endpoint, response: HttpResponse):
 	if not ok or type(value) ~= "table" or (endpoint.array and not array) then
 		fail(name, response, "AssessFirst returned an invalid JSON " .. (if endpoint.array then "array" else "object"))
 	end
-	-- Neither may leave AssessFirst: the iframe token takes assessments as the candidate, sso signs in whoever opens the link.
-	if name == "getCandidate" then value.iframe_candidate_token = nil end
-	if name == "getCandidateAdequacies" and type(value.predict_success_url) == "string" then
-		local link = string.gsub(value.predict_success_url, "([?&])sso=[^&#]*&?", "%1")
-		link = string.gsub(link, "[?&]$", "")
-		value.predict_success_url = string.gsub(link, "[?&]#", "#")
-	end
+	withhold(value)
 	return value
 end
 
@@ -251,7 +262,7 @@ exports.help = function(): string
 	for name in exports do if name ~= "help" then table.insert(names, name) end end
 	table.sort(names)
 	local lines = {
-		"AssessFirst API v2, an open beta AssessFirst may still change (" .. DOCS .. "). Every function takes one named options object with AssessFirst's snake_case names; ? marks optional fields. Every function also takes locale?, such as 'fr-FR' (default en-US, see listLocales), for the language of returned text, reports and emails. Results are AssessFirst's JSON unchanged except getCandidate; deletions return {}. Connector calls return completed values: use them directly, without await.",
+		"AssessFirst API v2, an open beta AssessFirst may still change (" .. DOCS .. "). Every function takes one named options object with AssessFirst's snake_case names; ? marks optional fields. Every function also takes locale?, such as 'fr-FR' (default en-US, see listLocales), for the language of returned text, reports and emails. Results are AssessFirst's JSON unchanged, except that the connector withholds iframe_candidate_token (it lets anyone take assessments as the candidate) and removes sso single sign-on parameters from links; deletions return {}. Connector calls return completed values: use them directly, without await.",
 		"Candidates, predictive models (pm_uuid, predictive_model_uuid), groups, users and webhooks have 32-character hexadecimal UUIDs; report_id is a number. Dates read 'YYYY-MM-DD hh:mm:ss'. Swipe measures personality, Drive motivations and Brain reasoning; a predictive model scores candidates against a job.",
 		"Paging: lists with page (from 1) and per_page (1..50) return {data, meta={total, current_page, per_page, previous_page, next_page, last_page}}, one page per call; continue while meta.current_page < meta.last_page.",
 		"To follow a candidate: listCandidates({email='ana@example.com'}) gives their uuid; getCandidateCompletion({candidate_uuid=uuid, pm_uuid=pm}) tells whether they finished; then getCandidateAdequacies({candidate_uuid=uuid, pm_uuid=pm}), getCandidateScores({candidate_uuid=uuid}) or downloadCandidateReport({candidate_uuid=uuid, report_id=20, path='ana-summary.pdf'}). pm is a predictive model uuid from listPredictiveModels({name='Sales'}).",

@@ -59,7 +59,10 @@ return {
 		local group = write("createGroup", {label = "Finalists", color = "#FF0088"}, "POST", API .. "/groups", {label = "Finalists", color = "#FF0088"},
 			201, '{"uuid":"' .. G .. '","label":"Finalists","color":"#FF0088","id":38679}')
 		assert(group.uuid == G)
-		write("addGroupUser", {group_uuid = G, user_uuid = C}, "POST", API .. "/groups/" .. G .. "/user/" .. C, nil, 201, '{"user":{"uuid":"' .. C .. '"},"group":{"uuid":"' .. G .. '"}}')
+		local member = write("addGroupUser", {group_uuid = G, user_uuid = C}, "POST", API .. "/groups/" .. G .. "/user/" .. C, nil, 201,
+			'{"user":{"uuid":"' .. C .. '","iframe_candidate_token":"secret-iframe-token","profile_url":"https://app.assessfirst.com/recruiter/profile/' .. C .. '?sso=6db2e7"},"group":{"uuid":"' .. G .. '"}}')
+		assert(member.user.uuid == C and member.group.uuid == G)
+		assert(member.user.iframe_candidate_token == nil and member.user.profile_url == "https://app.assessfirst.com/recruiter/profile/" .. C, "nested secrets exposed")
 		assert(json.encode(write("removeGroupUser", {group_uuid = G, user_uuid = C}, "DELETE", API .. "/groups/" .. G .. "/user/" .. C, nil, 204, "")) == "{}")
 		assert(json.encode(write("deleteGroup", {group_uuid = G}, "DELETE", API .. "/groups/" .. G, nil, 204, "")) == "{}")
 		assert(calls == 10)
