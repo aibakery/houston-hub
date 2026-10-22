@@ -39,6 +39,7 @@ func TestEveryProviderAuthenticationAndTransport(t *testing.T) {
 		"github":      {"GET", "https://api.github.com/user"},
 		"meta":        {"GET", "https://graph.facebook.com/v26.0/me"},
 		"gusto":       {"GET", "https://api.gusto.com/v1/token_info"},
+		"assessfirst": {"GET", "https://app.assessfirst.com/betty-V2/locales"},
 	}
 	for _, path := range paths {
 		provider := filepath.Base(filepath.Dir(path))
@@ -105,6 +106,10 @@ func TestEveryProviderAuthenticationAndTransport(t *testing.T) {
 					config["store_host"] = "shop.example.com"
 					input["token"] = "synthetic-method-secret-32-chars"
 					authorization = "Basic " + base64.StdEncoding.EncodeToString([]byte("synthetic-method-secret-32-chars:"))
+				}
+				if provider == "assessfirst" { // AssessFirst reads the bare token from its own header.
+					credentialHeader = "AF-Token"
+					authorization = "synthetic-method-secret"
 				}
 				if provider == "dolibarr" { // Dolibarr reads the bare key from its own header.
 					config["host"] = "erp.example.com"

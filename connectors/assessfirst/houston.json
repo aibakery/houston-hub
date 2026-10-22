@@ -1,0 +1,140 @@
+{
+  "schema_version": 1,
+  "name": "AssessFirst",
+  "files": [
+    "connector.lua"
+  ],
+  "icon": "icon.png",
+  "config": {
+    "access": {
+      "default": "read-only",
+      "description": "Houston sends no changes on a Read-only connection. The AssessFirst API token itself has full access to your company's AssessFirst data.",
+      "label": "Access",
+      "options": [
+        {
+          "label": "Read-only",
+          "value": "read-only"
+        },
+        {
+          "label": "Read and write",
+          "value": "read-write"
+        }
+      ],
+      "type": "string"
+    }
+  },
+  "auth": {
+    "token": {
+      "config": {
+        "token": {
+          "label": "API token",
+          "max_length": 512,
+          "required": true,
+          "type": "secret"
+        }
+      },
+      "label": "AssessFirst API token",
+      "type": "manual"
+    }
+  },
+  "proxy": [
+    {
+      "action": {
+        "headers": {
+          "remove": [
+            "X-HTTP-Method-Override"
+          ],
+          "set": {
+            "AF-Token": "{{auth.token.token}}"
+          }
+        }
+      },
+      "match": {
+        "host": [
+          "app.assessfirst.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/betty-V2/benchmarks",
+          "/betty-V2/candidate/{candidate_uuid}",
+          "/betty-V2/candidate/{candidate_uuid}/adequacies/{pm_uuid}",
+          "/betty-V2/candidate/{candidate_uuid}/career/top",
+          "/betty-V2/candidate/{candidate_uuid}/completion",
+          "/betty-V2/candidate/{candidate_uuid}/init-voice/{pm_uuid}",
+          "/betty-V2/candidate/{candidate_uuid}/report/{report_id}",
+          "/betty-V2/candidate/{candidate_uuid}/reports",
+          "/betty-V2/candidate/{candidate_uuid}/scores",
+          "/betty-V2/candidate/{candidate_uuid}/synthesis",
+          "/betty-V2/candidates",
+          "/betty-V2/groups",
+          "/betty-V2/groups/{group_uuid}/users",
+          "/betty-V2/locales",
+          "/betty-V2/onepager/candidate/{candidate_uuid}/results",
+          "/betty-V2/predictive-models",
+          "/betty-V2/recruiters",
+          "/betty-V2/webhooks"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "remove": [
+            "X-HTTP-Method-Override"
+          ],
+          "set": {
+            "AF-Token": "{{auth.token.token}}"
+          }
+        }
+      },
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "host": [
+          "app.assessfirst.com"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/betty-V2/candidate",
+          "/betty-V2/candidate/send-invitation",
+          "/betty-V2/candidate/{candidate_uuid}/init-voice/{pm_uuid}",
+          "/betty-V2/groups",
+          "/betty-V2/groups/{group_uuid}/user/{user_uuid}",
+          "/betty-V2/webhooks"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "remove": [
+            "X-HTTP-Method-Override"
+          ],
+          "set": {
+            "AF-Token": "{{auth.token.token}}"
+          }
+        }
+      },
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "host": [
+          "app.assessfirst.com"
+        ],
+        "method": [
+          "DELETE"
+        ],
+        "path": [
+          "/betty-V2/groups/{group_uuid}",
+          "/betty-V2/groups/{group_uuid}/user/{user_uuid}",
+          "/betty-V2/webhooks/{webhook_uuid}"
+        ],
+        "protocol": "http"
+      }
+    }
+  ]
+}
