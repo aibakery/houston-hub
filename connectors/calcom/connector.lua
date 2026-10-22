@@ -209,7 +209,7 @@ local endpoints: {[string]: Endpoint} = {
 	listTimezones = {method = "GET", path = "/v2/timezones", doc = "timezones/get-timezones", query = {"search", "limit"}, about = "Supported time zones."},
 }
 
--- Request layer shared verbatim by the Cal.com, Calendly, Carta, Carta CRM and Resend connectors
+-- Request layer shared verbatim by the Cal.com, Calendly, Carta, Carta CRM, Gusto and Resend connectors
 -- (tools/validate checks they match). It uses each connector's PROVIDER, DOCS and Endpoint type.
 local NULL = json.decode("null")
 local NONE: {string} = table.freeze({})
@@ -225,6 +225,19 @@ local function scalar(value: any, field: string): string
 	local kind = type(value)
 	assert(kind == "string" or kind == "boolean" or kind == "number", field .. " must be a string, boolean, number or array of those")
 	return url.encode(value)
+end
+
+-- A query value's encoded parts: one for a scalar, one per item of a nonempty array. Each
+-- connector joins them as its provider expects, comma-separated or with the key repeated.
+local function queryParts(value: any, field: string): {string}
+	if type(value) ~= "table" then return {scalar(value, field)} end
+	local parts: {string} = {}
+	for index, item in value do
+		assert(type(index) == "number" and index == #parts + 1, field .. " must be an array, not an object")
+		table.insert(parts, scalar(item, field))
+	end
+	assert(#parts > 0, field .. " must not be an empty array")
+	return parts
 end
 
 -- Only GET reads unless write says otherwise.
@@ -244,18 +257,21 @@ local function fail(name: string, response: HttpResponse, message: string): neve
 		retryable = response.statusCode == 429 or response.statusCode >= 500, message = message})
 end
 
--- A successful response's JSON object, or nil when a write answers without a body.
-local function object(name: string, endpoint: Endpoint, response: HttpResponse): Options?
+-- A successful response's JSON object, or nil when a write answers without a body. With arrays,
+-- a top-level JSON array is accepted too, and the second result tells which one came back.
+local function object(name: string, endpoint: Endpoint, response: HttpResponse, arrays: boolean?): (any, boolean)
 	local raw = await(response.body:readAll())
-	if endpoint.method ~= "GET" and writes(endpoint) and string.match(raw, "^%s*$") then return nil end
+	if endpoint.method ~= "GET" and writes(endpoint) and string.match(raw, "^%s*$") then return nil, false end
 	local ok, value = pcall(json.decode, raw)
-	if not ok or type(value) ~= "table" or not string.match(raw, "^%s*{") then
+	local list = arrays == true and string.match(raw, "^%s*%[") ~= nil
+	if not ok or type(value) ~= "table" or not (list or string.match(raw, "^%s*{")) then
 		fail(name, response, PROVIDER .. " returned an invalid JSON object")
 	end
-	return value
+	return value, list
 end
 
--- name({path fields, query fields?, extra fields?, ...body}) built from the endpoint itself.
+-- name({path fields, query fields?, extra fields?, required body fields, ...body}) built from the
+-- endpoint itself.
 -- Extra fields are options the connector's own request consumes, such as a request header.
 local function signature(endpoint: Endpoint): string
 	local fields: {string} = {}
@@ -268,6 +284,9 @@ local function signature(endpoint: Endpoint): string
 	if type(endpoint.body) == "string" then
 		table.insert(fields, endpoint.body)
 	elseif hasBody(endpoint) then
+		for _, field in endpoint.required or NONE do
+			if not table.find(fields, field) then table.insert(fields, field) end
+		end
 		table.insert(fields, "...body")
 	end
 	return "({" .. table.concat(fields, ", ") .. "})"
@@ -306,22 +325,6 @@ local function identifier(value: any, field: string): string
 	end
 	assert(type(value) == "string" and string.match(value, "^[%w_%-]+$"), field .. " must be an ID, uid or slug")
 	return value
-end
-
--- Arrays repeat their key (calendar=a&calendar=b), as Cal.com's busy times require; other
--- lists, such as eventTypeIds, are comma-separated strings.
-local function queryPairs(parts: {string}, field: string, value: any)
-	if type(value) ~= "table" then
-		table.insert(parts, field .. "=" .. scalar(value, field))
-		return
-	end
-	local count = 0
-	for index, item in value do
-		count += 1
-		assert(type(index) == "number" and index == count, field .. " must be an array, not an object")
-		table.insert(parts, field .. "=" .. scalar(item, field))
-	end
-	assert(count > 0, field .. " must not be an empty array")
 end
 
 -- Cal.com errors are {status="error", error={code, message, details?}}.
@@ -365,7 +368,11 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 	end
 	local query: {string} = {}
 	for _, field in endpoint.query or NONE do
-		if args[field] ~= nil then queryPairs(query, field, args[field]) end
+		-- Arrays repeat their key (calendar=a&calendar=b), as Cal.com's busy times require; other
+		-- lists, such as eventTypeIds, are comma-separated strings.
+		if args[field] ~= nil then
+			for _, part in queryParts(args[field], field) do table.insert(query, field .. "=" .. part) end
+		end
 		args[field] = nil
 	end
 	if #query > 0 then path ..= "?" .. table.concat(query, "&") end
