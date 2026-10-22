@@ -27,7 +27,11 @@ return {
 		local function scores() af.getCandidateScores({candidate_uuid = C}) end
 
 		upstream(invite, 500, '{"code":0,"message":"an error occured","data":[],"status":500}', {},
-			{"AssessFirst HTTP 500: an error occured", "invalid or revoked", '"retryable":true', '"upstream_status":500', '"operation":"sendInvitation"'})
+			{"AssessFirst HTTP 500: an error occured", "invalid or revoked", '"retryable":false', '"upstream_status":500', '"operation":"sendInvitation"'})
+		-- A revoked token stays revoked, and a failed write may already have applied.
+		upstream(candidate, 500, '{"code":0,"message":"an error occured","data":[],"status":500}', {}, {"invalid or revoked", '"retryable":false'})
+		upstream(invite, 502, "<html>Bad gateway</html>", {}, {"AssessFirst HTTP 502", '"retryable":false'})
+		upstream(invite, 429, '{"message":"Too Many Attempts."}', {["retry-after"] = {"60"}}, {"HTTP 429", "Retry-After: 60", '"retryable":true'})
 		upstream(invite, 422, '{"message":"The email field must be a valid email address.","errors":{"email":["The email field must be a valid email address."]}}', {},
 			{"HTTP 422: The email field must be a valid email address.", 'email address. {\\"email\\":[\\"The email field', '"retryable":false'}, "revoked")
 		upstream(candidate, 404, '{"code":0,"message":"candidate_not_found","data":[],"status":404}', {},

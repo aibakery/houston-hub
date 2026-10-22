@@ -129,31 +129,33 @@ local function check(field: string, value: any): any
 	return text(value, field)
 end
 
-local function fail(name: string, response: HttpResponse, message: string): never
+local function fail(name: string, response: HttpResponse, message: string, retryable: boolean?): never
 	return houston.fail({operation = name, layer = "upstream", upstream_status = response.statusCode,
-		retryable = response.statusCode == 429 or response.statusCode >= 500, message = message})
+		retryable = retryable == true, message = message})
 end
 
 -- AssessFirst errors are {code, message, data, status}; validation errors may add errors={field={...}}.
-local function failStatus(name: string, response: HttpResponse): never
+local function failStatus(name: string, endpoint: Endpoint, response: HttpResponse): never
 	local ok, value = pcall(json.decode, await(response.body:readPrefix(16 * 1024)))
 	local message = "AssessFirst HTTP " .. tostring(response.statusCode)
+	local revoked = false
 	if ok and type(value) == "table" then
 		if type(value.message) == "string" then message ..= ": " .. string.sub(value.message, 1, 600) end
 		if type(value.errors) == "table" then message ..= " " .. string.sub(json.encode(value.errors), 1, 600) end
-		if response.statusCode == 500 and value.message == "an error occured" then
-			message ..= " (AssessFirst also answers this way when the API token is invalid or revoked)"
-		end
+		revoked = response.statusCode == 500 and value.message == "an error occured"
+		if revoked then message ..= " (AssessFirst also answers this way when the API token is invalid or revoked)" end
 	end
 	local retry = response.headers["retry-after"]
 	if retry and retry[1] then message ..= "; Retry-After: " .. retry[1] end
-	return fail(name, response, message)
+	-- A throttled request was refused; a failed write may already have applied, and a revoked token stays revoked.
+	local retryable = response.statusCode == 429 or (response.statusCode >= 500 and endpoint.method == "GET" and not revoked)
+	return fail(name, response, message, retryable)
 end
 
-local function download(name: string, response: HttpResponse, path: string): Options
+local function download(name: string, endpoint: Endpoint, response: HttpResponse, path: string): Options
 	local contentType = (response.headers["content-type"] or NONE)[1] or ""
 	-- A report that cannot be produced is explained in JSON.
-	if string.find(string.lower(contentType), "json", 1, true) then failStatus(name, response) end
+	if string.find(string.lower(contentType), "json", 1, true) then failStatus(name, endpoint, response) end
 	local file = fs.open(path, "w")
 	file:write(response.body)
 	await(file:close())
@@ -236,8 +238,8 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 	local unknown = next(args)
 	assert(unknown == nil, name .. " has no option " .. tostring(unknown))
 	local response = await(http.request({method = endpoint.method, url = API .. path, headers = headers, body = body}))
-	if response.statusCode < 200 or response.statusCode >= 300 then failStatus(name, response) end
-	if destination then return download(name, response, destination) end
+	if response.statusCode < 200 or response.statusCode >= 300 then failStatus(name, endpoint, response) end
+	if destination then return download(name, endpoint, response, destination) end
 	return decode(name, endpoint, response)
 end
 
@@ -267,7 +269,7 @@ exports.help = function(): string
 		"Paging: lists with page (from 1) and per_page (1..50) return {data, meta={total, current_page, per_page, previous_page, next_page, last_page}}, one page per call; continue while meta.current_page < meta.last_page.",
 		"To follow a candidate: listCandidates({email='ana@example.com'}) gives their uuid; getCandidateCompletion({candidate_uuid=uuid, pm_uuid=pm}) tells whether they finished; then getCandidateAdequacies({candidate_uuid=uuid, pm_uuid=pm}), getCandidateScores({candidate_uuid=uuid}) or downloadCandidateReport({candidate_uuid=uuid, report_id=20, path='ana-summary.pdf'}). pm is a predictive model uuid from listPredictiveModels({name='Sales'}).",
 		"Results are personal data: share them only with people entitled to see them. Predictive models, campaigns, consents and API tokens are managed in the AssessFirst app.",
-		"No automatic retries except Houston's for short 429 waits; AssessFirst allows about 100 requests a minute. After a timeout or 5xx, read the candidate, group or webhook again before repeating a write. Errors report the HTTP status and AssessFirst's message; AssessFirst also answers an invalid or revoked API token with HTTP 500 'an error occured', so check the token before retrying those.",
+		"No automatic retries except Houston's for short 429 waits; AssessFirst allows about 100 requests a minute. Errors report the HTTP status and AssessFirst's message, and retryable is true only for 429 and for failed reads. AssessFirst also answers an invalid or revoked API token with HTTP 500 'an error occured': ask an administrator to check the connection's token rather than retrying.",
 	}
 	if exports.sendInvitation then
 		table.insert(lines, "To invite: sendInvitation({email='ana@example.com', first_name='Ana', last_name='Silva', predictive_model_uuid=pm}) emails the candidate. Status ask_share means they already have an AssessFirst account and must accept to share their results with you; wait for that before reading them. createCandidate adds a person without asking them, so collect their consent first.")
