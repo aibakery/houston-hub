@@ -4,14 +4,17 @@ You need a Wise business account with 2-step login turned on. Wise documents
 personal API tokens for business accounts; tokens are created only on the Wise
 website, not in the app. No developer application or OAuth setup is needed.
 
-1. Sign in to your business account at [wise.com](https://wise.com) and go to
-   **Your Account** → **Connect and manage apps** → **API tokens**. The direct link
-   is [API tokens](https://wise.com/settings/api-tokens); newer menus may name the
-   section **Integrations and tools**.
-2. Select **Add new token** and complete the 2-step verification.
+1. Sign in to your business account at [wise.com](https://wise.com), select your
+   account name to open the settings, and choose **Accounting integrations**.
+2. Open the **Custom integrations** tab, select **API Tokens**, then **Add new
+   token**.
 3. Name the token Houston and choose its access level:
-   - read only, to check balances, activity and transfers;
-   - full, only if agents should prepare or send payments.
+   - **Read-only**, to check balances, activity and transfers;
+   - **Full access**, only if agents should prepare or send payments.
+
+   **Allowed IPs** is optional. If you use it, add the Houston server's outbound
+   IP addresses, obtained from your Houston operator; your own device's IP does
+   not identify Houston's requests.
 4. Copy the token. Wise shows it only once.
 5. In Houston, add the Wise connector. Choose **Read-only** or **Read and write**
    under **Access** to match the token, keep **Environment** on **Production**,
@@ -55,5 +58,5 @@ in the sandbox, and sandbox tokens do not work in production.
   or the request needs strong customer authentication (see above).
 - **429**: Wise rate limits each user. Wait for the time Wise reports and try again.
 
-To revoke access, open [API tokens](https://wise.com/settings/api-tokens) and
-choose **Revoke** next to the token; it stops working immediately.
+To revoke access, open the same **API Tokens** page and choose **Revoke** next to
+the token; it stops working immediately.
