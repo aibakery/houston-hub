@@ -26,5 +26,7 @@ return {
 		check(200,'<html>maintenance</html>',{}, {"Invalid JSON response"})
 		status,payload,responseHeaders = 200,"",{}
 		assert(not pcall(function() t.getMe() end),"empty read cannot be treated as success")
+		status,payload,responseHeaders = 204,"",{}
+		assert(t.getDiscordGuild({project="p"}) == json.decode("null"), "unlinked Discord guild should return null")
 	end,
 }

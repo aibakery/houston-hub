@@ -21,11 +21,11 @@ return {
 		local reward = t.getReward({project="my-project",reward=7})
 		assert(reward.id == 7 and reward.name == "Print" and reward.api_key == nil and reward.nullable == json.decode("null"))
 		assert(requests[1].url == API .. "/v2.0/projects/my-project/rewards/7" and requests[1].method == "GET" and requests[1].body == nil)
-		payload = '{"items":[{"id":9,"project":{"api_key":"secret","name":"Creator"}}],"pager":{"currentPage":0,"next":1,"perPage":100}}'
-		local opts = {project = "my-project", campaign = "2026-10", page = 0, perPage = 100, noReward = 0}
+		payload = '{"items":[{"id":9,"project":{"api_key":"secret","name":"Creator"}}],"pager":{"currentPage":1,"next":2,"perPage":100}}'
+		local opts = {project = "my-project", campaign = "2026-10", page = 1, perPage = 100, noReward = 0}
 		local page = t.listTippers(opts)
-		assert(requests[2].url == API .. "/v2.0/projects/my-project/campaigns/2026-10/subscriptions?noReward=0&page=0&perPage=100")
-		assert(page.pager.next == 1 and page.items[1].project.name == "Creator" and page.items[1].project.api_key == nil)
+		assert(requests[2].url == API .. "/v2.0/projects/my-project/campaigns/2026-10/subscriptions?noReward=0&page=1&perPage=100")
+		assert(page.pager.next == 2 and page.items[1].project.name == "Creator" and page.items[1].project.api_key == nil)
 		assert(opts.project == "my-project" and opts.noReward == 0 and #requests == 2)
 		payload = '{"items":[],"pager":{"next":null}}'
 		assert(json.encode(t.listNews({project="my-project", statusFilter="draft"}).items) == "[]")
@@ -45,6 +45,9 @@ return {
 			assert(state.status == "waiting" and state.last_date == "2026-10-01")
 			assert(state.errors.MISSING_CERTIFICATION == blocked and state.errors.MISSING_BANKING_INFO == false)
 		end
+		payload = '{"items":[],"pager":{"currentPage":1}}'
+		t.listTippers({project="my-project",campaign="2026-10",perPage=2})
+		assert(requests[#requests].url == API .. "/v2.0/projects/my-project/campaigns/2026-10/subscriptions?noReward=0&page=1&perPage=2", "supporter list needs native defaults")
 		local before = #requests
 		for _, project in {"../bad","x/y","x%2fy","https://evil.example"} do
 			assert(not pcall(function() t.getReward({project=project,reward=1}) end))
@@ -55,6 +58,7 @@ return {
 		assert(not pcall(function() t.getStatistics({project="p",timeUnit="DAY"}) end))
 		assert(not pcall(function() t.downloadPayments({report="../../evil.csv",output="out"}) end))
 		assert(not pcall(function() t.listNews({project="p",status="draft"}) end))
+		assert(not pcall(function() t.listTippers({project="p",campaign="c",page=0}) end), "page zero produces a misleading authentication error")
 		assert(#requests == before, "invalid input reached network")
 	end,
 }
