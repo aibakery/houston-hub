@@ -1197,3 +1197,48 @@ from the [AssessFirst help center](https://help.assessfirst.com/hubfs/AF_logo-un
 retrieved 2026-10-22, centered unchanged on a transparent 1024×1024 canvas to meet
 the PNG icon contract. AssessFirst has no public brand kit, and the website's SVG
 logo embeds its gradient as a bitmap. AssessFirst owns the mark.
+
+## Tipeee
+
+Register `connectors/tipeee/houston.json` from
+`https://github.com/aibakery/houston-hub`, revision `main`. No publisher settings.
+The connection selects `token` authentication with the secret `token` field and
+`access` (read-only by default). Setup uses a signed-in creator's session token,
+not a speculative OAuth registration. Token expiry and rate limits are unknown.
+
+**Deployment dependency:** this bundle requires manifest `action.query` and the
+Houston runtime that injects query credentials and decodes HTTP gzip before
+credential redaction. Deploy that runtime before registering this bundle on a
+tracked branch. Existing connectors require no re-setup; this is a new provider.
+
+Coverage checked on 2026-10-23 against Tipeee website release `20261022134411`:
+projects and descriptions, campaigns, goals, modular rewards, news and paid
+publications, comment moderation, campaign supporter lists, payment reports,
+statistics, tipper blocking, inbox threads/broadcasts/replies and chunk uploads,
+media uploads/downloads, existing Discord guilds, widget settings and alert
+replays. Multipart updates reproduce the website's POST `_method=put` behavior.
+Native JSON results retain their envelopes except credential fields removed
+recursively. Project streaming keys are never exported. Account/project discovery and inbox project/thread/content reads are gated
+read-write because of project credentials and possible mark-read side effects.
+The latter inbox gates are conservative: source shows nested project metadata
+and an unread-count refresh after fetching content, without proving that every
+inbox response contains an API key. Widget secret-link reads
+and tipper exports also need read-write; `allTabs=1` sends export email via GET.
+
+References: [official partial general spec](https://api.tipeee.com/api/doc/default),
+[tipper partner spec](https://api.tipeee.com/api/doc/partner),
+[current first-party app source](https://en.tipeee.com/_nuxt/20261022134411.30.js)
+and its dynamically loaded form components. Unofficial creator management has
+no complete public specification. Deliberate omissions: speculative OAuth,
+account credentials and API-key rotation, admin routes, tipper checkout/purchases,
+KYC, terms acceptance, project publication/closure, browser Discord association,
+project-key streaming event/simulation routes, and unused legacy routes whose
+request contracts were not observed. Completing these flows on Tipeee's website
+remains possible; this connector does not claim all declared internal routes.
+
+The icon is byte-identical to Tipeee's official
+[logo SVG](https://en.tipeee.com/_static/img/tipeee-logo.svg).
+Remaining verification after merge/deploy: Hub registration, creator-token setup,
+read-only discovery/help, pagination, a downloadable report and a user-approved
+write on disposable creator content. Local fixtures and synthetic transport
+tests do not establish authenticated live compatibility.

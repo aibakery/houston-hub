@@ -1,0 +1,253 @@
+{
+  "schema_version": 1,
+  "name": "Tipeee",
+  "files": [
+    "connector.lua"
+  ],
+  "icon": "icon.svg",
+  "config": {
+    "access": {
+      "default": "read-only",
+      "label": "Access",
+      "options": [
+        {
+          "label": "Read-only",
+          "value": "read-only"
+        },
+        {
+          "label": "Read and write",
+          "value": "read-write"
+        }
+      ],
+      "type": "string"
+    }
+  },
+  "auth": {
+    "token": {
+      "config": {
+        "token": {
+          "label": "Tipeee access token",
+          "required": true,
+          "type": "secret"
+        }
+      },
+      "label": "Session access token",
+      "type": "manual"
+    }
+  },
+  "proxy": [
+    {
+      "action": {
+        "headers": {
+          "remove": [
+            "Authorization",
+            "Cookie",
+            "X-HTTP-Method-Override",
+            "X-HTTP-Method",
+            "X-Method-Override"
+          ]
+        },
+        "query": {
+          "access_token": "{{auth.token.token}}"
+        }
+      },
+      "match": {
+        "host": [
+          "api.tipeee.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/documents/payment-bill/{document}",
+          "/documents/payment-tips/{document}",
+          "/documents/payments/{report}",
+          "/v2.0/categories",
+          "/v2.0/inbox/search/{project}/tippers",
+          "/v2.0/inbox/users/{username}/unread",
+          "/v2.0/media/{media}",
+          "/v2.0/media/{media}/private",
+          "/v2.0/projects/{project}/campaigns",
+          "/v2.0/projects/{project}/campaigns/{campaign}/rewards",
+          "/v2.0/projects/{project}/campaigns/{campaign}/rewards/stats",
+          "/v2.0/projects/{project}/campaigns/{campaign}/subscriptions",
+          "/v2.0/projects/{project}/close_date",
+          "/v2.0/projects/{project}/discord/guild",
+          "/v2.0/projects/{project}/news",
+          "/v2.0/projects/{project}/news/{news}",
+          "/v2.0/projects/{project}/payments",
+          "/v2.0/projects/{project}/payout/state",
+          "/v2.0/projects/{project}/rewards",
+          "/v2.0/projects/{project}/rewards/{reward}",
+          "/v2.0/projects/{project}/statistics",
+          "/v2.0/projects/{project}/statistics/recurring/indicators",
+          "/v2.0/projects/{project}/subscription/widget/goal",
+          "/v2.0/threads/{thread}/comments"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "remove": [
+            "Authorization",
+            "Cookie",
+            "X-HTTP-Method-Override",
+            "X-HTTP-Method",
+            "X-Method-Override"
+          ]
+        },
+        "query": {
+          "access_token": "{{auth.token.token}}"
+        }
+      },
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "host": [
+          "api.tipeee.com"
+        ],
+        "method": [
+          "DELETE"
+        ],
+        "path": [
+          "/v2.0/inbox/threads/{threadToUser}",
+          "/v2.0/projects/{project}/discord/guild",
+          "/v2.0/projects/{project}/goals/{goal}",
+          "/v2.0/projects/{project}/news/{news}",
+          "/v2.0/threads/{thread}/comments/{comment}",
+          "/v2.0/users/{username}/relations/{relation}"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "remove": [
+            "Authorization",
+            "Cookie",
+            "X-HTTP-Method-Override",
+            "X-HTTP-Method",
+            "X-Method-Override"
+          ]
+        },
+        "query": {
+          "access_token": "{{auth.token.token}}"
+        }
+      },
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "host": [
+          "api.tipeee.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/documents/tippers/{report}",
+          "/v2.0/credentials/me",
+          "/v2.0/inbox/threads/{threadToUser}",
+          "/v2.0/inbox/threads/{threadToUser}/content",
+          "/v2.0/inbox/users/{username}/projects",
+          "/v2.0/inbox/users/{username}/thread",
+          "/v2.0/projects",
+          "/v2.0/projects/{project}",
+          "/v2.0/projects/{project}/widgets"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "remove": [
+            "Authorization",
+            "Cookie",
+            "X-HTTP-Method-Override",
+            "X-HTTP-Method",
+            "X-Method-Override"
+          ]
+        },
+        "query": {
+          "access_token": "{{auth.token.token}}"
+        }
+      },
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "host": [
+          "api.tipeee.com"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/v2.0/inbox/contents",
+          "/v2.0/inbox/contents/files",
+          "/v2.0/inbox/users/{username}/search-thread",
+          "/v2.0/media",
+          "/v2.0/projects",
+          "/v2.0/projects/pers/projects",
+          "/v2.0/projects/{project}",
+          "/v2.0/projects/{project}/avatar",
+          "/v2.0/projects/{project}/campaign",
+          "/v2.0/projects/{project}/contents",
+          "/v2.0/projects/{project}/cover",
+          "/v2.0/projects/{project}/dashboard",
+          "/v2.0/projects/{project}/enabled_streamings",
+          "/v2.0/projects/{project}/goals",
+          "/v2.0/projects/{project}/goals/{goal}",
+          "/v2.0/projects/{project}/links",
+          "/v2.0/projects/{project}/news",
+          "/v2.0/projects/{project}/news/{news}",
+          "/v2.0/projects/{project}/rewards",
+          "/v2.0/projects/{project}/rewards/{reward}",
+          "/v2.0/projects/{project}/widgets/alerts",
+          "/v2.0/projects/{project}/widgets/goals",
+          "/v2.0/projects/{project}/widgets/lasts",
+          "/v2.0/projects/{project}/widgets/totals",
+          "/v2.0/subscriptions/{subscription}/replays",
+          "/v2.0/threads/{thread}/comments",
+          "/v2.0/users/{username}/relations"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "remove": [
+            "Authorization",
+            "Cookie",
+            "X-HTTP-Method-Override",
+            "X-HTTP-Method",
+            "X-Method-Override"
+          ]
+        },
+        "query": {
+          "access_token": "{{auth.token.token}}"
+        }
+      },
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "host": [
+          "api.tipeee.com"
+        ],
+        "method": [
+          "PUT"
+        ],
+        "path": [
+          "/v2.0/inbox/threads/{threadToUser}/follow",
+          "/v2.0/inbox/threads/{threadToUser}/locked",
+          "/v2.0/inbox/threads/{threadToUser}/title",
+          "/v2.0/inbox/threads/{threadToUser}/unfollow",
+          "/v2.0/inbox/threads/{threadToUser}/unlocked",
+          "/v2.0/projects/{project}/payout",
+          "/v2.0/projects/{project}/rewards/{reward}/clone",
+          "/v2.0/projects/{project}/rewards/{reward}/transition"
+        ],
+        "protocol": "http"
+      }
+    }
+  ]
+}

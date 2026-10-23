@@ -40,6 +40,7 @@ func TestEveryProviderAuthenticationAndTransport(t *testing.T) {
 		"meta":        {"GET", "https://graph.facebook.com/v26.0/me"},
 		"gusto":       {"GET", "https://api.gusto.com/v1/token_info"},
 		"assessfirst": {"GET", "https://app.assessfirst.com/betty-V2/locales"},
+		"tipeee":      {"GET", "https://api.tipeee.com/v2.0/categories"},
 	}
 	for _, path := range paths {
 		provider := filepath.Base(filepath.Dir(path))
@@ -148,7 +149,12 @@ func TestEveryProviderAuthenticationAndTransport(t *testing.T) {
 					if err != nil {
 						t.Fatal(err)
 					}
-					if h.Get(credentialHeader) != authorization {
+					if provider == "tipeee" {
+						prepared, err := recipe.PrepareURL(r.Context)
+						if err != nil || prepared != ep[1]+"?access_token=synthetic-method-secret" || h.Get("Authorization") != "" {
+							t.Fatalf("wrong query credential injection: %v", err)
+						}
+					} else if h.Get(credentialHeader) != authorization {
 						t.Fatalf("wrong injection %q", h.Get(credentialHeader))
 					}
 					if _, err := r.Proxy.HTTPRecipe("GET", "https://unlisted.example.com/", nil); err == nil {

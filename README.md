@@ -1,6 +1,6 @@
 # Houston Hub
 
-This repository contains thirty-seven connector bundles, the authoritative manifest v1
+This repository contains thirty-eight connector bundles, the authoritative manifest v1
 contract and configured Lua operations. Registrations in Houston define the live
 catalog; repository files are not published automatically.
 
@@ -26,7 +26,7 @@ go run ./tools/validate
 Set `HOUSTON_CLI` to a freshly built Houston runner and put the pinned
 `luau-analyze` on `PATH`; the Go validator runs every resolved behavior fixture
 in the selected bundle. AssessFirst, Cal.com, Calendly, Carta, Carta CRM, Dolibarr, Dropbox, Fastmail, GitHub, Gmail, Google Calendar, Google Docs, Google Drive, Google Forms, Google Sheets, Google Slides, Gusto, IMAP, LinkedIn, Mercury,
-Meta Business Suite, Notion, PrestaShop, Resend, Stripe, Wise, WooCommerce, X and the ClickHouse, MariaDB, MySQL,
+Meta Business Suite, Notion, PrestaShop, Resend, Stripe, Tipeee, Wise, WooCommerce, X and the ClickHouse, MariaDB, MySQL,
 PostgreSQL, Redis and Supabase database connectors are migrated to the current
 runtime; other provider bundles remain available for future migration.
 From the Houston checkout, `go -C tools/runtime run . test-connectors` builds the
