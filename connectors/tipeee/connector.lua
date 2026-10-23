@@ -4,6 +4,16 @@ type Endpoint = {method: string, path: string, query: {string}?, body: string?, 
 local endpoints: {[string]: Endpoint} = {
 	getMe = {method = "GET", path = "/v2.0/credentials/me", write = true, about = "Connected user and projects; streaming api_key fields are removed."},
 	listCategories = {method = "GET", path = "/v2.0/categories", about = "Available project categories."},
+	checkProjectSlug = {method = "GET", path = "/v2.0/project/unique", query = {"slug"}, required = {"slug"}, about = "Check a proposed project slug; returns isUnique,uniqueSlug."},
+	getRewardTemplate = {method = "GET", path = "/v2.0/projects/{project}/rewards_default", about = "Native default reward object. Use its full modular shape as the starting point for createReward."},
+	listTopTippers = {method = "GET", path = "/v2.0/projects/{project}/top/tippers", query = {"page", "perPage"}, about = "Top supporters; items,pager."},
+	listNewsDrafts = {method = "GET", path = "/v2.0/projects/{project}/news/drafts", about = "Array of project news drafts; listNews(statusFilter='draft') also supports pagination."},
+	getMessageSupporter = {method = "GET", path = "/v2.0/inbox/projects/{project}/subscription/{user}", write = true, about = "Supporter subscription context for inbox conversations; project slug and supporter user id."},
+	listSupportMessages = {method = "GET", path = "/v2.0/projects/{project}/admin/messages", query = {"page", "perPage"}, write = true, about = "Creator correspondence with the Tipeee project manager; UI page1/perPage10. Requires read-write like inbox content."},
+	sendSupportMessage = {method = "POST", path = "/v2.0/projects/{project}/admins/messages", body = "form", required = {"content"}, about = "Send to the project's Tipeee support manager. data.content max3000 characters; files['attachementsFile[0][uploadedFile]'] (native spelling) for optional attachments."},
+	listProjectFeed = {method = "GET", path = "/v2.0/feed/users/{user}/projects/{project}", query = {"read", "type", "perPage", "token", "direction"}, about = "user is username, project slug. read='false' for unread; type ALL/NEWTIP/COMMENT/CANCELED/VERIFICATION/OTHER. Cursor items,pager,options,add_data.unread; continue token=pager.next,direction='next'; perPage default15."},
+	markProjectFeedRead = {method = "PUT", path = "/v2.0/feed/users/{user}/projects/{project}/read", about = "Mark all project feed notifications read; user is username."},
+	markNotificationRead = {method = "PUT", path = "/v2.0/feed/users/{user}/notifications/{notification}/read", about = "Mark one feed notification read; user is username."},
 	listProjects = {method = "GET", path = "/v2.0/projects", write = true, query = {"page", "perPage", "q", "mode", "lang", "category", "campaign_type"}, about = "Project discovery; items and pager."},
 	getProject = {method = "GET", path = "/v2.0/projects/{project}", write = true, about = "Project by slug; streaming api_key removed."},
 	createProject = {method = "POST", path = "/v2.0/projects", required = {"translations", "slug", "lang", "categories"}, body = "form", about = "Create a recurring project draft; translations={en={name='My project'}}, categories={id,...}."},
@@ -16,6 +26,10 @@ local endpoints: {[string]: Endpoint} = {
 	updateProjectCover = {method = "PUT", path = "/v2.0/projects/{project}/cover", body = "form", about = "files['cover[uploadedFile]']; data.cover.uploadedFileOptions={x,y,width,height} or {delete=true}."},
 	updateProjectSettings = {method = "PUT", path = "/v2.0/projects/{project}/dashboard", body = "form", about = "parameters={hidedAmount={value=1},recurring_only={value=1},notification_tip={value=1},deleted_sub_notification={value=1},nsfw={value=1}}; thanksMail={content='...'} max1000."},
 	getCloseDate = {method = "GET", path = "/v2.0/projects/{project}/close_date", about = "Scheduled closeDate."},
+	prepareProjectPublication = {method = "PUT", path = "/v2.0/projects/{project}/validation", body = "form", about = "Submit the completed project for the publication step. Empty form; does not accept agreements automatically."},
+	publishProject = {method = "PUT", path = "/v2.0/projects/{project}/tos/validation", body = "form", required = {"tipeee", "adyen", "hyperwallet"}, about = "Accept agreements and activate the project. data={tipeee='on',adyen='on',hyperwallet='on'} requires the user's explicit agreement to all three current provider terms; never infer consent."},
+	requestProjectClosureCode = {method = "PUT", path = "/v2.0/projects/{project}/delete_email_request", about = "Email a one-time project closure code. Wait at least10 seconds before requesting another code."},
+	closeProject = {method = "PUT", path = "/v2.0/projects/{project}/pre_delete", body = "form", required = {"token"}, about = "Schedule irreversible project closure using data={token='012345'}, the six-digit emailed confirmation code, not the account access token. Requires explicit closure instruction; inspect getCloseDate afterward."},
 	getPayoutState = {method = "GET", path = "/v2.0/projects/{project}/payout/state", about = "Payout eligibility: status,last_date,errors. errors contains eligibility flags and is preserved, including false values."},
 	requestPayout = {method = "PUT", path = "/v2.0/projects/{project}/payout", about = "Requests a money transfer. Inspect state after ambiguous failure; successful HTTP may contain errors."},
 	createGoal = {method = "POST", path = "/v2.0/projects/{project}/goals", required = {"translations", "amount"}, body = "form", about = "translations={en={name='Goal',description='<p>Details</p>'}},amount=100; description max1024."},
@@ -186,8 +200,20 @@ local function validateData(name: string, data: Options)
 		assert(type(data.body) == "string", "body must be comment text")
 		local length = utf8.len(data.body)
 		assert(length ~= nil and length > 0 and length <= 1024, "body must be nonempty UTF-8 comment text (max1024 characters)")
+	elseif name == "sendSupportMessage" then
+		assert(type(data.content) == "string", "content must be message text")
+		local length = utf8.len(data.content)
+		assert(length ~= nil and length > 0 and length <= 3000, "content must contain 1..3000 UTF-8 characters")
 	elseif name == "createNews" then
 		assert(type(data.draft) == "boolean", "draft must explicitly be true or false")
+	elseif name == "prepareProjectPublication" then
+		assert(next(data) == nil, "publication preparation takes no data")
+	elseif name == "publishProject" then
+		for _, field in {"tipeee", "adyen", "hyperwallet"} do
+			assert(data[field] == "on", field .. " agreement must explicitly be 'on'")
+		end
+	elseif name == "closeProject" then
+		assert(type(data.token) == "string" and string.match(data.token, "^%d%d%d%d%d%d$"), "token must be the six-digit emailed closure code")
 	elseif name == "uploadMessageFileChunk" then
 		identifier(data.fileId, "fileId")
 		assert(type(data.chunkIndex) == "number" and data.chunkIndex >= 0 and data.chunkIndex % 1 == 0, "chunkIndex must be a zero-based integer")
@@ -292,7 +318,7 @@ exports.help = function(): string
 		"With read-write, use getMe() to discover creator projects and username_canonical. For read-only, use the known project slug from its website URL: listCampaigns({project='my-slug'}), then listTippers({project='my-slug',campaign='ID',page=0,perPage=100}). Numeric ids or simple slugs are accepted; no full URLs. Lists return items,pager (currentPage,perPage,next,pageNbr), except arrays noted below. Return one page; follow pager.next, comments token/direction, or message token. No automatic paging or connector retry loop. Houston transport can retry non-streamed HTTP429 responses twice (including JSON/bodyless writes); streamed forms,5xx and transport failures are not replayed. Rates and token lifetime are undocumented; 429/5xx are retryable, errors include Retry-After when present. Inspect outcome before retrying writes.",
 		"Reward data: price, translations={en={name,description_v2}}, presale,has_presale,transition,modules. Modules: display={is_pinned,is_private,private_link,start,['end'],_is_Activate}; stock={noReset,available={unlimited,quantity},perUser={unlimited,quantity},_is_Activate}; attachment={content,files,links,_is_Activate} max3; discord={role_name,role_id,duration,_is_Activate}; shipping={addressRequired,phonenumberRequired,_is_Activate}; custom={settings={{name,options={{name,is_additional_config=false}}}}}. Keep existing module values when updating. Reward name<=100, HTML description<=1500; recurring price1..1000,one-off1..5000. File values use files with bracket paths.",
 		"News: name,contentv2={translations={en={html,components}}},draft,private,parameters={private_type='amount'/'rewards',private_rule_amount,private_rule_rewards={id,...},tip_content=1},tags={{name}},isPinned,publishedAt,survey={name,questions={{type,name,answers={{name}}}}}. Draft creation example: createNews({project='my-slug',data={name='Update',contentv2={translations={en={html='<p>Hello</p>'}}},draft=true}}). Publishing can notify supporters; tip_content=1 can charge them. Payouts move funds; inbox CREATE broadcasts to rules; exports can email personal data. Obtain user instruction for these actions.",
-		"Read-only omits all writes, account/project discovery and inbox project/thread/content reads (project objects may carry streaming keys; opening inbox content may mark it read), widget secret links, and tipper exports (the shared GET route can email exports). Creator ownership/role and payout eligibility are enforced by Tipeee. Connect Discord and complete KYC, terms acceptance, publication/closure and account security on Tipeee's website. Credential rotation, tipper checkout/subscription purchases, admin, and streaming endpoints requiring a project API key are outside this connector.",
+		"Read-only omits all writes, account/project discovery and inbox project/thread/content reads (project objects may carry streaming keys; opening inbox content may mark it read), widget secret links, and tipper exports (the shared GET route can email exports). Creator ownership/role and payout eligibility are enforced by Tipeee. Complete KYC, account security and Discord association on Tipeee's website. Project publication requires explicit acceptance of Tipeee, Adyen and Hyperwallet terms; closure requires explicit instruction and the emailed confirmation code. Credential rotation, tipper checkout/subscription purchases, staff administration, and streaming endpoints requiring a project API key are outside this connector.",
 		"Files stream to/from session storage; downloads return {path,size,url} with Houston's signed file URL. Failed transfers can leave partial files. No external URL fetches. Native limits include256 calls/invocation,64MiB Luau memory,8MiB JSON frames; use smaller pages and stream files. Upload chunks sequentially with stable fileId,chunkIndex,totalChunks; do not replay ambiguous uploads. Private uploaded slugs must be attached separately.",
 	}
 	local names: {string} = {}

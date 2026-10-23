@@ -7,6 +7,10 @@ Connect a Tipeee creator account with its session access token. Read projects,
 rewards, news, comments, campaign supporters, payments, statistics and inbox
 messages. Read-write access also manages creator content, sends messages,
 requests payouts, uploads media, exports reports and configures streaming widgets.
+It also covers project publication and email-confirmed closure, reward templates,
+slug availability, top supporters, dashboard notifications and correspondence
+with Tipeee's project managers. `publishProject` accepts provider agreements only
+when all three native consent fields are explicitly supplied as `on`.
 
 This connector uses the website's unofficial API v2.0, inspected on 2026-10-23.
 The [official general documentation](https://api.tipeee.com/api/doc/default)
@@ -23,10 +27,13 @@ The connector does not add retries or fetch every page. Houston transport can
 retry non-streamed HTTP 429 responses twice, including JSON or bodyless writes;
 streamed forms, HTTP 5xx and transport failures are not automatically replayed.
 
-Read-only is the default. Account/project discovery and inbox project/thread/content reads require
+Read-only is the default. Account/project discovery and inbox
+project/thread/content reads require
 read-write: project objects can carry streaming keys, and opening inbox content
 may mark messages read. Widget secret links and tipper exports also require
 read-write, even where Tipeee uses GET. Publishing news may notify supporters or
 collect tips; payouts transfer money and inbox broadcasts send messages. Use
-these actions only when requested. Account security, provider agreements, KYC,
-project publication/closure and Discord association remain on Tipeee's website.
+these actions only when requested. Account security, KYC and Discord association
+remain on Tipeee's website. Project publication
+requires explicit acceptance of all three provider agreements; closure uses the
+emailed six-digit confirmation code and is irreversible.

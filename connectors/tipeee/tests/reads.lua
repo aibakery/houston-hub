@@ -12,7 +12,7 @@ return {
 	end,
 	run = function(t)
 		local API = "https://api.tipeee.com"
-		local names = "downloadMedia downloadPaymentBill downloadPaymentTips downloadPayments downloadPrivateMedia getCampaignRewardStats getCloseDate getDiscordGuild getNews getPayoutState getRecurringIndicators getReward getStatistics getUnreadMessages getWidgetGoal listCampaignRewards listCampaigns listCategories listComments listNews listPayments listRewards listTippers searchMessageTippers"
+		local names = "checkProjectSlug getRewardTemplate listTopTippers listNewsDrafts listProjectFeed downloadMedia downloadPaymentBill downloadPaymentTips downloadPayments downloadPrivateMedia getCampaignRewardStats getCloseDate getDiscordGuild getNews getPayoutState getRecurringIndicators getReward getStatistics getUnreadMessages getWidgetGoal listCampaignRewards listCampaigns listCategories listComments listNews listPayments listRewards listTippers searchMessageTippers"
 		local expected = {}
 		for name in string.gmatch(names, "%S+") do expected[name] = true; assert(type(t[name]) == "function", name) end
 		for name in t do assert(expected[name], "unexpected read-only export " .. name) end

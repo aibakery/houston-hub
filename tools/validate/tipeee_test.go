@@ -21,6 +21,15 @@ func TestTipeeeCreatorRoutesAndQueryCredentials(t *testing.T) {
 				{"GET", "/v2.0/credentials/me", true},
 				{"GET", "/v2.0/projects/creator", true},
 				{"GET", "/v2.0/projects/creator/campaigns/oct/subscriptions", false},
+				{"GET", "/v2.0/project/unique?slug=creator", false},
+				{"GET", "/v2.0/projects/creator/rewards_default", false},
+				{"GET", "/v2.0/projects/creator/top/tippers", false},
+				{"GET", "/v2.0/feed/users/creator/projects/art", false},
+				{"PUT", "/v2.0/feed/users/creator/projects/art/read", true},
+				{"PUT", "/v2.0/feed/users/creator/notifications/12/read", true},
+				{"GET", "/v2.0/inbox/projects/art/subscription/12", true},
+				{"GET", "/v2.0/projects/creator/admin/messages", true},
+				{"POST", "/v2.0/projects/creator/admins/messages", true},
 				{"GET", "/documents/payments/creator_2026.csv", false},
 				{"GET", "/v2.0/inbox/threads/123/content", true},
 				{"GET", "/v2.0/projects/creator/widgets", true},
@@ -30,6 +39,10 @@ func TestTipeeeCreatorRoutesAndQueryCredentials(t *testing.T) {
 				{"PUT", "/v2.0/projects/creator/payout", true},
 				{"DELETE", "/v2.0/threads/news/comments/12", true},
 				{"POST", "/v2.0/inbox/contents/files", true},
+				{"POST", "/v2.0/projects/creator/validation", true},
+				{"POST", "/v2.0/projects/creator/tos/validation", true},
+				{"PUT", "/v2.0/projects/creator/delete_email_request", true},
+				{"POST", "/v2.0/projects/creator/pre_delete", true},
 			}
 			for _, c := range cases {
 				recipe, err := r.Proxy.HTTPRecipe(c.method, "https://api.tipeee.com"+c.path, nil)

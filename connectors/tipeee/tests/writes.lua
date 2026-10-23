@@ -24,8 +24,8 @@ return {
 				assert(string.find(req.body, 'name="' .. key .. '"\r\n\r\n' .. value .. '\r\n', 1, true), "missing form " .. key)
 			end
 		end
-		local writes = "getMe getProject listProjects listInboxProjects listInboxThreads getInboxThread listMessages blockTipper cloneReward configureAlertsWidget configureGoalsWidget configureLastsWidget configureTotalsWidget createComment createGoal createNews createOneOffProject createProject createReward deleteComment deleteGoal deleteNews deleteThread disconnectDiscord downloadTippers emailTippersExport enableStreaming findOrCreateThread followThread getWidgets lockThread renameThread replayStreamAlert requestPayout sendMessage transitionReward unblockTipper unfollowThread unlockThread updateCampaign updateGoal updateNews updateProject updateProjectAvatar updateProjectCover updateProjectDescription updateProjectLinks updateProjectSettings updateReward uploadMedia uploadMessageFileChunk"
-		local reads = "downloadMedia downloadPaymentBill downloadPaymentTips downloadPayments downloadPrivateMedia getCampaignRewardStats getCloseDate getDiscordGuild getNews getPayoutState getRecurringIndicators getReward getStatistics getUnreadMessages getWidgetGoal listCampaignRewards listCampaigns listCategories listComments listNews listPayments listRewards listTippers searchMessageTippers"
+		local writes = "getMessageSupporter listSupportMessages sendSupportMessage markProjectFeedRead markNotificationRead prepareProjectPublication publishProject requestProjectClosureCode closeProject getMe getProject listProjects listInboxProjects listInboxThreads getInboxThread listMessages blockTipper cloneReward configureAlertsWidget configureGoalsWidget configureLastsWidget configureTotalsWidget createComment createGoal createNews createOneOffProject createProject createReward deleteComment deleteGoal deleteNews deleteThread disconnectDiscord downloadTippers emailTippersExport enableStreaming findOrCreateThread followThread getWidgets lockThread renameThread replayStreamAlert requestPayout sendMessage transitionReward unblockTipper unfollowThread unlockThread updateCampaign updateGoal updateNews updateProject updateProjectAvatar updateProjectCover updateProjectDescription updateProjectLinks updateProjectSettings updateReward uploadMedia uploadMessageFileChunk"
+		local reads = "checkProjectSlug getRewardTemplate listTopTippers listNewsDrafts listProjectFeed downloadMedia downloadPaymentBill downloadPaymentTips downloadPayments downloadPrivateMedia getCampaignRewardStats getCloseDate getDiscordGuild getNews getPayoutState getRecurringIndicators getReward getStatistics getUnreadMessages getWidgetGoal listCampaignRewards listCampaigns listCategories listComments listNews listPayments listRewards listTippers searchMessageTippers"
 		local expected = {}
 		for name in string.gmatch(reads .. " " .. writes, "%S+") do expected[name] = true; assert(type(t[name]) == "function", name) end
 		for name in t do assert(expected[name], "unexpected export " .. name) end
@@ -84,5 +84,20 @@ return {
 		payload = "{}"
 		t.createComment({thread="p",data={body=string.rep("é",1024)}})
 		form("POST","/v2.0/threads/p/comments",{body=string.rep("é",1024)})
+		t.prepareProjectPublication({project="my-art"})
+		form("POST","/v2.0/projects/my-art/validation",{_method="put"})
+		t.publishProject({project="my-art",data={tipeee="on",adyen="on",hyperwallet="on"}})
+		form("POST","/v2.0/projects/my-art/tos/validation",{_method="put",tipeee="on",adyen="on",hyperwallet="on"})
+		t.requestProjectClosureCode({project="my-art"})
+		assert(last().method == "PUT" and last().url == "https://api.tipeee.com/v2.0/projects/my-art/delete_email_request" and last().body == nil)
+		t.closeProject({project="my-art",data={token="012345"}})
+		form("POST","/v2.0/projects/my-art/pre_delete",{_method="put",token="012345"})
+		before = #requests
+		assert(not pcall(function() t.publishProject({project="p",data={tipeee="on",adyen="on"}}) end))
+		assert(not pcall(function() t.publishProject({project="p",data={tipeee=true,adyen=true,hyperwallet=true}}) end))
+		for _, code in {123456,"12345","1234567","abcdef","session-token"} do
+			assert(not pcall(function() t.closeProject({project="p",data={token=code}}) end))
+		end
+		assert(#requests == before,"invalid lifecycle action reached network")
 	end,
 }

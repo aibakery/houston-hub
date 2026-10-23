@@ -1212,11 +1212,17 @@ credential redaction. Deploy that runtime before registering this bundle on a
 tracked branch. Existing connectors require no re-setup; this is a new provider.
 
 Coverage checked on 2026-10-23 against Tipeee website release `20261022134411`:
-projects and descriptions, campaigns, goals, modular rewards, news and paid
+projects and descriptions, publication with explicit provider-agreement acceptance,
+email-confirmed project closure, campaigns, goals, modular rewards, news and paid
 publications, comment moderation, campaign supporter lists, payment reports,
 statistics, tipper blocking, inbox threads/broadcasts/replies and chunk uploads,
 media uploads/downloads, existing Discord guilds, widget settings and alert
 replays. Multipart updates reproduce the website's POST `_method=put` behavior.
+The 89 operations also include reward defaults, slug availability, top supporters,
+inbox supporter context, creator correspondence with Tipeee project managers and
+dashboard notification feeds/mark-read actions. Publication requires explicit
+`tipeee=on`, `adyen=on`, `hyperwallet=on`; closure validates the emailed six-digit
+code and never substitutes the account session token. No terms are auto-accepted.
 Native JSON results retain their envelopes except credential fields removed
 recursively. Project streaming keys are never exported. Account/project discovery and inbox project/thread/content reads are gated
 read-write because of project credentials and possible mark-read side effects.
@@ -1230,8 +1236,8 @@ References: [official partial general spec](https://api.tipeee.com/api/doc/defau
 [current first-party app source](https://en.tipeee.com/_nuxt/20261022134411.30.js)
 and its dynamically loaded form components. Unofficial creator management has
 no complete public specification. Deliberate omissions: speculative OAuth,
-account credentials and API-key rotation, admin routes, tipper checkout/purchases,
-KYC, terms acceptance, project publication/closure, browser Discord association,
+account credentials and API-key rotation, staff-only administration, tipper checkout/purchases,
+KYC, browser Discord association,
 project-key streaming event/simulation routes, and unused legacy routes whose
 request contracts were not observed. Completing these flows on Tipeee's website
 remains possible; this connector does not claim all declared internal routes.
