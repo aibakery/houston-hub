@@ -26,12 +26,12 @@
     "token": {
       "config": {
         "token": {
-          "label": "Tipeee access token",
+          "label": "Tipeee session token",
           "required": true,
           "type": "secret"
         }
       },
-      "label": "Session access token",
+      "label": "Website session",
       "type": "manual"
     }
   },

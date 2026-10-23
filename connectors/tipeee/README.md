@@ -1,39 +1,19 @@
 ---
-description: Manage Tipeee creator pages, rewards, news, supporters, reports and messages through its unofficial website API.
+description: Manage your Tipeee creator page, rewards, news, supporters, reports and messages.
 ---
 # Tipeee
 
-Connect a Tipeee creator account with its session access token. Read projects,
-rewards, news, comments, campaign supporters, payments, statistics and inbox
-messages. Read-write access also manages creator content, sends messages,
-requests payouts, uploads media, exports reports and configures streaming widgets.
-It also covers project publication and email-confirmed closure, reward templates,
-slug availability, top supporters, dashboard notifications and correspondence
-with Tipeee's project managers. `publishProject` accepts provider agreements only
-when all three native consent fields are explicitly supplied as `on`.
+Connect your Tipeee creator account to follow your supporters, review payments
+and statistics, and work with your rewards and news.
 
-This connector uses the website's unofficial API v2.0, inspected on 2026-10-23.
-The [official general documentation](https://api.tipeee.com/api/doc/default)
-covers only a small subset; the [partner documentation](https://api.tipeee.com/api/doc/partner)
-is for tipper integrations. Creator management contracts come from the current
-[first-party website source](https://en.tipeee.com/_nuxt/20261022134411.30.js).
-They can change without notice. No authenticated live requests have been used to
-verify this implementation; fixtures exercise the observed request contracts.
+**Read-only** lets you view supported content and reports. **Read and write**
+also lets you manage your page, publish news, use your inbox, send messages,
+request payouts, upload files and configure streaming widgets. Opening inbox
+messages may mark them as read, so inbox access requires **Read and write**.
 
-Use `help()` for operations, native data shapes, pagination and examples. Results
-retain native fields except credential fields (`api_key`, `access_token`,
-`refresh_token`), which are removed recursively. Downloads stream to session files.
-The connector does not add retries or fetch every page. Houston transport can
-retry non-streamed HTTP 429 responses twice, including JSON or bodyless writes;
-streamed forms, HTTP 5xx and transport failures are not automatically replayed.
+Your Tipeee account permissions still apply. Identity verification, account
+security and linking a Discord account remain on Tipeee's website.
 
-Read-only is the default. Account/project discovery and inbox
-project/thread/content reads require
-read-write: project objects can carry streaming keys, and opening inbox content
-may mark messages read. Widget secret links and tipper exports also require
-read-write, even where Tipeee uses GET. Publishing news may notify supporters or
-collect tips; payouts transfer money and inbox broadcasts send messages. Use
-these actions only when requested. Account security, KYC and Discord association
-remain on Tipeee's website. Project publication
-requires explicit acceptance of all three provider agreements; closure uses the
-emailed six-digit confirmation code and is irreversible.
+This connection uses your Tipeee website session. You may need to reconnect if
+Tipeee expires or revokes it. The integration is unofficial and may need updates
+when Tipeee changes its website.

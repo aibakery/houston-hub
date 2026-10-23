@@ -12,12 +12,9 @@ payment confirmation and capture, refunds, subscription changes, invoice actions
 payouts, Checkout and billing portal sessions, and file uploads. Stripe key
 permissions and account eligibility also apply. Keys select live or test data.
 
-Functions return one page at a time. Read-only results remove payment-capable
-credential fields (`client_secret`, `confirmation_secret`, `client_token` and
-`secret`) at every depth, including metadata. Other fields and read-write results
-preserve Stripe's native values. Hosted payment links remain sensitive. File
-uploads and downloads stream through Houston session files. Call `help()` for
-available operations, parameters, pagination and examples.
+Read-only access hides credentials that could authorize payments. Payment links
+can still allow someone to complete a payment, so share them carefully. You can
+also download files and, with read and write access, upload them.
 
 This connector uses Stripe's public payments and billing API, pinned to
 `2026-09-30.endive`. It does not manage Atlas incorporation, equity, tax filings
