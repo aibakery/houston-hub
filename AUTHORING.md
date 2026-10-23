@@ -497,11 +497,15 @@ legal JSON property order validates. Formatting should preserve the source order
 Use adjacent `README.md` (optionally with `description` frontmatter for a card
 summary) for a short, appealing overview of what people can do with the connector.
 Describe useful capabilities, access choices, limits, and costs in plain language.
-The public description must not mention Lua/Luau, `help()`, callable function names,
-request or response fields, pagination parameters, or code examples. This applies
-to the README body, its `description` frontmatter, and the manifest's inline
-`description`. Put all programming usage documentation in the connector's Lua
-`help()` function; moving it there must preserve useful examples and caveats.
+User-facing documentation and forms must not teach agent usage: no Lua/Luau,
+`help()`, callable function names, request or response shapes, pagination examples,
+or MCP instructions. This applies to README content and frontmatter, `SETUP.md`,
+inline descriptions and setup, and configuration labels and descriptions.
+Credential names and provider permissions belong in setup when people need them
+to connect. Keep these surfaces focused on capabilities, access choices and
+account setup. Agents discover usage through MCP initialization, system
+instructions and the connector's Lua `help()`; preserve programming examples
+and caveats there.
 
 Put account setup instructions in `SETUP.md`: choosing an available authentication method,
 obtaining an account token when needed, granting provider permissions, and adding
