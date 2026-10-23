@@ -39,6 +39,12 @@ return {
 		assert(json.encode(t.listCampaigns({project="my-project"})) == "[]")
 		t.getStatistics({project="my-project",type="PER_PROJECT_CAMPAIGN",timeUnit="DAY"})
 		assert(requests[7].url == API .. "/v2.0/projects/my-project/statistics?type=PER_PROJECT_CAMPAIGN&timeUnit=DAY")
+		for _, blocked in {false, true} do
+			payload = json.encode({status="waiting",last_date="2026-10-01",errors={MISSING_CERTIFICATION=blocked,MISSING_BANKING_INFO=false}})
+			local state = t.getPayoutState({project="my-project"})
+			assert(state.status == "waiting" and state.last_date == "2026-10-01")
+			assert(state.errors.MISSING_CERTIFICATION == blocked and state.errors.MISSING_BANKING_INFO == false)
+		end
 		local before = #requests
 		for _, project in {"../bad","x/y","x%2fy","https://evil.example"} do
 			assert(not pcall(function() t.getReward({project=project,reward=1}) end))

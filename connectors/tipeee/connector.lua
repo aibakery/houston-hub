@@ -16,7 +16,7 @@ local endpoints: {[string]: Endpoint} = {
 	updateProjectCover = {method = "PUT", path = "/v2.0/projects/{project}/cover", body = "form", about = "files['cover[uploadedFile]']; data.cover.uploadedFileOptions={x,y,width,height} or {delete=true}."},
 	updateProjectSettings = {method = "PUT", path = "/v2.0/projects/{project}/dashboard", body = "form", about = "parameters={hidedAmount={value=1},recurring_only={value=1},notification_tip={value=1},deleted_sub_notification={value=1},nsfw={value=1}}; thanksMail={content='...'} max1000."},
 	getCloseDate = {method = "GET", path = "/v2.0/projects/{project}/close_date", about = "Scheduled closeDate."},
-	getPayoutState = {method = "GET", path = "/v2.0/projects/{project}/payout/state", about = "Payout eligibility and state."},
+	getPayoutState = {method = "GET", path = "/v2.0/projects/{project}/payout/state", about = "Payout eligibility: status,last_date,errors. errors contains eligibility flags and is preserved, including false values."},
 	requestPayout = {method = "PUT", path = "/v2.0/projects/{project}/payout", about = "Requests a money transfer. Inspect state after ambiguous failure; successful HTTP may contain errors."},
 	createGoal = {method = "POST", path = "/v2.0/projects/{project}/goals", required = {"translations", "amount"}, body = "form", about = "translations={en={name='Goal',description='<p>Details</p>'}},amount=100; description max1024."},
 	updateGoal = {method = "PUT", path = "/v2.0/projects/{project}/goals/{goal}", body = "form", about = "Goal fields as createGoal; response is updated goals."},
@@ -145,7 +145,7 @@ local function decode(name: string, response: HttpResponse, allowEmpty: boolean)
 	if not ok or type(value) ~= "table" or not string.match(raw, "^%s*[%[{]") then
 		fail(name, response, {message = "Invalid JSON response"})
 	end
-	if value.errors ~= nil and value.errors ~= NULL and (type(value.errors) ~= "table" or next(value.errors) ~= nil) then fail(name, response, value) end
+	if name ~= "getPayoutState" and value.errors ~= nil and value.errors ~= NULL and (type(value.errors) ~= "table" or next(value.errors) ~= nil) then fail(name, response, value) end
 	return project(value)
 end
 
