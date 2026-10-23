@@ -1,44 +1,34 @@
 # Connect Tipeee
 
-1. Sign in to your creator account at [Tipeee](https://en.tipeee.com/), and open
+1. Sign in to your creator account at [Tipeee](https://en.tipeee.com/) and open
    your creator dashboard.
-2. Open your browser's developer tools. In **Application → Local Storage →
-   https://en.tipeee.com**, locate `access_token`. On Firefox the equivalent is
-   **Storage → Local Storage**. Use your actual Tipeee language origin if different.
-   Copy the token's value; remove surrounding JSON quotes if the browser displays
-   a quoted string. If it is not present, reload the signed-in dashboard and
-   inspect a request to `api.tipeee.com` in **Network**: its query contains
-   `access_token`. Copy only that value, not the complete URL.
-3. In Houston, add the Tipeee connection, select **Session access token**, and
-   paste the value into **Tipeee access token**. Keep the token in this secret field;
-   do not paste it into scripts, chat or screenshots.
-4. Choose **Read-only**, or **Read and write** if you need creator mutations,
-   messages, payouts, account/project discovery, inbox threads, widget links or tipper exports. Save the connection.
-5. Call `help()`, then `listRewards({project='your-project-slug'})` to check
-   access using the slug from your creator page URL. With read-write access,
-   `getMe()` also discovers your projects and canonical username; `getProject()`
-   returns the project details. These discovery endpoints require read-write
-   because their responses can carry a separate streaming credential.
+2. Open your browser's developer tools. In Chrome or Edge, go to
+   **Application → Cookies** and select the Tipeee site. In Firefox, use
+   **Storage → Cookies**. Find the cookie named **auth** and copy its value.
+3. In Houston, choose **Website session** and paste the value into
+   **Tipeee session token**. Keep it private, just like a password.
+4. Choose **Read-only** to view content and reports, or **Read and write** to
+   manage your page, use your inbox, send messages or request payouts. Save
+   the connection.
 
 ## Advanced
 
-This is an unofficial session-token integration, not a provider-issued developer
-API key or a registered OAuth application. No developer console, self-service
-OAuth registration, verified code-exchange contract or refresh mechanism was
-found. No OAuth scopes need selecting. Houston injects `access_token` in the
-upstream query on its server because the observed API requires it; connector
-code never receives the account token. Tipeee and its infrastructure may log
-query URLs.
+If you cannot find the **auth** cookie, check **Local Storage** for your Tipeee
+site and look for **access_token**. Copy its value without surrounding quotes.
+You can also reload your signed-in dashboard with the **Network** panel open,
+select a request to **api.tipeee.com**, and copy the **access_token** query value.
+Copy only the value, not the whole URL.
 
-Token lifetime is undocumented. If requests fail with 400 code `00004` or 403
-access denied, sign in again, copy the current session token and update the
-connection. Confirm that your account owns the project and that its slug is
-correct. Payouts additionally require Tipeee's payout eligibility and completed
-provider setup. Rate limits are undocumented; honor a returned `Retry-After`.
+You do not need a developer application or a streaming API key. The streaming
+key shown in Tipeee's widget settings is for a different feature.
 
-Use the [official general API docs](https://api.tipeee.com/api/doc/default)
-for the documented subset. The [partner API](https://api.tipeee.com/api/doc/partner)
-is a different integration for tippers and does not document creator management.
-Creator fields were inspected in website release `20261022134411`; upstream
-changes may require updating the connector. Do not automatically repeat a timed-out
-publication, payment, message or upload: check its outcome first.
+Tipeee extends the browser cookie's expiry when you return to the website,
+while keeping the same token. Houston saves its own copy: the browser cookie
+expiring does not itself disconnect Houston. Tipeee can still expire or revoke
+the token, and its server-side lifetime is undocumented. Automatic renewal is
+not available for this connection. If access stops working, sign in again and
+update the token in Houston.
+
+If a particular page or report is unavailable, check that the connected account
+owns the page and has the necessary Tipeee permissions. Payouts also require
+Tipeee's identity verification and payout setup.

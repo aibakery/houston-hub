@@ -6,7 +6,7 @@ local endpoints: {[string]: Endpoint} = {
 	listCategories = {method = "GET", path = "/v2.0/categories", about = "Available project categories."},
 	checkProjectSlug = {method = "GET", path = "/v2.0/project/unique", query = {"slug"}, required = {"slug"}, about = "Check a proposed project slug; returns isUnique,uniqueSlug."},
 	getRewardTemplate = {method = "GET", path = "/v2.0/projects/{project}/rewards_default", about = "Native default reward object. Use its full modular shape as the starting point for createReward."},
-	listTopTippers = {method = "GET", path = "/v2.0/projects/{project}/top/tippers", query = {"page", "perPage"}, about = "Top supporters; items,pager."},
+	listTopTippers = {method = "GET", path = "/v2.0/projects/{project}/top/tippers", query = {"page", "perPage"}, about = "Top supporters; items,pager. perPage must be 2..150."},
 	listNewsDrafts = {method = "GET", path = "/v2.0/projects/{project}/news/drafts", about = "Array of project news drafts; listNews(statusFilter='draft') also supports pagination."},
 	getMessageSupporter = {method = "GET", path = "/v2.0/inbox/projects/{project}/subscription/{user}", write = true, about = "Supporter subscription context for inbox conversations; project slug and supporter user id."},
 	listSupportMessages = {method = "GET", path = "/v2.0/projects/{project}/admin/messages", query = {"page", "perPage"}, write = true, about = "Creator correspondence with the Tipeee project manager; UI page1/perPage10. Requires read-write like inbox content."},
@@ -52,7 +52,7 @@ local endpoints: {[string]: Endpoint} = {
 	listCampaigns = {method = "GET", path = "/v2.0/projects/{project}/campaigns", about = "Array of campaign ids and metadata."},
 	listCampaignRewards = {method = "GET", path = "/v2.0/projects/{project}/campaigns/{campaign}/rewards", about = "Array of historical rewards."},
 	getCampaignRewardStats = {method = "GET", path = "/v2.0/projects/{project}/campaigns/{campaign}/rewards/stats", about = "rewards,reward_tippers,total_tippers,no_reward_tippers."},
-	listTippers = {method = "GET", path = "/v2.0/projects/{project}/campaigns/{campaign}/subscriptions", query = {"rewardId", "noReward", "page", "perPage"}, about = "items,pager; page starts0, UI perPage100, noReward=0/1. Contains personal supporter data."},
+	listTippers = {method = "GET", path = "/v2.0/projects/{project}/campaigns/{campaign}/subscriptions", query = {"rewardId", "noReward", "page", "perPage"}, about = "items,pager; page starts1 and defaults1, UI perPage100, noReward=0/1 defaults0. Contains personal supporter data."},
 	listPayments = {method = "GET", path = "/v2.0/projects/{project}/payments", query = {"year"}, about = "Year YYYY; items and payment metadata, including original_payment.id for PDFs."},
 	getStatistics = {method = "GET", path = "/v2.0/projects/{project}/statistics", query = {"type", "timeUnit", "startDate", "endDate", "mode"}, required = {"type", "timeUnit"}, about = "data,extra_data; e.g type='VISITOR_NUMBER',timeUnit='DAY',startDate='2026-10-01'."},
 	getRecurringIndicators = {method = "GET", path = "/v2.0/projects/{project}/statistics/recurring/indicators", about = "tipNumber,tipAmount,tipAverageAmount,tipAverageDuration."},
@@ -74,7 +74,7 @@ local endpoints: {[string]: Endpoint} = {
 	deleteThread = {method = "DELETE", path = "/v2.0/inbox/threads/{threadToUser}", about = "Delete a conversation."},
 	uploadMessageFileChunk = {method = "POST", path = "/v2.0/inbox/contents/files", required = {"fileId", "chunkIndex", "totalChunks", "fileName"}, body = "form", about = "files.file={path,filename,contentType}; data contains stable fileId UUID, zero-based chunkIndex,totalChunks,fileName. Sequential chunks <=50MiB; 201/206 intermediate,200 final slug. Max6 attachments/message."},
 	uploadMedia = {method = "POST", path = "/v2.0/media", query = {"isPrivate", "type"}, body = "form", about = "files.uploadedFile={path,filename,contentType}; type=image/audio/document/pdf. Returns media id/slug/url; attach separately. UI limits image2MB,audio100MB,documents50MB."},
-	getDiscordGuild = {method = "GET", path = "/v2.0/projects/{project}/discord/guild", about = "Associated Discord guild and roles; connect Discord in Tipeee's website first."},
+	getDiscordGuild = {method = "GET", path = "/v2.0/projects/{project}/discord/guild", about = "Associated Discord guild and roles, or null when none is linked; connect Discord in Tipeee's website first."},
 	disconnectDiscord = {method = "DELETE", path = "/v2.0/projects/{project}/discord/guild", about = "Disconnect the project's Discord guild."},
 	getWidgets = {method = "GET", path = "/v2.0/projects/{project}/widgets", write = true, about = "Widget definitions and private widget links; requires read-write."},
 	configureAlertsWidget = {method = "POST", path = "/v2.0/projects/{project}/widgets/alerts", body = "form", about = "theme,text_color_var,animation,show_message,sound={type,static_id,volume=0.5}."},
@@ -89,7 +89,7 @@ local endpoints: {[string]: Endpoint} = {
 	downloadPaymentTips = {method = "GET", path = "/documents/payment-tips/{document}", query = {"lang"}, body = "download", about = "document='<original_payment.id>.pdf'; output required."},
 	downloadTippers = {method = "GET", path = "/documents/tippers/{report}", query = {"rewardId", "noReward"}, body = "download", write = true, about = "report='<campaign>.csv' or .xlsx; output required. Uses allTabs=0; route requires read-write because allTabs=1 sends email."},
 	emailTippersExport = {method = "GET", path = "/documents/tippers/{report}", query = {"rewardId", "noReward"}, body = "email", write = true, about = "report='<campaign>.xlsx' or .csv. Uses allTabs=1; sends multi-tab export email. Wait at least5 minutes between requests."},
-	downloadMedia = {method = "GET", path = "/v2.0/media/{media}", query = {"mode", "width", "height"}, body = "download", about = "output required; mode='original' or image dimensions."},
+	downloadMedia = {method = "GET", path = "/v2.0/media/{media}", query = {"mode", "width", "height"}, body = "download", about = "Download a file/audio attachment by its mediaId; output required, mode='original'. Avatar and news-image IDs may return404 because the website serves them through separate asset URLs."},
 	downloadPrivateMedia = {method = "GET", path = "/v2.0/media/{media}/private", body = "download", about = "output required; media is private attachment slug."},
 }
 
@@ -154,6 +154,7 @@ end
 local function decode(name: string, response: HttpResponse, allowEmpty: boolean): any
 	responseOK(name, response)
 	local raw = await(response.body:readAll())
+	if name == "getDiscordGuild" and response.statusCode == 204 and raw == "" then return NULL end
 	if allowEmpty and string.match(raw, "^%s*$") then return {status = "success"} end
 	local ok, value = pcall(json.decode, raw)
 	if not ok or type(value) ~= "table" or not string.match(raw, "^%s*[%[{]") then
@@ -223,6 +224,11 @@ end
 
 local function request(name: string, endpoint: Endpoint, input: Options?): any
 	local args = table.clone(object(if input == nil then {} else input, "opts"))
+	if name == "listTippers" then
+		if args.noReward == nil then args.noReward = 0 end
+		if args.page == nil then args.page = 1 end
+		assert(type(args.page) == "number" and args.page >= 1 and args.page < math.huge and args.page % 1 == 0, "page must be a positive integer")
+	end
 	local path = string.gsub(endpoint.path, "{([%w_]+)}", function(field: string): string
 		local value = args[field]
 		args[field] = nil
@@ -313,9 +319,10 @@ for name, endpoint in endpoints do
 end
 exports.help = function(): string
 	local lines = {
+		"The user.credentials_expire_at field controls email-code confirmation for sensitive account changes, not access-token expiry. Do not infer session expiry from it. Browser cookie renewal re-saves the same token; server-side token lifetime is undocumented.",
 		"Tipeee creator API v2.0, unofficial website contracts checked 2026-10-23. Official partial docs: https://api.tipeee.com/api/doc/default ; partner docs https://api.tipeee.com/api/doc/partner concern tipper integrations. No supported public creator-management spec or self-service OAuth registration was found. Session token setup; reconnect when it expires. Never pass credentials to functions.",
 		"Every function takes one named options object; path/query fields are native names. Writes take data={native body}; multipart writes optionally take files={['native[field]']={path='session-file',filename='name.png',contentType='image/png'}}. Nested forms flatten to bracket names, arrays use zero-based indexes, null values are skipped. JSON keeps json.decode('null') and json.decode('[]'). Calls return completed values without await; results keep native envelopes/arrays except api_key/access_token/refresh_token removed recursively. Empty successful write returns {status='success'}. 2xx errors also fail.",
-		"With read-write, use getMe() to discover creator projects and username_canonical. For read-only, use the known project slug from its website URL: listCampaigns({project='my-slug'}), then listTippers({project='my-slug',campaign='ID',page=0,perPage=100}). Numeric ids or simple slugs are accepted; no full URLs. Lists return items,pager (currentPage,perPage,next,pageNbr), except arrays noted below. Return one page; follow pager.next, comments token/direction, or message token. No automatic paging or connector retry loop. Houston transport can retry non-streamed HTTP429 responses twice (including JSON/bodyless writes); streamed forms,5xx and transport failures are not replayed. Rates and token lifetime are undocumented; 429/5xx are retryable, errors include Retry-After when present. Inspect outcome before retrying writes.",
+		"With read-write, use getMe() to discover creator projects and username_canonical. For read-only, use the known project slug from its website URL: listCampaigns({project='my-slug'}), then listTippers({project='my-slug',campaign='ID',page=1,perPage=100}). Numeric ids or simple slugs are accepted; no full URLs. Lists return items,pager (currentPage,perPage,next,pageNbr), except arrays noted below. Return one page; follow pager.next, comments token/direction, or message token. No automatic paging or connector retry loop. Houston transport can retry non-streamed HTTP429 responses twice (including JSON/bodyless writes); streamed forms,5xx and transport failures are not replayed. Rates and token lifetime are undocumented; 429/5xx are retryable, errors include Retry-After when present. Inspect outcome before retrying writes.",
 		"Reward data: price, translations={en={name,description_v2}}, presale,has_presale,transition,modules. Modules: display={is_pinned,is_private,private_link,start,['end'],_is_Activate}; stock={noReset,available={unlimited,quantity},perUser={unlimited,quantity},_is_Activate}; attachment={content,files,links,_is_Activate} max3; discord={role_name,role_id,duration,_is_Activate}; shipping={addressRequired,phonenumberRequired,_is_Activate}; custom={settings={{name,options={{name,is_additional_config=false}}}}}. Keep existing module values when updating. Reward name<=100, HTML description<=1500; recurring price1..1000,one-off1..5000. File values use files with bracket paths.",
 		"News: name,contentv2={translations={en={html,components}}},draft,private,parameters={private_type='amount'/'rewards',private_rule_amount,private_rule_rewards={id,...},tip_content=1},tags={{name}},isPinned,publishedAt,survey={name,questions={{type,name,answers={{name}}}}}. Draft creation example: createNews({project='my-slug',data={name='Update',contentv2={translations={en={html='<p>Hello</p>'}}},draft=true}}). Publishing can notify supporters; tip_content=1 can charge them. Payouts move funds; inbox CREATE broadcasts to rules; exports can email personal data. Obtain user instruction for these actions.",
 		"Read-only omits all writes, account/project discovery and inbox project/thread/content reads (project objects may carry streaming keys; opening inbox content may mark it read), widget secret links, and tipper exports (the shared GET route can email exports). Creator ownership/role and payout eligibility are enforced by Tipeee. Complete KYC, account security and Discord association on Tipeee's website. Project publication requires explicit acceptance of Tipeee, Adyen and Hyperwallet terms; closure requires explicit instruction and the emailed confirmation code. Credential rotation, tipper checkout/subscription purchases, staff administration, and streaming endpoints requiring a project API key are outside this connector.",
