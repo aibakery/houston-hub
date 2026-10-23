@@ -174,7 +174,8 @@ values are arrays of strings, including single values. Response names are
 lowercase. Non-2xx statuses are ordinary responses. Consume or close every body.
 The runtime supports gzip `Content-Encoding`, including nested gzip layers,
 and advertises only gzip. Unsupported or malformed coding chains fail explicitly.
-Decoding is lazy; received headers still describe the encoded response.
+Decoding is lazy. The server decodes connector HTTP responses before credential
+redaction, removing Content-Encoding and Content-Length when the body changes.
 File media types and filenames never trigger decoding.
 
 Files open asynchronously: `local fd = fs.open(path, "w")` returns a File that
@@ -349,6 +350,17 @@ may appear in both collections. Set values are string templates only; objects
 and nested conditions are invalid. For conditional injection, put a complete
 conditional rule before a fallback rule. A false predicate skips the whole rule.
 Only the selected action modifies headers; caller values otherwise remain intact.
+
+For providers that only accept query credentials, use
+`"action": {"query": {"access_token": "{{auth.token.token}}"}}`. This requires
+a Houston deployment supporting query injection. The server selects the rule
+using the original request, then renders and URL-encodes its query values.
+Names match `[A-Za-z][A-Za-z0-9_-]*` and are case-sensitive. All existing values
+for each configured name are replaced; unrelated values are preserved and
+malformed queries are rejected. Query templates have the same secret and
+publisher-recipient restrictions as headers. Keep credential names out of the
+connector's arguments and URLs: secrets and prepared URLs never enter Lua.
+Echoed credentials are redacted from response headers and decoded bodies.
 `action.basic_auth` supplies native Basic credentials; it cannot be combined with
 an `Authorization` set. `action: {}` intentionally passes a matching request
 through. Signed-upload rules can explicitly remove `Authorization`.

@@ -114,6 +114,7 @@ type ProxyMatch struct {
 type ProxyAction struct {
 	Rewrite    *Rewrite            `json:"rewrite,omitempty"`
 	Headers    HeaderActions       `json:"headers,omitempty"`
+	Query      map[string]string   `json:"query,omitempty"`
 	BasicAuth  *BasicAuth          `json:"basic_auth,omitempty"`
 	Connection *DatabaseConnection `json:"connection,omitempty"`
 }
