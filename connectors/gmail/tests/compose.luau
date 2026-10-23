@@ -37,7 +37,7 @@ return {
 		end}
 	end,
 	run = function(c)
-		local base64 = require("lib/base64.lua")
+		local base64 = require("lib/base64.luau")
 		local API = "https://gmail.googleapis.com/gmail/v1/users/me"
 		local UPLOAD = "https://gmail.googleapis.com/upload/gmail/v1/users/me"
 		local binary = string.char(0, 255, 13, 10) .. string.rep("x", 100)

@@ -2,7 +2,7 @@
   "schema_version": 1,
   "name": "LinkedIn",
   "files": [
-    "connector.lua"
+    "connector.luau"
   ],
   "icon": "icon.png",
   "config": {

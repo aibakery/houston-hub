@@ -3,7 +3,7 @@
   "name": "Fastmail",
   "verification_key": "bb713b2b43b9d518171d0ad2908658f8a0013a496b155bca12d6c8ddadb2b8e5",
   "files": [
-    "connector.lua"
+    "connector.luau"
   ],
   "icon": "icon.svg",
   "config": {

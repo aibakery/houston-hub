@@ -5,8 +5,8 @@ folders contain bundles and account-user documentation. Publishing follows the
 settings declared in `houston.json`; see
 [Publish a Connector on Houston Hub](#publish-a-connector-on-houston-hub).
 
-Start with the [Fastmail](connectors/fastmail/connector.lua) and
-[Notion](connectors/notion/connector.lua) implementations. Fastmail demonstrates
+Start with the [Fastmail](connectors/fastmail/connector.luau) and
+[Notion](connectors/notion/connector.luau) implementations. Fastmail demonstrates
 provider-specific helpers and typed records; Notion demonstrates a broad REST
 surface sharing a small request layer.
 
@@ -14,7 +14,7 @@ surface sharing a small request layer.
 
 1. Read the provider's official API and authentication documentation. List the
    operations, required permissions, pagination and file-transfer behavior.
-2. Create a bundle with a manifest, pure-initializing Lua entrypoints, official
+2. Create a bundle with a manifest, pure-initializing Luau entrypoints, official
    provider icon, account-user README and SETUP, and behavior fixtures.
 3. Implement operations using the runtime examples below. Keep credentials in
    manifest injection rules, and derive both exports and help from effective access.
@@ -44,13 +44,14 @@ connectors/example/
   houston.json
   README.md
   SETUP.md
-  connector.lua
+  connector.luau
   icon.svg
-  tests/behavior.lua
+  tests/behavior.luau
 ```
 
+Name Luau sources `.luau`; Houston also accepts `.lua` for modules and tests.
 `files` is a required nonempty array of entrypoints. Private imports use exact
-canonical paths relative to the manifest, such as `require("lib/pagination.lua")`.
+canonical paths relative to the manifest, such as `require("lib/pagination.luau")`.
 Every imported file belongs to the pinned release; imports cannot cross bundles.
 Entrypoints return function maps, without metadata or implicit context arguments.
 Duplicate export names fail publication. Initialization cannot make network calls.
@@ -67,7 +68,7 @@ credits. Do not mark mailboxes, private workspaces, or databases as stateless.
   "schema_version": 1,
   "name": "Example",
   "description": "Read Example items.",
-  "files": ["connector.lua"],
+  "files": ["connector.luau"],
   "auth": {
     "token": {
       "type": "manual",
@@ -149,7 +150,7 @@ how to correct the call. Make this distinction explicit in the connector's
 `help()` examples.
 
 Use sequential bounded batches as the baseline. The current runner limits each
-invocation to 256 native calls, including file operations, 64 MiB of Lua memory,
+invocation to 256 native calls, including file operations, 64 MiB of Luau memory,
 and 8 MiB per JSON transport frame. Server deadlines and transport limits also
 apply. Paging and smaller requested fields/body values avoid exhausting these
 budgets; batching alone does not bound a result that accumulates every page.
@@ -229,13 +230,13 @@ during initialization. Unknown upstream restrictions must produce clear errors
 when an operation is invoked. Publication fixtures can set synthetic
 `scenario.granted_scopes` to test known OAuth restrictions.
 
-Houston restricts effective config using current caller grants; Lua selects the
+Houston restricts effective config using current caller grants; Luau selects the
 exports from that config. Discovery is recomputed from the
 current connection release, settings and authentication facts on each request;
 existing client instances must be rediscovered to refresh their function list.
 Invocation still checks current configuration and grants before dispatch.
 Document signatures, defaults, results and mutation behavior in the connector's
-Lua `help()` function, exposed as `instance.help()`. Teach callers to read help, never
+Luau `help()` function, exposed as `instance.help()`. Teach callers to read help, never
 to learn signatures by issuing live send/delete probes.
 
 Authentication methods are a map with stable keys, ordered by `order`, then key.
@@ -332,7 +333,7 @@ priority also applies when an exact host and a wildcard both match.
 For self-hosted services, a host can be one whole-value reference to a required,
 unconditional string setting, as in the [WooCommerce manifest](connectors/woocommerce/houston.json).
 Houston renders it when resolving each connection; the result must be one exact
-origin, so wildcards, schemes and paths in the setting are rejected. Lua builds its
+origin, so wildcards, schemes and paths in the setting are rejected. Luau builds its
 URLs from the same `config` value. Publisher secrets, including OAuth tokens obtained
 with a publisher-owned client, cannot be sent to a host a connection controls.
 Houston's egress still refuses private, loopback and link-local addresses.
@@ -369,7 +370,7 @@ Names match `[A-Za-z][A-Za-z0-9_-]*` and are case-sensitive. All existing values
 for each configured name are replaced; unrelated values are preserved and
 malformed queries are rejected. Query templates have the same secret and
 publisher-recipient restrictions as headers. Keep credential names out of the
-connector's arguments and URLs: secrets and prepared URLs never enter Lua.
+connector's arguments and URLs: secrets and prepared URLs never enter Luau.
 Echoed credentials are redacted from response headers and decoded bodies.
 `action.basic_auth` supplies native Basic credentials; it cannot be combined with
 an `Authorization` set. `action: {}` intentionally passes a matching request
@@ -438,7 +439,7 @@ and a missing value is nil. Database errors raise `database_error` with the
 server's message. These are protocol primitives, not a portable SQL interface.
 IMAP provides `imap.command({command, ...})`, an operation for one mail command
 on its own connection. Houston logs in, decodes MIME and owns the message IDs;
-the [IMAP connector](connectors/imap/connector.lua) documents each command and its
+the [IMAP connector](connectors/imap/connector.luau) documents each command and its
 options. Fields are strings, numbers, booleans or arrays of them, and unknown
 options are rejected. `store`, `move` and `create` change the mailbox and need
 write access. IMAP errors raise `imap_error` with the reason or server's message.
@@ -463,12 +464,12 @@ and provider/database grants remain part of authorization.
 
 ## Configured exports, help, and provider validation
 
-The connector Lua is the sole authority for configured functions and their help.
+The connector Luau is the sole authority for configured functions and their help.
 Return only functions enabled by the effective public configuration. Houston
 clamps canonical `config.access` modes to `read-only` for callers without a current
 write grant. A `custom` mode retains its active policy settings and must intersect
 each operation's policy with immutable `houston.access` (`read-only` or `read-write`).
-The same configured Lua serves discovery and execution. Native dispatch
+The same configured Luau serves discovery and execution. Native dispatch
 rechecks current connection access and the effective configuration before each
 transport request. Do not infer permission from function names or HTTP verbs.
 Provider and database grants remain authoritative.
@@ -478,7 +479,7 @@ configured functions. Build the text from the same export table, including their
 arguments, return shapes, pagination, and meaningful provider caveats. Houston
 evaluates help with native transports disabled and excludes it from the callable
 operation list. Help must be deterministic and must never probe credentials or
-call a provider. Keep README documentation for humans; agent help comes from Lua.
+call a provider. Keep README documentation for humans; agent help comes from Luau.
 There is no operation classification sidecar or exported metadata registry.
 
 Provider functions validate their arguments and upstream responses. Keep plain-data
@@ -500,7 +501,7 @@ Describe useful capabilities, access choices, limits, and costs in plain languag
 The public description must not mention Lua/Luau, `help()`, callable function names,
 request or response fields, pagination parameters, or code examples. This applies
 to the README body, its `description` frontmatter, and the manifest's inline
-`description`. Put all programming usage documentation in the connector's Lua
+`description`. Put all programming usage documentation in the connector's Luau
 `help()` function; moving it there must preserve useful examples and caveats.
 
 Put account setup instructions in `SETUP.md`: choosing an available authentication method,
@@ -555,7 +556,7 @@ cover rule order, request filters, and action behavior.
 Fixtures assert actual provider arguments, responses and behavior. Publication
 checks deterministic configured exports and help, and requires fixture scenarios
 covering each authentication method and enabled proxy rule. Access is determined
-by the configured Lua exports; there is no operation-access metadata sidecar.
+by the configured Luau exports; there is no operation-access metadata sidecar.
 Initialization is also checked without fixture transport mocks.
 `configure` supplies synthetic
 native responses before the real bundle initializes; it is a test-only environment.
@@ -741,7 +742,7 @@ end
 These uploads transfer ownership of the input Reader/File to the consumer.
 Multipart construction returns a native Reader and a generated boundary; use its
 returned Content-Type unchanged. Do not hand-build multipart bodies by loading
-whole files into Lua strings or staging duplicate files.
+whole files into Luau strings or staging duplicate files.
 
 ### File metadata, text lookup and compression
 
@@ -859,7 +860,7 @@ before a registered source starts using them.
 
 Houston reuses saved connection inputs and applies defaults when adopting a new
 release. Valid optional fields, inactive fields, removed fields, documentation
-and Lua changes can apply without setup; saved choices take precedence over new
+and Luau changes can apply without setup; saved choices take precedence over new
 defaults. Missing active required inputs, invalid retained values or an
 unavailable selected auth method require **Set up again**. OAuth client or
 authorization changes and newly required scopes can also require setup; narrower
@@ -873,4 +874,4 @@ connections to confirm the new settings.
 
 Keep this workflow generic. Publisher configuration comes from `houston.json`;
 account setup belongs in `SETUP.md`, the user overview in `README.md`, and callable
-signatures and examples in Lua `help()`.
+signatures and examples in Luau `help()`.

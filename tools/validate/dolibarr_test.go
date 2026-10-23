@@ -41,7 +41,7 @@ func assertDolibarrRoutes(t *testing.T, r *manifest.Resolved, key string, allowe
 // The proxy allows exactly the connector's endpoint tables at the root and below one or
 // two folders, with writes only on read-write connections.
 func TestDolibarrProxyMatchesEndpointTables(t *testing.T) {
-	lua, err := os.ReadFile("../../connectors/dolibarr/connector.lua")
+	lua, err := os.ReadFile("../../connectors/dolibarr/connector.luau")
 	if err != nil {
 		t.Fatal(err)
 	}

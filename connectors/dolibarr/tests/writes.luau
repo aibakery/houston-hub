@@ -31,7 +31,7 @@ return {
 			assert(same(json.decode(req.body), expected), req.body)
 		end
 
-		-- The reads are read_only.lua's exact 32; everything else must be these writes.
+		-- The reads are read_only.luau's exact 32; everything else must be these writes.
 		local names, reads = {}, 0
 		for name in erp do
 			if string.match(name, "^get%u") or string.match(name, "^list%u") then reads += 1

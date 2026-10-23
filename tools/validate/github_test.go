@@ -72,7 +72,7 @@ func TestGitHubAuthenticationAndAccessRoutes(t *testing.T) {
 // Each endpoint's credential rule must use its host, and slash-capable parameters
 // (Lua's OPAQUE set) must be opaque; signed downloads have one credential-free rule.
 func TestGitHubRulesMatchEndpointHostsAndOpaqueParameters(t *testing.T) {
-	raw, err := os.ReadFile("../../connectors/github/connector.lua")
+	raw, err := os.ReadFile("../../connectors/github/connector.luau")
 	if err != nil {
 		t.Fatal(err)
 	}

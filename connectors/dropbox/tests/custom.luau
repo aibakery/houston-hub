@@ -39,7 +39,7 @@ return {
 		end}
 	end,
 	run = function(c)
-		local makePolicy = require("lib/policy.lua")
+		local makePolicy = require("lib/policy.luau")
 		for _, raw in {"{", "{}", "[]", '["read-only"]', '{"/Reports":"write"}', '{"/Reports":true}', '{"relative":"read-only"}', '{"/Reports/":"read-only"}'} do
 			assert(not pcall(makePolicy, raw, function() error("Invalid config reached Dropbox") end), "Accepted invalid folder policy " .. raw)
 		end

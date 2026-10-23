@@ -11,7 +11,7 @@ import (
 // Bundles cannot import each other's files, so related connectors carry the same request
 // layer between markers that name the group.
 func TestConnectorsShareOneRequestLayer(t *testing.T) {
-	paths, err := filepath.Glob("../../connectors/*/connector.lua")
+	paths, err := filepath.Glob("../../connectors/*/connector.luau")
 	if err != nil {
 		t.Fatal(err)
 	}
