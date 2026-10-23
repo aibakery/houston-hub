@@ -184,7 +184,8 @@ lowercase. Non-2xx statuses are ordinary responses. Consume or close every body.
 The runtime supports gzip `Content-Encoding`, including nested gzip layers,
 and advertises only gzip. Unsupported or malformed coding chains fail explicitly.
 Decoding is lazy. The server decodes connector HTTP responses before credential
-redaction, removing Content-Encoding and Content-Length when the body changes.
+redaction. Received Content-Encoding and Content-Length headers remain available
+as upstream metadata; do not decode again or use that length as a decoded size.
 File media types and filenames never trigger decoding.
 
 Files open asynchronously: `local fd = fs.open(path, "w")` returns a File that
