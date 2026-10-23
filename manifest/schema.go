@@ -114,7 +114,7 @@ func Schema() ([]byte, error) {
 		map[string]any{
 			"if":   map[string]any{"properties": map[string]any{"match": condition("protocol", "http")}},
 			"then": map[string]any{"properties": map[string]any{"match": map[string]any{"required": []string{"host"}}, "action": forbid("connection")}},
-			"else": map[string]any{"properties": map[string]any{"match": forbid("host", "method", "path", "opaque_path_parameters", "header"), "action": map[string]any{"required": []string{"connection"}, "properties": map[string]any{"headers": false, "rewrite": false, "basic_auth": false}}}},
+			"else": map[string]any{"properties": map[string]any{"match": forbid("host", "method", "path", "opaque_path_parameters", "header"), "action": map[string]any{"required": []string{"connection"}, "properties": map[string]any{"headers": false, "query": false, "rewrite": false, "basic_auth": false}}}},
 		},
 		map[string]any{
 			"if":   map[string]any{"properties": map[string]any{"match": condition("protocol", "imap")}},

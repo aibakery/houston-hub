@@ -566,6 +566,7 @@ func checkPresence(data []byte) error {
 			parts := strings.Split(p, ".")
 			dictionary := p == "manifest.config" || p == "manifest.publisher" || p == "manifest.auth" ||
 				p == "manifest.proxy[].match.header" || p == "manifest.proxy[].action.headers.set" ||
+				p == "manifest.proxy[].action.query" ||
 				len(parts) == 4 && parts[1] == "auth" && parts[3] == "config" ||
 				len(parts) == 5 && parts[1] == "auth" && parts[3] == "account" && parts[4] == "headers"
 			for k, v := range x {
@@ -701,7 +702,7 @@ func checkPresence(data []byte) error {
 						return fmt.Errorf("native protocol forbids HTTP filters")
 					}
 				}
-				for _, key := range []string{"headers", "rewrite", "basic_auth"} {
+				for _, key := range []string{"headers", "query", "rewrite", "basic_auth"} {
 					if _, exists := action[key]; exists {
 						return fmt.Errorf("native protocol forbids HTTP actions")
 					}

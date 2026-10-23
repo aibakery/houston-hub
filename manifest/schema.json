@@ -649,6 +649,7 @@
                 "properties": {
                   "basic_auth": false,
                   "headers": false,
+                  "query": false,
                   "rewrite": false
                 },
                 "required": [
@@ -767,6 +768,12 @@
         },
         "headers": {
           "$ref": "#/$defs/HeaderActions"
+        },
+        "query": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
         },
         "rewrite": {
           "$ref": "#/$defs/Rewrite"

@@ -1,9 +1,9 @@
 # Create and publish a Houston connector
 
 This guide covers the shared connector contract and authoring workflow. Connector
-folders contain bundles and account-user documentation. Keep provider-specific
-publisher setup, deployment requirements, coverage and attribution in
-[provider publishing notes](docs/publishing.md), outside those folders.
+folders contain bundles and account-user documentation. Publishing follows the
+settings declared in `houston.json`; see
+[Publish a Connector on Houston Hub](#publish-a-connector-on-houston-hub).
 
 Start with the [Fastmail](connectors/fastmail/connector.lua) and
 [Notion](connectors/notion/connector.lua) implementations. Fastmail demonstrates
@@ -25,7 +25,7 @@ surface sharing a small request layer.
    read-only behavior, paging and a provider-confirmed write on disposable data.
 
 Use [runtime examples](#runtime-examples), [Luau practices](docs/luau-practices.md),
-[validation](#tests-and-publication), and [publication](#publish-a-hub-publication)
+[validation](#tests-and-publication), and [publication](#publish-a-connector-on-houston-hub)
 as the detailed references for these steps.
 
 A connector release serves one service through one selected native protocol. The
@@ -124,6 +124,15 @@ connector sets one; set it only when the provider mandates a format. It retries 
 absent or unreadable; a longer `Retry-After`, a third 429 or a streamed request body reaches the
 connector unchanged. Nothing else is retried.
 
+The shared `assets` package validates icons in both the bundle checker and Houston.
+SVGs may contain embedded stylesheets (including dark-mode media queries), inline
+styles, and local fragment references. Scripts, event handlers, external resources
+and stylesheet imports remain forbidden. CSS escapes and resource-producing CSS
+functions are conservatively rejected. Serve accepted images with the package's
+content security policy so inline CSS works while directly opened SVGs stay
+sandboxed. This support requires a Houston deployment using the shared validator;
+older deployments still reject style elements.
+
 ## Execution and waiting
 
 Each exported operation runs in a fresh connector VM and returns completed plain
@@ -174,7 +183,9 @@ values are arrays of strings, including single values. Response names are
 lowercase. Non-2xx statuses are ordinary responses. Consume or close every body.
 The runtime supports gzip `Content-Encoding`, including nested gzip layers,
 and advertises only gzip. Unsupported or malformed coding chains fail explicitly.
-Decoding is lazy; received headers still describe the encoded response.
+Decoding is lazy. The server decodes connector HTTP responses before credential
+redaction. Received Content-Encoding and Content-Length headers remain available
+as upstream metadata; do not decode again or use that length as a decoded size.
 File media types and filenames never trigger decoding.
 
 Files open asynchronously: `local fd = fs.open(path, "w")` returns a File that
@@ -349,6 +360,17 @@ may appear in both collections. Set values are string templates only; objects
 and nested conditions are invalid. For conditional injection, put a complete
 conditional rule before a fallback rule. A false predicate skips the whole rule.
 Only the selected action modifies headers; caller values otherwise remain intact.
+
+For providers that only accept query credentials, use
+`"action": {"query": {"access_token": "{{auth.token.token}}"}}`. This requires
+a Houston deployment supporting query injection. The server selects the rule
+using the original request, then renders and URL-encodes its query values.
+Names match `[A-Za-z][A-Za-z0-9_-]*` and are case-sensitive. All existing values
+for each configured name are replaced; unrelated values are preserved and
+malformed queries are rejected. Query templates have the same secret and
+publisher-recipient restrictions as headers. Keep credential names out of the
+connector's arguments and URLs: secrets and prepared URLs never enter Lua.
+Echoed credentials are redacted from response headers and decoded bodies.
 `action.basic_auth` supplies native Basic credentials; it cannot be combined with
 an `Authorization` set. `action: {}` intentionally passes a matching request
 through. Signed-upload rules can explicitly remove `Authorization`.
@@ -780,66 +802,75 @@ Parameterize values and keep transport credentials out of arguments. Do not infe
 write authorization from a SQL string or a function name. Gate mutation exports
 with effective `config.access` and let the database enforce its own permissions.
 
-## Publish a Hub publication
+## Publish a Connector on Houston Hub
 
-A repository commit is source, not a live catalog entry. In Houston's Hub,
-register the repository URL, a revision and the path to its `houston.json`.
-Publication resolves the bundle and private imports, validates the manifest,
-checks configured Lua exports/help, type-checks the implementation and runs its
-fixtures. Resolve those failures before making the connector available to users.
-Hub refreshes registered branches, so every validated push becomes the latest
-release. Houston checks each connection's saved inputs against the new manifest,
-reusing declared values and filling new defaults. Optional or inactive fields,
-unused auth methods, presentation changes, and removed fields do not require setup
-when the resulting configuration is valid. Saved choices take precedence over
-changed defaults. New active required inputs without usable saved values or
-defaults, invalid retained values, and unavailable selected auth methods require
-**Set up again**. Existing secrets never become public inputs automatically.
-OAuth connections also require setup when their client or authorization inputs
-change, or their grant does not cover the new required scopes. Narrowing scopes
-preserves an existing grant. Setup retains reusable inputs, including credentials.
-Every refresh rechecks connections that are behind; documentation and Lua changes
-can apply without setup even when they change a connector's API.
+Use the connector's `houston.json` as the source of truth for publishing settings.
+Registering source creates a Hub publication; adding that publication to an
+organization or personal account creates a separate connection with its own
+settings and credentials.
 
-Publisher inputs belong to the registration. Clear configured publisher values
-before removing fields or changing their types; publication rejects these changes
-while values remain. Changing saved publisher settings separately requires
-connections to confirm the new publisher settings.
+1. Validate the bundle using [Tests and publication](#tests-and-publication), then
+   commit and push its source. If it needs a new runtime or manifest capability,
+   deploy that capability before registering the release.
+2. In Houston Hub, register the repository URL, revision and path to `houston.json`.
+   These identify the source; they are not fields in the manifest. A repository
+   commit alone does not create a catalog entry. If you choose to verify source
+   ownership, follow Hub's challenge using the manifest's `verification_key`.
+3. Configure the publication from the manifest's `publisher` fields. Use their
+   labels, descriptions, defaults, conditions and required flags. If no publisher
+   fields are declared, there are no publisher settings to enter. Secret values
+   belong in Hub's settings form, never in source.
+4. If an OAuth method references publisher-owned client fields, configure its
+   provider application and redirect URI as described below. Connection-owned
+   credentials are supplied later by each connection's admin.
+5. Resolve any publication validation errors, then add a connection and follow
+   its `SETUP.md`. Verify discovery, access restrictions, pagination and any
+   supported authentication or file-transfer flows. Test writes only on
+   disposable data with the account owner's authorization.
 
-Use `README.md` for the account user's overview and `SETUP.md` for connecting an
-account to that registered connector. Callable signatures and examples belong in
-Lua `help()`. Keep provider-specific publisher instructions and official icon
-attribution in [provider publishing notes](docs/publishing.md). This guide contains
-only the shared workflow and links to useful bundle examples.
+The manifest determines who supplies each value:
 
-The shared `assets` package validates icons in both the bundle checker and Houston.
-SVGs may contain embedded stylesheets (including dark-mode media queries), inline
-styles, and local fragment references. Scripts, event handlers, external resources
-and stylesheet imports remain forbidden. CSS escapes and resource-producing CSS
-functions are conservatively rejected. Serve accepted images with the package's
-content security policy so inline CSS works while directly opened SVGs stay
-sandboxed. This support requires a Houston deployment using the shared validator;
-older deployments still reject style elements.
+| Declaration | Configured by |
+| --- | --- |
+| `publisher` | The publisher, once per Hub publication |
+| Root `config` | The connection admin, once per connection |
+| Manual `auth.<method>.config` | The connection admin for the selected authentication method |
+| OAuth `auth.<method>.client_id` and `client_secret` | The owner of the referenced fields: `publisher.*` or `config.*` |
 
-A publisher adds the GitHub source to the Hub, producing a `HubPublicationID`
-(`hub_publication_id` in APIs and the database). An admin adds instances of that
-publication to an organization or personal account, producing separate
-`connection_id` values. Each instance owns its settings and credentials.
+For OAuth, read the selected method's endpoints, client references, scopes and
+conditions from `houston.json`. Configure the provider application to support
+those declarations; do not infer additional credentials or permissions.
 
-For a connection-owned OAuth client, declare client ID and secret as connection
-config fields and reference them from the authentication method. Houston reserves
-a callback before consent: `<Houston public URL>/oauth/connections/<callback-id>/callback`.
-The callback maps to one connection after authorization and remains stable on
-reconnect. Include provider application setup in account-user `SETUP.md`, since the
-connection admin owns that setup. Publishing such a bundle requires no OAuth client
-credentials.
+- **Publisher-owned client:** register
+  `<Houston public URL>/oauth/connectors/<hub-publication-id>/callback` as its
+  redirect URI and enter the declared client fields in the publication settings.
+  All connections of that publication share this callback.
+- **Connection-owned client:** publishing requires no OAuth client credentials.
+  Houston reserves a callback when connection setup opens:
+  `<Houston public URL>/oauth/connections/<callback-id>/callback`. The connection
+  admin registers that displayed URI in their application. It remains stable on
+  reconnect. Explain this account setup in the connector's `SETUP.md`.
 
-For a publisher-owned OAuth client, declare client ID and secret as publisher
-fields instead. Register `<Houston public URL>/oauth/connectors/<hub-publication-id>/callback`
-as a redirect URI in the provider application, then enter its client ID and secret
-in the publication's publisher settings. Every connection of the publication uses
-that redirect, and the connection form shows no callback or client fields.
+Hub resolves the source and private imports, validates the manifest, checks
+configured exports and help, type-checks the implementation and runs its fixtures.
+Registered branches refresh after validated pushes, producing new releases.
+Keep required runtime changes linked in the release PR so they can be deployed
+before a registered source starts using them.
 
-When a bundle needs a new runtime or manifest capability, merge and deploy the
-Houston change before registering a release that uses it. Keep the source release
-and required runtime change linked in the PR so operators can apply them together.
+Houston reuses saved connection inputs and applies defaults when adopting a new
+release. Valid optional fields, inactive fields, removed fields, documentation
+and Lua changes can apply without setup; saved choices take precedence over new
+defaults. Missing active required inputs, invalid retained values or an
+unavailable selected auth method require **Set up again**. OAuth client or
+authorization changes and newly required scopes can also require setup; narrower
+scopes preserve an existing grant. Setup retains reusable credentials, and secret
+values never become public inputs automatically.
+
+Publisher inputs belong to the registration. Clear configured values before
+removing publisher fields or changing their types; publication rejects those
+changes while values remain. Editing saved publisher settings requires affected
+connections to confirm the new settings.
+
+Keep this workflow generic. Publisher configuration comes from `houston.json`;
+account setup belongs in `SETUP.md`, the user overview in `README.md`, and callable
+signatures and examples in Lua `help()`.

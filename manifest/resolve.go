@@ -344,7 +344,10 @@ func (m *Manifest) resolve(publisher, config, auth map[string]any, selected stri
 			if _, err := recipe.Prepare(preparation, nil); err != nil {
 				return r, err
 			}
-			for _, value := range p.Action.Headers.Set {
+			if _, err := recipe.PrepareURL(preparation); err != nil {
+				return r, err
+			}
+			for _, value := range append(mapValues(p.Action.Headers.Set), mapValues(p.Action.Query)...) {
 				refs, _ := TemplateReferences(value)
 				for _, ref := range refs {
 					if strings.HasPrefix(ref, "publisher.") {

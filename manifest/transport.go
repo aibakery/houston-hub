@@ -246,7 +246,16 @@ func (m *Manifest) validateProxy(p Proxy, used map[string]bool) error {
 		if err := m.validateRecipe(p.Action.httpRecipe("").Headers, p.Action.BasicAuth, used); err != nil {
 			return err
 		}
+		for name, value := range p.Action.Query {
+			if !paramRE.MatchString(name) {
+				return fmt.Errorf("invalid proxy query parameter name")
+			}
+			if err := m.template(value, "query", used); err != nil {
+				return err
+			}
+		}
 		credentials := mapValues(p.Action.Headers.Set)
+		credentials = append(credentials, mapValues(p.Action.Query)...)
 		if b := p.Action.BasicAuth; b.Enabled() {
 			credentials = append(credentials, b.Username, b.Password)
 		}
@@ -268,7 +277,7 @@ func (m *Manifest) validateProxy(p Proxy, used map[string]bool) error {
 		}
 	case "postgres", "mysql", "clickhouse", "redis", "imap":
 		c := p.Action.Connection
-		if c == nil || p.Match.Host != nil || p.Match.Method != nil || p.Match.Path != nil || p.Match.OpaquePathParameters != nil || p.Match.Header != nil || p.Action.Headers.Set != nil || p.Action.Headers.Remove != nil || p.Action.BasicAuth != nil || p.Action.Rewrite != nil {
+		if c == nil || p.Match.Host != nil || p.Match.Method != nil || p.Match.Path != nil || p.Match.OpaquePathParameters != nil || p.Match.Header != nil || p.Action.Headers.Set != nil || p.Action.Headers.Remove != nil || p.Action.Query != nil || p.Action.BasicAuth != nil || p.Action.Rewrite != nil {
 			return fmt.Errorf("native protocol requires action.connection and forbids HTTP filters/actions")
 		}
 		if c.TLS != nil && c.TLS.Mode != "verify-full" {
@@ -349,6 +358,7 @@ func (m *Manifest) publisherRecipient(credentials, destinations []string) error 
 type HTTPRecipe struct {
 	URL           string
 	Headers       map[string]HeaderValue
+	Query         map[string]string
 	BasicAuth     *BasicAuth
 	RemoveHeaders []string
 }
@@ -360,7 +370,32 @@ func (a ProxyAction) httpRecipe(rawURL string) HTTPRecipe {
 	for name, value := range a.Headers.Set {
 		headers[name] = HeaderValue{Value: value}
 	}
-	return HTTPRecipe{URL: rawURL, Headers: headers, BasicAuth: a.BasicAuth, RemoveHeaders: a.Headers.Remove}
+	return HTTPRecipe{URL: rawURL, Headers: headers, Query: a.Query, BasicAuth: a.BasicAuth, RemoveHeaders: a.Headers.Remove}
+}
+
+// PrepareURL injects private query values after the original request has selected
+// its rule. Parameter names are case-sensitive; every existing value is replaced.
+func (r HTTPRecipe) PrepareURL(c Context) (string, error) {
+	if len(r.Query) == 0 {
+		return r.URL, nil
+	}
+	u, err := url.Parse(r.URL)
+	if err != nil {
+		return "", fmt.Errorf("invalid proxy request URL")
+	}
+	query, err := url.ParseQuery(u.RawQuery)
+	if err != nil {
+		return "", fmt.Errorf("invalid proxy request query")
+	}
+	for name, tmpl := range r.Query {
+		value, err := RenderString(tmpl, c)
+		if err != nil {
+			return "", err
+		}
+		query.Set(name, value)
+	}
+	u.RawQuery = query.Encode()
+	return u.String(), nil
 }
 
 // render fills templated HTTP hosts from connection settings. A rendered host
