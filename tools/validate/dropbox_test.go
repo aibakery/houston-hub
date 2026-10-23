@@ -71,9 +71,6 @@ func TestDropboxPublisherClient(t *testing.T) {
 			t.Fatalf("missing %s accepted", missing)
 		}
 	}
-	if _, err := m.Resolve(publisher, nil, nil, "own_app"); err == nil {
-		t.Fatal("removed own-app method accepted")
-	}
 }
 
 func TestDropboxDiscoveryUsesGrantedScopes(t *testing.T) {

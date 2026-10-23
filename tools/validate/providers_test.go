@@ -72,9 +72,6 @@ func TestEveryProviderAuthenticationAndTransport(t *testing.T) {
 				if provider == "slack" {
 					config["workspace_id"] = "T_SYNTHETIC"
 				}
-				if provider == "dropbox" && method == "own_app" {
-					config["own_app"] = true
-				}
 				if (provider == "carta" || provider == "gusto") && method != provider {
 					config["own_app"] = true
 				}
