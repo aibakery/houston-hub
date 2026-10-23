@@ -22,10 +22,12 @@ Copy only the value, not the whole URL.
 You do not need a developer application or a streaming API key. The streaming
 key shown in Tipeee's widget settings is for a different feature.
 
-Houston saves the token, but Tipeee can expire or revoke it. The website cookie's
-expiry date does not tell us how long the saved token will work. Automatic
-renewal is not available for this connection. If access stops working, sign in
-again and update the token in Houston.
+Tipeee extends the browser cookie's expiry when you return to the website,
+while keeping the same token. Houston saves its own copy: the browser cookie
+expiring does not itself disconnect Houston. Tipeee can still expire or revoke
+the token, and its server-side lifetime is undocumented. Automatic renewal is
+not available for this connection. If access stops working, sign in again and
+update the token in Houston.
 
 If a particular page or report is unavailable, check that the connected account
 owns the page and has the necessary Tipeee permissions. Payouts also require
