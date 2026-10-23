@@ -36,6 +36,9 @@ func ValidateValue(f Field, v any) error {
 		if f.Required && s == "" {
 			return fmt.Errorf("required value empty")
 		}
+		if f.Format == "json" && !json.Valid([]byte(s)) {
+			return fmt.Errorf("must contain valid JSON")
+		}
 		if f.MinLength != nil && n < *f.MinLength {
 			return fmt.Errorf("value shorter than min_length")
 		}

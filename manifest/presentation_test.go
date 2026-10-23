@@ -11,7 +11,7 @@ func TestMultilineFieldContract(t *testing.T) {
 		t.Run(source, func(t *testing.T) {
 			for _, field := range []string{
 				`{"type":"string","label":"Notes","multiline":true}`,
-				`{"type":"string","label":"Policy","multiline":true,"format":"json","default":"not yet JSON"}`,
+				`{"type":"string","label":"Policy","multiline":true,"format":"json","default":"{}"}`,
 			} {
 				raw := multilineManifest(source, field)
 				m, err := Parse([]byte(raw))
