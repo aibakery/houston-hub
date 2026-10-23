@@ -1,7 +1,7 @@
 # Houston Hub
 
 This repository contains thirty-eight connector bundles, the authoritative manifest v1
-contract and configured Lua operations. Registrations in Houston define the live
+contract and configured Luau operations. Registrations in Houston define the live
 catalog; repository files are not published automatically.
 
 A bundle contains `houston.json`, declared Luau entrypoints, private helpers and
@@ -39,10 +39,10 @@ These are recommendations, not additional contribution requirements.
 
 ## Repository layout
 
-- [connectors/](connectors/): provider manifests, Lua implementations, icons and tests.
+- [connectors/](connectors/): provider manifests, Luau implementations, icons and tests.
 - [AUTHORING.md](AUTHORING.md): create, validate and publish connectors, with runtime examples.
 - [Publish a Connector on Houston Hub](AUTHORING.md#publish-a-connector-on-houston-hub): register source and configure the settings declared in `houston.json`.
-- [docs/](docs/): Lua practices and [provider operation reference](docs/connectors/).
+- [docs/](docs/): Luau practices and [provider operation reference](docs/connectors/).
 - [tools/](tools/): the public validator and its reusable typecheck/conformance packages.
 - [manifest/](manifest/): shared manifest parser and generated schema used by Houston.
 

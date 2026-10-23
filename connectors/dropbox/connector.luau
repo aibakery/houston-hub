@@ -251,7 +251,7 @@ local exports: {[string]: any} = {}
 local help: {[string]: string} = {}
 local policy: any = nil
 if config.access == "custom" then
-	policy = require("lib/policy.lua")(config.path_access, function(path: string): Options?
+	policy = require("lib/policy.luau")(config.path_access, function(path: string): Options?
 		local response = await(http.request({method = "POST", url = API .. "files/get_metadata",
 			headers = {["Content-Type"] = {"application/json"}}, body = json.encode({path = path, include_deleted = true})}))
 		if response.statusCode < 200 or response.statusCode >= 300 then

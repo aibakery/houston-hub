@@ -156,7 +156,7 @@
   },
   "description": "Read channels, threads, and mentions. Post messages and files as yourself.",
   "files": [
-    "connector.lua"
+    "connector.luau"
   ],
   "icon": "icon.svg",
   "name": "Slack",

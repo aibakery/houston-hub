@@ -14,7 +14,7 @@
   },
   "description": "Read-only access to Granola notes, folders, and transcripts.",
   "files": [
-    "connector.lua"
+    "connector.luau"
   ],
   "icon": "icon.svg",
   "name": "Granola",

@@ -132,7 +132,7 @@ type endpointEntry struct {
 // endpointTable reads a connector's endpoint table. Only GET reads unless an entry sets write or read.
 func endpointTable(t *testing.T, name string) (string, []endpointEntry) {
 	t.Helper()
-	raw, err := os.ReadFile("../../connectors/" + name + "/connector.lua")
+	raw, err := os.ReadFile("../../connectors/" + name + "/connector.luau")
 	if err != nil {
 		t.Fatal(err)
 	}

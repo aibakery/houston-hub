@@ -4,7 +4,7 @@
   "description": "Search and browse public tweets, profiles, user timelines, and mentions on X.",
   "stateless": true,
   "icon": "icon.svg",
-  "files": ["connector.lua"],
+  "files": ["connector.luau"],
   "auth": {
     "token": {
       "type": "manual",

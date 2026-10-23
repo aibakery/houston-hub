@@ -1,7 +1,7 @@
 # Writing clear Luau connectors
 
 These are optional recommendations, illustrated by the
-[Fastmail connector](../connectors/fastmail/connector.lua). They are not additional
+[Fastmail connector](../connectors/fastmail/connector.luau). They are not additional
 publication rules or a style checklist enforced by CI. Contributors may choose a
 different structure when it makes their connector easier to understand. The
 [authoring guide](../AUTHORING.md) describes the actual runtime and bundle contract.
@@ -82,7 +82,7 @@ entire response.
 Use `body = fs.open(path, "r")` for uploads and `output:write(response.body)`
 followed by `await(output:close())` for downloads. Return session paths and
 awaited signed URLs, avoiding an extra in-memory representation of file bytes.
-Do not read a file into a Lua string just to upload it, or add a second base64/MIME
+Do not read a file into a Luau string just to upload it, or add a second base64/MIME
 implementation when the provider already accepts structured messages.
 
 `await(http.request(...))` returns final headers and a body Reader. Read JSON

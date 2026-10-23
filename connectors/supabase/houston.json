@@ -51,7 +51,7 @@
   },
   "description": "SQL access to your Supabase Postgres database.",
   "files": [
-    "connector.lua"
+    "connector.luau"
   ],
   "icon": "icon.svg",
   "name": "Supabase",

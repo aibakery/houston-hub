@@ -5,7 +5,7 @@ type Endpoint = {
 	method: string, path: string, write: boolean, body: boolean, query: {[string]: Query},
 	required: {string}, kind: string, response: string, list: string, empty: boolean, vault: boolean, help: string,
 }
-local endpoints: {[string]: Endpoint} = require("lib/endpoints.lua")
+local endpoints: {[string]: Endpoint} = require("lib/endpoints.luau")
 local NULL = json.decode("null")
 
 local function text(value: any, field: string): string

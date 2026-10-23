@@ -5,7 +5,7 @@ local API = "https://api.notion.com"
 local NULL = json.decode("null")
 local ADMIN = auth.method == "admin"
 local VERSION = if ADMIN then "2026-06-01" else "2026-03-11"
-local endpoints: {[string]: Endpoint} = if ADMIN then require("lib/admin.lua") else require("lib/endpoints.lua")
+local endpoints: {[string]: Endpoint} = if ADMIN then require("lib/admin.luau") else require("lib/endpoints.luau")
 
 local function text(value: any, field: string): string
 	assert(type(value) == "string" and value ~= "", field .. " must be a nonempty string")

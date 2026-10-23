@@ -14,7 +14,7 @@
   },
   "description": "Read-only access to Attio objects, records, and notes.",
   "files": [
-    "connector.lua"
+    "connector.luau"
   ],
   "icon": "icon.png",
   "name": "Attio",

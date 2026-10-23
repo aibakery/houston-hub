@@ -2,7 +2,7 @@
   "schema_version": 1,
   "name": "PostgreSQL",
   "files": [
-    "connector.lua"
+    "connector.luau"
   ],
   "icon": "icon.svg",
   "config": {

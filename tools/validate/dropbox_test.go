@@ -95,7 +95,7 @@ func TestDropboxClientSelection(t *testing.T) {
 }
 
 func TestDropboxDiscoveryUsesGrantedScopes(t *testing.T) {
-	source, err := os.ReadFile("../../connectors/dropbox/connector.lua")
+	source, err := os.ReadFile("../../connectors/dropbox/connector.luau")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -114,7 +114,7 @@ func TestDropboxDiscoveryUsesGrantedScopes(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			input, err := json.Marshal(map[string]any{
-				"files": []string{"connector.lua"}, "modules": map[string]string{"connector.lua": string(source)},
+				"files": []string{"connector.luau"}, "modules": map[string]string{"connector.luau": string(source)},
 				"config": map[string]string{"access": "read-write"}, "protocol": "http", "args": []any{},
 				"auth": map[string]any{"method": "oauth", "scopes": test.scopes},
 			})

@@ -25,7 +25,7 @@ return {
 		end}
 	end,
 	run = function(c)
-		local base64 = require("lib/base64.lua")
+		local base64 = require("lib/base64.luau")
 		local bytes = {}
 		for i = 0, 255 do table.insert(bytes, string.char(i)) end
 		local binary = table.concat(bytes) .. "tail"

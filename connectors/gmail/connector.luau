@@ -2,7 +2,7 @@
 -- field names; reads add decoded bodies and writes build MIME so callers never handle base64.
 local API = "https://gmail.googleapis.com/gmail/v1/users/me"
 local UPLOAD = "https://gmail.googleapis.com/upload/gmail/v1/users/me"
-local base64 = require("lib/base64.lua")
+local base64 = require("lib/base64.luau")
 
 -- Request layer shared verbatim by the Google connectors (tools/validate checks they match).
 type Options = {[string]: any}

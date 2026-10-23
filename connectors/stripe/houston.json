@@ -30,7 +30,7 @@
     }
   },
   "files": [
-    "connector.lua"
+    "connector.luau"
   ],
   "icon": "icon.svg",
   "name": "Stripe",
