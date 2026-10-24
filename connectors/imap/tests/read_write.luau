@@ -17,5 +17,8 @@ return {
 		assert(not pcall(c.trashMessages, {ids = {"7:42:INBOX"}, folder = "Archive"}), "trash cannot target another folder")
 		assert(c.createFolder({name = "Receipts", parent = "INBOX"}).command == "create" and requests[4].parent == "INBOX")
 		assert(#requests == 4)
+		assert(c.setFlags({ids = {"7:42:INBOX"}, remove = {"\\Seen"}}).command == "store")
+		assert(requests[5].remove[1] == "\\Seen" and requests[5].ids[1] == "7:42:INBOX" and requests[5].add == nil)
+		assert(#requests == 5)
 	end,
 }

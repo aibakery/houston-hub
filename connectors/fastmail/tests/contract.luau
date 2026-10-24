@@ -1,6 +1,6 @@
 return {scenario={["auth_config"]={["token"]="fixture-private-password !@#"},["auth_method"]="token",["config"]={},["publisher"]={}},config = {access = "read-only"}, run = function(exports)
     assert(exports.sendMessage == nil, "read-only configuration must omit write exports")
-    for _, name in {"sendMessage", "replyMessage", "trashMessage", "deleteMessage", "deleteMessages", "destroyMessage", "destroyMessages", "archiveMessage", "archiveMessages", "createFolder", "moveMessage", "moveMessages"} do
+    for _, name in {"sendMessage", "replyMessage", "trashMessage", "deleteMessage", "deleteMessages", "destroyMessage", "destroyMessages", "archiveMessage", "archiveMessages", "createFolder", "moveMessage", "moveMessages", "markRead", "markUnread"} do
         assert(exports[name] == nil, "read-only configuration must omit " .. name)
     end
     assert(type(exports.listAliases) == "function")

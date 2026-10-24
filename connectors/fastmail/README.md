@@ -20,5 +20,6 @@ When you grant permission to send and organize mail, agents can also:
 - Choose which email address to send from and include attachments.
 - Create folders, move messages, archive finished conversations, and clear out
   mail you no longer need.
+- Mark individual messages or batches as read or unread.
 
 You choose whether agents can only read your mail or also make changes.

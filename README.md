@@ -37,6 +37,10 @@ source through Hub; each registration owns its publisher settings independently.
 For implementation ideas, see the optional [Luau practices](docs/luau-practices.md).
 These are recommendations, not additional contribution requirements.
 
+The [email API coverage review](docs/email-api-coverage.md) compares Fastmail,
+Gmail, IMAP and Resend with their documented APIs, including unsupported methods
+and limitations within supported operations.
+
 ## Repository layout
 
 - [connectors/](connectors/): provider manifests, Luau implementations, icons and tests.

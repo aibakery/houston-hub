@@ -167,7 +167,7 @@ local endpoints: {[string]: Endpoint} = {
 	listSendAs = {method = "GET", path = "/settings/sendAs", read = true, list = "sendAs",
 		help = "listSendAs() -> {sendAs={{sendAsEmail, displayName, isDefault, ...}}}. Addresses usable as from."},
 	modifyMessage = {method = "POST", path = "/messages/{id}/modify", read = false, body = true,
-		help = "modifyMessage({id, addLabelIds?, removeLabelIds?}) -> message. E.g. removeLabelIds={'UNREAD'} marks read; removeLabelIds={'INBOX'} archives."},
+		help = "modifyMessage({id, addLabelIds?, removeLabelIds?}) -> message. removeLabelIds={'UNREAD'} marks read; addLabelIds={'UNREAD'} marks unread; removeLabelIds={'INBOX'} archives. Other labels are preserved."},
 	batchModifyMessages = {method = "POST", path = "/messages/batchModify", read = false, body = true,
 		help = "batchModifyMessages({ids, addLabelIds?, removeLabelIds?}) -> {success=true}. Up to 1000 IDs."},
 	trashMessage = {method = "POST", path = "/messages/{id}/trash", read = false,
