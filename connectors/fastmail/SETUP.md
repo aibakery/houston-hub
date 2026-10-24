@@ -5,7 +5,9 @@
    and **Masked Email** if you want to list masked addresses.
 4. In Houston, choose the access level:
    - **Read-only** for browsing, searching, and downloading attachments.
-   - **Read and write** to also send, reply, create folders, move, archive, or delete mail.
+   - **Read and write** to also mark mail read/unread, send, reply, create folders,
+     move, archive, or delete mail. Changing read state needs a writable **Email**
+     token; **Email submission** is only needed for sending and replying.
 5. Paste the token into **JMAP API token** and select **Add connector**.
 
 API tokens require a Fastmail plan above Basic. Your token stays on the Houston

@@ -22,7 +22,7 @@ end
 -- Operations in Resend's OpenAPI and API reference, checked on 2026-10-15. Path {fields} and
 -- listed query fields are taken from the options; the other fields form the JSON body (see
 -- hasBody). Webhook and log reads are writes because they return signing secrets and logged
--- request bodies. Inboxes (private beta), API key creation and changes, OAuth grants and the
+-- request bodies. Inboxes, API key creation and changes, OAuth grants and the
 -- deprecated audiences are not exposed.
 local endpoints: {[string]: Endpoint} = {
 	sendEmail = {method = "POST", path = "/emails", extra = {"idempotency_key"}, doc = "emails/send-email",

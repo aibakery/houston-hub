@@ -714,20 +714,24 @@ local function reply_subject(subject: any)
 	return "Re: " .. subject
 end
 
-local function move_to(ids: {string}, dest: string, operation: string): MoveResult
-	local moved: {string} = json.decode("[]") :: {string}
+local function update_ids(ids: {string}, patch: {[string]: any}, operation: string): {string}
+	local updated: {string} = json.decode("[]") :: {string}
 	for batch in each_chunk(ids) do
 		local update = {}
-		for _, id in batch do update[id] = { mailboxIds = { [dest] = true } } end
+		for _, id in batch do update[id] = patch end
 		local data = call("Email/set", { update = update }, operation)
 		for _, id in batch do
 			if type(data.updated) ~= "table" or data.updated[id] == nil then
 				fail(operation, "Missing update confirmation for " .. id)
 			end
-			moved[#moved + 1] = id
+			updated[#updated + 1] = id
 		end
 	end
-	return { ids = moved, folderId = dest }
+	return updated
+end
+
+local function move_to(ids: {string}, dest: string, operation: string): MoveResult
+	return { ids = update_ids(ids, { mailboxIds = { [dest] = true } }, operation), folderId = dest }
 end
 
 local function destroy_ids(ids: any, operation: any)
@@ -748,6 +752,14 @@ local function destroy_ids(ids: any, operation: any)
 end
 
 local writes = {}
+
+function writes.markRead(ids: Ids)
+	return { ids = update_ids(id_list(ids, "markRead"), { ["keywords/$seen"] = true }, "markRead") }
+end
+
+function writes.markUnread(ids: Ids)
+	return { ids = update_ids(id_list(ids, "markUnread"), { ["keywords/$seen"] = json.decode("null") }, "markUnread") }
+end
 
 function writes.trashMessage(id: Id)
 	local moved = move_to({ id_of(id) }, folder_id(functions.listFolders().folders, "trash"), "trashMessage")
@@ -962,6 +974,8 @@ local operationHelp: {[string]: string} = {
 	listMailFolders = [==[listMailFolders() -> {id:string,name:string}[]. No arguments. Includes every available folder, sorted by nonempty unique ID; names may repeat. Empty mailboxes return an empty array; provider failures raise errors.]==],
 	listMessages = [==[listMessages(opts?) -> {messages={{id}},nextPageToken?}. Newest first; loop using nextPageToken until nil, including a possibly empty last page. opts: from,to,subject,text,after,before (date or UTC timestamp),folder/folders,alias/aliases,includeSpamTrash,maxResults (1–500, default 100),pageToken. Alias searches From/To/Cc/Bcc. Array filters combine with AND; spam/trash excluded unless explicitly selected. No Gmail q syntax.]==],
 	listThreads = [==[listThreads(opts?) -> {threads={{id}},nextPageToken?}. Uses the same filters and opaque pagination as listMessages; loop until nextPageToken is nil, even if a page is empty.]==],
+	markRead = [==[markRead(ids) -> {ids}. Marks messages read by setting $seen, preserving other keywords and mailboxes. Accepts one ID or a list of strings/{id} rows. Requires a writable Email token and read-write connection access; Email submission scope is unnecessary. Batches of 50 may partially complete; inspect keywords after a failure before retrying.]==],
+	markUnread = [==[markUnread(ids) -> {ids}. Marks messages unread by removing $seen, preserving other keywords and mailboxes. Accepts one ID or a list of strings/{id} rows. Requires a writable Email token and read-write connection access; Email submission scope is unnecessary. Batches of 50 may partially complete; inspect keywords after a failure before retrying.]==],
 	moveMessage = [==[moveMessage({id:string,folder:string}) -> {ids,folderId}. Replaces message mailboxes with one destination. folder accepts ID or role. Positional moveMessage(id,folder) remains supported; id accepts a string or {id}.]==],
 	moveMessages = [==[moveMessages({ids={...},folder:string}) -> {ids,folderId}. ids accepts one ID or a list; IDs may be strings or {id}. id is also accepted instead of ids for a single message. folder accepts ID or role. Positional moveMessages(ids,folder) remains supported. Replaces mailboxes with one destination, in batches of 50. Partial completion is possible; never automatically replay.]==],
 	replyMessage = [==[replyMessage({id:string,text:string,all:boolean?,subject:string?,identityId:string?,from:string?,cc?,bcc?,replyTo?,attachments?}) -> {id,submissionId}. messageId is also accepted instead of id. Positional replyMessage(id,options) remains supported. Replies to Reply-To, otherwise From; preserves thread message IDs/references. all defaults false. Default sender is receiving identity (To then Cc), then primary identity. all=true adds original To/Cc excluding your identities and reply recipient; cc explicitly replaces that list. Subject derives a Re: prefix unless supplied. Attachments use private session paths as in sendMessage. Email submission scope required. Never automatically replay a partial send.]==],

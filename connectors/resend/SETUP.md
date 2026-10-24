@@ -40,8 +40,11 @@ write** connection meant for sending.
 
 ### What stays in Resend
 
-Create, edit and delete API keys, manage OAuth apps, and use Inboxes, which are in
-private beta, in Resend itself. Houston does not expose those settings.
+Create, edit and delete API keys, manage OAuth apps, and use Inboxes in Resend
+itself. Houston does not expose those settings. Resend documents an
+[Inbox API](https://resend.com/docs/api-reference/inboxes/create-inbox), including
+thread read/unread state; this connector does not yet implement it. Account
+availability has not been verified.
 
 ### Troubleshooting
 

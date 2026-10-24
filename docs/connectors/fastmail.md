@@ -19,6 +19,8 @@ with a configured connection named `mail`:
 ```lua
 local page = mail.listMessages({folder = "INBOX", maxResults = 20})
 local messages = mail.getMessages({ids = page.messages, maxBodyValueBytes = 8192})
+local read = mail.markRead(page.messages)
+local unread = mail.markUnread("message-id")
 local thread = mail.getThread({id = "thread-id", maxBodyValueBytes = 8192})
 
 local files = mail.getAttachments({
@@ -44,7 +46,11 @@ return the complete conversation, so large threads still produce large results.
 Attachment metadata does not fetch message bodies. Downloads and uploads stream
 through private session files; returned download URLs expire.
 
-Moving, archiving, deleting, and destroying messages use batches of 50.
+Marking read/unread, moving, archiving, deleting, and destroying messages use batches of 50.
+`markRead(ids)` sets the JMAP `$seen` keyword; `markUnread(ids)` removes it.
+Both preserve other keywords and mailbox membership and accept a single ID,
+an `{id = "..."}` row, or a list of either. They require read-write connection
+access and a writable Email token, without needing Email submission permission.
 `deleteMessage(s)` moves mail to Trash; `destroyMessage(s)` permanently removes
 it. A later batch can fail after earlier batches succeeded. Sending can also
 succeed before a response is lost. These operations are never automatically
