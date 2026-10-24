@@ -269,9 +269,11 @@ inactive saved values cannot satisfy references. Templates use explicit owners:
 `auth.oauth.access_token`. Fallback `||` is available for values, not predicates.
 
 Use `multiline: true` on a plain string field for a textarea. Add `format: "json"`
-for syntax highlighting; this is presentation metadata, preserves the exact string,
-and does not validate JSON or its meaning. Connector code must validate structured
-configuration before using it. Multiline fields cannot be secret, masked, or choices.
+for syntax highlighting and live JSON syntax validation. The exact string is
+preserved, but defaults and submitted values must contain valid JSON. Any JSON
+value is accepted, including arrays and scalars; an optional field may be omitted,
+but an explicitly empty string is invalid. Connector code must still validate the
+structure and meaning before using it. Multiline fields cannot be secret, masked, or choices.
 The same metadata works for publisher, connection, and manual-auth settings.
 Conditional required fields are required only while active, for example:
 
