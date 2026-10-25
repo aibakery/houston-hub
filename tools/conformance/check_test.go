@@ -14,9 +14,9 @@ import (
 
 func fixtureHost(t *testing.T) string {
 	t.Helper()
-	binary := os.Getenv("HOUSTON_CLI")
+	binary := os.Getenv("HOUSTON_RUNTIME")
 	if binary == "" {
-		binary = "houston"
+		binary = "houston-runtime"
 	}
 	found, err := exec.LookPath(binary)
 	if err != nil {

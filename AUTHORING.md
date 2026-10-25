@@ -542,7 +542,7 @@ validator selects the bundles migrated to the current runtime; see the maintaine
 list in [README.md](README.md). An explicit catalog directory validates all its
 bundles.
 
-Set `HOUSTON_CLI` to a newly built Houston runner and put the pinned
+Set `HOUSTON_RUNTIME` to a newly built Houston service runtime and put the pinned
 `luau-analyze` on `PATH`. A fixture returns a table with `scenario`, optional
 public `config` overrides, optional `configure`, and `run`. The scenario contains
 synthetic `publisher`, root `config`, `auth_method`, and selected `auth_config`

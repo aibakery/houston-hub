@@ -78,9 +78,9 @@ func TestDropboxDiscoveryUsesGrantedScopes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	binary := os.Getenv("HOUSTON_CLI")
+	binary := os.Getenv("HOUSTON_RUNTIME")
 	if binary == "" {
-		binary = "houston"
+		binary = "houston-runtime"
 	}
 	for _, test := range []struct {
 		name    string

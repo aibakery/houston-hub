@@ -67,10 +67,10 @@ func call(ctx context.Context, binary, mode string, input any, output any) error
 // Check requires runnable behavioral evidence for each method and variant, with configured Lua help.
 func Check(ctx context.Context, binary string, m manifest.Manifest, modules, fixtures map[string]string) error {
 	if binary == "" {
-		binary = os.Getenv("HOUSTON_CLI")
+		binary = os.Getenv("HOUSTON_RUNTIME")
 	}
 	if binary == "" {
-		binary = "houston"
+		binary = "houston-runtime"
 	}
 	if len(fixtures) == 0 {
 		return fmt.Errorf("bundle requires conformance fixtures")
