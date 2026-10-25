@@ -7,7 +7,7 @@ local PAGE = {cursor = "text", page_size = "size"}
 local endpoints: {[string]: Endpoint} = {
 	listNotes = {path = "/notes", list = "notes", maximum = 30,
 		query = {created_after = "date", created_before = "date", updated_after = "date", folder_id = "fol", space_id = "spa", cursor = "text", page_size = "size"},
-		help = "List note summaries `{id, object, title, owner = {name, email}, created_at, updated_at, deleted_at}` the key can read. Optional created_after, created_before and updated_after take `YYYY-MM-DD` or RFC 3339 date-times. folder_id (`fol_…`, includes child folders) and space_id (`spa_…`) filter by location. Only notes with a generated summary and transcript are listed."},
+		help = "List note summaries `{id, object, title, owner = {name, email}, created_at, updated_at, deleted_at}` the key can read. Optional created_after, created_before and updated_after take `YYYY-MM-DD` or RFC 3339 date-times. folder_id (`fol_…`, includes child folders) and space_id (`spa_…`) filter by location. Only notes with a generated summary and transcript are listed. Keys that read all workspace notes also see deleted notes: skip rows whose deleted_at is not null."},
 	getNote = {path = "/notes/{id}", id = "not", query = {include = "transcript"},
 		help = "Read one note (`not_…`): title, owner, attendees, calendar_event (event_title, invitees, organiser, scheduled times), folder_membership, space_membership, summary_text, summary_markdown, attachments (photo URLs anyone with the link can open), web_url, and private_notes_* (only for the note owner's key). Pass include = \"transcript\" to inline the transcript; if Granola answers HTTP 413 TRANSCRIPT_TOO_LARGE, page it with getTranscript."},
 	getTranscript = {path = "/notes/{id}/transcript", id = "not", list = "transcript", maximum = 100, query = PAGE,
@@ -137,8 +137,10 @@ for _, row in page.notes do
 	table.insert(summaries, {title = note.title, summary = note.summary_markdown})
 end
 -- While page.hasMore, repeat listNotes with the same filters and cursor = page.cursor.
-local first = granola.getTranscript(page.notes[1].id, {page_size = 100})
--- first.transcript[i].speaker.source, .text; continue with cursor = first.cursor while first.hasMore.
+if page.notes[1] then
+	local lines = granola.getTranscript(page.notes[1].id, {page_size = 100})
+	-- lines.transcript[i].speaker.attribution and .text; continue with cursor = lines.cursor while lines.hasMore.
+end
 ```
 
 Reference: https://docs.granola.ai/introduction]])
