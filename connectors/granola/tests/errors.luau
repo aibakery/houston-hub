@@ -30,8 +30,10 @@ return {
 		upstream(413, '{"code":"TRANSCRIPT_TOO_LARGE","message":"Transcript is too large to include"}', {}, note,
 			{"HTTP 413", "TRANSCRIPT_TOO_LARGE", "getTranscript", '"retryable":false'})
 		upstream(404, '{"error":"not_found","message":"The requested endpoint does not exist"}', {}, note, {"HTTP 404", "not_found", "access scopes"})
+		upstream(400, '{"code":"VALIDATION_ERROR","message":"' .. string.rep("x", 1000) .. '"}', {}, list,
+			{"HTTP 400", "VALIDATION_ERROR: " .. string.rep("x", 300)}, string.rep("x", 301))
 		upstream(400, '{"code":"VALIDATION_ERROR","message":"' .. string.rep("x", 5000) .. '"}', {}, list,
-			{"HTTP 400", "VALIDATION_ERROR"}, string.rep("x", 301))
+			{"HTTP 400 VALIDATION_ERROR"}, "xxx")
 		upstream(429, '{"code":"RATE_LIMITED","message":"Too many requests"}', {["retry-after"] = {"7"}}, list,
 			{"HTTP 429", "retry after 7s", '"retryable":true'})
 		upstream(503, "<html>Unavailable</html>", {}, list, {"HTTP 503", '"retryable":true'})
