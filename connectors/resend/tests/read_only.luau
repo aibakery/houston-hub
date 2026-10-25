@@ -24,13 +24,15 @@ return {
 
 		local names = {}
 		for name in resend do if name ~= "help" then table.insert(names, name) end end
-		assert(#names == 45, "wrong read-only surface: " .. #names)
+		assert(#names == 57, "wrong read-only surface: " .. #names)
 		for _, name in {"sendEmail", "sendBatchEmails", "updateEmail", "cancelEmail", "shareEmail", "createDomain", "verifyDomain",
 			"createContact", "createContactImport", "addContactToSegment", "sendBroadcast", "createWebhook", "rotateWebhookSigningSecret",
-			"replayWebhookEvent", "sendEvent", "addSuppression", "removeSuppressions", "getWebhook", "getLog"} do
+			"replayWebhookEvent", "sendEvent", "addSuppression", "removeSuppressions", "getWebhook", "getLog", "createInbox", "updateInboxAgent",
+			"updateThread", "deleteThread", "setThreadLabels", "replyToThreadEmail", "forwardThreadEmail", "createDraft", "sendDraft"} do
 			assert(resend[name] == nil, "read-only leaked " .. name)
 		end
-		assert(resend.listWebhooks and resend.listLogs and resend.getWebhookEvent, "reads without secrets stay available")
+		assert(resend.listWebhooks and resend.listLogs and resend.getWebhookEvent and resend.getUsage and resend.searchThreads and resend.getThreadEmail,
+			"reads without secrets stay available")
 		assert(#requests == 0, "initialization reached Resend")
 
 		-- Lists always page: limit defaults to Resend's maximum, and arrays stay arrays.
@@ -71,6 +73,22 @@ return {
 		assert(last().url == API .. "/emails/metrics?start_date=2026-10-01&timezone=Europe%2FParis&metrics=delivered%2Copened&dimensions=period", last().url)
 		resend.listBroadcastRecipients({broadcast_id = "b1", type = "bounced", bounce_type = "permanent"})
 		assert(last().url == API .. "/broadcasts/b1/recipients?type=bounced&bounce_type=permanent&limit=100", last().url)
+		resend.getUsage()
+		assert(last().url == API .. "/usage", last().url)
+
+		-- Inboxes take an ID or address, and multi-value filters are comma-joined arrays.
+		resend.listThreads({inbox_id = "support@acme.com", folders = {"inbox", "sent"}, labels = {"l1"}, read = false})
+		assert(last().url == API .. "/inboxes/support%40acme.com/threads?folders=inbox,sent&labels=l1&read=false&limit=100", last().url)
+		resend.searchThreads({inbox_id = "i1", query = '"order 1041" refund', from = {"ana@example.com", "Bo, B"}, has_attachment = true, start_date = "2026-09-01"})
+		assert(last().url == API .. "/inboxes/i1/threads/search?query=%22order%201041%22%20refund&from=ana%40example.com,Bo%2C%20B&has_attachment=true&start_date=2026-09-01&limit=100", last().url)
+		resend.listThreadEmails({inbox_id = "i1", thread_id = "t1", after = "e9"})
+		assert(last().url == API .. "/inboxes/i1/threads/t1/emails?limit=100&after=e9", last().url)
+		resend.getThreadEmail({inbox_id = "i1", thread_id = "t1", email_id = "e1"})
+		assert(last().url == API .. "/inboxes/i1/threads/t1/emails/e1" and last().body == nil)
+		resend.listInboxLabels({inbox_id = "i1"})
+		assert(last().url == API .. "/inboxes/i1/labels", last().url)
+		resend.getEmailMetrics({metrics = {"delivered", "opened"}})
+		assert(last().url == API .. "/emails/metrics?metrics=delivered,opened", last().url)
 
 		-- Invalid input never reaches the network.
 		rejected(function() resend.getEmail({}) end, "email_id must be an ID")
@@ -84,7 +102,11 @@ return {
 		rejected(function() resend.getEmail({email_id = 42}) end, "email_id must be an ID")
 		rejected(function() resend.listBroadcastRecipients({broadcast_id = "b1"}) end, "type is required")
 		rejected(function() resend.listEmails({bogus = 1}) end, "listEmails has no option bogus")
-		rejected(function() resend.listEmails({limit = {1}}) end, "limit must be a string, boolean, number")
+		rejected(function() resend.listEmails({limit = {x = 1}}) end, "limit must be an array, not an object")
+		rejected(function() resend.listThreads({inbox_id = "i1", folders = {}}) end, "folders must not be an empty array")
+		rejected(function() resend.listThreads({inbox_id = "i1", labels = {{"l1"}}}) end, "labels must be a string, boolean, number or array of those")
+		rejected(function() resend.listThreads({folders = {"inbox"}}) end, "inbox_id must be an ID")
+		rejected(function() resend.getThread({inbox_id = "i1", thread_id = "../../api-keys"}) end, "thread_id must be an ID")
 		rejected(function() resend.listEmails("e1") end, "opts must be an object")
 		rejected(function() resend.listEmails({"e1"}) end, "opts must have named fields")
 		rejected(function() resend.getEmailAttachment({email_id = "e1", attachment_id = "a1", path = ""}) end, "path must be a session file path")

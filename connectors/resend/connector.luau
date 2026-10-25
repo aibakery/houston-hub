@@ -19,11 +19,11 @@ local function paged(...: string): {string}
 	return fields
 end
 
--- Operations in Resend's OpenAPI and API reference, checked on 2026-10-15. Path {fields} and
--- listed query fields are taken from the options; the other fields form the JSON body (see
+-- Operations in Resend's OpenAPI 1.5.1 and API reference, checked on 2026-10-25. Path {fields}
+-- and listed query fields are taken from the options; the other fields form the JSON body (see
 -- hasBody). Webhook and log reads are writes because they return signing secrets and logged
--- request bodies. Inboxes, API key creation and changes, OAuth grants and the
--- deprecated audiences are not exposed.
+-- request bodies. API key creation and changes, OAuth grants and the deprecated audiences are
+-- not exposed.
 local endpoints: {[string]: Endpoint} = {
 	sendEmail = {method = "POST", path = "/emails", extra = {"idempotency_key"}, doc = "emails/send-email",
 		about = "Body {from='Name <you@your-domain>', to (address or array of at most 50), subject, html?, text?, cc?, bcc?, reply_to?, headers?, attachments?={{filename, content (base64) or path (public URL), content_type?, content_id?}}, tags?={{name, value}}, scheduled_at? (ISO 8601 or 'in 1 hour', at most 30 days ahead), topic_id?, template?={id (or alias), variables?}}. Sends real email; returns {id}."},
@@ -52,6 +52,55 @@ local endpoints: {[string]: Endpoint} = {
 	getReceivedEmailAttachment = {method = "GET", path = "/emails/receiving/{email_id}/attachments/{attachment_id}", extra = {"path"},
 		doc = "emails/retrieve-received-email-attachment", about = "As getEmailAttachment, for a received email."},
 
+	createInbox = {method = "POST", path = "/inboxes", doc = "inboxes/create-inbox",
+		about = "Body {email_address (on a domain with receiving enabled, or any verified domain with forwarding=true), name?, from_name?, forwarding?}."},
+	listInboxes = {method = "GET", path = "/inboxes", query = PAGE, doc = "inboxes/list-inboxes", about = "Inboxes, newest first; getInbox has every field."},
+	getInbox = {method = "GET", path = "/inboxes/{inbox_id}", doc = "inboxes/get-inbox",
+		about = "An inbox with its unread and draft counts; inbox_id is its ID or email address, as in every inbox function."},
+	updateInbox = {method = "PATCH", path = "/inboxes/{inbox_id}", doc = "inboxes/update-inbox", about = "Body {name?, from_name?}."},
+	deleteInbox = {method = "DELETE", path = "/inboxes/{inbox_id}", doc = "inboxes/delete-inbox", about = "Removes an inbox."},
+	getInboxAgent = {method = "GET", path = "/inboxes/{inbox_id}/agent", doc = "inboxes/get-agent", about = "The inbox agent's instructions, tone and actions."},
+	updateInboxAgent = {method = "PATCH", path = "/inboxes/{inbox_id}/agent", doc = "inboxes/update-agent",
+		about = "Body {instructions?, tone? (concise_professional, concise_casual, expanded_professional or expanded_casual), actions? (replaces the set: draft_reply, forward_thread, add_labels, assign_thread, mark_as_spam, archive, move_to_trash)}."},
+	listInboxLabels = {method = "GET", path = "/inboxes/{inbox_id}/labels", doc = "inboxes/list-labels", about = "Every label of an inbox, unpaged."},
+	createInboxLabel = {method = "POST", path = "/inboxes/{inbox_id}/labels", doc = "inboxes/create-label", about = "Body {name, color? ('#RRGGBB')}; at most 100 per inbox."},
+	updateInboxLabel = {method = "PATCH", path = "/inboxes/{inbox_id}/labels/{label_id}", doc = "inboxes/update-label", about = "Body {name?, color?}."},
+	deleteInboxLabel = {method = "DELETE", path = "/inboxes/{inbox_id}/labels/{label_id}", doc = "inboxes/delete-label",
+		about = "Deletes a label and takes it off every thread."},
+	listThreads = {method = "GET", path = "/inboxes/{inbox_id}/threads", query = paged("folders", "labels", "read"), doc = "inboxes/list-threads",
+		about = "An inbox's threads, most recently active first. folders: inbox, archive, spam, sent, trash; labels: label IDs; read=false keeps threads with unread email."},
+	searchThreads = {method = "GET", path = "/inboxes/{inbox_id}/threads/search", doc = "inboxes/search-threads",
+		query = paged("query", "from", "to", "cc", "bcc", "has_attachment", "start_date", "end_date", "folders", "labels", "read"),
+		about = "As listThreads, where one email matches query (words, \"phrases\"), from, to, cc, bcc (part of an address or name), has_attachment and start_date..end_date (dates or ISO 8601). Up to a minute behind."},
+	getThread = {method = "GET", path = "/inboxes/{inbox_id}/threads/{thread_id}", doc = "inboxes/get-thread", about = "A thread's summary; listThreadEmails has its emails."},
+	updateThread = {method = "PATCH", path = "/inboxes/{inbox_id}/threads/{thread_id}", doc = "inboxes/update-thread",
+		about = "Body {read?, folder? (inbox, archive, spam or trash)}. Marks every email read or unread, or moves the thread."},
+	deleteThread = {method = "DELETE", path = "/inboxes/{inbox_id}/threads/{thread_id}", doc = "inboxes/delete-thread",
+		about = "Moves a thread to trash, deleted after 30 days unless updateThread moves it out."},
+	addThreadLabels = {method = "POST", path = "/inboxes/{inbox_id}/threads/{thread_id}/labels", doc = "inboxes/add-thread-labels",
+		about = "Body {labels} (1..10 label IDs). Returns the thread's labels."},
+	setThreadLabels = {method = "PUT", path = "/inboxes/{inbox_id}/threads/{thread_id}/labels", doc = "inboxes/set-thread-labels",
+		about = "Body {labels} (at most 100; json.decode('[]') clears). Replaces the thread's labels."},
+	removeThreadLabel = {method = "DELETE", path = "/inboxes/{inbox_id}/threads/{thread_id}/labels/{label_id}", doc = "inboxes/remove-thread-label",
+		about = "Takes a label off a thread; the label stays."},
+	listThreadEmails = {method = "GET", path = "/inboxes/{inbox_id}/threads/{thread_id}/emails", query = PAGE, doc = "inboxes/list-thread-emails",
+		about = "A thread's emails, oldest first, with direction, html, text, read and attachments {id, filename, size}."},
+	getThreadEmail = {method = "GET", path = "/inboxes/{inbox_id}/threads/{thread_id}/emails/{email_id}", doc = "inboxes/get-thread-email", about = "One email of a thread."},
+	replyToThreadEmail = {method = "POST", path = "/inboxes/{inbox_id}/threads/{thread_id}/emails/{email_id}/reply", extra = {"idempotency_key"},
+		doc = "inboxes/reply-thread-email",
+		about = "Body {html? or text?, reply_all?, cc?, bcc?, subject?, attachments?, headers?}. Sends now from the inbox to the email's Reply-To or sender, or to its recipients if the inbox sent it."},
+	forwardThreadEmail = {method = "POST", path = "/inboxes/{inbox_id}/threads/{thread_id}/emails/{email_id}/forward", extra = {"idempotency_key"},
+		doc = "inboxes/forward-thread-email", about = "Body {to, cc?, bcc?, html? or text? (a note above the original), subject?, attachments?, headers?}. Sends now, with the original's attachments."},
+	listDrafts = {method = "GET", path = "/inboxes/{inbox_id}/drafts", query = PAGE, doc = "inboxes/list-drafts", about = "Unsent drafts, most recently updated first."},
+	createDraft = {method = "POST", path = "/inboxes/{inbox_id}/drafts", extra = {"idempotency_key"}, doc = "inboxes/create-draft",
+		about = "Body {to?, cc?, bcc?, subject?, html?, text?, attachments?={{filename, content (base64), content_type}}, thread_id and reply_to_email_id? for a reply}. Returns {id}; an email has at most one reply draft."},
+	getDraft = {method = "GET", path = "/inboxes/{inbox_id}/drafts/{draft_id}", doc = "inboxes/get-draft", about = "A draft with its content."},
+	updateDraft = {method = "PATCH", path = "/inboxes/{inbox_id}/drafts/{draft_id}", doc = "inboxes/update-draft",
+		about = "Body: createDraft's content fields to change; attachments replace all, and html or text replaces the whole body."},
+	deleteDraft = {method = "DELETE", path = "/inboxes/{inbox_id}/drafts/{draft_id}", doc = "inboxes/delete-draft", about = "Discards an unsent draft."},
+	sendDraft = {method = "POST", path = "/inboxes/{inbox_id}/drafts/{draft_id}/send", extra = {"idempotency_key"}, doc = "inboxes/send-draft",
+		about = "Body {headers?}. Sends a draft with to and html or text from the inbox, in its thread if it is a reply."},
+
 	createDomain = {method = "POST", path = "/domains", doc = "domains/create-domain",
 		about = "Body {name, region? (us-east-1, eu-west-1, sa-east-1 or ap-northeast-1), custom_return_path?, open_tracking?, click_tracking?, tls? (opportunistic or enforced), tracking_subdomain?, capabilities?}. Returns the DNS records to add."},
 	listDomains = {method = "GET", path = "/domains", query = PAGE, doc = "domains/list-domains", about = "Sending and receiving domains with their status."},
@@ -68,6 +117,8 @@ local endpoints: {[string]: Endpoint} = {
 		about = "Starts checking the claim's TXT record (domain_id as in getDomainClaim); read getDomainClaim for the result. The moved domain then needs its new DNS records verified."},
 	listApiKeys = {method = "GET", path = "/api-keys", query = PAGE, doc = "api-keys/list-api-keys",
 		about = "API keys' id, name, created_at and last_used_at, never their tokens."},
+	getUsage = {method = "GET", path = "/usage", doc = "usage/retrieve-usage",
+		about = "Plan usage as {used, limit (null when unlimited)}: emails daily and monthly (sent and received), contacts, segments, domains, broadcasts, automation_runs and ai_credits, plus rate_limit {limit, duration}."},
 
 	createTemplate = {method = "POST", path = "/templates", doc = "templates/create-template",
 		about = "Body {name, html, alias?, from?, subject?, reply_to?, text?, variables?={{key, type ('string' or 'number'), fallback_value?}}}. Creates a draft; html uses {{{KEY}}} placeholders."},
@@ -302,8 +353,8 @@ local function operations(endpoints: {[string]: Endpoint}, request: (string, End
 end
 -- End of the shared request layer.
 
--- IDs are UUIDs, or msg_... for webhook events. Contacts and suppressions also take an email
--- address, templates an alias and events a name, such as user.created. Each is one encoded
+-- IDs are UUIDs, or msg_... for webhook events. Contacts, suppressions and inboxes also take an
+-- email address, templates an alias and events a name, such as user.created. Each is one encoded
 -- path segment, as in Resend's SDK; url.segment refuses separators, percent signs, control
 -- characters and dot segments.
 local function identifier(value: any, field: string): string
@@ -377,7 +428,7 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 	for _, field in endpoint.query or NONE do
 		local value = args[field]
 		if value == nil and field == "limit" then value = PAGE_SIZE end
-		if value ~= nil then table.insert(query, field .. "=" .. scalar(value, field)) end
+		if value ~= nil then table.insert(query, field .. "=" .. table.concat(queryParts(value, field), ",")) end
 		args[field] = nil
 	end
 	if #query > 0 then path ..= "?" .. table.concat(query, "&") end
@@ -417,9 +468,9 @@ end
 
 return operations(endpoints, request, {
 	"Resend API. Every function takes one named options object with Resend's snake_case names; ? marks optional fields and ...body the JSON body fields. Results are Resend's JSON unchanged, such as {id} for a send or {object='list', has_more, data} for a list. In bodies, pass json.decode('[]') for empty arrays and json.decode('null') to clear a field. Connector calls return completed values: use them directly, without await.",
-	"IDs are UUIDs; contacts and suppressions also accept an email address, templates an alias and events a name. Lists return one page: limit is 1..100 (this connector sends 100 when omitted); while has_more, pass after = the last item's id (or before = the first item's id to go back). Multi-value query fields such as metrics or domain_id are comma-separated strings.",
-	"Sending: from must use a domain verified in Resend (see listDomains); without one, only onboarding@resend.dev can send, and only to the account owner's address. Use html, text or a published template. scheduled_at schedules up to 30 days ahead; cancelEmail or updateEmail change a scheduled email. Pass idempotency_key (1..256 characters, kept 24 hours) to sendEmail and sendBatchEmails so a repeated call never sends twice. Attachments take base64 content or a public URL as path, at most 40 MB per email.",
-	"Examples: resend.sendEmail({from='Acme <hello@acme.com>', to={'ana@example.com'}, subject='Welcome', html='<p>Hi Ana</p>', idempotency_key='welcome/ana'}); resend.sendBatchEmails({emails={{from=..., to='a@example.com', subject='Hi', text='Hello'}}}); resend.listEmails({limit=20}); resend.getReceivedEmail({email_id=id, html_format='cid'}); resend.getReceivedEmailAttachment({email_id=id, attachment_id=a.id, path='invoice.pdf'}) saves a session file; resend.createContact({email='ana@example.com', segments={{id=segment}}}).",
+	"IDs are UUIDs; contacts, suppressions and inboxes also accept an email address, templates an alias and events a name. Lists return one page: limit is 1..100 (this connector sends 100 when omitted); while has_more, pass after = the last item's id (or before = the first item's id to go back). Multi-value query fields such as metrics, folders or labels take an array or a comma-separated string.",
+	"Sending: from must use a domain verified in Resend (see listDomains); without one, only onboarding@resend.dev can send, and only to the account owner's address. Use html, text or a published template. scheduled_at schedules up to 30 days ahead; cancelEmail or updateEmail change a scheduled email. Pass idempotency_key (1..256 characters, kept 24 hours) to sendEmail, sendBatchEmails, replyToThreadEmail, forwardThreadEmail, sendDraft and createDraft so a repeated call never sends (or drafts) twice. Attachments take base64 content or a public URL as path, at most 40 MB per email.",
+	"Examples: resend.sendEmail({from='Acme <hello@acme.com>', to={'ana@example.com'}, subject='Welcome', html='<p>Hi Ana</p>', idempotency_key='welcome/ana'}); resend.sendBatchEmails({emails={{from=..., to='a@example.com', subject='Hi', text='Hello'}}}); resend.listEmails({limit=20}); resend.getReceivedEmail({email_id=id, html_format='cid'}); resend.getReceivedEmailAttachment({email_id=id, attachment_id=a.id, path='invoice.pdf'}) saves a session file; resend.createContact({email='ana@example.com', segments={{id=segment}}}); resend.listThreads({inbox_id='support@acme.com', folders={'inbox'}, read=false}); resend.updateThread({inbox_id=inbox, thread_id=t.id, read=true}).",
 	"Read-only connections omit writes, getWebhook (signing secrets) and getLog (logged request bodies). A Resend key with Sending access can only send email; other calls fail with HTTP 401 restricted_api_key. Resend allows 10 requests per second per team; the free plan allows 100 emails a day and 3,000 a month, counting received email and each recipient (HTTP 429 daily_quota_exceeded or monthly_quota_exceeded).",
-	"Side effects: sendEmail, sendBatchEmails, sendBroadcast, createBroadcast with send=true and sendEvent (through automations) email real people; shareEmail creates a public link. There are no automatic retries: after a timeout or 5xx, check listEmails or getEmail before repeating a send without an idempotency_key. Errors report the HTTP status, Resend's error name and message.",
+	"Side effects: sendEmail, sendBatchEmails, replyToThreadEmail, forwardThreadEmail, sendDraft, sendBroadcast, createBroadcast with send=true and sendEvent (through automations) email real people, and updateInboxAgent actions let Resend's agent draft, forward, file or trash an inbox's email on its own; shareEmail creates a public link. There are no automatic retries: after a timeout or 5xx, check listEmails or getEmail before repeating a send without an idempotency_key. Errors report the HTTP status, Resend's error name and message.",
 })
