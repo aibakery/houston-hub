@@ -48,7 +48,7 @@ local function queryValue(value: any, field: string, kind: string, maximum: numb
 	return url.encode(text(value, field))
 end
 
-local function failure(name: string, response: HttpResponse): never
+local function failure(name: string, endpoint: Endpoint, response: HttpResponse): never
 	local status = response.statusCode
 	local prefix = await(response.body:readPrefix(4096))
 	local ok, body = pcall(json.decode, prefix)
@@ -60,7 +60,7 @@ local function failure(name: string, response: HttpResponse): never
 	if type(code) == "string" then message ..= " " .. string.sub(code, 1, 64) end
 	if type(body.message) == "string" then message ..= ": " .. string.sub(body.message, 1, 300) end
 	if status == 401 then message ..= " (check the API key; personal keys can expire or be revoked)"
-	elseif status == 404 then message ..= " (the note may not exist, lack a summary and transcript, or be outside the key's access scopes)"
+	elseif status == 404 and endpoint.id then message ..= " (the note may not exist, lack a summary and transcript, or be outside the key's access scopes)"
 	elseif status == 413 then message ..= " (use getTranscript to page the transcript)" end
 	local retry = response.headers["retry-after"]
 	if status == 429 and retry and retry[1] then message ..= "; retry after " .. string.sub(retry[1], 1, 32) .. "s" end
@@ -84,7 +84,7 @@ local function request(name: string, endpoint: Endpoint, id: any, input: any): a
 	table.sort(query)
 	local target = API .. path .. (if #query > 0 then "?" .. table.concat(query, "&") else "")
 	local response = await(http.request({method = "GET", url = target, headers = {Accept = {"application/json"}}}))
-	if response.statusCode < 200 or response.statusCode >= 300 then failure(name, response) end
+	if response.statusCode < 200 or response.statusCode >= 300 then failure(name, endpoint, response) end
 	local raw = await(response.body:readAll())
 	local ok, value = pcall(json.decode, raw)
 	if not ok or type(value) ~= "table" or not string.match(raw, "^%s*{")
