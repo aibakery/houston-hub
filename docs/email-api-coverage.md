@@ -13,7 +13,7 @@ This change adds Fastmail `markRead(ids)` and `markUnread(ids)` using batched pe
 - Fastmail supports read state through JMAP `Email/set`: patch `keywords/$seen` to `true` for read or JSON `null` for unread. The baseline exposed keyword state when reading but had no mutation operation; this change adds markRead/markUnread. Use a patch, not whole-keyword-map replacement, to preserve flags and drafts. Mailbox `myRights.maySetSeen` and token permissions can restrict writes. [RFC 8621 metadata](https://www.rfc-editor.org/rfc/rfc8621.html#section-4.1.1), [Email/set](https://www.rfc-editor.org/rfc/rfc8621.html#section-4.6), [patch semantics](https://www.rfc-editor.org/rfc/rfc8620.html#section-5.3).
 - Gmail already supports it: `modifyMessage({id, removeLabelIds={'UNREAD'}})` marks read; add `UNREAD` for unread. `batchModifyMessages` and `modifyThread` also work. [Gmail modify](https://developers.google.com/workspace/gmail/api/reference/rest/v1/users.messages/modify).
 - IMAP already supports it: `setFlags({ids, add={'\\Seen'}})` marks read; remove that flag for unread. Reading uses PEEK semantics and should not implicitly mark mail read. [IMAP STORE](https://www.rfc-editor.org/rfc/rfc9051.html#section-6.4.6).
-- Resend's ordinary transactional-email resources are not a user mailbox. However, its separately documented Inboxes API does support thread read/unread via `PATCH /inboxes/{inbox_id}/threads/{thread_id}` with `{read:true/false}`. All 29 Inboxes operations are missing from this connector. Its previous comment called Inboxes private beta; current official create/update reference pages no longer state that restriction, and this change corrects that stale wording. Account availability was not live-tested. [Resend thread update](https://resend.com/docs/api-reference/inboxes/update-thread).
+- Resend's ordinary transactional-email resources are not a user mailbox. However, its separately documented Inboxes API does support thread read/unread via `PATCH /inboxes/{inbox_id}/threads/{thread_id}` with `{read:true/false}`. The connector exposes all 29 Inboxes operations since 2026-10-25, so `updateThread({inbox_id, thread_id, read})` marks a thread read or unread. Account availability was not live-tested. [Resend thread update](https://resend.com/docs/api-reference/inboxes/update-thread).
 
 ## Fastmail: every public JMAP mail/core method
 
@@ -154,22 +154,20 @@ Source: [IMAP4rev2 standard](https://www.rfc-editor.org/rfc/rfc9051.html). Gener
 
 ## Resend review
 
-The official OpenAPI 1.5.1 contains **142 HTTP operations**, **103 exposed**, **39 missing**. Every operation is listed in the Resend appendix below; the linked official OpenAPI supplies complete schemas. Connector body fields generally pass through to native API, so undocumented optional body fields are often already callable; query fields and endpoint paths are explicitly enumerated.
+The official OpenAPI 1.5.1 contains **142 HTTP operations**, **133 exposed**, **9 missing** (rechecked on 2026-10-25, after adding usage and Inboxes). Every operation is listed in the Resend appendix below; the linked official OpenAPI supplies complete schemas. Connector body fields generally pass through to native API, so undocumented optional body fields are often already callable; query fields and endpoint paths are explicitly enumerated.
 
 All OpenAPI omissions:
 
 - API keys: create, rename/update, revoke/delete (3). Key listing is present. Creation returns a new credential and would require intentional secret handling.
 - OAuth grants: list and revoke (2). Connector authentication is manual API key, not OAuth.
 - Deprecated audiences: create/list/get/delete (4). Contacts and segments already exist; this is legacy redundancy.
-- Account usage: GET /usage (1).
-- Inboxes (29): create/list/get/update/delete inbox (5); get/update agent configuration (2); create/list/update/delete inbox label (4); list/search/get/update/delete thread (5); add/set/remove thread labels (3); list/get thread email and reply/forward (4); create/list/get/update/delete/send drafts (6). Thread update includes read/unread and folder changes; thread delete moves to trash. Existing transactional send/receive APIs do not substitute for this mailbox API.
 
 Supplemental official documentation outside the OpenAPI adds these unexposed surfaces:
 
 - GET /segments/metrics: contact/subscription counts optionally grouped/scoped by segment. Explicit private beta with potential shape changes. [Docs](https://resend.com/docs/api-reference/segments/get-segment-metrics).
 - OAuth client dynamic registration, authorization-code + PKCE authorization, token exchange/refresh and refresh-token revocation. These belong in authentication infrastructure, not ordinary credential-returning connector exports. [Registration](https://resend.com/docs/api-reference/oauth/register), [authorization](https://resend.com/docs/api-reference/oauth/authorize), [token](https://resend.com/docs/api-reference/oauth/token), [revocation](https://resend.com/docs/api-reference/oauth/revoke).
 
-Resend sends, batches, templates, domains/verification/claims, contacts/imports/properties/segments/topics, broadcasts/metrics, events/automations, suppressions, webhook management/replay and request logs are already represented. Attachment downloads can write session files. Signed raw received-message links are returned through getReceivedEmail, but there is no dedicated raw .eml-to-session-file helper. Lists use bounded limit/after/before pagination. Token permission (full access vs sending-only, domain restriction), plan, and feature rollout govern methods; read-only Houston access also hides writes and some reads that reveal secrets. API api.resend.com, plus signed download storage hosts configured in the manifest. Header Idempotency-Key is exposed for sends/batches. [Official OpenAPI](https://github.com/resend/resend-openapi), [reference](https://resend.com/docs/api-reference/introduction).
+Resend sends, batches, templates, domains/verification/claims, contacts/imports/properties/segments/topics, broadcasts/metrics, events/automations, suppressions, webhook management/replay, request logs, account usage and Inboxes (inboxes, agent settings, labels, threads and their search, thread emails with reply and forward, and drafts) are represented. Attachment downloads can write session files. Signed raw received-message links are returned through getReceivedEmail, but there is no dedicated raw .eml-to-session-file helper. Lists use bounded limit/after/before pagination. Token permission (full access vs sending-only, domain restriction), plan, and feature rollout govern methods; read-only Houston access also hides writes and some reads that reveal secrets. API api.resend.com, plus signed download storage hosts configured in the manifest. Header Idempotency-Key is exposed for sends, batches, inbox replies and forwards, and draft creation and sending. [Official OpenAPI](https://github.com/resend/resend-openapi), [reference](https://resend.com/docs/api-reference/introduction).
 
 ## Implementation priorities suggested by audit
 
@@ -177,7 +175,7 @@ Resend sends, batches, templates, domains/verification/claims, contacts/imports/
 2. Preserve Gmail and IMAP's existing working label/flag operations; improve explicit discoverability/tests rather than adding many redundant wrappers.
 3. Fastmail next useful work: standalone drafts + HTML, label membership mutation, folder edits/deletion, masked-email management, vacation responder, raw message import/export, and incremental sync.
 4. Gmail next useful work: settings/filter reads under current scopes, opt-in basic settings/filter writes with reauthorization, raw MIME/import/export and large uploads. Keep destructive full-mail scope and administrative delegated-account setup separate.
-5. Resend next useful work: usage and public inbox API coverage, with scoped credential handling for keys/OAuth; segment metrics remain beta.
+5. Resend next useful work: scoped credential handling for keys/OAuth; segment metrics remain beta.
 
 ## Appendix: Gmail API v1 exhaustive method audit
 
@@ -345,35 +343,35 @@ Official OpenAPI version 1.5.1 ; checked 2026-10-24. Complete request schemas, p
 | `DELETE /events/{identifier}` | deleteEvent | events/remove |
 | `GET /events/{identifier}` | getEvent | events/get |
 | `PATCH /events/{identifier}` | updateEvent | events/update |
-| `GET /inboxes` | MISSING | inboxes/list |
-| `POST /inboxes` | MISSING | inboxes/create |
-| `DELETE /inboxes/{inbox_id}` | MISSING | inboxes/remove |
-| `GET /inboxes/{inbox_id}` | MISSING | inboxes/get |
-| `PATCH /inboxes/{inbox_id}` | MISSING | inboxes/update |
-| `GET /inboxes/{inbox_id}/agent` | MISSING | inboxes/get-agent |
-| `PATCH /inboxes/{inbox_id}/agent` | MISSING | inboxes/update-agent |
-| `GET /inboxes/{inbox_id}/drafts` | MISSING | inboxes/list-drafts |
-| `POST /inboxes/{inbox_id}/drafts` | MISSING | inboxes/create-draft |
-| `DELETE /inboxes/{inbox_id}/drafts/{draft_id}` | MISSING | inboxes/remove-draft |
-| `GET /inboxes/{inbox_id}/drafts/{draft_id}` | MISSING | inboxes/get-draft |
-| `PATCH /inboxes/{inbox_id}/drafts/{draft_id}` | MISSING | inboxes/update-draft |
-| `POST /inboxes/{inbox_id}/drafts/{draft_id}/send` | MISSING | inboxes/send-draft |
-| `GET /inboxes/{inbox_id}/labels` | MISSING | inboxes/list-labels |
-| `POST /inboxes/{inbox_id}/labels` | MISSING | inboxes/create-label |
-| `DELETE /inboxes/{inbox_id}/labels/{label_id}` | MISSING | inboxes/remove-label |
-| `PATCH /inboxes/{inbox_id}/labels/{label_id}` | MISSING | inboxes/update-label |
-| `GET /inboxes/{inbox_id}/threads` | MISSING | inboxes/list-threads |
-| `GET /inboxes/{inbox_id}/threads/search` | MISSING | inboxes/search-threads |
-| `DELETE /inboxes/{inbox_id}/threads/{thread_id}` | MISSING | inboxes/remove-thread |
-| `GET /inboxes/{inbox_id}/threads/{thread_id}` | MISSING | inboxes/get-thread |
-| `PATCH /inboxes/{inbox_id}/threads/{thread_id}` | MISSING | inboxes/update-thread |
-| `GET /inboxes/{inbox_id}/threads/{thread_id}/emails` | MISSING | inboxes/list-thread-emails |
-| `GET /inboxes/{inbox_id}/threads/{thread_id}/emails/{email_id}` | MISSING | inboxes/get-thread-email |
-| `POST /inboxes/{inbox_id}/threads/{thread_id}/emails/{email_id}/forward` | MISSING | inboxes/forward-thread-email |
-| `POST /inboxes/{inbox_id}/threads/{thread_id}/emails/{email_id}/reply` | MISSING | inboxes/reply-thread-email |
-| `POST /inboxes/{inbox_id}/threads/{thread_id}/labels` | MISSING | inboxes/add-thread-labels |
-| `PUT /inboxes/{inbox_id}/threads/{thread_id}/labels` | MISSING | inboxes/set-thread-labels |
-| `DELETE /inboxes/{inbox_id}/threads/{thread_id}/labels/{label_id}` | MISSING | inboxes/remove-thread-label |
+| `GET /inboxes` | listInboxes | inboxes/list |
+| `POST /inboxes` | createInbox | inboxes/create |
+| `DELETE /inboxes/{inbox_id}` | deleteInbox | inboxes/remove |
+| `GET /inboxes/{inbox_id}` | getInbox | inboxes/get |
+| `PATCH /inboxes/{inbox_id}` | updateInbox | inboxes/update |
+| `GET /inboxes/{inbox_id}/agent` | getInboxAgent | inboxes/get-agent |
+| `PATCH /inboxes/{inbox_id}/agent` | updateInboxAgent | inboxes/update-agent |
+| `GET /inboxes/{inbox_id}/drafts` | listDrafts | inboxes/list-drafts |
+| `POST /inboxes/{inbox_id}/drafts` | createDraft | inboxes/create-draft |
+| `DELETE /inboxes/{inbox_id}/drafts/{draft_id}` | deleteDraft | inboxes/remove-draft |
+| `GET /inboxes/{inbox_id}/drafts/{draft_id}` | getDraft | inboxes/get-draft |
+| `PATCH /inboxes/{inbox_id}/drafts/{draft_id}` | updateDraft | inboxes/update-draft |
+| `POST /inboxes/{inbox_id}/drafts/{draft_id}/send` | sendDraft | inboxes/send-draft |
+| `GET /inboxes/{inbox_id}/labels` | listInboxLabels | inboxes/list-labels |
+| `POST /inboxes/{inbox_id}/labels` | createInboxLabel | inboxes/create-label |
+| `DELETE /inboxes/{inbox_id}/labels/{label_id}` | deleteInboxLabel | inboxes/remove-label |
+| `PATCH /inboxes/{inbox_id}/labels/{label_id}` | updateInboxLabel | inboxes/update-label |
+| `GET /inboxes/{inbox_id}/threads` | listThreads | inboxes/list-threads |
+| `GET /inboxes/{inbox_id}/threads/search` | searchThreads | inboxes/search-threads |
+| `DELETE /inboxes/{inbox_id}/threads/{thread_id}` | deleteThread | inboxes/remove-thread |
+| `GET /inboxes/{inbox_id}/threads/{thread_id}` | getThread | inboxes/get-thread |
+| `PATCH /inboxes/{inbox_id}/threads/{thread_id}` | updateThread | inboxes/update-thread |
+| `GET /inboxes/{inbox_id}/threads/{thread_id}/emails` | listThreadEmails | inboxes/list-thread-emails |
+| `GET /inboxes/{inbox_id}/threads/{thread_id}/emails/{email_id}` | getThreadEmail | inboxes/get-thread-email |
+| `POST /inboxes/{inbox_id}/threads/{thread_id}/emails/{email_id}/forward` | forwardThreadEmail | inboxes/forward-thread-email |
+| `POST /inboxes/{inbox_id}/threads/{thread_id}/emails/{email_id}/reply` | replyToThreadEmail | inboxes/reply-thread-email |
+| `POST /inboxes/{inbox_id}/threads/{thread_id}/labels` | addThreadLabels | inboxes/add-thread-labels |
+| `PUT /inboxes/{inbox_id}/threads/{thread_id}/labels` | setThreadLabels | inboxes/set-thread-labels |
+| `DELETE /inboxes/{inbox_id}/threads/{thread_id}/labels/{label_id}` | removeThreadLabel | inboxes/remove-thread-label |
 | `GET /logs` | listLogs | logs/list |
 | `GET /logs/{log_id}` | getLog | logs/get |
 | `GET /oauth/grants` | MISSING | oauth/list-grants |
@@ -402,7 +400,7 @@ Official OpenAPI version 1.5.1 ; checked 2026-10-24. Complete request schemas, p
 | `DELETE /topics/{id}` | deleteTopic | topics/remove |
 | `GET /topics/{id}` | getTopic | topics/get |
 | `PATCH /topics/{id}` | updateTopic | topics/update |
-| `GET /usage` | MISSING | usage/get |
+| `GET /usage` | getUsage | usage/get |
 | `GET /webhooks` | listWebhooks | webhooks/list |
 | `POST /webhooks` | createWebhook | webhooks/create |
 | `DELETE /webhooks/{webhook_id}` | deleteWebhook | webhooks/remove |

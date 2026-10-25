@@ -40,11 +40,8 @@ write** connection meant for sending.
 
 ### What stays in Resend
 
-Create, edit and delete API keys, manage OAuth apps, and use Inboxes in Resend
-itself. Houston does not expose those settings. Resend documents an
-[Inbox API](https://resend.com/docs/api-reference/inboxes/create-inbox), including
-thread read/unread state; this connector does not yet implement it. Account
-availability has not been verified.
+Create, edit and delete API keys, and manage OAuth apps, in Resend itself.
+Houston does not expose those settings.
 
 ### Troubleshooting
 
@@ -57,6 +54,9 @@ availability has not been verified.
   the connection, or contact Resend support about a suspension.
 - **Sending fails with HTTP 403.** The sender's domain isn't verified in Resend,
   or you're sending from `onboarding@resend.dev` to someone other than yourself.
+- **Creating an inbox fails with HTTP 422 or 403.** Its domain needs receiving
+  enabled on the [Domains](https://resend.com/domains) page, or the inbox needs
+  forwarding turned on. HTTP 403 means your plan's inbox limit is reached.
 - **Requests fail with HTTP 429.** Resend allows 10 requests per second per team,
   and the free plan allows 100 emails a day and 3,000 a month, counting received
   email and each recipient. Wait, or check your usage in Resend's

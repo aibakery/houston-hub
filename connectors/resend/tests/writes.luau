@@ -24,7 +24,7 @@ return {
 
 		local count = 0
 		for name in resend do if name ~= "help" then count += 1 end end
-		assert(count == 103, "wrong read-write surface: " .. count)
+		assert(count == 133, "wrong read-write surface: " .. count)
 		assert(resend.getWebhook and resend.getLog and resend.sendEmail and resend.createContactImport)
 
 		-- The idempotency key travels as a header, never in the body.
@@ -81,6 +81,30 @@ return {
 		assert(last().method == "DELETE" and last().url == API .. "/contacts/c1" and last().body == nil)
 		payload = ""
 		assert(next(resend.removeSuppression({suppression = "bounce@example.com"})) == nil, "an empty write response is an empty object")
+
+		-- Inbox replies and drafts send from the inbox; labels are replaced with PUT.
+		payload = '{"object":"email","id":"e2","thread_id":"t1"}'
+		resend.replyToThreadEmail({inbox_id = "support@acme.com", thread_id = "t1", email_id = "e1", text = "Refunded.", reply_all = true,
+			idempotency_key = "reply/e1"})
+		req = last()
+		assert(req.method == "POST" and req.url == API .. "/inboxes/support%40acme.com/threads/t1/emails/e1/reply", req.url)
+		assert(req.headers["Idempotency-Key"][1] == "reply/e1" and req.headers.Authorization == nil)
+		body = json.decode(req.body)
+		assert(body.text == "Refunded." and body.reply_all == true and body.idempotency_key == nil and body.inbox_id == nil and body.email_id == nil)
+		resend.updateThread({inbox_id = "i1", thread_id = "t1", read = true})
+		assert(last().method == "PATCH" and last().url == API .. "/inboxes/i1/threads/t1" and last().body == '{"read":true}', last().body)
+		payload = '{"object":"list","data":[]}'
+		resend.setThreadLabels({inbox_id = "i1", thread_id = "t1", labels = json.decode("[]")})
+		assert(last().method == "PUT" and last().url == API .. "/inboxes/i1/threads/t1/labels" and last().body == '{"labels":[]}', last().body)
+		assert(last().headers["Content-Type"][1] == "application/json")
+		resend.removeThreadLabel({inbox_id = "i1", thread_id = "t1", label_id = "l1"})
+		assert(last().method == "DELETE" and last().url == API .. "/inboxes/i1/threads/t1/labels/l1" and last().body == nil)
+		payload = '{"object":"email","id":"e3"}'
+		resend.sendDraft({inbox_id = "i1", draft_id = "d1", idempotency_key = "draft/d1"})
+		assert(last().url == API .. "/inboxes/i1/drafts/d1/send" and last().headers["Idempotency-Key"][1] == "draft/d1")
+		assert(last().body == "{}", last().body)
+		rejected(function() resend.forwardThreadEmail({inbox_id = "i1", thread_id = "t1", email_id = "e1", to = "a@example.com", idempotency_key = ""}) end,
+			"idempotency_key must be")
 
 		payload = '{"object":"webhook","id":"w1","signing_secret":"whsec_fixture"}'
 		assert(resend.getWebhook({webhook_id = "w1"}).signing_secret == "whsec_fixture" and last().method == "GET")
