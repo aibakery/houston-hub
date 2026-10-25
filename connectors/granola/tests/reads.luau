@@ -54,7 +54,9 @@ return {
 		assert(note.calendar_event.invitees[1].email == "bo@example.com")
 		granola.getNote(NOTE, {include = "transcript"})
 		assert(last() == API .. "/notes/" .. NOTE .. "?include=transcript")
-		granola.getNote({id = "NOT_1d3tmYTlCICgjy", include = "transcript"})
+		local named = {id = "NOT_1d3tmYTlCICgjy", include = "transcript"}
+		granola.getNote(named)
+		assert(named.id == "NOT_1d3tmYTlCICgjy" and named.include == "transcript", "caller table was modified")
 		assert(last() == API .. "/notes/NOT_1d3tmYTlCICgjy?include=transcript", "IDs are case-insensitive")
 
 		payload = '{"transcript":[{"speaker":{"source":"microphone","attribution":"me"},"text":"Hello","start_time":"2026-10-24T10:00:00Z","end_time":"2026-10-24T10:00:02Z"}],"hasMore":true,"cursor":"t2"}'
