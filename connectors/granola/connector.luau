@@ -25,7 +25,7 @@ end
 
 local function identifier(value: any, field: string, prefix: string): string
 	local id = text(value, field)
-	assert(#id == 18 and string.lower(string.sub(id, 1, 4)) == prefix .. "_" and string.match(id, "^%a%a%a_%w+$"),
+	assert(#id == 18 and string.match(string.lower(id), "^" .. prefix .. "_%w+$"),
 		field .. " must be a Granola " .. prefix .. "_ ID")
 	return id
 end
@@ -70,13 +70,12 @@ end
 
 local function request(name: string, endpoint: Endpoint, id: any, input: any): any
 	assert(input == nil or type(input) == "table", name .. " options must be a table")
-	local args: Options = if input then table.clone(input) else {}
 	local path = endpoint.path
 	if endpoint.id then
 		path = string.gsub(path, "{id}", identifier(id, "id", endpoint.id :: string))
 	end
 	local query: {string} = {}
-	for field, value in args do
+	for field, value in (input or {}) :: Options do
 		local kind = endpoint.query[field]
 		assert(type(field) == "string" and kind, name .. " received an unknown option " .. tostring(field))
 		table.insert(query, field .. "=" .. queryValue(value, field, kind, endpoint.maximum))
