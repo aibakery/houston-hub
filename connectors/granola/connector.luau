@@ -35,7 +35,11 @@ local function queryValue(value: any, field: string, kind: string, maximum: numb
 		assert(type(value) == "number" and value % 1 == 0 and value >= 1 and value <= (maximum :: number), field .. " must be an integer from 1 to " .. tostring(maximum))
 		return tostring(value)
 	elseif kind == "date" then
-		assert(string.match(text(value, field), "^%d%d%d%d%-%d%d%-%d%d"), field .. " must be YYYY-MM-DD or an RFC 3339 date-time")
+		local date = text(value, field)
+		local zone = string.match(date, "^%d%d%d%d%-%d%d%-%d%dT%d%d:%d%d:%d%d%.?%d*(.*)$")
+		assert(string.match(date, "^%d%d%d%d%-%d%d%-%d%d$") or zone == "Z" or (zone and string.match(zone, "^[+-]%d%d:%d%d$")),
+			field .. " must be YYYY-MM-DD or an RFC 3339 date-time")
+		return url.encode(date)
 	elseif kind == "transcript" then
 		assert(value == "transcript", field .. " must be \"transcript\"")
 	elseif kind ~= "text" then

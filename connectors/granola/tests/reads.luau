@@ -33,10 +33,10 @@ return {
 		assert(#requests == 0, "initialization reached Granola")
 
 		payload = '{"notes":[{"id":"' .. NOTE .. '","object":"note","title":null,"owner":{"name":"Ana","email":"ana@example.com"},"deleted_at":null}],"hasMore":true,"cursor":"eyJ+/="}'
-		local opts = {created_after = "2026-10-01T00:00:00-07:00", created_before = "2026-10-24", updated_after = "2026-10-02",
+		local opts = {created_after = "2026-10-01T00:00:00-07:00", created_before = "2026-10-24T09:30:00.250Z", updated_after = "2026-10-02",
 			folder_id = FOLDER, space_id = SPACE, page_size = 30, cursor = "start+/="}
 		local page = granola.listNotes(opts)
-		assert(last() == API .. "/notes?created_after=2026-10-01T00%3A00%3A00-07%3A00&created_before=2026-10-24&cursor=start%2B%2F%3D"
+		assert(last() == API .. "/notes?created_after=2026-10-01T00%3A00%3A00-07%3A00&created_before=2026-10-24T09%3A30%3A00.250Z&cursor=start%2B%2F%3D"
 			.. "&folder_id=" .. FOLDER .. "&page_size=30&space_id=" .. SPACE .. "&updated_after=2026-10-02", last())
 		assert(opts.page_size == 30 and opts.cursor == "start+/=", "caller options were modified")
 		assert(page.hasMore == true and page.cursor == "eyJ+/=" and page.notes[1].title == NULL and page.notes[1].owner.name == "Ana")
@@ -90,6 +90,9 @@ return {
 		rejected(function() granola.listNotes({page_size = 0}) end, "1 to 30")
 		rejected(function() granola.listNotes({page_size = 2.5}) end, "1 to 30")
 		rejected(function() granola.listNotes({created_after = "yesterday"}) end, "RFC 3339")
+		rejected(function() granola.listNotes({created_after = "2026-10-01 junk"}) end, "RFC 3339")
+		rejected(function() granola.listNotes({updated_after = "2026-10-01T09:00"}) end, "RFC 3339")
+		rejected(function() granola.listNotes({created_before = "2026-10-01T09:00:00+0200"}) end, "RFC 3339")
 		rejected(function() granola.listNotes({created_after = 20261001}) end, "nonempty string")
 		rejected(function() granola.listNotes({folder_id = SPACE}) end, "fol_ ID")
 		rejected(function() granola.listNotes({space_id = "spa_x&page_size=99"}) end, "spa_ ID")
