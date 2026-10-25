@@ -1,7 +1,9 @@
 # Connect your Granola account
 
-Granola API keys are available to every member of a **Business** or
-**Enterprise** workspace. No developer app is required.
+Members of a **Business** or **Enterprise** workspace can create Granola API
+keys; no developer app is required. On Enterprise, an admin chooses which note
+access scopes members may use under **Settings → Workspace → General → API
+access for members → Manage**.
 
 1. Open the Granola desktop app, click your workspace name in the bottom-left
    corner and select **Settings**.
@@ -39,9 +41,6 @@ Workspace keys never read private notes.
 - **No notes are returned**: the key only reads notes matching its scopes, and
   Granola lists only notes that have a generated summary and transcript. Public
   notes must be in a folder visible to everyone, such as one in the Team space.
-- **Enterprise members cannot select a scope**: an admin chooses which scopes
-  members may use under **Settings → Workspace → General → API access for
-  members → Manage**.
 - **Requests stop working**: personal keys can expire, and revoked keys stop
   immediately. Create a new key and update the connection's **API key**.
 - Audit and legal hold keys are separate Enterprise key types and do not work
