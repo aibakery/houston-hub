@@ -11,7 +11,7 @@ local endpoints: {[string]: Endpoint} = {
 	getNote = {path = "/notes/{id}", id = "not", query = {include = "transcript"},
 		help = "Read one note (`not_…`): title, owner, attendees, calendar_event (event_title, invitees, organiser, scheduled times), folder_membership, space_membership, summary_text, summary_markdown, attachments (photo URLs anyone with the link can open), web_url, and private_notes_* (only for the note owner's key). Pass include = \"transcript\" to inline the transcript; if Granola answers HTTP 413 TRANSCRIPT_TOO_LARGE, page it with getTranscript."},
 	getTranscript = {path = "/notes/{id}/transcript", id = "not", list = "transcript", maximum = 100, query = PAGE,
-		help = "Page a note's transcript: `{transcript = {{speaker = {source, attribution?, name?, diarization_label?}, text, start_time, end_time}}, hasMore, cursor}`. source is microphone (the note owner) or speaker (other participants)."},
+		help = "Page a note's transcript: `{transcript = {{speaker = {source, attribution?, name?, diarization_label?}, text, start_time, end_time}}, hasMore, cursor}`. attribution is me (the note owner) or them (others) and may be absent; name or diarization_label identify the speaker when known. source is the audio stream only: iOS reports microphone for everyone."},
 	listFolders = {path = "/folders", list = "folders", maximum = 30, query = PAGE,
 		help = "List folders alphabetically: `{id, object, name, parent_folder_id, space_id}`. Pass an id as listNotes folder_id."},
 	listSpaces = {path = "/spaces", list = "spaces", maximum = 30, query = PAGE,
