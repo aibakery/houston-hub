@@ -1,196 +1,143 @@
--- Granola connector: read notes through Houston's HTTP proxy.
--- Host primitives used: private http.request and json.
--- Those primitives are sufficient; the API key never appears in this module.
+-- Granola public API v1, read-only. Arguments and results keep Granola's native field names.
+type Options = {[string]: any}
+type Endpoint = {path: string, id: string?, list: string?, maximum: number?, query: {[string]: string}, help: string}
 
-local BASE = "https://public-api.granola.ai/v1"
-
-local function add_query(parts: any,key: any,value: any)
-	if value == nil then
-		return
-	end
-	if type(value) == "table" then
-		for _, item in value do
-			add_query(parts, key, item)
-		end
-		return
-	end
-	parts[#parts + 1] = url.encode(key) .. "=" .. url.encode(value)
-end
-
-local function query_string(params: any)
-	if type(params) ~= "table" then
-		return ""
-	end
-	local parts = {}
-	for key, value in params do
-		add_query(parts, key, value)
-	end
-	if #parts == 0 then
-		return ""
-	end
-	local s = parts[1]
-	for i = 2, #parts do
-		s = s .. "&" .. parts[i]
-	end
-	return s
-end
-
-local function request(method: any,path: any,params: any,operation: any)
-	local target = BASE .. path
-	local qs = query_string(params)
-	if qs ~= "" then
-		target = target .. "?" .. qs
-	end
-	local response = http.request({
-		method = method,
-		url = target,
-	})
-	if response.status < 200 or response.status >= 300 then
-		houston.fail({operation = operation, layer = "upstream", upstream_status = response.status,
-			retryable = response.status == 429 or response.status == 502 or response.status == 503 or response.status == 504,
-			message = "upstream HTTP request failed"})
-	end
-	local decoded = nil
-	if response.body ~= nil and response.body ~= "" then
-		local ok, body = pcall(json.decode, response.body)
-		assert(ok, "upstream returned invalid JSON")
-		decoded = body
-	end
-	return decoded
-end
-
-local function date_only(value: any): string?
-	if value == nil then
-		return nil
-	end
-	local s = tostring(value)
-	local y, m, d = string.match(s, "^(%d%d%d%d)%-(%d%d)%-(%d%d)")
-	if y and m and d then
-		return y .. "-" .. m .. "-" .. d
-	end
-	return s
-end
-
-local function list_notes_params(opts: any)
-	opts = opts or {}
-	return {
-		created_after = date_only(opts.created_after),
-		created_before = date_only(opts.created_before),
-		updated_after = date_only(opts.updated_after),
-		folder_id = opts.folder_id,
-		cursor = opts.cursor,
-		page_size = opts.page_size,
-	}
-end
-
-local function get_note_params(opts: any)
-	opts = opts or {}
-	local include = opts.include
-	if include == nil and opts.includeTranscript then
-		include = "transcript"
-	end
-	return { include = include }
-end
-
-local function page_params(opts: any)
-	opts = opts or {}
-	return {
-		cursor = opts.cursor,
-		page_size = opts.page_size,
-	}
-end
-
-local functions = {}
-
-function functions.listNotes(opts: any)
-	return request("GET", "/notes", list_notes_params(opts), "listNotes")
-end
-
-function functions.getNote(id: any,opts: any)
-	if type(id) == "table" then
-		opts = id
-		id = id.id
-	end
-	if type(id) ~= "string" or id == "" then
-		error("granola.getNote requires a note id")
-	end
-	return request("GET", "/notes/" .. url.segment(id, "id"), get_note_params(opts), "getNote")
-end
-
-function functions.listFolders(opts: any)
-	return request("GET", "/folders", page_params(opts), "listFolders")
-end
-
-function functions.getTranscript(id: any,opts: any)
-	if type(id) == "table" then
-		opts = id
-		id = id.id
-	end
-	if type(id) ~= "string" or id == "" then
-		error("granola.getTranscript requires a note id")
-	end
-	return request("GET", "/notes/" .. url.segment(id, "id") .. "/transcript", page_params(opts), "getTranscript")
-end
-
-local operationHelp: {[string]: string} = {
-	getNote = [==[## getNote(id, opts?)
-
-Granola `GET /v1/notes/{note_id}`. `id` may be a string or a table with
-`id`. Optional fields on `opts` (or on the table):
-
-- `include`: `"transcript"` to inline the transcript when it fits
-- `includeTranscript` (boolean) — same as `include = "transcript"`
-
-If the transcript is too large, Granola returns `TRANSCRIPT_TOO_LARGE`;
-use `getTranscript` and loop pages in one `run`.]==],
-	getTranscript = [==[## getTranscript(id, opts?)
-
-Granola `GET /v1/notes/{note_id}/transcript`. `id` may be a string or a
-table with `id`. Optional fields on `opts`:
-
-- `cursor` (string)
-- `page_size` (number, max 100)
-
-Returns `transcript` (items with `speaker` and `text`), `hasMore`, and
-`cursor`. Loop while `hasMore` in the same `run`.]==],
-	listFolders = [==[## listFolders(opts?)
-
-Granola `GET /v1/folders`. Optional fields on `opts`:
-
-- `cursor` (string)
-- `page_size` (number, max 30)
-
-Returns `folders` (`{ id, name, parent_folder_id, … }[]`), `hasMore`,
-and `cursor`.]==],
-	listNotes = [==[## listNotes(opts?)
-
-Granola `GET /v1/notes`. Date filters are **calendar dates**
-(`YYYY-MM-DD`). RFC3339 datetimes (e.g. `2026-08-22T00:00:00-07:00`)
-are coerced to `YYYY-MM-DD` before the request; a plain `YYYY-MM-DD`
-is forwarded unchanged. Optional fields on `opts`:
-
-- `created_after` (string, ISO 8601 date `YYYY-MM-DD`)
-- `created_before` (string, ISO 8601 date `YYYY-MM-DD`)
-- `updated_after` (string, ISO 8601 date `YYYY-MM-DD`)
-- `folder_id` (string, `fol_…`)
-- `cursor` (string)
-- `page_size` (number, max 30)
-
-Returns `notes` (`{ id, title, … }[]`), `hasMore`, and `cursor`.]==],
+local API = "https://public-api.granola.ai/v1"
+local PAGE = {cursor = "text", page_size = "size"}
+local endpoints: {[string]: Endpoint} = {
+	listNotes = {path = "/notes", list = "notes", maximum = 30,
+		query = {created_after = "date", created_before = "date", updated_after = "date", folder_id = "fol", space_id = "spa", cursor = "text", page_size = "size"},
+		help = "List note summaries `{id, object, title, owner = {name, email}, created_at, updated_at, deleted_at}` the key can read. Optional created_after, created_before and updated_after take `YYYY-MM-DD` or RFC 3339 date-times. folder_id (`fol_…`, includes child folders) and space_id (`spa_…`) filter by location. Only notes with a generated summary and transcript are listed."},
+	getNote = {path = "/notes/{id}", id = "not", query = {include = "transcript"},
+		help = "Read one note (`not_…`): title, owner, attendees, calendar_event (event_title, invitees, organiser, scheduled times), folder_membership, space_membership, summary_text, summary_markdown, attachments (photo URLs anyone with the link can open), web_url, and private_notes_* (only for the note owner's key). Pass include = \"transcript\" to inline the transcript; if Granola answers HTTP 413 TRANSCRIPT_TOO_LARGE, page it with getTranscript."},
+	getTranscript = {path = "/notes/{id}/transcript", id = "not", list = "transcript", maximum = 100, query = PAGE,
+		help = "Page a note's transcript: `{transcript = {{speaker = {source, attribution?, name?, diarization_label?}, text, start_time, end_time}}, hasMore, cursor}`. source is microphone (the note owner) or speaker (other participants)."},
+	listFolders = {path = "/folders", list = "folders", maximum = 30, query = PAGE,
+		help = "List folders alphabetically: `{id, object, name, parent_folder_id, space_id}`. Pass an id as listNotes folder_id."},
+	listSpaces = {path = "/spaces", list = "spaces", maximum = 30, query = PAGE,
+		help = "List spaces `{id, object, name}`. Pass an id as listNotes space_id."},
 }
 
+local function text(value: any, field: string): string
+	assert(type(value) == "string" and value ~= "", field .. " must be a nonempty string")
+	return value
+end
+
+local function identifier(value: any, field: string, prefix: string): string
+	local id = text(value, field)
+	assert(#id == 18 and string.lower(string.sub(id, 1, 4)) == prefix .. "_" and string.match(id, "^%a%a%a_%w+$"),
+		field .. " must be a Granola " .. prefix .. "_ ID")
+	return id
+end
+
+local function queryValue(value: any, field: string, kind: string, maximum: number?): string
+	if kind == "size" then
+		assert(type(value) == "number" and value % 1 == 0 and value >= 1 and value <= (maximum :: number), field .. " must be an integer from 1 to " .. tostring(maximum))
+		return tostring(value)
+	elseif kind == "date" then
+		assert(string.match(text(value, field), "^%d%d%d%d%-%d%d%-%d%d"), field .. " must be YYYY-MM-DD or an RFC 3339 date-time")
+	elseif kind == "transcript" then
+		assert(value == "transcript", field .. " must be \"transcript\"")
+	elseif kind ~= "text" then
+		identifier(value, field, kind)
+	end
+	return url.encode(text(value, field))
+end
+
+local function failure(name: string, response: HttpResponse): never
+	local status = response.statusCode
+	local prefix = await(response.body:readPrefix(4096))
+	local ok, body = pcall(json.decode, prefix)
+	if not ok or type(body) ~= "table" then
+		body = {code = string.match(prefix, '^%s*{%s*"code"%s*:%s*"([%w_]+)"')}
+	end
+	local message = "Granola HTTP " .. tostring(status)
+	local code = body.code or body.error
+	if type(code) == "string" then message ..= " " .. string.sub(code, 1, 64) end
+	if type(body.message) == "string" then message ..= ": " .. string.sub(body.message, 1, 300) end
+	if status == 401 then message ..= " (check the API key; personal keys can expire or be revoked)"
+	elseif status == 404 then message ..= " (the note may not exist, lack a summary and transcript, or be outside the key's access scopes)"
+	elseif status == 413 then message ..= " (use getTranscript to page the transcript)" end
+	local retry = response.headers["retry-after"]
+	if status == 429 and retry and retry[1] then message ..= "; retry after " .. string.sub(retry[1], 1, 32) .. "s" end
+	return houston.fail({operation = name, layer = "upstream", upstream_status = status,
+		retryable = status == 429 or status >= 500, message = message})
+end
+
+local function request(name: string, endpoint: Endpoint, id: any, input: any): any
+	assert(input == nil or type(input) == "table", name .. " options must be a table")
+	local args: Options = if input then table.clone(input) else {}
+	local path = endpoint.path
+	if endpoint.id then
+		path = string.gsub(path, "{id}", identifier(id, "id", endpoint.id :: string))
+	end
+	local query: {string} = {}
+	for field, value in args do
+		local kind = endpoint.query[field]
+		assert(type(field) == "string" and kind, name .. " received an unknown option " .. tostring(field))
+		table.insert(query, field .. "=" .. queryValue(value, field, kind, endpoint.maximum))
+	end
+	table.sort(query)
+	local target = API .. path .. (if #query > 0 then "?" .. table.concat(query, "&") else "")
+	local response = await(http.request({method = "GET", url = target, headers = {Accept = {"application/json"}}}))
+	if response.statusCode < 200 or response.statusCode >= 300 then failure(name, response) end
+	local raw = await(response.body:readAll())
+	local ok, value = pcall(json.decode, raw)
+	if not ok or type(value) ~= "table" or not string.match(raw, "^%s*{")
+		or (endpoint.list and type(value[endpoint.list]) ~= "table") then
+		houston.fail({operation = name, layer = "upstream", upstream_status = response.statusCode, retryable = false,
+			message = "Granola returned an unexpected response"})
+	end
+	return value
+end
+
+local functions: {[string]: any} = {}
+for name, endpoint in endpoints do
+	if endpoint.id then
+		functions[name] = function(id: any, opts: Options?)
+			if type(id) == "table" then
+				assert(opts == nil, name .. " takes (id, opts?) or one table with id")
+				local args = table.clone(id)
+				args.id = nil
+				return request(name, endpoint, id.id, args)
+			end
+			return request(name, endpoint, id, opts)
+		end
+	else
+		functions[name] = function(opts: Options?) return request(name, endpoint, nil, opts) end
+	end
+end
+
 function functions.help(): string
+	local sections = {"Granola: read-only access to the meeting notes, transcripts, folders and spaces this API key can read. Credentials stay on Houston. Each call makes one request and returns Granola's JSON unchanged. Calls return completed values; do not wrap them in await(). IDs are a prefix plus 14 letters or digits (not_, fol_, spa_). Unknown options are rejected.",
+		"Paged calls take cursor and page_size (Granola defaults to 10, or 50 for getTranscript) and return hasMore and cursor: while hasMore is true, pass the returned cursor to fetch the next page, and stop as soon as you have enough. Granola allows bursts of 25 requests and 5 per second; HTTP 429 errors are retryable. Notes cannot be created or edited through this API."}
 	local names: {string} = {}
-	for name in (functions :: {[string]: any}) do
-		if name ~= "help" then names[#names + 1] = name end
-	end
+	for name in endpoints do table.insert(names, name) end
 	table.sort(names)
-	local sections = {"granola: configured connection help. Credentials stay on Houston. Use only the functions listed below. Provider scopes are enforced by real calls; help makes no network requests."}
 	for _, name in names do
-		local text = operationHelp[name]
-		assert(text, "missing help for configured function " .. name)
-		sections[#sections + 1] = text
+		local endpoint = endpoints[name]
+		local signature = if endpoint.id then "(id, opts?)" else "(opts?)"
+		local section = "## " .. name .. signature .. "\n\nGET /v1" .. endpoint.path .. ". " .. endpoint.help
+		if endpoint.maximum then section ..= " page_size: 1–" .. tostring(endpoint.maximum) .. "." end
+		table.insert(sections, section)
 	end
+	table.insert(sections, [[## Example
+
+Here granola is the configured Granola connection.
+
+```lua
+local page = granola.listNotes({created_after = "2026-10-01T00:00:00Z", page_size = 30})
+local summaries = {}
+for _, row in page.notes do
+	local note = granola.getNote(row.id)
+	table.insert(summaries, {title = note.title, summary = note.summary_markdown})
+end
+-- While page.hasMore, repeat listNotes with the same filters and cursor = page.cursor.
+local first = granola.getTranscript(page.notes[1].id, {page_size = 100})
+-- first.transcript[i].speaker.source, .text; continue with cursor = first.cursor while first.hasMore.
+```
+
+Reference: https://docs.granola.ai/introduction]])
 	return table.concat(sections, "\n\n")
 end
 

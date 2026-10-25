@@ -1,47 +1,49 @@
 {
-  "auth": {
-    "token": {
-      "config": {
-        "token": {
-          "label": "API key",
-          "required": true,
-          "type": "secret"
-        }
-      },
-      "label": "API key",
-      "type": "manual"
-    }
-  },
-  "description": "Read-only access to Granola notes, folders, and transcripts.",
+  "schema_version": 1,
+  "name": "Granola",
   "files": [
     "connector.luau"
   ],
   "icon": "icon.svg",
-  "name": "Granola",
+  "auth": {
+    "token": {
+      "type": "manual",
+      "label": "API key",
+      "config": {
+        "token": {
+          "type": "secret",
+          "label": "API key",
+          "description": "A Granola personal or workspace API key, starting with grn_.",
+          "required": true
+        }
+      }
+    }
+  },
   "proxy": [
     {
+      "match": {
+        "protocol": "http",
+        "host": [
+          "public-api.granola.ai"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/v1/folders",
+          "/v1/notes",
+          "/v1/notes/{note_id}",
+          "/v1/notes/{note_id}/transcript",
+          "/v1/spaces"
+        ]
+      },
       "action": {
         "headers": {
           "set": {
             "Authorization": "Bearer {{auth.token.token}}"
           }
         }
-      },
-      "match": {
-        "host": [
-          "public-api.granola.ai"
-        ],
-        "method": [
-          "GET",
-          "HEAD"
-        ],
-        "path": [
-          "/v1/*"
-        ],
-        "protocol": "http"
       }
     }
-  ],
-  "schema_version": 1,
-  "setup": "The API key stays on this server. Houston reads notes from Granola; your notes stay in Granola."
+  ]
 }
