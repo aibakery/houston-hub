@@ -222,7 +222,7 @@ local endpoints: {[string]: Endpoint} = {
 
 	listGists = {method = "GET", path = "/gists", query = {"since", "per_page", "page"}, about = ""},
 	listUserGists = {method = "GET", path = "/users/{username}/gists", query = {"since", "per_page", "page"}, about = ""},
-	getGist = {method = "GET", path = "/gists/{gist_id}", about = "A gist with file contents (truncated past 1 MB; see raw_url)."},
+	getGist = {method = "GET", path = "/gists/{gist_id}", about = "A gist with file contents, truncated past 1 MB (truncated=true); downloadGistFile saves a whole file."},
 	createGist = {method = "POST", path = "/gists", required = {"files"}, about = "Body {files={['name.md']={content}}, description?, public? (default false)}."},
 	updateGist = {method = "PATCH", path = "/gists/{gist_id}", about = "Body {description?, files?}; a file set to json.decode('null') is deleted."},
 	deleteGist = {method = "DELETE", path = "/gists/{gist_id}", about = ""},
@@ -236,7 +236,8 @@ local endpoints: {[string]: Endpoint} = {
 local NULL = json.decode("null")
 local NONE: {string} = table.freeze({})
 
--- Branch, ref, path, tag, tree, compare and label values may contain slashes; GitHub accepts them encoded.
+-- Branch, ref, path, tag, tree, compare and label values may contain slashes and percent signs;
+-- GitHub accepts them encoded.
 local OPAQUE = table.freeze({branch = true, ref = true, path = true, basehead = true, tag = true, name = true, tree_sha = true})
 local DOWNLOAD_HOSTS = table.freeze({"codeload.github.com", "release-assets.githubusercontent.com", "objects.githubusercontent.com",
 	"objects-origin.githubusercontent.com", "github-releases.githubusercontent.com"})
@@ -260,13 +261,20 @@ local function segment(value: any, field: string): string
 		return string.format("%d", number)
 	end
 	if OPAQUE[field] then
-		-- Each part passes url.segment (no dot, backslash, percent or look-alike traversal), so the
-		-- proxy's opaque check never has to refuse it; the slashes travel encoded.
+		-- GitHub decodes each part once, so a literal percent sign travels as %25. Each part passes
+		-- url.segment (no dot part, backslash or look-alike traversal) once its own escapes are decoded
+		-- up to 16 times, as the proxy's opaque check does, so no escape adds a separator or dot part
+		-- and that check never has to refuse it; the slashes travel encoded.
 		local parts: {string} = {}
 		for _, part in string.split(text(value, field), "/") do
-			local ok, encoded = pcall(url.segment, part)
-			assert(ok, field .. " must be slash-separated names without empty, . or .. parts, backslashes or percent signs")
-			table.insert(parts, encoded)
+			local seen, escapes = part, 1
+			for _ = 1, 16 do
+				if escapes == 0 then break end
+				seen, escapes = string.gsub(seen, "%%(%x%x)", function(hex: string): string return string.char(tonumber(hex, 16) :: number) end)
+			end
+			local ok = escapes == 0 and pcall(url.segment, (string.gsub(seen, "%%", "_")))
+			assert(ok, field .. " must be slash-separated names without empty, . or .. parts, backslashes or escaped separators")
+			table.insert(parts, url.encode(part))
 		end
 		return table.concat(parts, "%2F")
 	end
@@ -358,6 +366,13 @@ local function allowedDownload(location: string): boolean
 		or string.match(host, "^[%w%-]+%.actions%.githubusercontent%.com$") ~= nil
 end
 
+local function store(name: string, response: HttpResponse, output: any, destination: string): any
+	if response.statusCode ~= 200 then fail(name, response) end
+	output:write(response.body)
+	await(output:close())
+	return {path = destination, size = await(fs.stat(destination)).size, url = await(fs.signedGetUrl(destination))}
+end
+
 -- Archives, assets and logs redirect to a signed URL, fetched without credentials.
 local function save(name: string, first: HttpResponse, output: any, destination: string): any
 	local response = first
@@ -386,10 +401,18 @@ local function save(name: string, first: HttpResponse, output: any, destination:
 		return houston.fail({operation = name, layer = "upstream", upstream_status = 200, retryable = false,
 			message = "The path is a directory or submodule; call getContent without save_as to inspect it"})
 	end
-	if response.statusCode ~= 200 then fail(name, response) end
-	output:write(response.body)
-	await(output:close())
-	return {path = destination, size = await(fs.stat(destination)).size, url = await(fs.signedGetUrl(destination))}
+	return store(name, response, output, destination)
+end
+
+-- Open the destination before any request, so a bad path never reaches GitHub; close it on failure.
+local function download(destination: string, fetch: (any) -> any): any
+	local output = await(fs.open(destination, "w"))
+	local ok, result = pcall(fetch, output)
+	if not ok then
+		pcall(function() await(output:close()) end)
+		error(result, 0)
+	end
+	return result
 end
 
 local function request(name: string, endpoint: Endpoint, input: Options?): any
@@ -441,14 +464,7 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 		if format then return await(response.body:readAll()) end
 		return decode(name, endpoint, response)
 	end
-	-- Open the destination before the request, so a bad path never reaches GitHub; close it on failure.
-	local output = await(fs.open(destination, "w"))
-	local ok, result = pcall(function(): any return save(name, await(http.request(call)), output, destination) end)
-	if not ok then
-		pcall(function() await(output:close()) end)
-		error(result, 0)
-	end
-	return result
+	return download(destination, function(output: any): any return save(name, await(http.request(call)), output, destination) end)
 end
 
 local exports: {[string]: any} = {}
@@ -456,6 +472,25 @@ for name, endpoint in endpoints do
 	local enabled = endpoint.method == "GET" or config.access == "read-write"
 	if endpoint.auth and endpoint.auth ~= auth.method then enabled = false end
 	if enabled then exports[name] = function(args: Options?): any return request(name, endpoint, args) end end
+end
+
+-- getGist truncates file contents past 1 MB; raw_url serves the whole file at its revision,
+-- without credentials.
+local GIST_FILES = "https://gist.githubusercontent.com/"
+exports.downloadGistFile = function(input: Options?): any
+	local args = options(input)
+	local filename = text(args.filename, "filename")
+	local destination = text(args.save_as, "save_as")
+	args.filename, args.save_as = nil, nil
+	return download(destination, function(output: any): any
+		local file = request("downloadGistFile", endpoints.getGist, args).files[filename]
+		local target = if type(file) == "table" then file.raw_url else nil
+		if type(target) ~= "string" or string.find(target, GIST_FILES, 1, true) ~= 1 then
+			return houston.fail({operation = "downloadGistFile", layer = "upstream", upstream_status = 200, retryable = false,
+				message = "The gist has no file named " .. string.sub(filename, 1, 200)})
+		end
+		return store("downloadGistFile", await(http.request({method = "GET", url = target})), output, destination)
+	end)
 end
 
 local REPO = "/repos/{owner}/{repo}"
@@ -479,7 +514,7 @@ end
 exports.help = function(): string
 	local lines = {
 		"GitHub REST API " .. VERSION .. ". Each function takes one options object with GitHub's snake_case names (? marks optional); writes also take the JSON body fields listed after Body. Results are GitHub's JSON unchanged; write replies without a body return {success=true}. Connector calls return completed values: use them directly, without await. In bodies, json.decode('[]') is an empty array and json.decode('null') clears a field.",
-		"Start with github.getAuthenticatedUser().login, github.listMyRepos({sort='pushed', per_page=20}) or github.searchIssues({q='is:pr is:open author:@me'}). branch, ref, path, tag, tree_sha, basehead and label name may contain slashes (ref='heads/feature/x', path='src/main.go'), but not percent signs or backslashes.",
+		"Start with github.getAuthenticatedUser().login, github.listMyRepos({sort='pushed', per_page=20}) or github.searchIssues({q='is:pr is:open author:@me'}). branch, ref, path, tag, tree_sha, basehead and label name may contain slashes and percent signs (ref='heads/feature/x', path='src/100%.md'), but not backslashes or escapes of separators and dots such as %2F.",
 		"Lists return one page: page? means per_page (1..100, default 30) and page (from 1); a shorter page is the last. JSON and text results over 8 MiB fail; use save_as or smaller pages. Search returns {total_count, incomplete_results, items}: at most 1,000 results and 30 requests per minute (searchCode 10).",
 		"Files: getContent returns base64 content; save_as='name' saves raw bytes as a session file instead. download_url links lose their private-repository token (fetch private files with save_as), and temp_clone_token is removed. save_as functions return {path, size, url} and overwrite that session file, even when the download fails; search large logs with fs.grep. getCommit, compareCommits and getPull take format='diff' or 'patch' and return that text, without paging. To commit several files, chain createBlob, createTree, createGitCommit and updateRef.",
 		"Access: GitHub enforces the token's permissions and repository selection; Connect with GitHub reaches public data and repositories where Houston's GitHub App is installed. A 403 or 404 may mean missing access; errors give GitHub's message, needed permissions and rate-limit resets. Read-only connections omit writes. Notifications need a classic token and installation lists Connect with GitHub; check runs and suites need a classic token or Connect with GitHub.",
@@ -491,6 +526,10 @@ exports.help = function(): string
 	local repository: {string} = {"Repository functions also take owner and repo, such as owner='octocat', repo='Hello-World'; ... stands for " .. REPO .. ":"}
 	for _, name in names do
 		local endpoint = endpoints[name]
+		if endpoint == nil then
+			table.insert(lines, name .. "({gist_id, filename, save_as}): Saves one gist file whole (up to 10 MB) as a session file. GET raw_url")
+			continue
+		end
 		local inRepo = string.sub(endpoint.path, 1, #REPO) == REPO
 		local route = if inRepo then "..." .. string.sub(endpoint.path, #REPO + 1) else endpoint.path
 		local about = if endpoint.about == "" then "" else endpoint.about .. " "

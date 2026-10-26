@@ -40,7 +40,7 @@ return {
 
 		local names = {}
 		for name in github do if name ~= "help" then table.insert(names, name) end end
-		assert(#names == 143, "wrong read-write surface: " .. #names)
+		assert(#names == 144, "wrong read-write surface: " .. #names)
 
 		payload = '{"number":12,"title":"Crash","labels":[{"name":"bug"}]}'
 		local issue = github.createIssue({owner = "o", repo = "r", title = "Crash", body = "Steps", labels = {"bug"}})
@@ -59,6 +59,10 @@ return {
 		sent("DELETE", API .. "/repos/o/r/issues/12/labels/good%20first%20issue")
 		github.updateLabel({owner = "o", repo = "r", name = "area/ui", color = "ff0000"})
 		sent("PATCH", API .. "/repos/o/r/labels/area%2Fui", '{"color":"ff0000"}')
+		github.removeLabel({owner = "o", repo = "r", issue_number = 12, name = "50% done"})
+		sent("DELETE", API .. "/repos/o/r/issues/12/labels/50%25%20done")
+		github.deleteLabel({owner = "o", repo = "r", name = "100%"})
+		sent("DELETE", API .. "/repos/o/r/labels/100%25")
 
 		payload = '{"number":12,"assignees":[]}'
 		github.removeAssignees({owner = "o", repo = "r", issue_number = 12, assignees = {"hubot"}})

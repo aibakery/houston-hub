@@ -22,7 +22,7 @@ return {
 
 		local names = {}
 		for name in github do if name ~= "help" then table.insert(names, name) end end
-		assert(#names == 84, "wrong read-only surface: " .. #names)
+		assert(#names == 85, "wrong read-only surface: " .. #names)
 		for _, name in names do
 			assert(string.match(name, "^get") or string.match(name, "^list") or string.match(name, "^search") or string.match(name, "^compare") or string.match(name, "^download"), "read-only exports a write: " .. name)
 		end
@@ -76,6 +76,11 @@ return {
 		assert(last().url == API .. "/repos/o/r/branches/feature%2Fx", last().url)
 		github.getContent({owner = "o", repo = "r", path = "src/main file.go", ref = "release/1.0"})
 		assert(last().url == API .. "/repos/o/r/contents/src%2Fmain%20file.go?ref=release%2F1.0", last().url)
+		-- GitHub decodes a path once: nodejs/node has test/fixtures/es-modules/folder%25with percentage#/index.js.
+		github.getContent({owner = "o", repo = "r", path = "test/folder%25with percentage#/index.js"})
+		assert(last().url == API .. "/repos/o/r/contents/test%2Ffolder%2525with%20percentage%23%2Findex.js", last().url)
+		github.getBranch({owner = "o", repo = "r", branch = "fix/100%"})
+		assert(last().url == API .. "/repos/o/r/branches/fix%2F100%25", last().url)
 		github.getRef({owner = "o", repo = "r", ref = "heads/feature/x"})
 		assert(last().url == API .. "/repos/o/r/git/ref/heads%2Ffeature%2Fx")
 		github.getCombinedStatus({owner = "o", repo = "r", ref = "feature/x"})
@@ -123,6 +128,9 @@ return {
 		rejected(function() github.getContent({owner = "o", repo = "r", path = "a\\..\\b"}) end, "path must be slash-separated names")
 		rejected(function() github.getContent({owner = "o", repo = "r", path = "a/./b"}) end, "path must be slash-separated names")
 		rejected(function() github.getContent({owner = "o", repo = "r", path = "%2e%2e/x"}) end, "path must be slash-separated names")
+		for _, escaped in {"a%2Fb", "a%5cb", "%252e%252e/x", "x/%25252E", "x%2500"} do
+			rejected(function() github.getContent({owner = "o", repo = "r", path = escaped}) end, "path must be slash-separated names")
+		end
 		rejected(function() github.getContent({owner = "o", repo = "r", path = "/etc"}) end, "path must be slash-separated names")
 		rejected(function() github.getContent({owner = "o", repo = "r", path = "a/\u{FF0E}\u{FF0E}/x"}) end, "path must be slash-separated names")
 		rejected(function() github.getContent({owner = "o", repo = "r", path = ""}) end, "path must be a nonempty string")

@@ -11,7 +11,7 @@ return {
 	run = function(github)
 		local names = {}
 		for name in github do if name ~= "help" then table.insert(names, name) end end
-		assert(#names == 85, "wrong read-only surface for Connect with GitHub: " .. #names)
+		assert(#names == 86, "wrong read-only surface for Connect with GitHub: " .. #names)
 		assert(github.listNotifications == nil and github.createIssue == nil)
 		local installations = github.listInstallations({per_page = 100})
 		assert(requests[1].method == "GET" and requests[1].url == "https://api.github.com/user/installations?per_page=100")

@@ -645,6 +645,7 @@
           "objects.githubusercontent.com",
           "objects-origin.githubusercontent.com",
           "github-releases.githubusercontent.com",
+          "gist.githubusercontent.com",
           "*.actions.githubusercontent.com",
           "*.blob.core.windows.net"
         ],
