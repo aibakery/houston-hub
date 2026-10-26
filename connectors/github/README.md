@@ -14,6 +14,6 @@ labels, milestones and releases, running and cancelling workflows, and gists.
 GitHub's own permissions still apply: Houston only reaches repositories your
 account, token or app installation can access.
 
-Connect by signing in with GitHub, or with a personal access token. Archives,
+Connect by signing in with GitHub, or with a personal access token. Archives, gist files,
 release assets and workflow logs are saved as session files. Repository deletion, settings,
 secrets, webhooks and administration are not available.

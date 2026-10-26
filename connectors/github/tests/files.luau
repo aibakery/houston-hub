@@ -41,7 +41,7 @@ return {
 
 		local names = {}
 		for name in github do if name ~= "help" then table.insert(names, name) end end
-		assert(#names == 141, "wrong surface for Connect with GitHub: " .. #names)
+		assert(#names == 142, "wrong surface for Connect with GitHub: " .. #names)
 		for _, name in {"listNotifications", "markNotificationsRead", "markThreadRead", "markThreadDone"} do
 			assert(github[name] == nil, "GitHub App tokens cannot use " .. name)
 		end
@@ -136,5 +136,29 @@ return {
 		assert(not string.find(contents("docs.bin"), "SIGNED", 1, true), "saved a directory listing with signed links")
 		respond(202, "")
 		assert(rejected(function() github.getContent({owner = "o", repo = "r", path = "a.bin", save_as = "a.bin"}) end, "GitHub HTTP 202") == 1)
+
+		local raw = "https://gist.githubusercontent.com/o/aa5a315d61ae9438b18d/raw/3a0f86fb/big%20data.json"
+		local function gist(files) respond(200, json.encode({id = "aa5a315d61ae9438b18d", files = files}), {["content-type"] = {"application/json; charset=utf-8"}}) end
+		gist({["big data.json"] = {filename = "big data.json", truncated = true, content = "{\"cut", raw_url = raw}})
+		respond(200, '{"whole":true}', {["content-type"] = {"text/plain; charset=utf-8"}})
+		saved = github.downloadGistFile({gist_id = "aa5a315d61ae9438b18d", filename = "big data.json", save_as = "big.json"})
+		assert(requests[#requests - 1].url == API .. "/gists/aa5a315d61ae9438b18d" and requests[#requests - 1].headers.Accept[1] == "application/vnd.github+json")
+		assert(requests[#requests].method == "GET" and requests[#requests].url == raw and requests[#requests].headers == nil)
+		assert(saved.path == "big.json" and saved.size == 14 and contents("big.json") == '{"whole":true}')
+		gist({["a.md"] = {filename = "a.md", raw_url = "https://gist.githubusercontent.com/o/1/raw/a.md"}})
+		assert(rejected(function() github.downloadGistFile({gist_id = "aa5a315d61ae9438b18d", filename = "b.md", save_as = "b.md"}) end, "no file named b.md") == 1)
+		gist({["a.md"] = {filename = "a.md", raw_url = "https://evil.example/o/1/raw/a.md"}})
+		assert(rejected(function() github.downloadGistFile({gist_id = "aa5a315d61ae9438b18d", filename = "a.md", save_as = "a.md"}) end, "no file named a.md") == 1)
+		gist({["a.md"] = {filename = "a.md", raw_url = "https://gist.githubusercontent.com/o/1/raw/a.md"}})
+		respond(404, "404: Not Found")
+		ok, err = pcall(function() github.downloadGistFile({gist_id = "aa5a315d61ae9438b18d", filename = "a.md", save_as = "a.md"}) end)
+		assert(not ok and string.find(tostring(err), "GitHub HTTP 404", 1, true) and string.find(tostring(err), '"retryable":false', 1, true), tostring(err))
+		for _, call in {{gist_id = "aa5a315d61ae9438b18d", save_as = "a.md"}, {gist_id = "aa5a315d61ae9438b18d", filename = "a.md"},
+			{gist_id = "aa5a315d61ae9438b18d", filename = "a.md", save_as = "../a.md"}, {gist_id = "aa5a315d61ae9438b18d", filename = "a.md", save_as = "a.md", ref = "x"},
+			{gist_id = "../x", filename = "a.md", save_as = "a.md"}} do
+			assert(rejected(function() github.downloadGistFile(call) end, "") == 0, "invalid downloadGistFile input reached GitHub")
+		end
+		assert(rejected(function() github.downloadGistFile({gist_id = "aa5a315d61ae9438b18d", filename = "a.md", save_as = "a.md", ref = "x"}) end,
+			"downloadGistFile has no option ref") == 0)
 	end,
 }
