@@ -5,12 +5,12 @@ token. With **Connect with GitHub** you install Houston's app instead of creatin
 one.
 
 1. Choose **Read-only** or **Read and write**.
-2. Select **Connect with GitHub** and authorize Houston's GitHub App.
-3. Install the app where your repositories live: open the Houston app's page on
-   GitHub (the app name on the authorization screen links to it, at
-   `github.com/apps/...`), select **Install** (or **Configure** if it is already
-   installed), pick your account or organization, and choose **All repositories**
-   or **Only select repositories**. Organization owners may need to approve it.
+2. Select **Connect with GitHub** and authorize Houston's GitHub App, **OK Houston**.
+3. Install the app where your repositories live: open
+   [OK Houston on GitHub](https://github.com/apps/ok-houston), select **Install**
+   (or **Configure** if it is already installed), pick your account or organization,
+   and choose **All repositories** or **Only select repositories**. Organization
+   owners may need to approve it.
 
 Houston sees public data plus the repositories where the app is installed, limited
 to what your own GitHub account can do. Change the repository selection anytime in
