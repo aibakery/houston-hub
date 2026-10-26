@@ -5,12 +5,14 @@ description: Work with GitHub repositories, issues, pull requests, releases and 
 # GitHub
 
 Browse and search repositories, code, commits and branches; read files, diffs and
-CI results; and follow issues, pull requests, reviews, releases, workflow runs and
-gists across your personal account and organizations.
+CI results; follow issues, pull requests, reviews, releases, workflow runs and
+gists across your personal account and organizations; and catch up on recent
+activity and starred repositories.
 
 Read-only is the default. Read and write adds opening and updating issues and pull
-requests, comments and reviews, merging, committing files, managing branches,
-labels, milestones and releases, running and cancelling workflows, and gists.
+requests, comments, reactions and reviews, merging, committing files, managing
+branches, labels, milestones and releases, running and cancelling workflows,
+gists, and starring repositories.
 GitHub's own permissions still apply: Houston only reaches repositories your
 account, token or app installation can access.
 

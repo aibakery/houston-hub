@@ -7,9 +7,10 @@ local API = "https://api.github.com"
 local VERSION = "2026-03-10"
 local JSON = "application/vnd.github+json"
 
--- Operations of GitHub's REST OpenAPI description, checked on 2026-10-16. Path {fields} are
+-- Operations of GitHub's REST OpenAPI description, checked on 2026-10-26. Path {fields} are
 -- required; listed query fields are taken from the options and the other fields form the JSON
--- body of POST, PATCH and PUT requests (and of DELETE requests marked body).
+-- body of POST, PATCH and PUT requests (and of DELETE requests marked body; a PUT marked
+-- body = false sends none).
 local endpoints: {[string]: Endpoint} = {
 	getAuthenticatedUser = {method = "GET", path = "/user", about = "The connected account."},
 	getUser = {method = "GET", path = "/users/{username}", about = "A user or organization profile."},
@@ -24,6 +25,15 @@ local endpoints: {[string]: Endpoint} = {
 	listOrgMembers = {method = "GET", path = "/orgs/{org}/members", query = {"filter", "role", "per_page", "page"}, about = "role: all, admin or member."},
 	listOrgTeams = {method = "GET", path = "/orgs/{org}/teams", query = {"team_type", "per_page", "page"}, about = ""},
 	listTeamMembers = {method = "GET", path = "/orgs/{org}/teams/{team_slug}/members", query = {"role", "per_page", "page"}, about = ""},
+	listUserEvents = {method = "GET", path = "/users/{username}/events", query = {"per_page", "page"},
+		about = "A user's activity, newest first; your own includes private events. Events cover the last 30 days, at most 300."},
+	listReceivedEvents = {method = "GET", path = "/users/{username}/received_events", query = {"per_page", "page"},
+		about = "Activity of the repositories and people a user watches or follows, as listUserEvents."},
+	listMyStarred = {method = "GET", path = "/user/starred", query = {"sort", "direction", "per_page", "page"},
+		about = "Repositories you starred. sort: created or updated."},
+	listUserStarred = {method = "GET", path = "/users/{username}/starred", query = {"sort", "direction", "per_page", "page"}, about = ""},
+	starRepo = {method = "PUT", path = "/user/starred/{owner}/{repo}", body = false, about = ""},
+	unstarRepo = {method = "DELETE", path = "/user/starred/{owner}/{repo}", about = ""},
 
 	listMyRepos = {method = "GET", path = "/user/repos", query = {"visibility", "affiliation", "type", "sort", "direction", "per_page", "page", "since", "before"},
 		about = "Repositories you can access. affiliation: owner,collaborator,organization_member."},
@@ -36,6 +46,9 @@ local endpoints: {[string]: Endpoint} = {
 	listForks = {method = "GET", path = "/repos/{owner}/{repo}/forks", query = {"sort", "per_page", "page"}, about = ""},
 	listLanguages = {method = "GET", path = "/repos/{owner}/{repo}/languages", about = "Bytes of code per language."},
 	getTopics = {method = "GET", path = "/repos/{owner}/{repo}/topics", query = {"per_page", "page"}, about = "{names}."},
+	listRepoEvents = {method = "GET", path = "/repos/{owner}/{repo}/events", query = {"per_page", "page"},
+		about = "Pushes, pull requests, issues, releases and other activity, as listUserEvents."},
+	listStargazers = {method = "GET", path = "/repos/{owner}/{repo}/stargazers", query = {"per_page", "page"}, about = ""},
 	listContributors = {method = "GET", path = "/repos/{owner}/{repo}/contributors", query = {"anon", "per_page", "page"}, about = "Contributors by commit count."},
 	listTags = {method = "GET", path = "/repos/{owner}/{repo}/tags", query = {"per_page", "page"}, about = "Tags with their commit SHAs."},
 	listCollaborators = {method = "GET", path = "/repos/{owner}/{repo}/collaborators", query = {"affiliation", "permission", "per_page", "page"},
@@ -69,6 +82,10 @@ local endpoints: {[string]: Endpoint} = {
 	listCommitStatuses = {method = "GET", path = "/repos/{owner}/{repo}/commits/{ref}/statuses", query = {"per_page", "page"}, about = ""},
 	createCommitStatus = {method = "POST", path = "/repos/{owner}/{repo}/statuses/{sha}", required = {"state"},
 		about = "Body {state (error, failure, pending or success), target_url?, description?, context?}."},
+	listCommitComments = {method = "GET", path = "/repos/{owner}/{repo}/commits/{commit_sha}/comments", query = {"per_page", "page"},
+		about = "Comments on a commit, oldest first."},
+	createCommitComment = {method = "POST", path = "/repos/{owner}/{repo}/commits/{commit_sha}/comments", required = {"body"},
+		about = "Body {body, path?, line?}. Comments on the commit, or on one line of a file it changes."},
 	listPullsForCommit = {method = "GET", path = "/repos/{owner}/{repo}/commits/{commit_sha}/pulls", query = {"per_page", "page"},
 		about = "Pull requests containing a commit."},
 	listCheckRuns = {method = "GET", path = "/repos/{owner}/{repo}/commits/{ref}/check-runs", query = {"check_name", "status", "filter", "app_id", "per_page", "page"},
@@ -97,8 +114,8 @@ local endpoints: {[string]: Endpoint} = {
 	createGitCommit = {method = "POST", path = "/repos/{owner}/{repo}/git/commits", required = {"message", "tree"},
 		about = "Body {message, tree, parents, author?}. Then updateRef moves the branch."},
 
-	listIssuesAssigned = {method = "GET", path = "/issues", query = {"filter", "state", "labels", "sort", "direction", "since", "collab", "orgs", "owned", "pulls", "per_page", "page"},
-		about = "Issues and pull requests assigned to you everywhere. filter: assigned, created, mentioned, subscribed or all."},
+	listMyIssues = {method = "GET", path = "/issues", query = {"filter", "state", "labels", "sort", "direction", "since", "collab", "orgs", "owned", "pulls", "per_page", "page"},
+		about = "Your issues and pull requests across GitHub. filter: assigned (default), created, mentioned, subscribed or all."},
 	listIssues = {method = "GET", path = "/repos/{owner}/{repo}/issues",
 		query = {"milestone", "state", "assignee", "type", "creator", "mentioned", "issue_field_values", "labels", "sort", "direction", "since", "per_page", "page"},
 		about = "Issues and pull requests (with pull_request). state: open, closed or all; labels comma-separated."},
@@ -110,8 +127,11 @@ local endpoints: {[string]: Endpoint} = {
 		about = "Conversation comments, oldest first."},
 	createIssueComment = {method = "POST", path = "/repos/{owner}/{repo}/issues/{issue_number}/comments", required = {"body"},
 		about = "Body {body}. Also comments on pull requests."},
+	getIssueComment = {method = "GET", path = "/repos/{owner}/{repo}/issues/comments/{comment_id}", about = ""},
 	updateIssueComment = {method = "PATCH", path = "/repos/{owner}/{repo}/issues/comments/{comment_id}", required = {"body"}, about = "Body {body}."},
 	deleteIssueComment = {method = "DELETE", path = "/repos/{owner}/{repo}/issues/comments/{comment_id}", about = ""},
+	createIssueCommentReaction = {method = "POST", path = "/repos/{owner}/{repo}/issues/comments/{comment_id}/reactions", required = {"content"},
+		about = "Body {content}, as createIssueReaction."},
 	listIssueTimeline = {method = "GET", path = "/repos/{owner}/{repo}/issues/{issue_number}/timeline", query = {"exclude", "per_page", "page"},
 		about = "Comments, labels, references and other events."},
 	addLabels = {method = "POST", path = "/repos/{owner}/{repo}/issues/{issue_number}/labels", required = {"labels"}, about = "Body {labels={names}}."},
@@ -150,6 +170,7 @@ local endpoints: {[string]: Endpoint} = {
 		about = "Changed files with patches; at most 3,000 files."},
 	listPullCommits = {method = "GET", path = "/repos/{owner}/{repo}/pulls/{pull_number}/commits", query = {"per_page", "page"}, about = "At most 250 commits."},
 	listPullReviews = {method = "GET", path = "/repos/{owner}/{repo}/pulls/{pull_number}/reviews", query = {"per_page", "page"}, about = "Reviews, oldest first."},
+	getPullReview = {method = "GET", path = "/repos/{owner}/{repo}/pulls/{pull_number}/reviews/{review_id}", about = "A review with its state and body."},
 	createPullReview = {method = "POST", path = "/repos/{owner}/{repo}/pulls/{pull_number}/reviews",
 		about = "Body {event? (APPROVE, REQUEST_CHANGES or COMMENT; omit for a pending review), body?, commit_id?, comments?={{path, line, side?, body}}}."},
 	submitPullReview = {method = "POST", path = "/repos/{owner}/{repo}/pulls/{pull_number}/reviews/{review_id}/events", required = {"event"},
@@ -163,6 +184,11 @@ local endpoints: {[string]: Endpoint} = {
 		about = "Body {body, commit_id, path, line, side?, start_line?, subject_type?}."},
 	replyToReviewComment = {method = "POST", path = "/repos/{owner}/{repo}/pulls/{pull_number}/comments/{comment_id}/replies", required = {"body"},
 		about = "Body {body}. comment_id is a top-level review comment."},
+	getPullReviewComment = {method = "GET", path = "/repos/{owner}/{repo}/pulls/comments/{comment_id}", about = "A line comment on the diff."},
+	updatePullReviewComment = {method = "PATCH", path = "/repos/{owner}/{repo}/pulls/comments/{comment_id}", required = {"body"}, about = "Body {body}."},
+	deletePullReviewComment = {method = "DELETE", path = "/repos/{owner}/{repo}/pulls/comments/{comment_id}", about = ""},
+	createPullReviewCommentReaction = {method = "POST", path = "/repos/{owner}/{repo}/pulls/comments/{comment_id}/reactions", required = {"content"},
+		about = "Body {content}, as createIssueReaction."},
 	listRequestedReviewers = {method = "GET", path = "/repos/{owner}/{repo}/pulls/{pull_number}/requested_reviewers", about = "{users, teams}."},
 	requestReviewers = {method = "POST", path = "/repos/{owner}/{repo}/pulls/{pull_number}/requested_reviewers",
 		about = "Body {reviewers?={logins}, team_reviewers?={slugs}}."},
@@ -450,7 +476,8 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 	end
 	if #query > 0 then path ..= "?" .. table.concat(query, "&") end
 	local body: string? = nil
-	if endpoint.body or endpoint.method == "POST" or endpoint.method == "PATCH" or endpoint.method == "PUT" then
+	local sends = if endpoint.body == nil then endpoint.method == "POST" or endpoint.method == "PATCH" or endpoint.method == "PUT" else endpoint.body
+	if sends then
 		headers["Content-Type"] = {"application/json"}
 		body = json.encode(args)
 		args = {}
@@ -499,8 +526,9 @@ local REPO = "/repos/{owner}/{repo}"
 -- owner and repo implicit, page? stands for per_page and page, and Body {...} lists body fields.
 local function signature(endpoint: Endpoint): string
 	local fields: {string} = {}
+	local inRepo = string.sub(endpoint.path, 1, #REPO) == REPO
 	for field in string.gmatch(endpoint.path, "{([%w_]+)}") do
-		if field ~= "owner" and field ~= "repo" then table.insert(fields, field) end
+		if not inRepo or (field ~= "owner" and field ~= "repo") then table.insert(fields, field) end
 	end
 	local required = endpoint.required or NONE
 	for _, field in endpoint.query or NONE do
@@ -514,7 +542,7 @@ end
 exports.help = function(): string
 	local lines = {
 		"GitHub REST API " .. VERSION .. ". Each function takes one options object with GitHub's snake_case names (? marks optional); writes also take the JSON body fields listed after Body. Results are GitHub's JSON unchanged; write replies without a body return {success=true}. Connector calls return completed values: use them directly, without await. In bodies, json.decode('[]') is an empty array and json.decode('null') clears a field.",
-		"Start with github.getAuthenticatedUser().login, github.listMyRepos({sort='pushed', per_page=20}) or github.searchIssues({q='is:pr is:open author:@me'}). branch, ref, path, tag, tree_sha, basehead and label name may contain slashes and percent signs (ref='heads/feature/x', path='src/100%.md'), but not backslashes or escapes of separators and dots such as %2F.",
+		"Start with github.getAuthenticatedUser().login, github.listMyRepos({sort='pushed', per_page=20}) or github.searchIssues({q='is:pr is:open author:@me'}); github.listUserEvents({username=login}) gives recent activity. branch, ref, path, tag, tree_sha, basehead and label name may contain slashes and percent signs (ref='heads/feature/x', path='src/100%.md'), but not backslashes or escapes of separators and dots such as %2F.",
 		"Lists return one page: page? means per_page (1..100, default 30) and page (from 1); a shorter page is the last. JSON and text results over 8 MiB fail; use save_as or smaller pages. Search returns {total_count, incomplete_results, items}: at most 1,000 results and 30 requests per minute (searchCode 10).",
 		"Files: getContent returns base64 content; save_as='name' saves raw bytes as a session file instead. download_url links lose their private-repository token (fetch private files with save_as), and temp_clone_token is removed. save_as functions return {path, size, url} and overwrite that session file, even when the download fails; search large logs with fs.grep. getCommit, compareCommits and getPull take format='diff' or 'patch' and return that text, without paging. To commit several files, chain createBlob, createTree, createGitCommit and updateRef.",
 		"Access: GitHub enforces the token's permissions and repository selection; Connect with GitHub reaches public data and repositories where Houston's GitHub App is installed. A 403 or 404 may mean missing access; errors give GitHub's message, needed permissions and rate-limit resets. Read-only connections omit writes. Notifications need a classic token and installation lists Connect with GitHub; check runs and suites need a classic token or Connect with GitHub.",
