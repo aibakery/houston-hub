@@ -22,13 +22,14 @@ return {
 
 		local names = {}
 		for name in github do if name ~= "help" then table.insert(names, name) end end
-		assert(#names == 85, "wrong read-only surface: " .. #names)
+		assert(#names == 95, "wrong read-only surface: " .. #names)
 		for _, name in names do
 			assert(string.match(name, "^get") or string.match(name, "^list") or string.match(name, "^search") or string.match(name, "^compare") or string.match(name, "^download"), "read-only exports a write: " .. name)
 		end
 		for _, name in {"createIssue", "updateIssue", "createIssueComment", "createPull", "mergePull", "putFile", "deleteFile", "createRef",
 			"deleteRef", "createRelease", "dispatchWorkflow", "cancelWorkflowRun", "createGist", "markThreadDone", "updateRepo",
-			"generateReleaseNotes", "removeAssignees"} do
+			"generateReleaseNotes", "removeAssignees", "starRepo", "unstarRepo", "createCommitComment", "createIssueCommentReaction",
+			"updatePullReviewComment", "deletePullReviewComment", "createPullReviewCommentReaction", "listIssuesAssigned"} do
 			assert(github[name] == nil, "read-only leaked " .. name)
 		end
 		assert(github.listNotifications ~= nil and github.listInstallations == nil, "token connections list notifications, not app installations")
@@ -65,6 +66,35 @@ return {
 		assert(found.total_count == 1 and found.items[1].number == 1)
 		payload = '{"total_count":0,"incomplete_results":false,"items":[]}'
 		assert(json.encode(github.searchCode({q = "fetchUser"}).items) == "[]")
+
+		payload = "[]"
+		assert(json.encode(github.listMyIssues({filter = "created", state = "open"})) == "[]")
+		assert(last().url == API .. "/issues?filter=created&state=open", last().url)
+		payload = '[{"id":"1","type":"PushEvent","repo":{"name":"o/r"}}]'
+		assert(github.listUserEvents({username = "octocat", per_page = 100})[1].type == "PushEvent")
+		assert(last().url == API .. "/users/octocat/events?per_page=100", last().url)
+		github.listReceivedEvents({username = "octocat"})
+		assert(last().url == API .. "/users/octocat/received_events")
+		github.listRepoEvents({owner = "o", repo = "r", page = 2})
+		assert(last().url == API .. "/repos/o/r/events?page=2")
+		payload = "[]"
+		assert(json.encode(github.listMyStarred({sort = "updated", direction = "desc"})) == "[]")
+		assert(last().url == API .. "/user/starred?sort=updated&direction=desc", last().url)
+		github.listUserStarred({username = "octocat"})
+		assert(last().url == API .. "/users/octocat/starred")
+		assert(json.encode(github.listStargazers({owner = "o", repo = "r"})) == "[]" and last().url == API .. "/repos/o/r/stargazers")
+		github.listCommitComments({owner = "o", repo = "r", commit_sha = "3a0f86fb8db8eea7ccbb9a95f325ddbedfb25e15"})
+		assert(last().url == API .. "/repos/o/r/commits/3a0f86fb8db8eea7ccbb9a95f325ddbedfb25e15/comments")
+		payload = '{"id":77,"body":"Nice"}'
+		assert(github.getIssueComment({owner = "o", repo = "r", comment_id = 77}).body == "Nice")
+		assert(last().url == API .. "/repos/o/r/issues/comments/77")
+		github.getPullReviewComment({owner = "o", repo = "r", comment_id = "78"})
+		assert(last().url == API .. "/repos/o/r/pulls/comments/78")
+		github.getPullReview({owner = "o", repo = "r", pull_number = 5, review_id = 9})
+		assert(last().url == API .. "/repos/o/r/pulls/5/reviews/9")
+		rejected(function() github.getPullReview({owner = "o", repo = "r", pull_number = 5}) end, "review_id must be a positive integer")
+		rejected(function() github.listCommitComments({owner = "o", repo = "r", commit_sha = "a/b"}) end, "commit_sha must be a GitHub name or SHA")
+		rejected(function() github.listUserEvents({username = "octocat", since = "2026-10-01"}) end, "listUserEvents has no option since")
 
 		payload = '[{"name":"a.md","download_url":"https://raw.githubusercontent.com/o/r/main/a.md?token=SIGNED"},{"name":"b","download_url":null}]'
 		local listing = github.getContent({owner = "o", repo = "r", path = "docs"})

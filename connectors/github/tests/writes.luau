@@ -40,7 +40,7 @@ return {
 
 		local names = {}
 		for name in github do if name ~= "help" then table.insert(names, name) end end
-		assert(#names == 144, "wrong read-write surface: " .. #names)
+		assert(#names == 161, "wrong read-write surface: " .. #names)
 
 		payload = '{"number":12,"title":"Crash","labels":[{"name":"bug"}]}'
 		local issue = github.createIssue({owner = "o", repo = "r", title = "Crash", body = "Steps", labels = {"bug"}})
@@ -109,6 +109,28 @@ return {
 		payload = '{"id":3,"files":{"a.md":{"content":"x"}}}'
 		github.updateGist({gist_id = "aa5a315d61ae9438b18d", files = {["old.md"] = NULL, ["a.md"] = {content = "x"}}})
 		sent("PATCH", API .. "/gists/aa5a315d61ae9438b18d", '{"files":{"old.md":null,"a.md":{"content":"x"}}}')
+
+		-- GitHub requires Content-Length zero when starring, so starRepo sends no body.
+		status, payload = 204, ""
+		assert(github.starRepo({owner = "octo-org", repo = "app.js"}).success == true)
+		sent("PUT", API .. "/user/starred/octo-org/app.js")
+		assert(github.unstarRepo({owner = "octo-org", repo = "app.js"}).success == true)
+		sent("DELETE", API .. "/user/starred/octo-org/app.js")
+		assert(github.deletePullReviewComment({owner = "o", repo = "r", comment_id = 78}).success == true)
+		sent("DELETE", API .. "/repos/o/r/pulls/comments/78")
+		status, payload = 201, '{"id":3,"body":"Nice"}'
+		assert(github.createCommitComment({owner = "o", repo = "r", commit_sha = "c1", body = "Nice", path = "a.go", line = 3}).id == 3)
+		sent("POST", API .. "/repos/o/r/commits/c1/comments", '{"body":"Nice","path":"a.go","line":3}')
+		github.createIssueCommentReaction({owner = "o", repo = "r", comment_id = 77, content = "+1"})
+		sent("POST", API .. "/repos/o/r/issues/comments/77/reactions", '{"content":"+1"}')
+		github.createPullReviewCommentReaction({owner = "o", repo = "r", comment_id = 78, content = "heart"})
+		sent("POST", API .. "/repos/o/r/pulls/comments/78/reactions", '{"content":"heart"}')
+		status = 200
+		github.updatePullReviewComment({owner = "o", repo = "r", comment_id = 78, body = "Fixed"})
+		sent("PATCH", API .. "/repos/o/r/pulls/comments/78", '{"body":"Fixed"}')
+		rejected(function() github.starRepo({owner = "o", repo = "r", body = "x"}) end, "starRepo has no option body")
+		rejected(function() github.createCommitComment({owner = "o", repo = "r", commit_sha = "c1", path = "a.go"}) end, "body is required")
+		rejected(function() github.createIssueCommentReaction({owner = "o", repo = "r", comment_id = 77}) end, "content is required")
 
 		rejected(function() github.createIssue({owner = "o", repo = "r", body = "no title"}) end, "title is required")
 		rejected(function() github.putFile({owner = "o", repo = "r", path = "a.md", message = "m"}) end, "content is required")

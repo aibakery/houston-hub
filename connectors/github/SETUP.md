@@ -38,8 +38,8 @@ Choose **Personal access token** and paste a token created as follows.
    **Workflows** to edit workflow files, and **Administration** and **Repository
    creation** to create or fork repositories.
 5. Optionally add **Members** (read-only) under **Organization permissions**, and
-   **Email addresses** (read-only) and **Gists** (read and write) under **Account
-   permissions**.
+   **Email addresses** (read-only), **Gists** (read and write) and **Starring**
+   (read and write, to star repositories) under **Account permissions**.
 6. Select **Generate token** and copy it.
 
 **Classic token**: in [New personal access token (classic)](https://github.com/settings/tokens/new),

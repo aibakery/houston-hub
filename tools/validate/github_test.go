@@ -36,13 +36,15 @@ func TestGitHubAuthenticationAndAccessRoutes(t *testing.T) {
 				"GET "+api+"/repos/o/r/contents/src%2Fmain.go?ref=release%2F1", "GET "+api+"/repos/o/r/compare/main...feature%2Fx",
 				"GET "+api+"/repos/o/r/commits/feature%2Fx/check-runs", "GET "+api+"/repos/o/r/git/ref/heads%2Ffeature%2Fx",
 				"GET "+api+"/repos/o/r/releases/tags/app%2Fv1", "GET "+api+"/repos/o/r/git/trees/feature%2Fx", "GET "+api+"/search/code?q=x", "GET "+api+"/repos/o/r/actions/jobs/1/logs",
-				"GET "+api+"/repos/o/r/contents/test%2Ffolder%2525with%20percentage%23%2Findex.js", "GET "+api+"/repos/o/r/branches/fix%2F100%25")
+				"GET "+api+"/repos/o/r/contents/test%2Ffolder%2525with%20percentage%23%2Findex.js", "GET "+api+"/repos/o/r/branches/fix%2F100%25",
+				"GET "+api+"/users/octocat/events", "GET "+api+"/user/starred?sort=updated", "GET "+api+"/repos/o/r/pulls/comments/1")
 			assertRoutes(t, r, "fixture-token", access == "read-write",
 				"POST "+api+"/repos/o/r/issues", "PATCH "+api+"/repos/o/r/pulls/1", "PUT "+api+"/repos/o/r/pulls/1/merge",
 				"PUT "+api+"/repos/o/r/contents/docs%2Fa.md", "DELETE "+api+"/repos/o/r/contents/docs%2Fa.md",
 				"PATCH "+api+"/repos/o/r/git/refs/heads%2Fx", "DELETE "+api+"/repos/o/r/git/refs/heads%2Fx",
 				"DELETE "+api+"/repos/o/r/issues/1/labels/area%2Fui", "POST "+api+"/repos/o/r/branches/old%2Fname/rename",
-				"DELETE "+api+"/repos/o/r/issues/1/labels/50%25%20done", "PATCH "+api+"/repos/o/r/labels/100%25")
+				"DELETE "+api+"/repos/o/r/issues/1/labels/50%25%20done", "PATCH "+api+"/repos/o/r/labels/100%25",
+				"PUT "+api+"/user/starred/o/r", "DELETE "+api+"/user/starred/o/r", "POST "+api+"/repos/o/r/commits/c1/comments", "PATCH "+api+"/repos/o/r/pulls/comments/1")
 			// Repository deletion, administration, secrets and credential endpoints stay denied.
 			assertRoutes(t, r, "fixture-token", false,
 				"DELETE "+api+"/repos/o/r", "PATCH "+api+"/repos/o/r", "POST "+api+"/graphql", "GET "+api+"/repos/o/r/actions/secrets", "GET "+api+"/repos/o/r/actions/secrets/public-key",

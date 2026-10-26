@@ -120,12 +120,15 @@
           "/repos/{owner}/{repo}/check-runs/{check_run_id}/annotations",
           "/repos/{owner}/{repo}/collaborators",
           "/repos/{owner}/{repo}/commits",
+          "/repos/{owner}/{repo}/commits/{commit_sha}/comments",
           "/repos/{owner}/{repo}/commits/{commit_sha}/pulls",
           "/repos/{owner}/{repo}/contributors",
+          "/repos/{owner}/{repo}/events",
           "/repos/{owner}/{repo}/forks",
           "/repos/{owner}/{repo}/git/blobs/{file_sha}",
           "/repos/{owner}/{repo}/git/commits/{commit_sha}",
           "/repos/{owner}/{repo}/issues",
+          "/repos/{owner}/{repo}/issues/comments/{comment_id}",
           "/repos/{owner}/{repo}/issues/{issue_number}",
           "/repos/{owner}/{repo}/issues/{issue_number}/comments",
           "/repos/{owner}/{repo}/issues/{issue_number}/sub_issues",
@@ -135,18 +138,21 @@
           "/repos/{owner}/{repo}/milestones",
           "/repos/{owner}/{repo}/milestones/{milestone_number}",
           "/repos/{owner}/{repo}/pulls",
+          "/repos/{owner}/{repo}/pulls/comments/{comment_id}",
           "/repos/{owner}/{repo}/pulls/{pull_number}",
           "/repos/{owner}/{repo}/pulls/{pull_number}/comments",
           "/repos/{owner}/{repo}/pulls/{pull_number}/commits",
           "/repos/{owner}/{repo}/pulls/{pull_number}/files",
           "/repos/{owner}/{repo}/pulls/{pull_number}/requested_reviewers",
           "/repos/{owner}/{repo}/pulls/{pull_number}/reviews",
+          "/repos/{owner}/{repo}/pulls/{pull_number}/reviews/{review_id}",
           "/repos/{owner}/{repo}/readme",
           "/repos/{owner}/{repo}/releases",
           "/repos/{owner}/{repo}/releases/assets/{asset_id}",
           "/repos/{owner}/{repo}/releases/latest",
           "/repos/{owner}/{repo}/releases/{release_id}",
           "/repos/{owner}/{repo}/releases/{release_id}/assets",
+          "/repos/{owner}/{repo}/stargazers",
           "/repos/{owner}/{repo}/tags",
           "/repos/{owner}/{repo}/topics",
           "/search/code",
@@ -160,9 +166,13 @@
           "/user/installations/{installation_id}/repositories",
           "/user/orgs",
           "/user/repos",
+          "/user/starred",
           "/users/{username}",
+          "/users/{username}/events",
           "/users/{username}/gists",
-          "/users/{username}/repos"
+          "/users/{username}/received_events",
+          "/users/{username}/repos",
+          "/users/{username}/starred"
         ],
         "protocol": "http"
       }
@@ -341,10 +351,12 @@
           "/repos/{owner}/{repo}/issues/comments/{comment_id}",
           "/repos/{owner}/{repo}/issues/{issue_number}/assignees",
           "/repos/{owner}/{repo}/milestones/{milestone_number}",
+          "/repos/{owner}/{repo}/pulls/comments/{comment_id}",
           "/repos/{owner}/{repo}/pulls/{pull_number}/requested_reviewers",
           "/repos/{owner}/{repo}/pulls/{pull_number}/reviews/{review_id}",
           "/repos/{owner}/{repo}/releases/assets/{asset_id}",
-          "/repos/{owner}/{repo}/releases/{release_id}"
+          "/repos/{owner}/{repo}/releases/{release_id}",
+          "/user/starred/{owner}/{repo}"
         ],
         "protocol": "http"
       }
@@ -447,6 +459,7 @@
           "/repos/{owner}/{repo}/issues/comments/{comment_id}",
           "/repos/{owner}/{repo}/issues/{issue_number}",
           "/repos/{owner}/{repo}/milestones/{milestone_number}",
+          "/repos/{owner}/{repo}/pulls/comments/{comment_id}",
           "/repos/{owner}/{repo}/pulls/{pull_number}",
           "/repos/{owner}/{repo}/releases/{release_id}"
         ],
@@ -526,12 +539,14 @@
           "/repos/{owner}/{repo}/actions/runs/{run_id}/rerun",
           "/repos/{owner}/{repo}/actions/runs/{run_id}/rerun-failed-jobs",
           "/repos/{owner}/{repo}/actions/workflows/{workflow_id}/dispatches",
+          "/repos/{owner}/{repo}/commits/{commit_sha}/comments",
           "/repos/{owner}/{repo}/forks",
           "/repos/{owner}/{repo}/git/blobs",
           "/repos/{owner}/{repo}/git/commits",
           "/repos/{owner}/{repo}/git/refs",
           "/repos/{owner}/{repo}/git/trees",
           "/repos/{owner}/{repo}/issues",
+          "/repos/{owner}/{repo}/issues/comments/{comment_id}/reactions",
           "/repos/{owner}/{repo}/issues/{issue_number}/assignees",
           "/repos/{owner}/{repo}/issues/{issue_number}/comments",
           "/repos/{owner}/{repo}/issues/{issue_number}/labels",
@@ -541,6 +556,7 @@
           "/repos/{owner}/{repo}/merges",
           "/repos/{owner}/{repo}/milestones",
           "/repos/{owner}/{repo}/pulls",
+          "/repos/{owner}/{repo}/pulls/comments/{comment_id}/reactions",
           "/repos/{owner}/{repo}/pulls/{pull_number}/comments",
           "/repos/{owner}/{repo}/pulls/{pull_number}/comments/{comment_id}/replies",
           "/repos/{owner}/{repo}/pulls/{pull_number}/requested_reviewers",
@@ -600,7 +616,8 @@
           "/repos/{owner}/{repo}/issues/{issue_number}/labels",
           "/repos/{owner}/{repo}/pulls/{pull_number}/merge",
           "/repos/{owner}/{repo}/pulls/{pull_number}/reviews/{review_id}/dismissals",
-          "/repos/{owner}/{repo}/pulls/{pull_number}/update-branch"
+          "/repos/{owner}/{repo}/pulls/{pull_number}/update-branch",
+          "/user/starred/{owner}/{repo}"
         ],
         "protocol": "http"
       }

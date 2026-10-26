@@ -41,7 +41,7 @@ return {
 
 		local names = {}
 		for name in github do if name ~= "help" then table.insert(names, name) end end
-		assert(#names == 142, "wrong surface for Connect with GitHub: " .. #names)
+		assert(#names == 159, "wrong surface for Connect with GitHub: " .. #names)
 		for _, name in {"listNotifications", "markNotificationsRead", "markThreadRead", "markThreadDone"} do
 			assert(github[name] == nil, "GitHub App tokens cannot use " .. name)
 		end
