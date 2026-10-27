@@ -43,6 +43,7 @@ func TestEveryProviderAuthenticationAndTransport(t *testing.T) {
 		"tipeee":      {"GET", "https://api.tipeee.com/v2.0/categories"},
 		"linear":      {"GET", "https://api.linear.app/graphql"},
 		"vercel":      {"GET", "https://api.vercel.com/v2/user"},
+		"figma":       {"GET", "https://api.figma.com/v1/me"},
 	}
 	for _, path := range paths {
 		provider := filepath.Base(filepath.Dir(path))
@@ -106,6 +107,10 @@ func TestEveryProviderAuthenticationAndTransport(t *testing.T) {
 				}
 				if provider == "assessfirst" { // AssessFirst reads the bare token from its own header.
 					credentialHeader = "AF-Token"
+					authorization = "synthetic-method-secret"
+				}
+				if provider == "figma" && method == "token" { // Figma reads personal tokens from its own header.
+					credentialHeader = "X-Figma-Token"
 					authorization = "synthetic-method-secret"
 				}
 				if provider == "dolibarr" { // Dolibarr reads the bare key from its own header.

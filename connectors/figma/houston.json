@@ -1,0 +1,307 @@
+{
+  "schema_version": 1,
+  "name": "Figma",
+  "files": [
+    "connector.luau"
+  ],
+  "icon": "icon.svg",
+  "config": {
+    "access": {
+      "default": "read-only",
+      "label": "Access",
+      "options": [
+        {
+          "label": "Read-only",
+          "value": "read-only"
+        },
+        {
+          "label": "Read and write",
+          "value": "read-write"
+        }
+      ],
+      "type": "string"
+    },
+    "client_id": {
+      "label": "OAuth client ID",
+      "order": 1,
+      "type": "string"
+    },
+    "client_secret": {
+      "label": "OAuth client secret",
+      "order": 2,
+      "type": "secret"
+    }
+  },
+  "auth": {
+    "token": {
+      "type": "manual",
+      "label": "Personal access token",
+      "order": 1,
+      "config": {
+        "token": {
+          "label": "Personal access token",
+          "required": true,
+          "type": "secret"
+        }
+      }
+    },
+    "oauth": {
+      "type": "oauth2",
+      "label": "Connect with Figma",
+      "order": 2,
+      "authorize_url": "https://www.figma.com/oauth",
+      "token_url": "https://api.figma.com/v1/oauth/token",
+      "client_auth": "basic",
+      "pkce": "S256",
+      "client_id": "{{config.client_id}}",
+      "client_secret": "{{config.client_secret}}",
+      "require_refresh": true,
+      "scopes": [
+        {
+          "values": [
+            "current_user:read",
+            "file_content:read",
+            "file_metadata:read",
+            "file_versions:read",
+            "file_comments:read",
+            "library_assets:read",
+            "library_content:read",
+            "team_library_content:read",
+            "projects:read"
+          ]
+        },
+        {
+          "if": "{{ is config.access \"read-write\" }}",
+          "values": [
+            "file_comments:write"
+          ]
+        }
+      ],
+      "account": {
+        "url": "https://api.figma.com/v1/me",
+        "headers": {
+          "Authorization": {
+            "value": "Bearer {{auth.oauth.access_token}}"
+          }
+        },
+        "label": "/email"
+      }
+    }
+  },
+  "proxy": [
+    {
+      "if": "{{ isDefined auth.token }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "api.figma.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/v1/component_sets/{key}",
+          "/v1/components/{key}",
+          "/v1/files/{file_key}",
+          "/v1/files/{file_key}/comments",
+          "/v1/files/{file_key}/comments/{comment_id}/reactions",
+          "/v1/files/{file_key}/component_sets",
+          "/v1/files/{file_key}/components",
+          "/v1/files/{file_key}/images",
+          "/v1/files/{file_key}/meta",
+          "/v1/files/{file_key}/nodes",
+          "/v1/files/{file_key}/styles",
+          "/v1/files/{file_key}/versions",
+          "/v1/images/{file_key}",
+          "/v1/me",
+          "/v1/projects/{project_id}/files",
+          "/v1/styles/{key}",
+          "/v1/teams/{team_id}/component_sets",
+          "/v1/teams/{team_id}/components",
+          "/v1/teams/{team_id}/projects",
+          "/v1/teams/{team_id}/styles"
+        ]
+      },
+      "action": {
+        "headers": {
+          "remove": [
+            "Authorization"
+          ],
+          "set": {
+            "X-Figma-Token": "{{auth.token.token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ isDefined auth.oauth }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "api.figma.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/v1/component_sets/{key}",
+          "/v1/components/{key}",
+          "/v1/files/{file_key}",
+          "/v1/files/{file_key}/comments",
+          "/v1/files/{file_key}/comments/{comment_id}/reactions",
+          "/v1/files/{file_key}/component_sets",
+          "/v1/files/{file_key}/components",
+          "/v1/files/{file_key}/images",
+          "/v1/files/{file_key}/meta",
+          "/v1/files/{file_key}/nodes",
+          "/v1/files/{file_key}/styles",
+          "/v1/files/{file_key}/versions",
+          "/v1/images/{file_key}",
+          "/v1/me",
+          "/v1/projects/{project_id}/files",
+          "/v1/styles/{key}",
+          "/v1/teams/{team_id}/component_sets",
+          "/v1/teams/{team_id}/components",
+          "/v1/teams/{team_id}/projects",
+          "/v1/teams/{team_id}/styles"
+        ]
+      },
+      "action": {
+        "headers": {
+          "remove": [
+            "X-Figma-Token"
+          ],
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ and (is config.access \"read-write\") (isDefined auth.token) }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "api.figma.com"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/v1/files/{file_key}/comments",
+          "/v1/files/{file_key}/comments/{comment_id}/reactions"
+        ]
+      },
+      "action": {
+        "headers": {
+          "remove": [
+            "Authorization"
+          ],
+          "set": {
+            "X-Figma-Token": "{{auth.token.token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ and (is config.access \"read-write\") (isDefined auth.token) }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "api.figma.com"
+        ],
+        "method": [
+          "DELETE"
+        ],
+        "path": [
+          "/v1/files/{file_key}/comments/{comment_id}",
+          "/v1/files/{file_key}/comments/{comment_id}/reactions"
+        ]
+      },
+      "action": {
+        "headers": {
+          "remove": [
+            "Authorization"
+          ],
+          "set": {
+            "X-Figma-Token": "{{auth.token.token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ and (is config.access \"read-write\") (isDefined auth.oauth) }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "api.figma.com"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/v1/files/{file_key}/comments",
+          "/v1/files/{file_key}/comments/{comment_id}/reactions"
+        ]
+      },
+      "action": {
+        "headers": {
+          "remove": [
+            "X-Figma-Token"
+          ],
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ and (is config.access \"read-write\") (isDefined auth.oauth) }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "api.figma.com"
+        ],
+        "method": [
+          "DELETE"
+        ],
+        "path": [
+          "/v1/files/{file_key}/comments/{comment_id}",
+          "/v1/files/{file_key}/comments/{comment_id}/reactions"
+        ]
+      },
+      "action": {
+        "headers": {
+          "remove": [
+            "X-Figma-Token"
+          ],
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      }
+    },
+    {
+      "match": {
+        "protocol": "http",
+        "host": [
+          "figma-alpha-api.s3.us-west-2.amazonaws.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/images/*"
+        ]
+      },
+      "action": {
+        "headers": {
+          "remove": [
+            "Authorization",
+            "X-Figma-Token"
+          ]
+        }
+      }
+    }
+  ]
+}

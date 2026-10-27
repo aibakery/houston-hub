@@ -197,7 +197,7 @@ local endpoints: {[string]: Endpoint} = {
 		doc = "get-company-notifications", about = "Actions Gusto asks the company to take; status open, resolved or expired."},
 }
 
--- Request layer shared verbatim by the Cal.com, Calendly, Carta, Carta CRM, Gusto, Resend and Vercel connectors
+-- Request layer shared verbatim by the Cal.com, Calendly, Carta, Carta CRM, Figma, Gusto, Resend and Vercel connectors
 -- (tools/validate checks they match). It uses each connector's PROVIDER, DOCS and Endpoint type.
 local NULL = json.decode("null")
 local NONE: {string} = table.freeze({})
