@@ -200,11 +200,15 @@ local function header(headers: any, name: string): string?
 end
 
 -- Gmail returns body bytes in their original charset; non-UTF-8 text is read as Latin-1.
-local function bodyText(data: string, limit: number): (string, boolean)
+local function bodyText(data: string): string
 	local value = base64.decode(data)
 	if utf8.len(value) == nil then
 		value = string.gsub(value, "[\128-\255]", function(c: string) return utf8.char(string.byte(c)) end)
 	end
+	return value
+end
+
+local function limitBody(value: string, limit: number): (string, boolean)
 	if limit == 0 or #value <= limit then return value, false end
 	value = string.sub(value, 1, limit)
 	while utf8.len(value) == nil do value = string.sub(value, 1, -2) end
@@ -221,7 +225,8 @@ local function collect(part: any, found: Options)
 	local attached = string.sub(disposition, 1, 10) == "attachment"
 	local filename = if type(part.filename) == "string" and part.filename ~= "" then part.filename else nil
 	if not filename and not attached and (part.mimeType == "text/plain" or part.mimeType == "text/html") then
-		found[part.mimeType] = found[part.mimeType] or body.data
+		found[part.mimeType] = found[part.mimeType] or {}
+		table.insert(found[part.mimeType], body)
 	elseif type(body.attachmentId) == "string" then
 		local contentId = header(part.headers, "content-id")
 		table.insert(found.attachments, {id = body.attachmentId, filename = filename, mimeType = part.mimeType, size = body.size,
@@ -230,15 +235,41 @@ local function collect(part: any, found: Options)
 	end
 end
 
+-- Match Unicode White_Space, as the native IMAP reader does; preserve the original text.
+local function hasContent(value: string): boolean
+	for _, point in utf8.codes(value) do
+		if not ((point >= 9 and point <= 13) or point == 32 or point == 0x85 or point == 0xA0 or point == 0x1680
+			or (point >= 0x2000 and point <= 0x200A) or point == 0x2028 or point == 0x2029 or point == 0x202F or point == 0x205F or point == 0x3000) then
+			return true
+		end
+	end
+	return false
+end
+
 -- Replaces Gmail's MIME payload with envelope fields, one decoded body and attachment metadata.
-local function message(raw: Options, limit: number): Options
+local function message(raw: Options, limit: number, bodyFormat: string): Options
 	local payload = raw.payload or {}
 	local headers = payload.headers or json.decode("[]")
 	local found: Options = {attachments = json.decode("[]")}
 	collect(payload, found)
-	local data = found["text/plain"] or found["text/html"]
-	local body, truncated = raw.snippet or "", false
-	if data then body, truncated = bodyText(data, limit) end
+	local body = ""
+	local mimeTypes: {string} = if bodyFormat == "auto" then {"text/plain", "text/html"} else {if bodyFormat == "text" then "text/plain" else "text/html"}
+	for _, mimeType in mimeTypes do
+		local parts: {Options} = found[mimeType] or {}
+		for _, part in parts do
+			local data = part.data
+			if (data == nil or data == "") and type(part.attachmentId) == "string" then
+				data = call("getMessage", "GET", API .. "/messages/" .. url.segment(raw.id, "id") .. "/attachments/" .. url.segment(part.attachmentId, "attachmentId")).data
+			end
+			if type(data) == "string" then body = bodyText(data) end
+			if bodyFormat ~= "auto" or hasContent(body) then break end
+		end
+		if bodyFormat ~= "auto" or hasContent(body) then break end
+		body = ""
+	end
+	if bodyFormat == "auto" and body == "" then body = raw.snippet or "" end
+	local truncated: boolean
+	body, truncated = limitBody(body, limit)
 	return {
 		id = raw.id, threadId = raw.threadId, labelIds = raw.labelIds or json.decode("[]"), snippet = raw.snippet,
 		historyId = raw.historyId, internalDate = raw.internalDate, sizeEstimate = raw.sizeEstimate,
@@ -249,22 +280,24 @@ local function message(raw: Options, limit: number): Options
 end
 
 -- Moves the read options from args into a query string; returns it with the body byte limit.
-local function readQuery(args: Options): (string, number)
+local function readQuery(args: Options): (string, number, string)
 	local limit = args.maxBodyBytes or 65536
 	assert(type(limit) == "number" and limit >= 0 and limit % 1 == 0, "maxBodyBytes must be a nonnegative integer")
 	local format = args.format or "full"
 	assert(format == "full" or format == "metadata" or format == "minimal", "format must be full, metadata or minimal")
-	args.maxBodyBytes, args.format = nil, format
-	return query(args, {"format", "metadataHeaders"}), limit
+	local bodyFormat = if args.bodyFormat == nil then "auto" else args.bodyFormat
+	assert(bodyFormat == "auto" or bodyFormat == "text" or bodyFormat == "html", "bodyFormat must be auto, text or html")
+	args.maxBodyBytes, args.format, args.bodyFormat = nil, format, nil
+	return query(args, {"format", "metadataHeaders"}), limit, bodyFormat
 end
 
-local function read(name: string, collection: string, input: any): (any, number)
+local function read(name: string, collection: string, input: any): (any, number, string)
 	local args = options(input)
 	local id = text(args.id, "id")
 	args.id = nil
-	local suffix, limit = readQuery(args)
+	local suffix, limit, bodyFormat = readQuery(args)
 	assert(next(args) == nil, name .. " received an unknown option")
-	return call(name, "GET", API .. "/" .. collection .. "/" .. url.segment(id, "id") .. suffix), limit
+	return call(name, "GET", API .. "/" .. collection .. "/" .. url.segment(id, "id") .. suffix), limit, bodyFormat
 end
 
 local function getMessages(input: any): {Options}
@@ -277,7 +310,7 @@ local function getMessages(input: any): {Options}
 		segments[i] = url.segment(text(ids[i], field), field)
 	end
 	args.ids = nil
-	local suffix, limit = readQuery(args)
+	local suffix, limit, bodyFormat = readQuery(args)
 	assert(next(args) == nil, "getMessages received an unknown option")
 	local out: {Options} = json.decode("[]")
 	-- Bounded concurrency stays within Gmail's per-user rate limits.
@@ -287,7 +320,7 @@ local function getMessages(input: any): {Options}
 			table.insert(pending, http.request({method = "GET", url = API .. "/messages/" .. segments[i] .. suffix}))
 		end
 		local responses = awaitAll(pending)
-		for i = 1, responses.n do table.insert(out, message(decode("getMessages", responses[i]), limit)) end
+		for i = 1, responses.n do table.insert(out, message(decode("getMessages", responses[i]), limit, bodyFormat)) end
 	end
 	return out
 end
@@ -444,25 +477,25 @@ end
 
 exportEndpoints(endpoints)
 
-local READ_OPTIONS = "format: full (default), metadata (headers only) or minimal; metadataHeaders limits metadata headers; maxBodyBytes caps body (default 65536, 0 for no cap) and sets bodyTruncated."
+local READ_OPTIONS = "bodyFormat: auto (default) chooses the first nonblank decoded plain text, HTML, then snippet; text or html selects only that format, preserving whitespace and returning an empty string if missing. Whitespace is ignored only when deciding emptiness. format: full (default), metadata (headers only) or minimal; metadataHeaders limits metadata headers; maxBodyBytes caps the selected body (default 65536, 0 for no cap) and sets bodyTruncated."
 export("getMessage", true, function(input: any): Options
-	local raw, limit = read("getMessage", "messages", input)
-	return message(raw, limit)
-end, "getMessage({id, format?, metadataHeaders?, maxBodyBytes?}) -> {id, threadId, labelIds, snippet, internalDate, from, to, cc, bcc, replyTo, subject, date, messageId, body, bodyTruncated, attachments={{id, filename, mimeType, size, inline, contentId}}, headers}. body is the decoded plain text, else HTML, else the snippet. " .. READ_OPTIONS)
+	local raw, limit, bodyFormat = read("getMessage", "messages", input)
+	return message(raw, limit, bodyFormat)
+end, "getMessage({id, format?, metadataHeaders?, maxBodyBytes?, bodyFormat?}) -> {id, threadId, labelIds, snippet, internalDate, from, to, cc, bcc, replyTo, subject, date, messageId, body, bodyTruncated, attachments={{id, filename, mimeType, size, inline, contentId}}, headers}. " .. READ_OPTIONS)
 export("getMessages", true, getMessages,
-	"getMessages({ids, format?, metadataHeaders?, maxBodyBytes?}) -> messages in the order of ids, each shaped like getMessage. 1 to 100 IDs; use format='metadata' to scan many messages cheaply.")
+	"getMessages({ids, format?, metadataHeaders?, maxBodyBytes?, bodyFormat?}) -> messages in the order of ids, each shaped like getMessage. 1 to 100 IDs; use format='metadata' to scan many messages cheaply.")
 export("getThread", true, function(input: any): Options
-	local thread, limit = read("getThread", "threads", input)
+	local thread, limit, bodyFormat = read("getThread", "threads", input)
 	local messages: {Options} = json.decode("[]")
-	for _, raw in thread.messages or {} do table.insert(messages, message(raw, limit)) end
+	for _, raw in thread.messages or {} do table.insert(messages, message(raw, limit, bodyFormat)) end
 	thread.messages = messages
 	return thread
-end, "getThread({id, format?, metadataHeaders?, maxBodyBytes?}) -> {id, historyId, messages} with every message of the conversation, oldest first, shaped like getMessage.")
+end, "getThread({id, format?, metadataHeaders?, maxBodyBytes?, bodyFormat?}) -> {id, historyId, messages} with every message of the conversation, oldest first, shaped like getMessage.")
 export("getDraft", true, function(input: any): Options
-	local draft, limit = read("getDraft", "drafts", input)
-	draft.message = message(draft.message or {}, limit)
+	local draft, limit, bodyFormat = read("getDraft", "drafts", input)
+	draft.message = message(draft.message or {}, limit, bodyFormat)
 	return draft
-end, "getDraft({id, format?, maxBodyBytes?}) -> {id, message} with message shaped like getMessage.")
+end, "getDraft({id, format?, maxBodyBytes?, bodyFormat?}) -> {id, message} with message shaped like getMessage.")
 export("getAttachment", true, getAttachment,
 	"getAttachment({messageId, attachmentId, path}) -> {path, url, size}. Saves an attachment (id from a message's attachments) to a session path; url is a signed Houston download link. Never inline attachment bytes.")
 export("listMailFolders", true, function(...: any): {{id: string, name: string}}
