@@ -1,0 +1,173 @@
+{
+  "schema_version": 1,
+  "name": "Vercel",
+  "files": [
+    "connector.luau"
+  ],
+  "icon": "icon.svg",
+  "config": {
+    "access": {
+      "default": "read-only",
+      "label": "Access",
+      "options": [
+        {
+          "label": "Read-only",
+          "value": "read-only"
+        },
+        {
+          "label": "Read and write",
+          "value": "read-write"
+        }
+      ],
+      "type": "string"
+    },
+    "team": {
+      "label": "Team",
+      "description": "The team ID or URL slug to use, such as team_1a2b3c or my-team. Leave empty for a team token or your personal account.",
+      "order": 1,
+      "type": "string"
+    }
+  },
+  "auth": {
+    "token": {
+      "type": "manual",
+      "label": "Access token",
+      "config": {
+        "token": {
+          "label": "Access token",
+          "required": true,
+          "type": "secret"
+        }
+      }
+    }
+  },
+  "proxy": [
+    {
+      "match": {
+        "protocol": "http",
+        "host": [
+          "api.vercel.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/v1/projects/{projectId}/deployments/{deploymentId}/runtime-logs",
+          "/v1/projects/{projectId}/promote/aliases",
+          "/v10/projects",
+          "/v13/deployments/{idOrUrl}",
+          "/v2/teams",
+          "/v2/user",
+          "/v3/deployments/{idOrUrl}/events",
+          "/v5/domains",
+          "/v5/domains/{domain}",
+          "/v6/domains/{domain}/config",
+          "/v7/deployments",
+          "/v9/projects/{idOrName}",
+          "/v9/projects/{idOrName}/domains",
+          "/v9/projects/{idOrName}/domains/{domain}"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.token.token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "api.vercel.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/v1/projects/{idOrName}/env/{id}",
+          "/v10/projects/{idOrName}/env"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.token.token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "api.vercel.com"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/v1/projects/{projectId}/rollback/{deploymentId}",
+          "/v10/projects/{idOrName}/env",
+          "/v10/projects/{projectId}/promote/{deploymentId}",
+          "/v13/deployments"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.token.token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "api.vercel.com"
+        ],
+        "method": [
+          "PATCH"
+        ],
+        "path": [
+          "/v12/deployments/{id}/cancel",
+          "/v9/projects/{idOrName}/env/{id}"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.token.token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "api.vercel.com"
+        ],
+        "method": [
+          "DELETE"
+        ],
+        "path": [
+          "/v9/projects/{idOrName}/env/{id}"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.token.token}}"
+          }
+        }
+      }
+    }
+  ]
+}

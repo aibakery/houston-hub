@@ -42,6 +42,7 @@ func TestEveryProviderAuthenticationAndTransport(t *testing.T) {
 		"assessfirst": {"GET", "https://app.assessfirst.com/betty-V2/locales"},
 		"tipeee":      {"GET", "https://api.tipeee.com/v2.0/categories"},
 		"linear":      {"GET", "https://api.linear.app/graphql"},
+		"vercel":      {"GET", "https://api.vercel.com/v2/user"},
 	}
 	for _, path := range paths {
 		provider := filepath.Base(filepath.Dir(path))
