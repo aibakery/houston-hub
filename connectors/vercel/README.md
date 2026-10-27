@@ -5,7 +5,7 @@ description: Check Vercel deployments, build and runtime logs and domains, and r
 # Vercel
 
 Connect Vercel so your agents can check your projects and their deployments,
-follow a build's status and logs, read recent runtime logs of a deployment, and
+follow a build's status and logs, watch a deployment's live runtime logs, and
 review your domains and whether their DNS is set up correctly.
 
 With read and write access, agents can also redeploy, promote a deployment to
