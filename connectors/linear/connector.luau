@@ -110,7 +110,7 @@ local function execute(name: string, document: string, variables: Options): any
 		headers["apollo-require-preflight"] = {"true"}
 		local query = "?query=" .. url.encode(document)
 		if next(variables) ~= nil then query ..= "&variables=" .. url.encode(json.encode(variables)) end
-		assert(#query <= MAX_URL, "The query is too large for a read-only connection, which sends it in the URL; narrow the filter")
+		assert(#API + #query <= MAX_URL, "The query is too large for a read-only connection, which sends it in the URL; narrow the filter")
 		call = {method = "GET", url = API .. query, headers = headers}
 	end
 	local response = await(http.request(call))
