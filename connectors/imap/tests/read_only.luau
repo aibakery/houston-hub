@@ -43,5 +43,11 @@ return {
 		local download = requests[4]
 		assert(download.command == "download" and download.messageId == "7:42:INBOX" and download.attachmentId == "2" and download.path == "files/report.pdf")
 		assert(saved.path == "files/report.pdf" and saved.url == "https://houston.test/files/report.pdf" and saved.size == 3, json.encode(saved))
+
+		replies = {{{id = "7:42:INBOX", body = "<p>Hello</p>"}}, {{id = "7:42:INBOX", body = "Hello"}}}
+		assert(c.getMessage({id = "7:42:INBOX", bodyFormat = "html"}).body == "<p>Hello</p>")
+		assert(requests[5].bodyFormat == "html" and requests[5].command == "fetch")
+		assert(c.getMessages({ids = {"7:42:INBOX"}, bodyFormat = "text"})[1].body == "Hello")
+		assert(requests[6].bodyFormat == "text" and requests[6].ids[1] == "7:42:INBOX")
 	end,
 }

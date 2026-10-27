@@ -2,7 +2,7 @@
 type Id = string | {id: string}
 type IdList = {string} | {{id: string}} | {Id}
 type Ids = Id | IdList
-type BodyOptions = {maxBodyValueBytes: number?}
+type BodyOptions = {maxBodyValueBytes: number?, bodyFormat: string?}
 type MessageOptions = BodyOptions & {id: string}
 type MessagesOptions = BodyOptions & {ids: IdList}
 type SearchOptions = {
@@ -343,7 +343,18 @@ local function attachment_metadata(parts: any): {Attachment}
 	return attachments
 end
 
-local function decorate(msg: any): Message
+-- Match Unicode White_Space, as the native IMAP reader does; preserve the original text.
+local function hasContent(value: string): boolean
+	for _, point in utf8.codes(value) do
+		if not ((point >= 9 and point <= 13) or point == 32 or point == 0x85 or point == 0xA0 or point == 0x1680
+			or (point >= 0x2000 and point <= 0x200A) or point == 0x2028 or point == 0x2029 or point == 0x202F or point == 0x205F or point == 0x3000) then
+			return true
+		end
+	end
+	return false
+end
+
+local function decorate(msg: any, bodyFormat: string): Message
 	remove_nulls(msg)
 	for _, key in ADDRESS_FIELDS do msg[key] = addresses(msg[key]) end
 	msg.date = msg.sentAt or msg.receivedAt
@@ -352,23 +363,33 @@ local function decorate(msg: any): Message
 	for _, header in msg.headers or {} do
 		if string.lower(header.name) == "received" then msg.received[#msg.received + 1] = header.value end
 	end
-	local function body(parts: any)
+	local function body(parts: any, mimeType: string?)
 		local out = {}
+		local truncated = false
 		for _, part in parts or {} do
 			local value = msg.bodyValues and msg.bodyValues[part.partId]
-			if value then
+			if value and (mimeType == nil or part.type == nil or part.type == mimeType) then
 				out[#out + 1] = value.value
-				if value.isTruncated then msg.bodyTruncated = true end
+				if value.isTruncated then truncated = true end
 			end
 		end
-		return table.concat(out, "\n")
+		return table.concat(out, "\n"), truncated
 	end
-	msg.body = body(msg.textBody)
-	if msg.body == "" then msg.body = body(msg.htmlBody) end
-	if msg.body == "" then msg.body = msg.preview or "" end
+	if bodyFormat == "html" then msg.body, msg.bodyTruncated = body(msg.htmlBody, "text/html")
+	else msg.body, msg.bodyTruncated = body(msg.textBody, if bodyFormat == "text" then "text/plain" else nil) end
+	if bodyFormat == "auto" then
+		if not msg.bodyTruncated and not hasContent(msg.body) then msg.body, msg.bodyTruncated = body(msg.htmlBody, nil) end
+		if not msg.bodyTruncated and not hasContent(msg.body) then msg.body = msg.preview or "" end
+	end
 	msg.attachments = attachment_metadata(msg.attachments)
 	msg.bodyValues, msg.textBody, msg.htmlBody = nil, nil, nil
 	return msg
+end
+
+local function body_format(opts: BodyOptions): string
+	local value = if opts.bodyFormat == nil then "auto" else opts.bodyFormat
+	assert(value == "auto" or value == "text" or value == "html", "bodyFormat must be auto, text or html")
+	return value
 end
 
 function functions.getMessages(input: IdList | MessagesOptions, options: BodyOptions?): {Message}
@@ -376,6 +397,7 @@ function functions.getMessages(input: IdList | MessagesOptions, options: BodyOpt
 	local opts: BodyOptions = options or {}
 	if type(ids) == "table" and ids.ids then opts, ids = ids, ids.ids end
 	if type(ids) ~= "table" or #ids < 1 or #ids > BATCH_SIZE then error("fastmail.getMessages requires 1–50 ids") end
+	local bodyFormat = body_format(opts)
 	local maxBytes = opts.maxBodyValueBytes or DEFAULT_BODY_BYTES
 	if type(maxBytes) ~= "number" or maxBytes < 0 or maxBytes % 1 ~= 0 then
 		error("fastmail.maxBodyValueBytes must be a nonnegative integer")
@@ -383,12 +405,12 @@ function functions.getMessages(input: IdList | MessagesOptions, options: BodyOpt
 	local requested = {}
 	for _, id in ids do requested[#requested + 1] = id_of(id) end
 	local data = call("Email/get", {
-		ids = requested, properties = MESSAGE_PROPERTIES, fetchTextBodyValues = true, fetchHTMLBodyValues = true,
+		ids = requested, properties = MESSAGE_PROPERTIES, fetchTextBodyValues = bodyFormat ~= "html", fetchHTMLBodyValues = bodyFormat ~= "text",
 		-- Fastmail rejects explicit zero; omitting the argument leaves bodies unlimited.
 		maxBodyValueBytes = if maxBytes > 0 then maxBytes else nil,
 	})
 	local byId, out = {}, {}
-	for _, msg in data.list or {} do byId[msg.id] = decorate(msg) end
+	for _, msg in data.list or {} do byId[msg.id] = decorate(msg, bodyFormat) end
 	for _, id in requested do
 		if not byId[id] then fail("getMessages", "Missing message " .. id) end
 		out[#out + 1] = byId[id]
@@ -422,6 +444,7 @@ end
 
 function functions.getThread(input: Id | MessageOptions, opts: BodyOptions?): {id: string, messages: {Message}}
 	local options = body_options(input, opts)
+	body_format(options)
 	local id = id_of(input)
 	local data = call("Thread/get", { ids = { id } })
 	local thread = data.list and data.list[1]
@@ -963,10 +986,10 @@ local operationHelp: {[string]: string} = {
 	destroyMessages = [==[destroyMessages(ids) -> {ids}. Permanently destroys messages in batches of 50. Accepts one ID or list of strings/{id}. Partial completion is possible; never automatically replay.]==],
 	getAttachment = [==[getAttachment({messageId:string,attachmentId:string,path:string?}) -> {path,url,size}. id is also accepted in place of attachmentId. Positional getAttachment(messageId,attachmentId,path?) remains supported. Streams to private session files; url is a signed Houston download. Default path: attachments/<encoded-message-id>/<encoded-attachment-id>. Links expire; files remain scoped to caller and execution workspace.]==],
 	getAttachments = [==[getAttachments({messageId:string,items={{id:string,path:string?},...}}) -> ordered {path,url,size}[]. Items also accept ID strings; destination paths must be distinct. Positional getAttachments(messageId,items) remains supported. Streams to session files; never returns inline attachment bytes.]==],
-	getMessage = [==[getMessage({id:string,maxBodyValueBytes:number?}) -> message envelope,body,headers,received,attachments. Positional getMessage(id,opts?) remains supported; IDs accept strings or {id}. Envelope includes from,to,cc,bcc,replyTo,subject,date,messageId. Body parts default 64 KiB; bodyTruncated flags truncation. maxBodyValueBytes changes the cap (0 disables it). Request smaller bodies when a proxy response is too large.]==],
-	getMessages = [==[getMessages({ids={...},maxBodyValueBytes:number?}) -> messages in requested order. Requires 1–50 IDs, each a string or {id}. Positional getMessages(ids,opts?) remains supported. Same fields and maxBodyValueBytes option as getMessage; request fewer messages when responses are too large.]==],
+	getMessage = [==[getMessage({id:string,maxBodyValueBytes:number?,bodyFormat:string?}) -> message envelope,body,headers,received,attachments. Positional getMessage(id,opts?) remains supported; IDs accept strings or {id}. Envelope includes from,to,cc,bcc,replyTo,subject,date,messageId. bodyFormat: auto (default) chooses the nonblank JMAP text-preferred rendering, then HTML-preferred rendering, then preview (renderings may mix MIME types); text or html selects only that MIME type, preserving whitespace and returning an empty string if missing. Whitespace is ignored only when deciding emptiness. Body parts default 64 KiB; bodyTruncated flags truncation of the selected body. A truncated whitespace prefix is not considered empty. maxBodyValueBytes changes the per-part cap (0 disables it). Request smaller bodies when a proxy response is too large.]==],
+	getMessages = [==[getMessages({ids={...},maxBodyValueBytes:number?,bodyFormat:string?}) -> messages in requested order. Requires 1–50 IDs, each a string or {id}. Positional getMessages(ids,opts?) remains supported. Same fields and body options as getMessage; request fewer messages when responses are too large.]==],
 	getProfile = [==[getProfile() -> {emailAddress, accountId, name, capabilities, canSend}. Reads the connected account profile; does not infer unknown token scopes during discovery.]==],
-	getThread = [==[getThread({id:string,maxBodyValueBytes:number?}) -> {id,messages} in conversation order, fetching in batches. Positional getThread(id,opts?) remains supported. Same message-body options as getMessage.]==],
+	getThread = [==[getThread({id:string,maxBodyValueBytes:number?,bodyFormat:string?}) -> {id,messages} in conversation order, fetching in batches. Positional getThread(id,opts?) remains supported. Same message-body options as getMessage.]==],
 	listAliases = [==[listAliases() -> {aliases,notes}. Each alias has email,canSend,masked. Sending identities add identityId,name; masked addresses add maskedId,state,description,forDomain. Combines addresses shared by both lists. Missing Email submission or Masked Email scope is explained in notes; fails if neither scope is available.]==],
 	listAttachments = [==[listAttachments(messageId) -> attachment metadata {id,filename,mimeType,size,inline,contentId}[]. Attachment bytes are never returned inline.]==],
 	listFolders = [==[listFolders() -> {folders={{id,name,role,parentId,totalEmails,unreadEmails}}}. Folder filters accept opaque IDs or roles such as INBOX.]==],
