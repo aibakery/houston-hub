@@ -7,6 +7,7 @@ local DOCS = "https://linear.app/developers/graphql"
 local NULL = json.decode("null")
 local MAX_PAGE = 250
 local MAX_DOCUMENT = 64 * 1024
+local MAX_URL = 16 * 1024
 
 -- Read-only connections send queries with GET, which Linear refuses for mutations (HTTP 405),
 -- and the manifest allows POST only on read-write connections.
@@ -48,7 +49,7 @@ local operations: {[string]: Operation} = {
 	listLabels = {field = "issueLabels", args = list("IssueLabelFilter"), select = LABEL, connection = true,
 		about = "Issue labels. Workspace labels have team null; group labels (isGroup) hold child labels."},
 	listProjects = {field = "projects", args = list("ProjectFilter"), select = PROJECT, connection = true,
-		about = "Projects, as {status={type={eq='started'}}} or {accessibleTeams={key={eq='ENG'}}}."},
+		about = "Projects, as {status={type={eq='started'}}} or {accessibleTeams={some={key={eq='ENG'}}}}."},
 	getProject = {field = "project", args = {"id: String!"}, select = PROJECT .. " content", about = "A project by id or slugId, with its content in Markdown."},
 	listCycles = {field = "cycles", args = list("CycleFilter"), select = CYCLE, connection = true,
 		about = "Cycles, as {team={key={eq='ENG'}}, isActive={eq=true}}."},
@@ -109,6 +110,7 @@ local function execute(name: string, document: string, variables: Options): any
 		headers["apollo-require-preflight"] = {"true"}
 		local query = "?query=" .. url.encode(document)
 		if next(variables) ~= nil then query ..= "&variables=" .. url.encode(json.encode(variables)) end
+		assert(#query <= MAX_URL, "The query is too large for a read-only connection, which sends it in the URL; narrow the filter")
 		call = {method = "GET", url = API .. query, headers = headers}
 	end
 	local response = await(http.request(call))
@@ -225,7 +227,7 @@ local function graphql(input: Options?): any
 	assert(unknown == nil, "graphql has no option " .. tostring(unknown))
 	assert(type(source) == "string" and string.find(source, "%S") ~= nil, "query must be a GraphQL document")
 	assert(#source <= MAX_DOCUMENT, "query must be at most " .. MAX_DOCUMENT .. " bytes")
-	if variables == nil then variables = {} else object(variables, "variables") end
+	if variables == nil or variables == NULL then variables = {} else object(variables, "variables") end
 	return execute("graphql", source, variables)
 end
 
@@ -239,7 +241,7 @@ exports.help = function(): string
 	local lines = {
 		"Linear GraphQL API (" .. DOCS .. "). Every function takes one named options object with Linear's field names; ? marks optional fields. Results are Linear's JSON for the queried field, without the data wrapper. Connector calls return completed values: use them directly, without await.",
 		"Lists return one page {nodes, pageInfo={hasNextPage, endCursor}}: first is 1.." .. MAX_PAGE .. " (default 50); pass pageInfo.endCursor as after while hasNextPage. orderBy: createdAt (default) or updatedAt. includeArchived=true adds archived items.",
-		"Filters use Linear's comparators: eq, neq, in, nin, lt, lte, gt, gte, null, contains, containsIgnoreCase, startsWith; and and/or arrays. Relations nest: {team={key={eq='ENG'}}, state={type={in={'unstarted', 'started'}}}, assignee={isMe={eq=true}}, labels={some={name={eq='Bug'}}}, priority={lte=2}}. Dates take ISO 8601 or durations relative to now, as {updatedAt={gt='-P2W'}}.",
+		"Filters use Linear's comparators: eq, neq, in, nin, lt, lte, gt, gte, null, contains, containsIgnoreCase, startsWith; and and/or arrays. Write the Luau keywords in, and, or as ['in'], ['and'], ['or']. Relations nest: {team={key={eq='ENG'}}, state={type={['in']={'unstarted', 'started'}}}, assignee={isMe={eq=true}}, labels={some={name={eq='Bug'}}}, priority={lte=2}}. Dates take ISO 8601 or durations relative to now, as {updatedAt={gt='-P2W'}}.",
 		"ids are UUIDs; getIssue and updateIssue also take identifiers such as ENG-123 and getProject a slugId. Issues show their first 10 labels and projects their first 10 teams. priority: 0 none, 1 urgent, 2 high, 3 medium, 4 low. Descriptions and comment bodies are Markdown.",
 	}
 	for _, name in names do
@@ -249,11 +251,11 @@ exports.help = function(): string
 	table.insert(lines, "Examples: local me = linear.getViewer(); local page = linear.listIssues({filter={assignee={isMe={eq=true}}, state={type={nin={'completed', 'canceled'}}}}, first=50}); linear.getIssue({id='ENG-123'}); linear.listComments({filter={issue={id={eq=issue.id}}}}).")
 	if WRITES then
 		table.insert(lines, "graphql({query, variables?}): any Linear query or mutation document, returning its data, for fields and operations not listed above, such as attachments, project updates, issue relations or archiving. Schema: https://studio.apollographql.com/public/Linear-API. Example: linear.graphql({query='query($id: String!) { issue(id: $id) { attachments { nodes { title url } } } }', variables={id='ENG-123'}}).")
-		table.insert(lines, "Writes: find teamId with listTeams, stateId with listWorkflowStates, label ids with listLabels and user ids with listUsers. Linear notifies subscribers of new issues, assignments and comments. There are no automatic retries: after a timeout or 5xx, read the issue again before repeating a write.")
+		table.insert(lines, "Writes: find teamId with listTeams, stateId with listWorkflowStates, label ids with listLabels and user ids with listUsers. Linear notifies subscribers of new issues, assignments and comments. There are no automatic retries: after any failed write, read the issue again before repeating it, since Linear may have applied it.")
 	else
 		table.insert(lines, "This read-only connection sends queries with GET, which Linear refuses for mutations.")
 	end
-	table.insert(lines, "Errors report the HTTP status with Linear's error codes and messages; RATELIMITED (HTTP 429) is retryable after Retry-After. Linear limits API keys to 2,500 requests and 3,000,000 complexity points an hour per user (OAuth apps 5,000 and 2,000,000), and searchIssues to 30 calls a minute. A single query may cost at most 10,000 points, counting each list at its first value, so lower first when results nest lists. Your Linear permissions, team access and the API key's or app's permissions still apply.")
+	table.insert(lines, "Errors report the HTTP status with Linear's error codes and messages; RATELIMITED (HTTP 429) is retryable after Retry-After. Linear limits API keys to 2,500 requests and 3,000,000 complexity points an hour per user (OAuth apps 5,000 and 2,000,000). A single query may cost at most 10,000 points, counting each list at its first value, so lower first when results nest lists. Your Linear permissions, team access and the API key's or app's permissions still apply.")
 	return table.concat(lines, "\n")
 end
 

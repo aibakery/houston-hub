@@ -21,6 +21,12 @@ return {
 			end
 			return decode(query), if variables then json.decode(decode(variables)) else nil
 		end
+		local function same(a: any, b: any): boolean
+			if type(a) ~= "table" or type(b) ~= "table" then return a == b end
+			for key, value in a do if not same(value, b[key]) then return false end end
+			for key in b do if a[key] == nil then return false end end
+			return true
+		end
 		local function rejected(fn, expected)
 			local before = #requests
 			local ok, err = pcall(fn)
@@ -82,13 +88,22 @@ return {
 		linear.getProject({id = "launch-2a1b"})
 		query = sent()
 		assert(string.find(query, " content } }$"), query)
-		linear.listUsers({includeDisabled = true, first = 250})
-		linear.listWorkflowStates({filter = {team = {key = {eq = "ENG"}}}})
-		linear.listLabels({includeArchived = true})
-		linear.listProjects({filter = {status = {type = {eq = "started"}}}})
-		linear.listCycles({filter = {isActive = {eq = true}}})
-		linear.getCycle({id = "c1"})
-		linear.getTeam({id = "t1"})
+		for _, case in {
+			{function() return linear.listUsers({includeDisabled = true, first = 250}) end, "users", "includeDisabled: $includeDisabled", {first = 250, includeDisabled = true}},
+			{function() return linear.listWorkflowStates({filter = {team = {key = {eq = "ENG"}}}}) end, "workflowStates", "filter: $filter", json.decode('{"filter":{"team":{"key":{"eq":"ENG"}}}}')},
+			{function() return linear.listLabels({includeArchived = true}) end, "issueLabels", "includeArchived: $includeArchived", {includeArchived = true}},
+			{function() return linear.listProjects({filter = {status = {type = {eq = "started"}}}}) end, "projects", "filter: $filter", json.decode('{"filter":{"status":{"type":{"eq":"started"}}}}')},
+			{function() return linear.listCycles({filter = {isActive = {eq = true}}}) end, "cycles", "filter: $filter", json.decode('{"filter":{"isActive":{"eq":true}}}')},
+			{function() return linear.getCycle({id = "c1"}) end, "cycle", "id: $id", {id = "c1"}},
+			{function() return linear.getTeam({id = "t1"}) end, "team", "id: $id", {id = "t1"}},
+		} do
+			local call, field, use, expected = case[1], case[2], case[3], case[4]
+			payload = json.encode({data = {[field] = {id = "x1"}}})
+			assert(call().id == "x1", field)
+			query, variables = sent()
+			assert(string.find(query, " { " .. field .. "(", 1, true) and string.find(query, use, 1, true), query)
+			assert(same(variables, expected), field .. " variables " .. json.encode(variables))
+		end
 		assert(#requests == 14)
 
 		payload = '{"data":null}'
@@ -111,6 +126,9 @@ return {
 		rejected(function() linear.listIssues({filter = "state = started"}) end, "filter must be an object")
 		rejected(function() linear.listIssues({filter = {"started"}}) end, "filter must be an object, not an array")
 		rejected(function() linear.listIssues({fitler = {}}) end, "listIssues has no option fitler")
+		local many = {}
+		for index = 1, 600 do many[index] = string.format("00000000-0000-4000-8000-%012d", index) end
+		rejected(function() linear.listIssues({filter = {id = {["in"] = many}}}) end, "too large for a read-only connection")
 		rejected(function() linear.listIssues("ENG") end, "opts must be an object")
 		rejected(function() linear.listIssues({"ENG"}) end, "named fields")
 	end,

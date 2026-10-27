@@ -39,12 +39,13 @@ return {
 
 		payload = '{"data":{"issueCreate":{"success":true,"issue":{"id":"i9","identifier":"ENG-9","labels":{"nodes":[]}}}}}'
 		local input = {teamId = "t1", title = "Crash on login", description = "Steps:\n1. Sign in", priority = 2, labelIds = {"l1"}}
-		local created = linear.createIssue({input = input})
+		local opts = {input = input}
+		local created = linear.createIssue(opts)
 		local body = sent()
 		assert(string.find(body.query, "^mutation createIssue%(%$input: IssueCreateInput!%) { issueCreate%(input: %$input%) { success issue { id identifier "), body.query)
 		assert(body.variables.input.title == "Crash on login" and body.variables.input.priority == 2 and json.encode(body.variables.input.labelIds) == '["l1"]')
 		assert(created.success == true and created.issue.identifier == "ENG-9")
-		assert(input.title == "Crash on login", "caller input was modified")
+		assert(opts.input == input, "caller options were modified")
 
 		payload = '{"data":{"issueUpdate":{"success":true,"issue":{"id":"i9","assignee":null}}}}'
 		local updated = linear.updateIssue({id = "ENG-9", input = {stateId = "s2", assigneeId = NULL, addedLabelIds = {"l2"}}})
@@ -67,7 +68,9 @@ return {
 		assert(json.encode(data.issue.attachments.nodes) == "[]")
 		linear.graphql({query = "{ viewer { id } }"})
 		assert(string.find(last().body, '"variables":{}', 1, true))
-		assert(#requests == 7)
+		linear.graphql({query = "{ viewer { id } }", variables = NULL})
+		assert(string.find(last().body, '"variables":{}', 1, true), "null variables are omitted")
+		assert(#requests == 8)
 
 		rejected(function() linear.createIssue({}) end, "input is required")
 		rejected(function() linear.createIssue({input = {"t1"}}) end, "input must be an object, not an array")
