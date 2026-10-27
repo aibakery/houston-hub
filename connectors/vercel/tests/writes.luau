@@ -77,7 +77,13 @@ return {
 		payload = ""
 		assert(vercel.deleteEnvVar({idOrName = "web", id = "e2"}).success == true)
 		assert(last().method == "DELETE" and last().url == API .. "/v9/projects/web/env/e2?" .. TEAM and last().body == nil)
-		assert(#requests == 14)
+		payload = '[{"id":"e2","key":"FLAG"}]'
+		local deleted = vercel.deleteEnvVar({idOrName = "web", id = "e2"})
+		assert(deleted[1].id == "e2", "deletions may answer with an array")
+		payload, status = "", 202
+		assert(vercel.promoteDeployment({projectId = "prj_1", deploymentId = "dpl_3"}).success == true, "a background promotion answers 202")
+		status = 200
+		assert(#requests == 16)
 
 		rejected(function() vercel.redeploy({name = "web"}) end, "deploymentId is required")
 		rejected(function() vercel.redeploy({deploymentId = "dpl_1"}) end, "name is required")

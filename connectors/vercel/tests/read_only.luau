@@ -35,12 +35,13 @@ return {
 		-- Projects keep their public fields only: no variables, bypass secrets or deploy hooks.
 		local secret = '{"id":"prj_1","name":"web","framework":"nextjs","env":[{"key":"DB_URL","value":"postgres://secret"}],"protectionBypass":{"bypass-secret":{"scope":"automation-bypass"}},'
 			.. '"link":{"type":"github","org":"acme","repo":"web","productionBranch":"main","deployHooks":[{"name":"main","url":"https://api.vercel.com/v1/integrations/deploy/prj_1/hook-secret"}],"gitCredentialId":"cred"},'
-			.. '"latestDeployments":[{"id":"dpl_1","readyState":"READY"}],"crons":null,"passwordProtection":{"deploymentType":"all"}}'
+			.. '"latestDeployments":[{"id":"dpl_1","readyState":"READY","meta":{"deployHookId":"hook-secret"}}],"targets":{"production":{"id":"dpl_1","meta":{"deployHookId":"hook-secret","branch":"main"}}},"crons":null,"passwordProtection":{"deploymentType":"all"}}'
 		payload = secret
 		local found = vercel.getProject({idOrName = "web"})
 		assert(last().url == API .. "/v9/projects/web")
 		assert(found.id == "prj_1" and found.framework == "nextjs" and found.latestDeployments[1].id == "dpl_1" and found.crons == NULL)
 		assert(found.link.repo == "web" and found.link.productionBranch == "main")
+		assert(found.targets.production.meta.branch == "main" and found.latestDeployments[1].readyState == "READY")
 		local encoded = json.encode(found)
 		for _, leaked in {"secret", "DB_URL", "bypass", "hook", "cred", "passwordProtection"} do
 			assert(not string.find(encoded, leaked, 1, true), "project leaked " .. leaked .. ": " .. encoded)
@@ -64,8 +65,17 @@ return {
 		assert(opts.state[2] == "ERROR" and opts.limit == 20, "caller options were modified")
 		assert(page.pagination.next == 1793143768000 and page.deployments[1].uid == "dpl_1")
 
+		-- Deploy hook ids complete unauthenticated trigger URLs, so deployments drop them.
+		payload = '{"deployments":[{"uid":"dpl_1","meta":{"deployHookId":"hook-secret","deployHookName":"main","githubCommitRef":"main"}}],"pagination":{"count":1,"next":null,"prev":null}}'
+		local hooked = vercel.listDeployments({projectIds = {"prj_1", "prj_2"}})
+		assert(last().url == API .. "/v7/deployments?projectIds=prj_1&projectIds=prj_2", last().url)
+		assert(hooked.deployments[1].meta.githubCommitRef == "main" and not string.find(json.encode(hooked), "hook", 1, true), json.encode(hooked))
+		payload = '{"deployments":[],"pagination":{"count":0,"next":null,"prev":null}}'
+		assert(json.encode(vercel.listDeployments().deployments) == "[]")
+		payload = '{"id":"dpl_1","readyState":"READY","meta":{"deployHookId":"hook-secret"}}'
 		vercel.getDeployment({idOrUrl = "web-abc123.vercel.app", withGitRepoInfo = "true"})
 		assert(last().url == API .. "/v13/deployments/web-abc123.vercel.app?withGitRepoInfo=true")
+		assert(not string.find(json.encode(vercel.getDeployment({idOrUrl = "dpl_1"})), "hook", 1, true))
 
 		payload = '[{"type":"stdout","created":1,"text":"Building"},{"type":"stderr","created":2,"text":"Warn","level":"warning"}]'
 		local events = vercel.listBuildLogs({idOrUrl = "dpl_1", limit = -1, direction = "backward"})
@@ -85,8 +95,11 @@ return {
 		payload = ""
 		logs = vercel.listRuntimeLogs({projectId = "prj_1", deploymentId = "dpl_1"})
 		assert(json.encode(logs.logs) == "[]" and logs.ended == true)
-		payload = '{"level":"info"}\nnot json\n'
+		payload = string.rep("x", 300 * 1024)
 		local ok, err = pcall(function() vercel.listRuntimeLogs({projectId = "prj_1", deploymentId = "dpl_1"}) end)
+		assert(not ok and string.find(tostring(err), "log line over", 1, true), tostring(err))
+		payload = '{"level":"info"}\nnot json\n'
+		ok, err = pcall(function() vercel.listRuntimeLogs({projectId = "prj_1", deploymentId = "dpl_1"}) end)
 		assert(not ok and string.find(tostring(err), "invalid log line", 1, true), tostring(err))
 
 		payload = '{"domains":[],"pagination":{"count":0,"next":null,"prev":null}}'
@@ -103,12 +116,12 @@ return {
 		assert(last().url == API .. "/v1/projects/prj_1/promote/aliases?failedOnly=true")
 		vercel.listTeams({limit = 5})
 		assert(last().url == API .. "/v2/teams?limit=5")
-		assert(#requests == 20)
+		assert(#requests == 24)
 
 		rejected(function() vercel.getProject() end, "idOrName is required")
 		rejected(function() vercel.getProject({idOrName = "../v2/user"}) end, "idOrName must be a Vercel ID, name or hostname")
 		rejected(function() vercel.getProject({idOrName = "a/b"}) end, "idOrName must be a Vercel ID")
-		rejected(function() vercel.getProject({idOrName = 7}) end, "idOrName is required")
+		rejected(function() vercel.getProject({idOrName = 7}) end, "idOrName must be a string")
 		rejected(function() vercel.getDeployment({idOrUrl = ".."}) end, "idOrUrl must be a Vercel ID")
 		rejected(function() vercel.listRuntimeLogs({projectId = "prj_1"}) end, "deploymentId is required")
 		rejected(function() vercel.listRuntimeLogs({projectId = "prj_1", deploymentId = "dpl_1", limit = 1001}) end, "limit must be an integer from 1 to 1000")

@@ -16,7 +16,9 @@ func TestVercelAccessRoutes(t *testing.T) {
 			"GET "+api+"/v2/user", "GET "+api+"/v10/projects?teamId=team_fixture", "GET "+api+"/v9/projects/web",
 			"GET "+api+"/v7/deployments?projectId=web&state=READY,ERROR", "GET "+api+"/v13/deployments/web-abc.vercel.app",
 			"GET "+api+"/v3/deployments/dpl_1/events?follow=0", "GET "+api+"/v1/projects/prj_1/deployments/dpl_1/runtime-logs",
-			"GET "+api+"/v6/domains/example.com/config", "GET "+api+"/v9/projects/web/domains/www.example.com")
+			"GET "+api+"/v6/domains/example.com/config", "GET "+api+"/v9/projects/web/domains/www.example.com",
+			"GET "+api+"/v2/teams?limit=5", "GET "+api+"/v5/domains", "GET "+api+"/v5/domains/example.com", "GET "+api+"/v9/projects/web/domains",
+			"GET "+api+"/v1/projects/prj_1/promote/aliases?failedOnly=true")
 		assertRoutes(t, r, "vcp_fixture", access == "read-write",
 			"GET "+api+"/v10/projects/web/env?decrypt=true", "GET "+api+"/v1/projects/web/env/e1",
 			"POST "+api+"/v13/deployments?forceNew=1", "POST "+api+"/v10/projects/prj_1/promote/dpl_1", "POST "+api+"/v1/projects/prj_1/rollback/dpl_1",
