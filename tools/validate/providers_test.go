@@ -41,6 +41,7 @@ func TestEveryProviderAuthenticationAndTransport(t *testing.T) {
 		"gusto":       {"GET", "https://api.gusto.com/v1/token_info"},
 		"assessfirst": {"GET", "https://app.assessfirst.com/betty-V2/locales"},
 		"tipeee":      {"GET", "https://api.tipeee.com/v2.0/categories"},
+		"linear":      {"GET", "https://api.linear.app/graphql"},
 	}
 	for _, path := range paths {
 		provider := filepath.Base(filepath.Dir(path))
@@ -89,7 +90,7 @@ func TestEveryProviderAuthenticationAndTransport(t *testing.T) {
 				}
 				authorization := "Bearer synthetic-method-secret"
 				credentialHeader := "Authorization"
-				if provider == "carta-crm" { // Carta CRM takes the bare API key.
+				if provider == "carta-crm" || provider == "linear" { // Carta CRM and Linear take the bare API key.
 					authorization = "synthetic-method-secret"
 				}
 				if provider == "woocommerce" {
