@@ -51,7 +51,7 @@
       "order": 2,
       "authorize_url": "https://linear.app/oauth/authorize",
       "token_url": "https://api.linear.app/oauth/token",
-      "client_auth": "basic",
+      "client_auth": "body",
       "pkce": "S256",
       "client_id": "{{config.client_id}}",
       "client_secret": "{{config.client_secret}}",
