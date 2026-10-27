@@ -10,7 +10,7 @@ write, so Houston enforces the access level you choose.
 ## Create an access token
 
 1. Sign in to Vercel and open
-   [Account Settings → Tokens](https://vercel.com/account/tokens).
+   [Account Tokens](https://vercel.com/account/tokens).
 2. Enter a name for the token, for example, `Houston`.
 3. Under **Scope**, choose the team to connect, then **All Projects**. A team token
    reaches only that team, which is the safest choice. **Full Account** covers your
