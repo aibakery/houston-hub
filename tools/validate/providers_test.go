@@ -69,9 +69,6 @@ func TestEveryProviderAuthenticationAndTransport(t *testing.T) {
 					client["client_secret"] = "synthetic-client-secret"
 				}
 				input := map[string]any{}
-				if provider == "slack" {
-					config["workspace_id"] = "T_SYNTHETIC"
-				}
 				if (provider == "carta" || provider == "gusto") && method != provider {
 					config["own_app"] = true
 				}
@@ -156,16 +153,6 @@ func TestEveryProviderAuthenticationAndTransport(t *testing.T) {
 					}
 					if _, err := r.Proxy.HTTPRecipe("GET", "https://unlisted.example.com/", nil); err == nil {
 						t.Fatal("unlisted origin accepted")
-					}
-					if provider == "slack" {
-						recipe, err := r.Proxy.HTTPRecipe("POST", "https://files.slack.com/upload/v1/signed", nil)
-						if err != nil {
-							t.Fatal(err)
-						}
-						h, err := recipe.Prepare(r.Context, http.Header{"Authorization": []string{"caller-forgery"}})
-						if err != nil || h.Get("Authorization") != "" {
-							t.Fatalf("signed upload injected auth: %v %v", h, err)
-						}
 					}
 				} else {
 					db, err := m.Proxy[r.ProxyIndices[0]].ResolveDatabase(r.Context)

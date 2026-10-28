@@ -1,289 +1,373 @@
-local function query_string(params: any)
-    local parts = {}
-    local function add(key: any, value: any)
-        if value == nil then return end
-        if type(value) == "table" then for _, item in value do add(key, item) end
-        else parts[#parts + 1] = url.encode(key) .. "=" .. url.encode(value) end
-    end
-    for key, value in params or {} do add(key, value) end
-    table.sort(parts)
-    return table.concat(parts, "&")
+-- Slack Web API for one connected user in one workspace, with a Slack user token.
+-- Arguments and results keep Slack's native field names. Credentials are injected only by Houston's proxy.
+type Options = {[string]: any}
+
+local API = "https://slack.com/api/"
+local LIMIT = 15
+
+local function allow(names: {string}): {[string]: boolean}
+	local set = {}
+	for _, name in names do set[name] = true end
+	return table.freeze(set)
 end
 
--- One connected Slack user in one workspace. Houston owns the credentials.
-local BASE = "https://slack.com/api/"
+local PAGE = allow({"cursor", "limit"})
+local CHANNELS = allow({"cursor", "limit", "types", "exclude_archived"})
+local HISTORY = allow({"cursor", "limit", "oldest", "latest", "inclusive", "include_all_metadata"})
+local SEARCH = allow({"count", "page", "sort", "sort_dir", "highlight"})
+local MENTIONS = allow({"count", "page", "sort", "sort_dir", "highlight", "query"})
+local USERS = allow({"cursor", "limit", "include_locale"})
+local MESSAGE = {"blocks", "attachments", "unfurl_links", "unfurl_media", "reply_broadcast", "mrkdwn", "parse", "link_names", "metadata", "client_msg_id"}
+local REPLY = allow(MESSAGE)
+local POST = allow({"thread_ts", table.unpack(MESSAGE)})
+local UPDATE = allow({"blocks", "attachments", "parse", "link_names", "metadata", "file_ids", "reply_broadcast"})
+local UPLOAD = allow({"filename", "title", "alt_text", "channel", "thread_ts", "text"})
+-- Slack timestamps and cursors are opaque strings; a number would lose trailing zeros.
+local STRINGS = allow({"cursor", "oldest", "latest", "thread_ts"})
 
-local function required(value: any,label: any)
-	if type(value) ~= "string" or value == "" then
-		error("slack: " .. label .. " must be a non-empty string")
+-- Slack reports most failures as HTTP 200 with {ok = false, error = code}. Authentication
+-- codes carry 401 and missing permissions 403, so Houston can ask for reconnection.
+local AUTH_ERRORS = allow({"not_authed", "invalid_auth", "account_inactive", "token_revoked", "token_expired"})
+local RETRYABLE = allow({"ratelimited", "internal_error", "fatal_error", "service_unavailable", "request_timeout"})
+
+local function text(value: any, field: string): string
+	assert(type(value) == "string" and value ~= "", "slack: " .. field .. " must be a nonempty string")
+	return value
+end
+
+local function optional(value: any, field: string): string?
+	if value == nil then return nil end
+	return text(value, field)
+end
+
+local function options(value: any, allowed: {[string]: boolean}): Options
+	local copy: Options = {}
+	if value == nil then return copy end
+	assert(type(value) == "table", "slack: options must be a table")
+	for key, item in value do
+		assert(allowed[key], "slack: unknown option " .. tostring(key))
+		copy[key] = if STRINGS[key] then text(item, key) else item
+	end
+	return copy
+end
+
+local function form(params: Options): string
+	local parts: {string} = {}
+	for key, value in params do
+		assert(type(value) == "string" or type(value) == "number" or type(value) == "boolean",
+			"slack: " .. key .. " must be a string, number or boolean")
+		table.insert(parts, url.encode(key) .. "=" .. url.encode(value))
+	end
+	table.sort(parts)
+	return table.concat(parts, "&")
+end
+
+local function fail(operation: string, status: number, body: any, headers: HttpHeaders, write: boolean?): never
+	local code = if type(body) == "table" and type(body.error) == "string" then string.sub(body.error, 1, 100) else nil
+	local message = "slack: " .. (code or ("HTTP " .. status))
+	if type(body) == "table" and type(body.needed) == "string" then
+		message ..= " (needs " .. string.sub(body.needed, 1, 200) .. ")"
+	end
+	if code and AUTH_ERRORS[code] then
+		status = 401
+		message ..= "; reconnect Slack"
+	elseif code == "missing_scope" then
+		status = 403
+		message ..= "; reconnect Slack with the access this call needs"
+	end
+	local wait = headers["retry-after"]
+	if wait and wait[1] then message ..= "; retry after " .. string.sub(wait[1], 1, 10) .. "s" end
+	-- A failed write may still have taken effect, unless Slack rate-limited it.
+	local limited = status == 429 or code == "ratelimited"
+	local transient = status >= 500 or (code ~= nil and RETRYABLE[code] == true)
+	return houston.fail({operation = operation, layer = "upstream", upstream_status = status,
+		retryable = limited or (transient and not write), message = message})
+end
+
+local function check(operation: string, response: HttpResponse, write: boolean?)
+	if response.statusCode >= 200 and response.statusCode < 300 then return end
+	local ok, body = pcall(json.decode, await(response.body:readPrefix(4096)))
+	fail(operation, response.statusCode, if ok then body else nil, response.headers, write)
+end
+
+-- Reads use GET query strings, writes JSON bodies, and files.getUploadURLExternal a form body.
+local function call(operation: string, method: string, params: Options, encoding: ("json" | "form")?): Options
+	local request: HttpRequest = {method = "GET", url = API .. method}
+	if encoding == "json" then
+		request.method, request.body = "POST", json.encode(params)
+		request.headers = {["Content-Type"] = {"application/json; charset=utf-8"}}
+	elseif encoding == "form" then
+		request.method, request.body = "POST", form(params)
+		request.headers = {["Content-Type"] = {"application/x-www-form-urlencoded"}}
+	else
+		local query = form(params)
+		if query ~= "" then request.url ..= "?" .. query end
+	end
+	local response = await(http.request(request))
+	check(operation, response, encoding ~= nil)
+	local ok, body = pcall(json.decode, await(response.body:readAll()))
+	if not ok or type(body) ~= "table" or type(body.ok) ~= "boolean" then
+		return houston.fail({operation = operation, layer = "upstream", upstream_status = response.statusCode,
+			retryable = false, message = "slack: invalid JSON response"})
+	end
+	if body.ok ~= true then fail(operation, response.statusCode, body, response.headers, encoding ~= nil) end
+	local metadata = body.response_metadata
+	if type(metadata) == "table" and type(metadata.next_cursor) == "string" and metadata.next_cursor ~= "" then
+		body.nextCursor = metadata.next_cursor
+	end
+	return body
+end
+
+local function field(operation: string, body: Options, name: string): any
+	local value = body[name]
+	if value == nil then
+		return houston.fail({operation = operation, layer = "upstream", retryable = false,
+			message = "slack: response has no " .. name})
 	end
 	return value
 end
 
-local function options(opts: any): {[string]: any}
-	if opts == nil then return {} end
-	if type(opts) ~= "table" then error("slack: options must be a table") end
-	return table.clone(opts)
+local function getProfile(): Options
+	return call("getProfile", "auth.test", {})
 end
 
-local function request(method: any,params: any,write: any)
-	params = params or {}
-	local target = BASE .. method
-	local body, headers
-	if write then
-		body = json.encode(params)
-		headers = { ["Content-Type"] = "application/json; charset=utf-8" }
-	else
-		local query = query_string(params)
-		if query ~= "" then target ..= "?" .. query end
-	end
-	local response = http.request({
-		method = if write then "POST" else "GET",
-		url = target,
-		body = body,
-		headers = headers,
-	})
-	if response.status < 200 or response.status >= 300 then
-		houston.fail({operation = method, layer = "upstream", upstream_status = response.status,
-			retryable = response.status == 429 or response.status == 502 or response.status == 503 or response.status == 504,
-			message = "upstream HTTP request failed"})
-	end
-	local result = nil
-	if response.body ~= nil and response.body ~= "" then
-		local ok, body = pcall(json.decode, response.body)
-		assert(ok, "upstream returned invalid JSON")
-		result = body
-	end
-	-- Slack reports most failures as HTTP 200 with ok=false.
-	if type(result) ~= "table" or result.ok ~= true then
-		local code = if type(result) == "table" then result.error else "invalid_response"
-		houston.fail({
-			connector = "slack", operation = method, layer = "upstream",
-			message = "slack: " .. tostring(code),
-			retryable = code == "ratelimited", recovery = if code == "ratelimited" then "retry later" else "do not retry",
-		})
-	end
-	if result.response_metadata then
-		local cursor = result.response_metadata.next_cursor
-		if cursor and cursor ~= "" then result.nextCursor = cursor end
-	end
-	return result
-end
-
-local function channel_params(channel: any,opts: any)
-	local params = options(opts)
-	params.channel = required(channel, "channel ID")
-	return params
-end
-
-local functions = {}
-local writes = {}
-
-function functions.getProfile()
-	return request("auth.test")
-end
-
-function functions.listChannels(opts: any)
-	local params = options(opts)
-	-- users.conversations without user uses the authenticated user, and includes DMs.
-	params.user = nil
+local function listChannels(opts: Options?): Options
+	local params = options(opts, CHANNELS)
 	params.types = params.types or "public_channel,private_channel,im,mpim"
-	params.exclude_archived = if params.exclude_archived == nil then true else params.exclude_archived
-	return request("users.conversations", params)
+	if params.exclude_archived == nil then params.exclude_archived = true end
+	return call("listChannels", "users.conversations", params)
 end
 
-function functions.getChannel(channel: any)
-	return request("conversations.info", channel_params(channel)).channel
+local function getChannel(channel: string): Options
+	return field("getChannel", call("getChannel", "conversations.info", {channel = text(channel, "channel ID")}), "channel")
 end
 
-function functions.listMessages(channel: any,opts: any)
-	local params = channel_params(channel, opts)
-	params.limit = params.limit or 15
-	return request("conversations.history", params)
+local function listMessages(channel: string, opts: Options?): Options
+	local params = options(opts, HISTORY)
+	params.channel = text(channel, "channel ID")
+	params.limit = params.limit or LIMIT
+	return call("listMessages", "conversations.history", params)
 end
 
-function functions.getThread(channel: any,ts: any,opts: any)
-	local params = channel_params(channel, opts)
-	params.ts = required(ts, "thread timestamp")
-	params.limit = params.limit or 15
-	return request("conversations.replies", params)
+local function getThread(channel: string, ts: string, opts: Options?): Options
+	local params = options(opts, HISTORY)
+	params.channel, params.ts = text(channel, "channel ID"), text(ts, "thread timestamp")
+	params.limit = params.limit or LIMIT
+	return call("getThread", "conversations.replies", params)
 end
 
-function functions.searchMessages(query: any,opts: any)
-	local params = options(opts)
-	params.query = required(query, "search query")
+local function search(operation: string, query: string, params: Options): Options
+	params.query = text(query, "search query")
 	params.sort = params.sort or "timestamp"
 	params.sort_dir = params.sort_dir or "desc"
-	local result = request("search.messages", params).messages
-	if type(result) ~= "table" then error("slack: missing search results") end
-	local paging = result.paging
-	if paging and paging.page < paging.pages then result.nextPage = paging.page + 1 end
-	return result
+	local messages = call(operation, "search.messages", params).messages
+	if type(messages) ~= "table" then
+		return houston.fail({operation = operation, layer = "upstream", retryable = false, message = "slack: response has no messages"})
+	end
+	local paging = messages.paging
+	if type(paging) == "table" and type(paging.page) == "number" and type(paging.pages) == "number" and paging.page < paging.pages then
+		messages.nextPage = paging.page + 1
+	end
+	return messages
 end
 
-function functions.listMentions(opts: any)
-	local params = options(opts)
-	local user = functions.getProfile().user_id
-	local query = "<@" .. required(user, "authenticated user ID") .. ">"
-	if params.query and params.query ~= "" then query ..= " " .. params.query end
+local function searchMessages(query: string, opts: Options?): Options
+	return search("searchMessages", query, options(opts, SEARCH))
+end
+
+local function listMentions(opts: Options?): Options
+	local params = options(opts, MENTIONS)
+	local narrow = optional(params.query, "query")
 	params.query = nil
-	return functions.searchMessages(query, params)
+	local query = "<@" .. text(call("listMentions", "auth.test", {}).user_id, "authenticated user ID") .. ">"
+	return search("listMentions", if narrow then query .. " " .. narrow else query, params)
 end
 
-function functions.listMembers(channel: any,opts: any)
-	return request("conversations.members", channel_params(channel, opts))
+local function listMembers(channel: string, opts: Options?): Options
+	local params = options(opts, PAGE)
+	params.channel = text(channel, "channel ID")
+	return call("listMembers", "conversations.members", params)
 end
 
-function functions.getUser(user: any)
-	return request("users.info", { user = required(user, "user ID") }).user
+local function getUser(user: string): Options
+	return field("getUser", call("getUser", "users.info", {user = text(user, "user ID")}), "user")
 end
 
-function functions.listUsers(opts: any)
-	return request("users.list", options(opts))
+local function listUsers(opts: Options?): Options
+	local params = options(opts, USERS)
+	params.limit = params.limit or 200
+	return call("listUsers", "users.list", params)
 end
 
-function functions.getPermalink(channel: any,ts: any)
-	return request("chat.getPermalink", { channel = required(channel, "channel ID"), message_ts = required(ts, "message timestamp") }).permalink
+local function getPermalink(channel: string, ts: string): string
+	return field("getPermalink", call("getPermalink", "chat.getPermalink",
+		{channel = text(channel, "channel ID"), message_ts = text(ts, "message timestamp")}), "permalink")
 end
 
-function functions.getFile(id: any)
-	return request("files.info", { file = required(id, "file ID") }).file
+local function getFile(id: string): Options
+	return field("getFile", call("getFile", "files.info", {file = text(id, "file ID")}), "file")
 end
 
-function functions.downloadFile(id: any,path: any)
-	local file = functions.getFile(id)
-	required(path, "session path")
-	local response = http.request({
-		method = "GET",
-		dest = path,
-		url = required(file.url_private_download or file.url_private, "file download URL"),
-	})
-	if response.status < 200 or response.status >= 300 then
-		houston.fail({operation = "downloadFile", layer = "upstream", upstream_status = response.status,
-			retryable = response.status == 429 or response.status == 502 or response.status == 503 or response.status == 504,
-			message = "upstream HTTP request failed"})
+local function downloadFile(id: string, path: string): Options
+	text(path, "session path")
+	local file = getFile(id)
+	local source = text(file.url_private_download or file.url_private, "file download URL")
+	local output = fs.open(path, "w")
+	local response = await(http.request({method = "GET", url = source}))
+	-- Slack answers an unauthorized file request with its HTML sign-in page.
+	local kind = response.headers["content-type"]
+	local signIn = kind ~= nil and kind[1] ~= nil and string.find(kind[1], "text/html", 1, true) ~= nil and file.mimetype ~= "text/html"
+	if signIn or response.statusCode < 200 or response.statusCode >= 300 then
+		await(output:close())
+		check("downloadFile", response)
+		response.body:close()
+		return houston.fail({operation = "downloadFile", layer = "upstream", upstream_status = 401,
+			retryable = false, message = "slack: file download returned a sign-in page; reconnect Slack"})
 	end
-	return { path = path, url = fs.signedGetUrl(path), bytes = response.bytes }
+	output:write(response.body)
+	await(output:close())
+	return {path = path, url = await(fs.signedGetUrl(path)), bytes = await(fs.stat(path)).size}
 end
 
-function writes.postMessage(channel: any,text: any,opts: any)
-	local params = channel_params(channel, opts)
-	params.text = required(text, "message text")
-	-- The user token determines authorship. Do not accept an alternate identity.
-	params.username, params.icon_url, params.icon_emoji = nil, nil, nil
-	return request("chat.postMessage", params, true)
+local function postMessage(channel: string, message: string, opts: Options?): Options
+	local params = options(opts, POST)
+	params.channel, params.text = text(channel, "channel ID"), text(message, "message text")
+	return call("postMessage", "chat.postMessage", params, "json")
 end
 
-function writes.reply(channel: any,ts: any,text: any,opts: any)
-	local params = options(opts)
-	params.thread_ts = required(ts, "thread timestamp")
-	return writes.postMessage(channel, text, params)
+local function reply(channel: string, ts: string, message: string, opts: Options?): Options
+	local params = options(opts, REPLY)
+	params.channel, params.thread_ts, params.text = text(channel, "channel ID"), text(ts, "thread timestamp"), text(message, "message text")
+	return call("reply", "chat.postMessage", params, "json")
 end
 
-function writes.updateMessage(channel: any,ts: any,text: any,opts: any)
-	local params = channel_params(channel, opts)
-	params.ts, params.text = required(ts, "message timestamp"), required(text, "message text")
-	return request("chat.update", params, true)
+local function updateMessage(channel: string, ts: string, message: string, opts: Options?): Options
+	local params = options(opts, UPDATE)
+	params.channel, params.ts, params.text = text(channel, "channel ID"), text(ts, "message timestamp"), text(message, "message text")
+	return call("updateMessage", "chat.update", params, "json")
 end
 
-function writes.deleteMessage(channel: any,ts: any)
-	return request("chat.delete", { channel = required(channel, "channel ID"), ts = required(ts, "message timestamp") }, true)
+local function deleteMessage(channel: string, ts: string): Options
+	return call("deleteMessage", "chat.delete", {channel = text(channel, "channel ID"), ts = text(ts, "message timestamp")}, "json")
 end
 
-function writes.openConversation(users: any)
-	if type(users) == "table" then users = table.concat(users, ",") end
-	return request("conversations.open", { users = required(users, "user IDs") }, true).channel
-end
-
-function writes.addReaction(channel: any,ts: any,name: any)
-	return request("reactions.add", { channel = required(channel, "channel ID"), timestamp = required(ts, "message timestamp"), name = required(name, "emoji name") }, true)
-end
-
-function writes.removeReaction(channel: any,ts: any,name: any)
-	return request("reactions.remove", { channel = required(channel, "channel ID"), timestamp = required(ts, "message timestamp"), name = required(name, "emoji name") }, true)
-end
-
-function writes.uploadFile(path: any,opts: any)
-	required(path, "session path")
-	local params = options(opts)
-	local stat = fs.stat(path)
-	if not stat.isFile then error("slack: upload path must be a file") end
-	local name = params.filename or string.match(path, "([^/]+)$")
-	local upload = request("files.getUploadURLExternal", { filename = required(name, "filename"), length = stat.size, alt_txt = params.alt_text })
-	local response = http.request({
-		method = "POST",
-		src = path,
-		url = required(upload.upload_url, "upload URL"),
-		headers = { ["Content-Type"] = "application/octet-stream" },
-	})
-	if response.status < 200 or response.status >= 300 then
-		houston.fail({operation = "uploadFile", layer = "upstream", upstream_status = response.status,
-			retryable = response.status == 429 or response.status == 502 or response.status == 503 or response.status == 504,
-			message = "upstream HTTP request failed"})
+local function openConversation(users: string | {string}): Options
+	local list = users
+	if type(list) == "table" then
+		for index, user in list do text(user, "user ID " .. tostring(index)) end
+		list = table.concat(list, ",")
 	end
-	return request("files.completeUploadExternal", {
-		files = { { id = upload.file_id, title = params.title or name } },
-		channel_id = params.channel, thread_ts = params.thread_ts, initial_comment = params.text,
-	}, true)
+	return field("openConversation", call("openConversation", "conversations.open", {users = text(list, "user IDs")}, "json"), "channel")
 end
 
+local function reaction(operation: string, method: string, channel: string, ts: string, name: string): Options
+	return call(operation, method, {channel = text(channel, "channel ID"), timestamp = text(ts, "message timestamp"),
+		name = text(name, "emoji name")}, "json")
+end
+
+local function uploadFile(path: string, opts: Options?): Options
+	local params = options(opts, UPLOAD)
+	local name = text(params.filename or string.match(text(path, "session path"), "([^/]+)$"), "filename")
+	local complete = {
+		files = {{id = "", title = optional(params.title, "title") or name}},
+		channel_id = optional(params.channel, "channel"), thread_ts = optional(params.thread_ts, "thread_ts"),
+		initial_comment = optional(params.text, "text"),
+	}
+	local altText = optional(params.alt_text, "alt_text")
+	assert(complete.channel_id or (complete.thread_ts == nil and complete.initial_comment == nil),
+		"slack: thread_ts and text need channel; omit all three to keep the file private")
+	local stat = await(fs.stat(path))
+	assert(stat.isFile and stat.size > 0, "slack: upload path must be a nonempty session file")
+	local upload = call("uploadFile", "files.getUploadURLExternal", {filename = name, length = stat.size, alt_txt = altText}, "form")
+	complete.files[1].id = text(upload.file_id, "uploaded file ID")
+	local response = await(http.request({method = "POST", url = text(upload.upload_url, "upload URL"),
+		headers = {["Content-Type"] = {"application/octet-stream"}}, body = fs.open(path, "r")}))
+	check("uploadFile", response, true)
+	response.body:close()
+	-- Slack discards the upload unless it is completed.
+	return call("uploadFile", "files.completeUploadExternal", complete, "json")
+end
+
+local exports: {[string]: any} = {
+	getProfile = getProfile, listChannels = listChannels, getChannel = getChannel,
+	listMessages = listMessages, getThread = getThread, searchMessages = searchMessages,
+	listMentions = listMentions, listMembers = listMembers, getUser = getUser, listUsers = listUsers,
+	getPermalink = getPermalink, getFile = getFile, downloadFile = downloadFile,
+}
 if config.access == "read-write" then
-    for name, fn in (writes :: {[string]: any}) do (functions :: {[string]: any})[name] = fn end
+	exports.postMessage = postMessage
+	exports.reply = reply
+	exports.updateMessage = updateMessage
+	exports.deleteMessage = deleteMessage
+	exports.openConversation = openConversation
+	exports.addReaction = function(channel: string, ts: string, name: string): Options
+		return reaction("addReaction", "reactions.add", channel, ts, name)
+	end
+	exports.removeReaction = function(channel: string, ts: string, name: string): Options
+		return reaction("removeReaction", "reactions.remove", channel, ts, name)
+	end
+	exports.uploadFile = uploadFile
 end
 
 local operationHelp: {[string]: string} = {
-	addReaction = [==[- addReaction/removeReaction(channel, ts, name): emoji name without colons.]==],
-	deleteMessage = [==[- updateMessage(channel, ts, text, opts?), deleteMessage(channel, ts): your messages.]==],
-	downloadFile = [==[- downloadFile(id, path): stream a file into a session path; returns
-  {path, url, bytes} with a Houston signed GET URL. Never inline attachment bytes.]==],
-	getChannel = [==[- getChannel(channel): channel details.]==],
-	getFile = [==[- getFile(id): attachment metadata. Message files arrays contain these IDs.]==],
-	getPermalink = [==[- getUser(user): profile. getPermalink(channel, ts): message link.]==],
-	getProfile = [==[- getProfile(): authenticated user_id, team_id, team, and user.]==],
-	getThread = [==[- getThread(channel, ts, opts?): parent and replies, has_more, nextCursor; same
-  options as listMessages. One page per call, default 15. Loop with cursor =
-  result.nextCursor in the same run until absent. History can also use latest
-  set to the last message ts if has_more is true without a cursor.]==],
-	getUser = [==[- getUser(user): profile. getPermalink(channel, ts): message link.]==],
-	listChannels = [==[- listChannels(opts?): your channels and DMs via users.conversations. Options:
-  types (comma-separated public_channel,private_channel,im,mpim), exclude_archived,
-  limit, cursor. Returns channels and nextCursor.]==],
-	listMembers = [==[- listMembers(channel, opts?), listUsers(opts?): cursor pagination.]==],
-	listMentions = [==[- listMentions(opts?): search results for mentions of your authenticated Slack
-  user, including replies. Same search options plus query to narrow the search.]==],
-	listMessages = [==[- listMessages(channel, opts?): messages, has_more, nextCursor. Options: limit,
-  cursor, oldest, latest, inclusive. Default limit 15.]==],
-	listUsers = [==[- listMembers(channel, opts?), listUsers(opts?): cursor pagination.]==],
-	openConversation = [==[- openConversation(users): user ID, comma-separated IDs, or an array of IDs;
-  returns a DM/group channel to pass to postMessage.]==],
-	postMessage = [==[- postMessage(channel, text, opts?): send as yourself. Options include thread_ts,
-  blocks, attachments (Slack message attachment objects), unfurl_links,
-  unfurl_media, reply_broadcast, and client_msg_id. Returns ts and message.]==],
-	removeReaction = [==[- addReaction/removeReaction(channel, ts, name): emoji name without colons.]==],
-	reply = [==[- reply(channel, ts, text, opts?): send into a thread.]==],
-	searchMessages = [==[- searchMessages(query, opts?): matches, total, paging, nextPage. Slack search
-  syntax: in:general, from:me, after:2026-01-01. Options: count, page, sort,
-  sort_dir. Loop with page = result.nextPage until absent.]==],
-	updateMessage = [==[- updateMessage(channel, ts, text, opts?), deleteMessage(channel, ts): your messages.]==],
-	uploadFile = [==[- uploadFile(path, opts?): stream a session file with Slack's external upload
-  flow. Options: filename, title, alt_text, channel, thread_ts, text (initial
-  comment). Set channel to share the file; omit to keep it private in Slack.
-  Use fs.signedPutUrl to receive large files first. Returns files metadata.]==],
+	getProfile = [[getProfile() -> {user_id, user, team_id, team, url}
+The connected Slack user and workspace.]],
+	listChannels = [[listChannels(opts?) -> {channels, nextCursor?}
+Your channels and DMs (users.conversations). opts: types (comma-separated public_channel,private_channel,im,mpim; default all), exclude_archived (default true), limit, cursor.]],
+	getChannel = [[getChannel(channel) -> channel
+Channel details (conversations.info).]],
+	listMessages = [[listMessages(channel, opts?) -> {messages, has_more, nextCursor?}
+Newest first (conversations.history). opts: limit (default 15), cursor, oldest, latest, inclusive, include_all_metadata. Message files arrays carry file IDs for getFile and downloadFile.]],
+	getThread = [[getThread(channel, ts, opts?) -> {messages, has_more, nextCursor?}
+The parent message and its replies (conversations.replies). Same opts as listMessages.]],
+	searchMessages = [[searchMessages(query, opts?) -> {matches, total, paging, nextPage?}
+Slack search syntax, such as "in:#general from:@ana after:2026-01-01". opts: count, page, sort ("timestamp" default or "score"), sort_dir ("desc" default), highlight. Pass page = result.nextPage for the next page.]],
+	listMentions = [[listMentions(opts?) -> {matches, total, paging, nextPage?}
+Search results mentioning you, including thread replies. Same opts as searchMessages, plus query to narrow it, such as "in:#general".]],
+	listMembers = [[listMembers(channel, opts?) -> {members, nextCursor?}
+User IDs in a channel. opts: limit, cursor.]],
+	getUser = [[getUser(user) -> user
+A user's profile (users.info).]],
+	listUsers = [[listUsers(opts?) -> {members, nextCursor?}
+Workspace users. opts: limit (default 200), cursor, include_locale.]],
+	getPermalink = [[getPermalink(channel, ts) -> string
+A message's Slack URL.]],
+	getFile = [[getFile(id) -> file
+File metadata (files.info): name, mimetype, size, url_private...]],
+	downloadFile = [[downloadFile(id, path) -> {path, url, bytes}
+Streams a Slack file into a session path; url is a Houston signed download URL. Never inline file contents.]],
+	postMessage = [[postMessage(channel, text, opts?) -> {channel, ts, message}
+Posts as you; channel is a channel or DM ID. opts: thread_ts, blocks, attachments, unfurl_links, unfurl_media, reply_broadcast, mrkdwn, parse, link_names, metadata, client_msg_id. Never retry automatically: after an error the message may already be posted, so check with listMessages first.]],
+	reply = [[reply(channel, ts, text, opts?) -> {channel, ts, message}
+Replies in the thread of message ts. Same opts as postMessage, without thread_ts.]],
+	updateMessage = [[updateMessage(channel, ts, text, opts?) -> {channel, ts, text}
+Edits one of your messages. opts: blocks, attachments, parse, link_names, metadata, file_ids, reply_broadcast.]],
+	deleteMessage = [[deleteMessage(channel, ts) -> {channel, ts}
+Deletes one of your messages.]],
+	openConversation = [[openConversation(users) -> channel
+Opens a DM (one user ID) or group DM (a comma-separated string or array of IDs); pass channel.id to postMessage.]],
+	addReaction = [[addReaction(channel, ts, name) -> {ok}
+Adds an emoji reaction; name has no colons, such as "thumbsup".]],
+	removeReaction = [[removeReaction(channel, ts, name) -> {ok}
+Removes your emoji reaction.]],
+	uploadFile = [[uploadFile(path, opts?) -> {files}
+Streams a session file to Slack. opts: filename (default the path's last segment), title, alt_text, channel (share there; omit to keep the file private), thread_ts, text (a comment posted with the file).]],
 }
 
-function functions.help(): string
+exports.help = function(): string
 	local names: {string} = {}
-	for name in (functions :: {[string]: any}) do
-		if name ~= "help" then names[#names + 1] = name end
+	for name in exports do
+		if name ~= "help" then table.insert(names, name) end
 	end
 	table.sort(names)
-	local sections = {"slack: configured connection help. Credentials stay on Houston. Use only the functions listed below. Provider scopes are enforced by real calls; help makes no network requests."}
+	local sections = {[[Slack: one connected user in one workspace. Credentials stay on Houston. Calls return completed values; do not wrap them in await(). Pass channel IDs, user IDs and message timestamps (ts) as strings, never numbers. Unknown options are rejected. Writes act as the connected user and need Read and write access.
+Each call returns one page. Pass cursor = result.nextCursor (or page = result.nextPage for searches) for the next one. Slack limits conversations.history and conversations.replies to 1 request per minute and 15 messages for apps outside the Slack Marketplace, so listMessages and getThread can fail with ratelimited: wait as the error says, and prefer searchMessages to scan many channels. Slack errors name the Slack error code, such as not_in_channel or missing_scope.]]}
 	for _, name in names do
-		local text = operationHelp[name]
-		assert(text, "missing help for configured function " .. name)
-		sections[#sections + 1] = text
+		local section = operationHelp[name]
+		assert(section, "missing help for configured function " .. name)
+		table.insert(sections, "## " .. section)
 	end
 	return table.concat(sections, "\n\n")
 end
 
-return functions
+return exports
