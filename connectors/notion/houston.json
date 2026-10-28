@@ -31,9 +31,9 @@
       },
       "authorize_url": "https://api.notion.com/v1/oauth/authorize",
       "client_auth": "basic",
-      "client_id": "{{config.client_id}}",
-      "client_secret": "{{config.client_secret}}",
-      "label": "Connect with Notion (recommended)",
+      "client_id": "{{publisher.client_id}}",
+      "client_secret": "{{publisher.client_secret}}",
+      "label": "Connect with Notion",
       "order": 1,
       "pkce": "none",
       "token_encoding": "json",
@@ -71,14 +71,6 @@
         }
       ],
       "type": "string"
-    },
-    "client_id": {
-      "label": "OAuth client ID",
-      "type": "string"
-    },
-    "client_secret": {
-      "label": "OAuth client secret",
-      "type": "secret"
     }
   },
   "files": [
@@ -692,5 +684,17 @@
       }
     }
   ],
+  "publisher": {
+    "client_id": {
+      "label": "Notion OAuth client ID",
+      "order": 1,
+      "type": "string"
+    },
+    "client_secret": {
+      "label": "Notion OAuth client secret",
+      "order": 2,
+      "type": "secret"
+    }
+  },
   "schema_version": 1
 }
