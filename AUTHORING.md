@@ -4,6 +4,10 @@ This guide covers the shared connector contract and authoring workflow. Connecto
 folders contain bundles and account-user documentation. Publishing follows the
 settings declared in `houston.json`; see
 [Publish a Connector on Houston Hub](#publish-a-connector-on-houston-hub).
+For a shorter overview, see [Build a connector](https://ok-houston.com/docs/connectors).
+To build with an agent, install the
+[houston-connector skill](https://ok-houston.com/docs/connectors/SKILL.md) as
+`.claude/skills/houston-connector/SKILL.md`.
 
 Start with the [Fastmail](connectors/fastmail/connector.luau) and
 [Notion](connectors/notion/connector.luau) implementations. Fastmail demonstrates

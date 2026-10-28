@@ -44,6 +44,7 @@ and limitations within supported operations.
 ## Repository layout
 
 - [connectors/](connectors/): provider manifests, Luau implementations, icons and tests.
+- [Build a connector](https://ok-houston.com/docs/connectors): overview of creating and publishing connectors, with the agent skill the Houston team uses.
 - [AUTHORING.md](AUTHORING.md): create, validate and publish connectors, with runtime examples.
 - [Publish a Connector on Houston Hub](AUTHORING.md#publish-a-connector-on-houston-hub): register source and configure the settings declared in `houston.json`.
 - [docs/](docs/): Luau practices and [provider operation reference](docs/connectors/).
