@@ -92,6 +92,9 @@ return {
 		assert(#logs.logs == 3 and logs.logs[2].message == "boom" and logs.ended == true and logs.truncated == false, json.encode(logs))
 		logs = vercel.listRuntimeLogs({projectId = "prj_1", deploymentId = "dpl_1", limit = 1})
 		assert(#logs.logs == 1 and logs.logs[1].message == "GET /" and logs.ended == false and logs.truncated == true, json.encode(logs))
+		payload = '{"message":"a"}\n{"message":"b"}\n'
+		logs = vercel.listRuntimeLogs({projectId = "prj_1", deploymentId = "dpl_1", limit = 2})
+		assert(#logs.logs == 2 and logs.truncated == false, "a stream that ended at exactly limit lines is complete")
 		payload = ""
 		logs = vercel.listRuntimeLogs({projectId = "prj_1", deploymentId = "dpl_1"})
 		assert(json.encode(logs.logs) == "[]" and logs.ended == true and logs.truncated == false)
@@ -116,7 +119,7 @@ return {
 		assert(last().url == API .. "/v1/projects/prj_1/promote/aliases?failedOnly=true")
 		vercel.listTeams({limit = 5})
 		assert(last().url == API .. "/v2/teams?limit=5")
-		assert(#requests == 24)
+		assert(#requests == 25)
 
 		rejected(function() vercel.getProject() end, "idOrName is required")
 		rejected(function() vercel.getProject({idOrName = "../v2/user"}) end, "idOrName must be a Vercel ID, name or hostname")

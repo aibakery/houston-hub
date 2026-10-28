@@ -42,7 +42,7 @@ return {
 		assert(not ok and string.find(tostring(err), "HTTP 404 (not_found): Deployment not found", 1, true), tostring(err))
 		headersTimeout = true
 		ok, err = pcall(function() vercel.listRuntimeLogs({projectId = "prj_1", deploymentId = "dpl_1"}) end)
-		assert(not ok and string.find(tostring(err), "did not start the runtime log stream within 5 seconds", 1, true)
+		assert(not ok and string.find(tostring(err), "did not start the runtime log stream within 8 seconds", 1, true)
 			and string.find(tostring(err), '"retryable":true', 1, true), tostring(err))
 		headersTimeout = false
 		refused = true

@@ -261,8 +261,9 @@ end
 
 -- Runtime logs stream new lines as newline-delimited JSON for minutes, and an invocation lasts at
 -- most 30 seconds: read until limit lines, the stream's end, or a moment without new data, at
--- most HEADERS_WAIT + FIRST_WAIT + (MAX_READS - 1) * IDLE_WAIT, about 23 seconds.
-local HEADERS_WAIT, FIRST_WAIT, IDLE_WAIT, MAX_READS, MAX_LINE = 5000, 3000, 1000, 16, 256 * 1024
+-- most HEADERS_WAIT + FIRST_WAIT + (MAX_READS - 1) * IDLE_WAIT, about 23 seconds. The header wait
+-- leaves room for Houston's two 429 retries (1 and 2 seconds).
+local HEADERS_WAIT, FIRST_WAIT, IDLE_WAIT, MAX_READS, MAX_LINE = 8000, 2000, 1000, 14, 256 * 1024
 
 local function timedOut(err: any): boolean
 	if type(err) == "table" then return err.code == "timeout" end
@@ -312,9 +313,15 @@ local function stream(name: string, response: HttpResponse, limit: number): any
 			fail(name, response, "Vercel returned a log line over " .. MAX_LINE .. " bytes")
 		end
 	end
+	-- At exactly limit lines, one short read tells whether the stream has ended.
+	if #logs >= limit and not ended and not string.find(pending, "%S") then
+		local ok, chunk = pcall(function(): any return await(response.body:read(1), IDLE_WAIT) end)
+		ended = ok and chunk.done
+		idle = not ok and timedOut(chunk)
+	end
 	pcall(function() response.body:close() end)
 	-- More was likely coming when the read budget or limit ran out, or a line was cut off.
-	local truncated = (not ended and not idle) or #logs >= limit or string.find(pending, "%S") ~= nil
+	local truncated = (not ended and not idle) or string.find(pending, "%S") ~= nil
 	return {logs = logs, ended = ended, truncated = truncated}
 end
 
@@ -407,7 +414,7 @@ local intro = {
 	"Ids: projects prj_..., deployments dpl_..., teams team_...; idOrName also takes a project name, and idOrUrl and the runtime log deploymentId a deployment hostname such as my-app-abc123.vercel.app. Times are Unix milliseconds."
 		.. (if TEAM then " Requests act on the connection's team." else " Requests act on the token's own scope: its team for a team token, else the personal account."),
 	"Lists return one page: limit (default 20, at most 100) and {pagination={count, next, prev}}; while next is not null, pass it as until for the next page (listProjects: as from).",
-	"listRuntimeLogs listens to the live stream until a second passes without new lines (at most about 23 seconds, or 16 network reads) and returns the lines written meanwhile; Vercel offers no history through it, so an empty result does not mean the deployment logged nothing. ended=false means the stream was still open; truncated=true means more lines were likely coming, so call again for them. Use listBuildLogs for build output.",
+	"listRuntimeLogs listens to the live stream until a second passes without new lines (at most about 23 seconds, or 14 network reads) and returns the lines written meanwhile; Vercel offers no history through it, so an empty result does not mean the deployment logged nothing. ended=false means the stream was still open; truncated=true means more lines were likely coming, so call again for them. Use listBuildLogs for build output.",
 	"Examples: local page = vercel.listDeployments({projectId='my-app', target='production', limit=10}); local d = page.deployments[1]; vercel.getDeployment({idOrUrl=d.uid}); vercel.listBuildLogs({idOrUrl=d.uid, limit=500, direction='backward'}); vercel.listRuntimeLogs({projectId=d.projectId, deploymentId=d.uid, limit=200}).",
 	"The token's own permissions and the team's plan still apply. Rate limits are per endpoint group, such as 100 runtime log reads a minute; Houston retries an HTTP 429 twice, then reports when the limit resets. Errors report the HTTP status with Vercel's error code and message.",
 }
