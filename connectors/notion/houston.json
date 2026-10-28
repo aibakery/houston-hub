@@ -688,13 +688,11 @@
     "client_id": {
       "label": "Notion OAuth client ID",
       "order": 1,
-      "required": true,
       "type": "string"
     },
     "client_secret": {
       "label": "Notion OAuth client secret",
       "order": 2,
-      "required": true,
       "type": "secret"
     }
   },

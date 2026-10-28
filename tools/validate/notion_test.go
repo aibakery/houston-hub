@@ -71,8 +71,8 @@ func TestNotionRegistrationAndAuthenticationSelection(t *testing.T) {
 		for _, field := range draft.PublisherFields {
 			if field.Name == "client_secret" {
 				secretField = true
-				if !field.Field.Required || field.Field.Type != "secret" {
-					t.Fatal("active OAuth secret form field must be required and secret")
+				if field.Field.Type != "secret" {
+					t.Fatal("active OAuth secret form field must be secret")
 				}
 			}
 		}
@@ -84,7 +84,7 @@ func TestNotionRegistrationAndAuthenticationSelection(t *testing.T) {
 		}
 		manual, err := m.Resolve(publisher, nil, map[string]any{"token": "manual-token"}, "token")
 		if err != nil || m.RequireCredentials(manual.Context) != nil {
-			t.Fatalf("manual connection depends on optional OAuth setup: %v", err)
+			t.Fatalf("token connection depends on publisher OAuth settings: %v", err)
 		}
 		if manual.PublicConfig["access"] != "read-only" {
 			t.Fatal("new connection did not default to read-only")
