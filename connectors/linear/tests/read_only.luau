@@ -71,7 +71,7 @@ return {
 		payload = '{"data":{"issue":{"id":"i1","identifier":"ENG-123","description":"# Hi","children":{"nodes":[]}}}}'
 		local issue = linear.getIssue({id = "ENG-123"})
 		query, variables = sent()
-		assert(string.find(query, "^query getIssue%(%$id: String!%) { issue%(id: %$id%) { id identifier ") and string.find(query, " description children { ", 1, true))
+		assert(string.find(query, "^query getIssue%(%$id: String!%) { issue%(id: %$id%) { id identifier ") and string.find(query, " description children(first: 50) { ", 1, true))
 		assert(variables.id == "ENG-123" and issue.description == "# Hi")
 
 		payload = '{"data":{"searchIssues":{"nodes":[],"pageInfo":{"hasNextPage":false,"endCursor":null},"totalCount":0}}}'

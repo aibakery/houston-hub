@@ -59,8 +59,8 @@ local operations: {[string]: Operation} = {
 	searchIssues = {field = "searchIssues", args = list("IssueFilter", "term: String!", "teamId: String", "includeComments: Boolean"),
 		select = ISSUE, connection = true, page = "totalCount", about = "Full-text search over titles and descriptions (and comments with includeComments), with totalCount."},
 	getIssue = {field = "issue", args = {"id: String!"},
-		select = ISSUE .. " description children { nodes { id identifier title state { id name type } } }",
-		about = "An issue by id or identifier such as ENG-123, with its Markdown description and sub-issues."},
+		select = ISSUE .. " description children(first: 50) { nodes { id identifier title state { id name type } } pageInfo { hasNextPage } }",
+		about = "An issue by id or identifier such as ENG-123, with its Markdown description and first 50 sub-issues; when children.pageInfo.hasNextPage, list the rest with listIssues({filter={parent={id={eq=issue.id}}}})."},
 	listComments = {field = "comments", args = list("CommentFilter"), select = COMMENT, connection = true,
 		about = "Comments in Markdown, as {issue={id={eq=issue.id}}}. parentId marks a reply."},
 
@@ -145,7 +145,8 @@ end
 local function object(value: any, field: string)
 	assert(type(value) == "table", field .. " must be an object")
 	local key = next(value)
-	assert((key == nil or type(key) == "string") and json.encode(value) ~= "[]", field .. " must be an object, not an array")
+	-- Only an empty table can be json.decode('[]'); others show their keys.
+	assert(if key == nil then json.encode(value) ~= "[]" else type(key) == "string", field .. " must be an object, not an array")
 end
 
 -- The GraphQL variable an argument receives, checked against its declared base type.
