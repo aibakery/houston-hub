@@ -3,6 +3,7 @@ package main
 import (
 	"net/http"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -79,6 +80,34 @@ func TestFigmaScopesAndAccessRoutes(t *testing.T) {
 				"POST "+api+"/v1/files/"+key+"/comments/7", "GET "+api+"/v1/files/%2e%2e/comments", "GET https://www.figma.com/api/v1/me",
 				"GET https://api.figma.com.example.com/v1/me", "GET https://figma-alpha-api.s3.us-west-2.amazonaws.com/other/u1",
 				"PUT https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/u1", "GET https://s3-alpha-sig.figma.com/img/a/b/c")
+		}
+	}
+}
+
+// Each auth method's rules route exactly the endpoint table, writes behind read-write, so the
+// duplicated token and OAuth rules cannot drift apart.
+func TestFigmaProxyMatchesEndpointTable(t *testing.T) {
+	_, entries := endpointTable(t, "figma")
+	var want []string
+	for _, entry := range entries {
+		want = append(want, entry.method+" "+entry.path+" "+strconv.FormatBool(entry.write))
+	}
+	slices.Sort(want)
+	for _, method := range []string{"auth.token", "auth.oauth"} {
+		var got []string
+		for _, rule := range parseManifest(t, "../../connectors/figma/houston.json").Proxy {
+			if !strings.Contains(rule.If, method+" ") && !strings.Contains(rule.If, method+")") {
+				continue
+			}
+			for _, m := range rule.Match.Method {
+				for _, path := range rule.Match.Path {
+					got = append(got, m+" "+path+" "+strconv.FormatBool(strings.Contains(rule.If, `"read-write"`)))
+				}
+			}
+		}
+		slices.Sort(got)
+		if !slices.Equal(got, want) {
+			t.Errorf("%s routes %v, endpoint table %v", method, got, want)
 		}
 	}
 }

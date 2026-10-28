@@ -69,5 +69,7 @@ return {
 		assert(not ok and string.find(tostring(err), "save_to saves at most 10 ids", 1, true) and #requests == 12, tostring(err))
 		ok, err = pcall(function() figma.renderImages({file_key = KEY, ids = "1:2", save_to = ""}) end)
 		assert(not ok and string.find(tostring(err), "save_to must be a session folder path", 1, true) and #requests == 12, tostring(err))
+		ok, err = pcall(function() figma.renderImages({file_key = KEY, ids = "1:2", save_to = "//"}) end)
+		assert(not ok and string.find(tostring(err), "save_to must be a session folder path", 1, true) and #requests == 12, tostring(err))
 	end,
 }

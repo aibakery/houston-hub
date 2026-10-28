@@ -280,7 +280,12 @@ local function save(name: string, rendered: any, folder: string, format: string)
 	if #ids == 0 then return rendered end
 	local downloads = {}
 	for index, id in ids do downloads[index] = http.request({method = "GET", url = rendered.images[id]}) end
-	local responses = awaitAll(downloads)
+	local fetched, responses = pcall(awaitAll, downloads)
+	if not fetched then
+		for _, download in downloads do pcall(function() await(download).body:close() end) end
+		return houston.fail({operation = name, layer = "upstream", upstream_status = 0, retryable = true,
+			message = "Downloading the renders failed before Figma's bucket answered"})
+	end
 	for index, id in ids do
 		local status = responses[index].statusCode
 		if status ~= 200 then
@@ -297,8 +302,14 @@ local function save(name: string, rendered: any, folder: string, format: string)
 		closes[index] = output:close()
 	end
 	awaitAll(closes)
+	local stats, links = {}, {}
+	for index in ids do
+		stats[index] = fs.stat(paths[index])
+		links[index] = fs.signedGetUrl(paths[index])
+	end
+	local sizes, urls = awaitAll(stats), awaitAll(links)
 	for index, id in ids do
-		rendered.images[id] = {path = paths[index], size = await(fs.stat(paths[index])).size, url = await(fs.signedGetUrl(paths[index]))}
+		rendered.images[id] = {path = paths[index], size = sizes[index].size, url = urls[index]}
 	end
 	return rendered
 end
@@ -317,8 +328,9 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 	local format = args.format or "png"
 	if table.find(endpoint.extra or NONE, "save_to") and args.save_to ~= nil then
 		local target = args.save_to
-		assert(type(target) == "string" and target ~= "", "save_to must be a session folder path")
+		assert(type(target) == "string", "save_to must be a session folder path")
 		folder = (string.gsub(target, "/+$", ""))
+		assert(folder ~= "", "save_to must be a session folder path")
 		assert(FORMATS[format], "format must be png, jpg, svg or pdf")
 		args.save_to = nil
 	end
