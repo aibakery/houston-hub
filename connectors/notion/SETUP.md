@@ -1,70 +1,51 @@
 # Connect your Notion account
 
-Use **Connect with Notion (recommended)** to authorize the workspace and pages
-you want to share. Choose **Read-only** to browse and query, or **Read and write**
-to let agents create and change content.
+1. Choose **Read-only** to let agents search and read, or **Read and write** to
+   also let them create and change content.
+2. Keep **Connect with Notion** selected, choose **Authorize connector** and sign in.
+3. Pick the workspace and the pages to share, then allow access.
 
-## Connect with Notion (OAuth, recommended)
+Agents only see the pages you pick, including their subpages. To share more pages
+later, edit the connection and authorize it again. Houston keeps your Notion
+authorization on its server; agents never see it.
 
-1. Create a public connection in [Notion's developer portal](https://www.notion.so/profile/integrations) and configure its capabilities.
-2. Copy the **OAuth callback URL** shown below and add it to Notion's redirect URI list.
-3. Enter Notion's OAuth client ID and secret in Houston.
-4. Choose **Authorize account**, select the workspace
-   and pages to share, and return to Houston.
-
-Credentials stay on the Houston server and are never available to agent scripts.
-Only the pages you share are accessible.
-
-## Advanced: tokens, permissions and troubleshooting
+## Advanced
 
 ### Connect with a token
 
+Use a token when **Connect with Notion** is unavailable, or to use a personal
+access token's broader access.
+
 1. Create an internal connection in [Notion's developer portal](https://www.notion.so/profile/integrations),
-   or create a [personal access token](https://developers.notion.com/guides/get-started/personal-access-tokens).
-2. For an internal connection, share the pages or databases through their
-   **Connections** menu in Notion. A personal access token uses your own permitted access.
-3. In Houston, choose **Internal connection or personal access token**, paste
-   the token into **Token**, and add the connector. OAuth client credentials are
-   not needed for this method.
+   grant the content, comment and user capabilities you need, and share pages
+   through their **Connections** menu in Notion. Or create a
+   [personal access token](https://developers.notion.com/guides/get-started/personal-access-tokens),
+   which uses your own access.
+2. Choose **Internal connection or personal access token** and paste it into
+   **Token**. Never paste tokens into an agent conversation.
 
-### Permissions and tokens
-
-Grant the content, comments and user capabilities you need in Notion. You can
-change shared pages and revoke access from Notion's connection settings.
-
-Do not paste tokens into an agent conversation or script. Some agent,
-meeting-note and skills features require a personal access
-token or additional Notion plan permissions.
-
-### OAuth callback lifetime
-
-Each Houston connection gets its own callback URL, even when you add Notion
-multiple times to the same organization. Reopening unfinished setup within 24 hours
-keeps the reserved URL. Cancelling setup discards it; abandoned reservations expire.
-If you restart after cancellation or expiry, update Notion's redirect URI to the
-new URL. Once connected, reauthorizing keeps the same callback URL.
+Some agent, meeting-note and skills features require a personal access token or
+additional Notion plan permissions.
 
 ### Enterprise organization bot
 
-For organization administration, add a separate connection using **Enterprise
-organization bot (Admin API)**. This requires an eligible Notion Enterprise
-organization and an organization bot token with the appropriate
-[Admin API scopes](https://developers.notion.com/reference/admin/scopes).
-Ask your Notion organization administrator for access if needed.
-
-Paste the organization bot token into **Token** and choose the access level.
-This connection exposes organization administration features instead of page
-content. Ordinary connection tokens and personal access tokens cannot replace an
-organization bot token. Read-only access excludes administrative changes and
-creating export jobs.
+For organization administration (legal holds, exports, analytics, groups, access
+tokens and agent policies), add a separate connection with **Enterprise
+organization bot (Admin API)** and paste an organization bot token with the
+needed [Admin API scopes](https://developers.notion.com/reference/admin/scopes).
+This requires an eligible Notion Enterprise organization. Read-only access
+excludes administrative changes and creating export jobs.
 
 ### If content is missing
 
-Check that you chose the correct workspace, shared the page or database with the
-connection, and granted the necessary capabilities in Notion. Houston's access
-setting cannot grant permissions that Notion has not given your connection.
+Check that you chose the right workspace, shared the page or database, and, for
+an internal connection, granted the needed capabilities. Houston's access setting
+cannot grant permissions that Notion has not given the connection.
 
-File links expire. Ask your agent to retrieve the file's owning page, block or
-comment again to obtain a fresh link. Removing the connection from Houston does
-not revoke its token in Notion; revoke the token in Notion when you no longer
-want it used.
+File links expire; ask your agent to fetch the page, block or comment again for a
+fresh link.
+
+### Disconnect
+
+Removing the connection from Houston does not revoke access in Notion. Also remove
+Houston from your Notion connection settings, or revoke your token in Notion.
