@@ -37,6 +37,7 @@ return {
 			{"INVALID_INPUT: xxx", "; b; c"}, {"fourth", string.rep("x", 601)})
 		upstream(502, "<html>Bad gateway</html>", {}, {"Linear HTTP 502: <html>Bad gateway</html>", '"retryable":true'})
 		upstream(200, '{"errors":[]}', {}, {"invalid GraphQL response"})
-		upstream(200, '{"data":{"issueUpdate":null},"errors":[{"message":"Forbidden"}]}', {}, {"Linear answered issueUpdate with errors", "Forbidden"})
+		upstream(200, '{"data":{"issueUpdate":null},"errors":[{"message":"Forbidden"}]}', {}, {"Linear HTTP 200: Forbidden", '"retryable":false'})
+		upstream(200, '{"data":{"issueUpdate":null},"errors":[{"message":"Slow down","extensions":{"code":"RATELIMITED"}}]}', {}, {"RATELIMITED: Slow down", '"retryable":true'})
 	end,
 }

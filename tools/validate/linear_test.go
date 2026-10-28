@@ -47,8 +47,8 @@ func TestLinearScopesAndAccessRoutes(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			headers, err := recipe.Prepare(r.Context, http.Header{"X-Http-Method-Override": {"POST"}})
-			if err != nil || headers.Get("X-HTTP-Method-Override") != "" {
+			headers, err := recipe.Prepare(r.Context, http.Header{"X-Http-Method-Override": {"POST"}, "X-Http-Method": {"POST"}, "X-Method-Override": {"POST"}})
+			if err != nil || headers.Get("X-HTTP-Method-Override") != "" || headers.Get("X-HTTP-Method") != "" || headers.Get("X-Method-Override") != "" {
 				t.Fatalf("method override kept on a read: %v", err)
 			}
 		}

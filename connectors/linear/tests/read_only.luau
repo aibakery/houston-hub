@@ -125,6 +125,7 @@ return {
 		rejected(function() linear.listIssues({includeArchived = "yes"}) end, "includeArchived must be true or false")
 		rejected(function() linear.listIssues({filter = "state = started"}) end, "filter must be an object")
 		rejected(function() linear.listIssues({filter = {"started"}}) end, "filter must be an object, not an array")
+		rejected(function() linear.listIssues({filter = json.decode("[]")}) end, "filter must be an object, not an array")
 		rejected(function() linear.listIssues({fitler = {}}) end, "listIssues has no option fitler")
 		local many = {}
 		for index = 1, 600 do many[index] = string.format("00000000-0000-4000-8000-%012d", index) end

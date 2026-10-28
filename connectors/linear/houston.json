@@ -102,7 +102,9 @@
       "action": {
         "headers": {
           "remove": [
-            "X-HTTP-Method-Override"
+            "X-HTTP-Method",
+            "X-HTTP-Method-Override",
+            "X-Method-Override"
           ],
           "set": {
             "Authorization": "{{auth.token.token}}"
@@ -127,7 +129,9 @@
       "action": {
         "headers": {
           "remove": [
-            "X-HTTP-Method-Override"
+            "X-HTTP-Method",
+            "X-HTTP-Method-Override",
+            "X-Method-Override"
           ],
           "set": {
             "Authorization": "Bearer {{auth.oauth.access_token}}"

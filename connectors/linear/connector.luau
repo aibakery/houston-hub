@@ -91,7 +91,7 @@ local function failed(name: string, response: HttpResponse, body: any, raw: stri
 			local extensions = if type(item.extensions) == "table" then item.extensions else {}
 			local code = if type(extensions.code) == "string" then extensions.code .. ": " else ""
 			local text = if type(extensions.userPresentableMessage) == "string" then extensions.userPresentableMessage else item.message
-			if code == "RATELIMITED: " then retryable = true end
+			if extensions.code == "RATELIMITED" then retryable = true end
 			table.insert(messages, code .. string.sub(if type(text) == "string" then text else "error", 1, 600))
 		end
 	end
@@ -108,7 +108,7 @@ end
 
 -- Linear's whole response, {data, errors?}. GraphQL can answer data with errors, such as for
 -- nested items the caller cannot see; errors without data fail.
-local function execute(name: string, document: string, variables: Options, operationName: string?): any
+local function execute(name: string, document: string, variables: Options, operationName: string?): (any, HttpResponse)
 	local headers: HttpHeaders = {Accept = {"application/json"}}
 	local call: HttpRequest
 	if WRITES then
@@ -132,7 +132,7 @@ local function execute(name: string, document: string, variables: Options, opera
 		if type(body) == "table" and type(body.errors) == "table" and #body.errors > 0 then failed(name, response, body, raw) end
 		fail(name, response.statusCode, false, "Linear returned an invalid GraphQL response")
 	end
-	return body
+	return body, response
 end
 
 local function options(input: Options?): Options
@@ -145,7 +145,7 @@ end
 local function object(value: any, field: string)
 	assert(type(value) == "table", field .. " must be an object")
 	local key = next(value)
-	assert(key == nil or type(key) == "string", field .. " must be an object, not an array")
+	assert((key == nil or type(key) == "string") and json.encode(value) ~= "[]", field .. " must be an object, not an array")
 end
 
 -- The GraphQL variable an argument receives, checked against its declared base type.
@@ -215,12 +215,12 @@ local function run(name: string, operation: Operation, params: {Parameter}, sour
 	end
 	local unknown = next(args)
 	assert(unknown == nil, name .. " has no option " .. tostring(unknown))
-	local body = execute(name, source, variables)
+	local body, response = execute(name, source, variables)
 	local result = body.data[operation.field]
 	if type(body.errors) == "table" and #body.errors > 0 then
 		-- Keep a partial result, such as a created issue with an unreadable nested field.
 		if type(result) ~= "table" then
-			return fail(name, 200, false, "Linear answered " .. operation.field .. " with errors: " .. string.sub(json.encode(body.errors), 1, 600))
+			return failed(name, response, body, "")
 		end
 		result.errors = body.errors
 	end
@@ -248,7 +248,7 @@ local function graphql(input: Options?): any
 	assert(#source <= MAX_DOCUMENT, "query must be at most " .. MAX_DOCUMENT .. " bytes")
 	if variables == nil or variables == NULL then variables = {} else object(variables, "variables") end
 	assert(operationName == nil or (type(operationName) == "string" and string.match(operationName, "^[_%a][_%w]*$")), "operationName must be a GraphQL name")
-	return execute("graphql", source, variables, operationName)
+	return (execute("graphql", source, variables, operationName))
 end
 
 -- Arbitrary documents can read webhook signing secrets and SSO settings, so they need read-write.
@@ -271,7 +271,7 @@ exports.help = function(): string
 	table.insert(lines, "Examples: local me = linear.getViewer(); local page = linear.listIssues({filter={assignee={isMe={eq=true}}, state={type={nin={'completed', 'canceled'}}}}, first=50}); linear.getIssue({id='ENG-123'}); linear.listComments({filter={issue={id={eq=issue.id}}}}).")
 	if WRITES then
 		table.insert(lines, "graphql({query, variables?, operationName?}): any Linear query or mutation document, returning Linear's response {data, errors?}, for fields and operations not listed above, such as attachments, project updates, issue relations or archiving. Schema: https://studio.apollographql.com/public/Linear-API. Example: linear.graphql({query='query($id: String!) { issue(id: $id) { attachments { nodes { title url } } } }', variables={id='ENG-123'}}).")
-		table.insert(lines, "Writes: find teamId with listTeams, stateId with listWorkflowStates, label ids with listLabels and user ids with listUsers. Linear notifies subscribers of new issues, assignments and comments. There are no automatic retries: after any failed write, read the issue again before repeating it, since Linear may have applied it.")
+		table.insert(lines, "Writes: find teamId with listTeams, stateId with listWorkflowStates, label ids with listLabels and user ids with listUsers. Linear notifies subscribers of new issues, assignments and comments. Houston retries an HTTP 429 at most twice when Retry-After is 5 seconds or less, and nothing else: after any failed write, read the issue again before repeating it, since Linear may have applied it.")
 	else
 		table.insert(lines, "This read-only connection sends queries with GET, which Linear refuses for mutations.")
 	end
