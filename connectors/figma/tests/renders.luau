@@ -53,11 +53,21 @@ return {
 		assert(not ok and string.find(tostring(err), "Figma rendered no images: Render timeout", 1, true), tostring(err))
 		assert(#requests == 8)
 
+		respond(200, '{"err":null,"images":{"2:1":"' .. BUCKET .. 'a","2:2":"' .. BUCKET .. 'b"}}')
+		respond(200, "first")
+		respond(403, "<Error>AccessDenied</Error>")
+		ok, err = pcall(function() figma.renderImages({file_key = KEY, ids = {"2:1", "2:2"}, save_to = "batch"}) end)
+		assert(not ok and string.find(tostring(err), "render of 2:2 failed with HTTP 403", 1, true), tostring(err))
+		assert(not await(fs.exists("batch/2-1.png")) and not await(fs.exists("batch/2-2.png")), "a failed batch saves nothing")
+		respond(200, '{"err":null,"images":{"3:1":null}}')
+		local none = figma.renderImages({file_key = KEY, ids = "3:1", save_to = "batch"})
+		assert(none.images["3:1"] == NULL, "nothing to download")
+		assert(#requests == 12)
 		local many = {}
 		for index = 1, 11 do many[index] = "1:" .. index end
 		ok, err = pcall(function() figma.renderImages({file_key = KEY, ids = many, save_to = "renders"}) end)
-		assert(not ok and string.find(tostring(err), "save_to saves at most 10 ids", 1, true) and #requests == 8, tostring(err))
+		assert(not ok and string.find(tostring(err), "save_to saves at most 10 ids", 1, true) and #requests == 12, tostring(err))
 		ok, err = pcall(function() figma.renderImages({file_key = KEY, ids = "1:2", save_to = ""}) end)
-		assert(not ok and string.find(tostring(err), "save_to must be a session folder path", 1, true) and #requests == 8, tostring(err))
+		assert(not ok and string.find(tostring(err), "save_to must be a session folder path", 1, true) and #requests == 12, tostring(err))
 	end,
 }

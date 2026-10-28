@@ -43,8 +43,9 @@ connection.
 5. On the **OAuth scopes** page, select every scope listed under [Scopes](#scopes)
    for both access levels, so you can change the access level later without
    editing the app.
-6. On the **Publish** page, choose **Private** and select **Publish**. A draft app
-   only works for you and your plan's admins.
+6. On the **Publish** page, choose **Private**, add the logo and description Figma
+   asks for, and select **Publish**. A draft app only works for you and your
+   plan's admins.
 7. In Houston, select **Authorize account**, sign in to Figma and allow access.
 
 ## Scopes
