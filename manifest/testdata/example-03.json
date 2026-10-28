@@ -55,6 +55,19 @@
           ]
         }
       ],
+      "shared": {
+        "body": {
+          "limit": 1
+        },
+        "headers": {
+          "Authorization": {
+            "value": "Bearer {{auth.oauth.access_token}}"
+          }
+        },
+        "items": "/files",
+        "method": "POST",
+        "url": "https://api.collaboration.example.com/files/search"
+      },
       "token_response": {
         "access_token": "/user/access_token",
         "checks": [

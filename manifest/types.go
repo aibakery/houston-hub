@@ -72,6 +72,7 @@ type AuthMethod struct {
 	RefreshResponse TokenResponse     `json:"refresh_response,omitempty"`
 	RequireRefresh  bool              `json:"require_refresh,omitempty"`
 	Account         *OAuthAccount     `json:"account,omitempty"`
+	Shared          *OAuthShared      `json:"shared,omitempty"`
 }
 type ScopeGroup struct {
 	If     string   `json:"if,omitempty"`
@@ -96,6 +97,13 @@ type OAuthAccount struct {
 	Label    string                 `json:"label"`
 	Checks   []ResponseCheck        `json:"checks,omitempty"`
 	Bindings map[string]string      `json:"bindings,omitempty"`
+}
+type OAuthShared struct {
+	URL     string                 `json:"url"`
+	Method  string                 `json:"method,omitempty"`
+	Headers map[string]HeaderValue `json:"headers,omitempty"`
+	Body    map[string]any         `json:"body,omitempty"`
+	Items   string                 `json:"items"`
 }
 type Proxy struct {
 	If     string      `json:"if,omitempty"`
@@ -312,6 +320,9 @@ func (m *Manifest) defaults() {
 			a.RefreshResponse = ResponseDefaults(a.RefreshResponse)
 			if a.Account != nil && a.Account.Method == "" {
 				a.Account.Method = "GET"
+			}
+			if a.Shared != nil && a.Shared.Method == "" {
+				a.Shared.Method = "GET"
 			}
 			m.Auth[k] = a
 		}

@@ -519,6 +519,25 @@ func (m *Manifest) validateOAuth(key string, a AuthMethod, used map[string]bool)
 			}
 		}
 	}
+	if s := a.Shared; s != nil {
+		if e := HTTPSURL(s.URL, true); e != nil {
+			return e
+		}
+		if s.Method != "" && s.Method != "GET" && s.Method != "POST" || s.Method == "GET" && s.Body != nil {
+			return fmt.Errorf("invalid shared method")
+		}
+		if !validPointer(s.Items) {
+			return fmt.Errorf("invalid shared items pointer")
+		}
+		for _, v := range s.Body {
+			if _, e := scalarString(v); e != nil {
+				return fmt.Errorf("shared body values must be scalars")
+			}
+		}
+		if e := m.validateHeaders(s.Headers, used); e != nil {
+			return e
+		}
+	}
 	return nil
 }
 func mapValues(m map[string]string) []string {
@@ -571,7 +590,7 @@ func checkPresence(data []byte) error {
 				p == "manifest.proxy[].match.header" || p == "manifest.proxy[].action.headers.set" ||
 				p == "manifest.proxy[].action.query" ||
 				len(parts) == 4 && parts[1] == "auth" && parts[3] == "config" ||
-				len(parts) == 5 && parts[1] == "auth" && parts[3] == "account" && parts[4] == "headers"
+				len(parts) == 5 && parts[1] == "auth" && (parts[3] == "account" || parts[3] == "shared") && (parts[4] == "headers" || parts[4] == "body")
 			for k, v := range x {
 				if k == "if" && !dictionary {
 					if s, ok := v.(string); !ok || s == "" {

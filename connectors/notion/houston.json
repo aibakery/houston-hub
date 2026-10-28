@@ -36,6 +36,22 @@
       "label": "Connect with Notion",
       "order": 1,
       "pkce": "none",
+      "shared": {
+        "body": {
+          "page_size": 1
+        },
+        "headers": {
+          "Authorization": {
+            "value": "Bearer {{auth.oauth.access_token}}"
+          },
+          "Notion-Version": {
+            "value": "2026-03-11"
+          }
+        },
+        "items": "/results",
+        "method": "POST",
+        "url": "https://api.notion.com/v1/search"
+      },
       "token_encoding": "json",
       "token_headers": {
         "Notion-Version": "2026-03-11"

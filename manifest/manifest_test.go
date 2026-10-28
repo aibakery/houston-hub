@@ -384,3 +384,30 @@ func TestStatelessMetadata(t *testing.T) {
 		}
 	}
 }
+func TestSharedCheckValidation(t *testing.T) {
+	raw, e := os.ReadFile("testdata/example-03.json")
+	if e != nil {
+		t.Fatal(e)
+	}
+	for name, change := range map[string]func(map[string]any){
+		"plain HTTP":     func(s map[string]any) { s["url"] = "http://api.collaboration.example.com/files/search" },
+		"GET with body":  func(s map[string]any) { s["method"] = "GET" },
+		"other method":   func(s map[string]any) { s["method"] = "PUT" },
+		"items selector": func(s map[string]any) { s["items"] = "files" },
+		"nested body":    func(s map[string]any) { s["body"] = map[string]any{"filter": map[string]any{"type": "page"}} },
+		"empty header":   func(s map[string]any) { s["headers"] = map[string]any{"Authorization": map[string]any{}} },
+	} {
+		var doc map[string]any
+		if e := json.Unmarshal(raw, &doc); e != nil {
+			t.Fatal(e)
+		}
+		change(doc["auth"].(map[string]any)["oauth"].(map[string]any)["shared"].(map[string]any))
+		b, _ := json.Marshal(doc)
+		if _, e := Parse(b); e == nil {
+			t.Errorf("%s: accepted invalid shared check", name)
+		}
+	}
+	if s := example(t, 3).Auth["oauth"].Shared; s == nil || s.Method != "POST" || s.Items != "/files" {
+		t.Fatalf("shared check not parsed: %+v", s)
+	}
+}
