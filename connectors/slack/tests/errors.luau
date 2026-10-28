@@ -35,6 +35,17 @@ return {
 		file:write("report")
 		await(file:close())
 		upstream(503, "unavailable", {}, {"slack: HTTP 503", '"retryable":true'}, function() slack.uploadFile("report.txt") end)
+		local reserved = calls
+		local ok, err = pcall(function()
+			status, payload, responseHeaders = 200, '{"ok":true,"upload_url":"https://files.slack.com/upload/v1/signed","file_id":"F1"}', {}
+			local request = http.request
+			http.request = function(req)
+				if string.find(req.url, "files.slack.com", 1, true) then status, payload = 503, "unavailable" end
+				return request(req)
+			end
+			slack.uploadFile("report.txt")
+		end)
+		assert(not ok and string.find(tostring(err), '"retryable":true', 1, true) and calls == reserved + 2, "an uncompleted upload is safe to retry")
 		upstream(429, '{"ok":false,"error":"ratelimited"}', {["retry-after"] = {"30"}}, {"retry after 30s", '"retryable":true'},
 			function() slack.addReaction("C1", "1.0", "eyes") end)
 		upstream(503, "<html>Service unavailable</html>", {}, {"slack: HTTP 503", '"retryable":true'})

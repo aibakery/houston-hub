@@ -212,33 +212,42 @@ end
 local function downloadFile(id: string, path: string): Options
 	text(path, "session path")
 	local file = getFile(id)
+	if file.is_external == true then
+		return houston.fail({operation = "downloadFile", layer = "upstream", retryable = false,
+			message = "slack: this file is stored outside Slack; open its url_private link instead"})
+	end
 	local source = text(file.url_private_download or file.url_private, "file download URL")
 	local response = await(http.request({method = "GET", url = source}))
-	check("downloadFile", response)
-	-- Slack answers an unauthorized file request with its HTML sign-in page.
-	local kind = response.headers["content-type"]
+	-- Slack redirects an unauthorized file request to its sign-in page, or serves that page.
+	local status, kind = response.statusCode, response.headers["content-type"]
 	local html = type(file.mimetype) == "string" and string.find(file.mimetype, "html", 1, true) ~= nil
-	if kind and kind[1] and string.find(kind[1], "text/html", 1, true) and not html then
+	local page = status >= 200 and status < 300 and kind ~= nil and kind[1] ~= nil
+		and string.find(kind[1], "text/html", 1, true) ~= nil and not html
+	if page or (status >= 300 and status < 400) then
 		response.body:close()
 		return houston.fail({operation = "downloadFile", layer = "upstream", upstream_status = 401,
 			retryable = false, message = "slack: file download returned a sign-in page; reconnect Slack"})
 	end
+	check("downloadFile", response)
 	local output = fs.open(path, "w")
 	output:write(response.body)
 	await(output:close())
 	return {path = path, url = await(fs.signedGetUrl(path)), bytes = await(fs.stat(path)).size}
 end
 
-local function postMessage(channel: string, message: string, opts: Options?): Options
-	local params = options(opts, POST)
+local function post(operation: string, channel: string, message: string, params: Options): Options
 	params.channel, params.text = text(channel, "channel ID"), text(message, "message text")
-	return call("postMessage", "chat.postMessage", params, "json")
+	return call(operation, "chat.postMessage", params, "json")
+end
+
+local function postMessage(channel: string, message: string, opts: Options?): Options
+	return post("postMessage", channel, message, options(opts, POST))
 end
 
 local function reply(channel: string, ts: string, message: string, opts: Options?): Options
 	local params = options(opts, REPLY)
-	params.channel, params.thread_ts, params.text = text(channel, "channel ID"), text(ts, "thread timestamp"), text(message, "message text")
-	return call("reply", "chat.postMessage", params, "json")
+	params.thread_ts = text(ts, "thread timestamp")
+	return post("reply", channel, message, params)
 end
 
 local function updateMessage(channel: string, ts: string, message: string, opts: Options?): Options
@@ -282,9 +291,9 @@ local function uploadFile(path: string, opts: Options?): Options
 	complete.files[1].id = text(upload.file_id, "uploaded file ID")
 	local response = await(http.request({method = "POST", url = text(upload.upload_url, "upload URL"),
 		headers = {["Content-Type"] = {"application/octet-stream"}}, body = fs.open(path, "r")}))
-	check("uploadFile", response, true)
+	-- Slack discards an upload that is never completed, so this step is safe to retry.
+	check("uploadFile", response)
 	response.body:close()
-	-- Slack discards the upload unless it is completed.
 	return call("uploadFile", "files.completeUploadExternal", complete, "json")
 end
 
@@ -335,7 +344,7 @@ A message's Slack URL.]],
 	getFile = [[getFile(id) -> file
 File metadata (files.info): name, mimetype, size, url_private...]],
 	downloadFile = [[downloadFile(id, path) -> {path, url, bytes}
-Streams a Slack file into a session path; url is a Houston signed download URL. Never inline file contents.]],
+Streams a Slack file into a session path; url is a Houston signed download URL. Never inline file contents. A download that fails while streaming can leave a partial file at path. External files (is_external) are not stored in Slack and cannot be downloaded.]],
 	postMessage = [[postMessage(channel, text, opts?) -> {channel, ts, message}
 Posts as you; channel is a channel or DM ID. opts: thread_ts, blocks, attachments, unfurl_links, unfurl_media, reply_broadcast, mrkdwn, parse, link_names, metadata, client_msg_id. Never retry automatically: after an error the message may already be posted, so check with listMessages first.]],
 	reply = [[reply(channel, ts, text, opts?) -> {channel, ts, message}

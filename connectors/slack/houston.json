@@ -225,6 +225,9 @@
         ],
         "path": [
           "/upload/v1/*"
+        ],
+        "opaque_path_parameters": [
+          "*"
         ]
       },
       "action": {

@@ -72,6 +72,12 @@ return {
 		responses = {file, {status = 403, body = "Forbidden"}}
 		ok, err = pcall(slack.downloadFile, "F1", "report.pdf")
 		assert(not ok and string.find(tostring(err), "slack: HTTP 403", 1, true) and string.find(tostring(err), '"upstream_status":403', 1, true))
+		responses = {file, {status = 302, body = ""}}
+		ok, err = pcall(slack.downloadFile, "F1", "report.pdf")
+		assert(not ok and string.find(tostring(err), "reconnect Slack", 1, true) and string.find(tostring(err), '"upstream_status":401', 1, true))
+		responses = {'{"ok":true,"file":{"id":"F9","is_external":true,"url_private":"https://docs.example.com/d/1"}}'}
+		ok, err = pcall(slack.downloadFile, "F9", "report.pdf")
+		assert(not ok and string.find(tostring(err), "stored outside Slack", 1, true) and last() == "https://slack.com/api/files.info?file=F9")
 		local kept = fs.open("report.pdf", "r")
 		assert(await(kept:readAll()) == "%PDF bytes", "a failed download replaced the file")
 		await(kept:close())

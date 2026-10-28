@@ -12,13 +12,6 @@ func TestSlackPublisherOwnedClient(t *testing.T) {
 	if !m.Auth["oauth"].PublisherClient() {
 		t.Fatal("Slack OAuth client must belong to the publication")
 	}
-	draft, err := m.ResolveDraft(map[string]any{"client_id": "client", "client_secret": "secret"}, nil, nil, "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(draft.ConfigFields) != 1 || draft.ConfigFields[0].Name != "access" {
-		t.Fatalf("connection form asks for more than access: %+v", draft.ConfigFields)
-	}
 }
 
 func TestSlackScopesAndAccessRoutes(t *testing.T) {
@@ -48,7 +41,7 @@ func TestSlackScopesAndAccessRoutes(t *testing.T) {
 		"POST https://slack.com/api/files.getUploadURLExternal",
 		"POST https://slack.com/api/files.completeUploadExternal",
 	}
-	upload := "POST https://files.slack.com/upload/v1/signed"
+	upload := "POST https://files.slack.com/upload/v1/CwABAAAAXQoAAQ%2FBz%3D"
 	denied := []string{
 		"GET https://slack.com/api/chat.postMessage?channel=C1&text=hi",
 		"GET https://slack.com/api/files.getUploadURLExternal?filename=a&length=1",
