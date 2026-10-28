@@ -38,6 +38,8 @@ func TestFigmaScopesAndAccessRoutes(t *testing.T) {
 	readScopes := []string{"current_user:read", "file_content:read", "file_metadata:read", "file_versions:read", "file_comments:read",
 		"library_assets:read", "library_content:read", "team_library_content:read", "projects:read"}
 	const api, key = "https://api.figma.com", "aBcDeFgHiJkLmNoPqRsTuV12"
+	_, entries := endpointTable(t, "figma")
+	ids := strings.NewReplacer("{file_key}", key, "{team_id}", "123", "{project_id}", "77", "{comment_id}", "7", "{key}", "abc")
 	for _, method := range []string{"token", "oauth"} {
 		for _, access := range []string{"read-only", "read-write"} {
 			config := map[string]any{"access": access}
@@ -61,13 +63,10 @@ func TestFigmaScopesAndAccessRoutes(t *testing.T) {
 				header, value = "Authorization", "Bearer figu_fixture"
 				r.Context.Auth["oauth"]["access_token"] = "figu_fixture"
 			}
-			assertFigmaRoutes(t, r, header, value, true,
-				"GET "+api+"/v1/me", "GET "+api+"/v1/files/"+key+"?depth=2", "GET "+api+"/v1/files/"+key+"/nodes?ids=1%3A2",
-				"GET "+api+"/v1/images/"+key+"?ids=1%3A2&format=svg", "GET "+api+"/v1/teams/123/projects", "GET "+api+"/v1/projects/77/files",
-				"GET "+api+"/v1/components/abc", "GET "+api+"/v1/files/"+key+"/comments/7/reactions?cursor=c")
-			assertFigmaRoutes(t, r, header, value, access == "read-write",
-				"POST "+api+"/v1/files/"+key+"/comments", "DELETE "+api+"/v1/files/"+key+"/comments/7",
-				"POST "+api+"/v1/files/"+key+"/comments/7/reactions", "DELETE "+api+"/v1/files/"+key+"/comments/7/reactions?emoji=%3Aheart%3A")
+			// Every endpoint of the connector's table is routed for both methods, writes only on read-write.
+			for _, entry := range entries {
+				assertFigmaRoutes(t, r, header, value, !entry.write || access == "read-write", entry.method+" "+api+ids.Replace(entry.path))
+			}
 			// Renders download from the public bucket without any credential.
 			assertFigmaRoutes(t, r, "Authorization", "", true, "GET https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/u1")
 			// Variables, duplication, dev resources, webhooks (their passcodes), team administration,

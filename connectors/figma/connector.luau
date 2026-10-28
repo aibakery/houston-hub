@@ -56,7 +56,7 @@ local endpoints: {[string]: Endpoint} = {
 	listComments = {method = "GET", path = "/v1/files/{file_key}/comments", query = {"as_md"}, doc = "comments-endpoints/#get-comments-endpoint",
 		about = "All comments of a file, unpaginated, {comments: [{id, message, parent_id, user, created_at, resolved_at, client_meta, order_id, reactions}]}. parent_id marks a reply; as_md=true returns messages in Markdown."},
 	listCommentReactions = {method = "GET", path = "/v1/files/{file_key}/comments/{comment_id}/reactions", query = {"cursor"},
-		doc = "comments-endpoints/#get-comment-reactions-endpoint", about = "{reactions, pagination}; pass pagination.next_page as cursor."},
+		doc = "comments-endpoints/#get-comment-reactions-endpoint", about = "{reactions, pagination}; pass pagination.next_page as cursor for the next page."},
 	postComment = {method = "POST", path = "/v1/files/{file_key}/comments", required = {"message"}, doc = "comments-endpoints/#post-comments-endpoint",
 		about = "Body {message, comment_id?, client_meta?}. comment_id replies to a top-level comment. client_meta pins it: {x, y}, {node_id, node_offset={x, y}}, or a region adding region_width and region_height. Figma notifies the people mentioned or following the thread."},
 	deleteComment = {method = "DELETE", path = "/v1/files/{file_key}/comments/{comment_id}", doc = "comments-endpoints/#delete-comments-endpoint",
@@ -174,8 +174,10 @@ local function operations(endpoints: {[string]: Endpoint}, request: (string, End
 end
 -- End of the shared request layer.
 
--- A file key, or the key in a Figma URL such as https://www.figma.com/design/<key>/<name>,
+-- A file key, or the key in a Figma file URL such as https://www.figma.com/design/<key>/<name>,
 -- where /branch/<key> names a branch.
+local FILE_KINDS = {file = true, design = true, board = true, proto = true, slides = true, deck = true, site = true, make = true, buzz = true}
+
 local function fileKey(value: any): string
 	assert(type(value) == "string", "file_key must be a Figma file key or URL")
 	local key: string? = value
@@ -183,8 +185,8 @@ local function fileKey(value: any): string
 		local host, rest = string.match(value, "^https://([%w%.%-]+)/([^?#]*)")
 		local figma = host ~= nil and (string.lower(host) == "figma.com" or string.sub(string.lower(host), -10) == ".figma.com")
 		assert(figma, "file_key must be a Figma file key or URL")
-		local main, tail = string.match(rest :: string, "^[%w%-]+/(%w+)(.*)$")
-		key = if tail then string.match(tail, "^/branch/(%w+)") or main else main
+		local kind, main, tail = string.match(rest :: string, "^([%w%-]+)/(%w+)(.*)$")
+		key = if kind and FILE_KINDS[kind] then string.match(tail :: string, "^/branch/(%w+)") or main else nil
 	end
 	assert(key and string.match(key, "^%w+$"), "file_key must be a Figma file key or URL")
 	return key :: string
@@ -197,6 +199,16 @@ local function identifier(value: any, field: string): string
 	local pattern = if field == "key" then "^%x+$" else "^%d+$"
 	assert(type(value) == "string" and string.match(value, pattern), field .. (if field == "key" then " must be a Figma key" else " must be a numeric id string"))
 	return value
+end
+
+-- Reaction pages link the next one as a URL; its cursor value is already encoded.
+local function cursor(value: any): string
+	if type(value) == "string" and string.find(value, "^https://api%.figma%.com/") then
+		local encoded = string.match(value, "[?&]cursor=([^&#]+)")
+		assert(encoded and string.match(encoded, "^[%w%%%-%._~]+$"), "cursor must be a cursor or pagination.next_page")
+		return encoded
+	end
+	return queryParts(value, "cursor")[1]
 end
 
 -- Node ids such as 1:2 or I1:2;3:4, as a list or comma-separated; URLs write 1:2 as 1-2.
@@ -249,34 +261,44 @@ local RENDERS = "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/"
 local FORMATS = {png = true, jpg = true, svg = true, pdf = true}
 local MAX_SAVED = 10
 
+-- Downloads every render at once, so a batch fits the invocation's 30 seconds.
 local function save(name: string, rendered: any, folder: string, format: string): any
 	if type(rendered) ~= "table" or type(rendered.images) ~= "table" then
 		return houston.fail({operation = name, layer = "upstream", upstream_status = 200, retryable = false,
 			message = "Figma rendered no images" .. (if type(rendered) == "table" and type(rendered.err) == "string" then ": " .. string.sub(rendered.err, 1, 600) else "")})
 	end
 	local ids: {string} = {}
-	for id in rendered.images do table.insert(ids, id) end
-	table.sort(ids)
-	for _, id in ids do
-		local link = rendered.images[id]
+	for id, link in rendered.images do
 		if type(link) ~= "string" then continue end
 		if string.find(link, RENDERS, 1, true) ~= 1 then
 			return houston.fail({operation = name, layer = "upstream", upstream_status = 200, retryable = false,
 				message = "Figma returned a render on an unexpected host"})
 		end
-		local path = folder .. "/" .. (string.gsub(id, "[^%w]", "-")) .. "." .. format
-		local output = fs.open(path, "w")
-		local response = await(http.request({method = "GET", url = link}))
-		if response.statusCode ~= 200 then
-			response.body:close()
-			pcall(function() await(output:close()) end)
-			local status = response.statusCode
+		table.insert(ids, id)
+	end
+	table.sort(ids)
+	if #ids == 0 then return rendered end
+	local downloads = {}
+	for index, id in ids do downloads[index] = http.request({method = "GET", url = rendered.images[id]}) end
+	local responses = awaitAll(downloads)
+	for index, id in ids do
+		local status = responses[index].statusCode
+		if status ~= 200 then
+			for _, response in responses do if type(response) == "table" then response.body:close() end end
 			return houston.fail({operation = name, layer = "upstream", upstream_status = status, retryable = status == 403 or status >= 500,
 				message = "Downloading the render of " .. id .. " failed with HTTP " .. tostring(status)})
 		end
-		output:write(response.body)
-		await(output:close())
-		rendered.images[id] = {path = path, size = await(fs.stat(path)).size, url = await(fs.signedGetUrl(path))}
+	end
+	local paths, closes = {}, {}
+	for index, id in ids do
+		paths[index] = folder .. "/" .. (string.gsub(id, "[^%w]", "-")) .. "." .. format
+		local output = fs.open(paths[index], "w")
+		output:write(responses[index].body)
+		closes[index] = output:close()
+	end
+	awaitAll(closes)
+	for index, id in ids do
+		rendered.images[id] = {path = paths[index], size = await(fs.stat(paths[index])).size, url = await(fs.signedGetUrl(paths[index]))}
 	end
 	return rendered
 end
@@ -291,18 +313,19 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 	for _, field in endpoint.required or NONE do
 		assert(args[field] ~= nil and args[field] ~= NULL, field .. " is required")
 	end
-	local folder = args.save_to
-	args.save_to = nil
+	local folder: string? = nil
 	local format = args.format or "png"
-	if folder ~= nil then
-		assert(type(folder) == "string" and folder ~= "", "save_to must be a session folder path")
-		folder = string.gsub(folder, "/+$", "")
+	if table.find(endpoint.extra or NONE, "save_to") and args.save_to ~= nil then
+		local target = args.save_to
+		assert(type(target) == "string" and target ~= "", "save_to must be a session folder path")
+		folder = (string.gsub(target, "/+$", ""))
 		assert(FORMATS[format], "format must be png, jpg, svg or pdf")
+		args.save_to = nil
 	end
 	local query: {string} = {}
 	for _, field in endpoint.query or NONE do
 		if args[field] ~= nil then
-			local parts = if field == "ids" then nodeIds(args[field]) else queryParts(args[field], field)
+			local parts = if field == "ids" then nodeIds(args[field]) elseif field == "cursor" then {cursor(args[field])} else queryParts(args[field], field)
 			if field == "ids" and folder ~= nil then assert(#parts <= MAX_SAVED, "save_to saves at most " .. MAX_SAVED .. " ids at once") end
 			table.insert(query, field .. "=" .. table.concat(parts, ","))
 		end
@@ -318,15 +341,22 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 	end
 	local unknown = next(args)
 	assert(unknown == nil, name .. " has no option " .. tostring(unknown))
-	local result = decode(name, endpoint, await(http.request({method = endpoint.method, url = API .. path, headers = headers, body = body})))
+	local result = decode(name, endpoint, await(http.request({url = API .. path, method = endpoint.method, headers = headers, body = body})))
 	if folder ~= nil then return save(name, result, folder, format) end
 	return result
 end
 
-return operations(endpoints, request, {
+local intro = {
 	"Figma REST API v1. Every function takes one named options object with Figma's snake_case names; ? marks optional fields and ...body the JSON body fields. Results are Figma's JSON unchanged. Connector calls return completed values: use them directly, without await.",
-	"file_key takes a file or branch key, or a Figma URL such as https://www.figma.com/design/<key>/<name>?node-id=1-2. Node ids are like 1:2 or I1:2;3:4; ids takes a list or comma-separated string, and the URL form 1-2 also works. Team ids come from team URLs (figma.com/files/team/<team_id>); no endpoint lists your teams. Keep ids as strings.",
+	"file_key takes a file or branch key, or a Figma file URL such as https://www.figma.com/design/<key>/<name>?node-id=1-2. Node ids are like 1:2 or I1:2;3:4; ids takes a list or comma-separated string, and the URL form 1-2 also works. team_id is the number after /team/ in a team's URL in the file browser; no endpoint lists your teams. Keep ids as strings.",
 	"Examples: local file = figma.getFile({file_key=link, depth=2}); figma.getFileNodes({file_key=link, ids={'1:2'}}); figma.renderImages({file_key=link, ids={'1:2', '1:3'}, format='png', scale=2, save_to='renders'}); figma.listComments({file_key=link, as_md=true}).",
-	"Read-only connections omit writes. Figma limits requests per minute by endpoint tier and seat: file, node and render calls are tier 1 (10-20 a minute on paid Full and Dev seats, but only about 20 a month on View and Collab seats or the Starter plan), comments and versions tier 2, metadata and libraries tier 3. HTTP 429 reports Retry-After, the seat's limit type and the plan. Results above 8 MiB fail: narrow getFile with depth or ids.",
-	"Side effects: postComment and addCommentReaction notify the file's followers and mentioned people; deleteComment works on your own comments only. There are no automatic retries: after a timeout or 5xx, list the comments before repeating a write. Errors report the HTTP status and Figma's message.",
-})
+	"Figma limits requests by endpoint tier, seat and plan: file, node and render calls are tier 1, 10 to 20 a minute on Dev and Full seats of paid plans but at most 20 a month on View and Collab seats and 6 a month for files on the Starter plan; comments, versions and projects are tier 2, metadata and libraries tier 3. Houston retries an HTTP 429 twice when Retry-After is 5 seconds or less, then reports Retry-After, the seat's limit type and the plan. Results above 8 MiB fail: narrow getFile with depth or ids. A call, saved renders included, must finish within 30 seconds: save fewer ids or a smaller scale when renders are large.",
+	"Errors report the HTTP status and Figma's message.",
+}
+if config.access == "read-write" then
+	table.insert(intro, "Side effects: postComment and addCommentReaction notify the file's followers and mentioned people; deleteComment works on your own comments only. Other failures are not retried: after a timeout or 5xx, list the comments before repeating a write.")
+else
+	table.insert(intro, "This read-only connection omits writes.")
+end
+
+return operations(endpoints, request, intro)

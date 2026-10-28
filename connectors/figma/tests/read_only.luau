@@ -85,17 +85,22 @@ return {
 			{function() figma.getComponentSet({key = "def456"}) end, "/v1/component_sets/def456"},
 			{function() figma.getStyle({key = "0f0f"}) end, "/v1/styles/0f0f"},
 			{function() figma.listCommentReactions({file_key = KEY, comment_id = "7", cursor = "c2"}) end, "/v1/files/" .. KEY .. "/comments/7/reactions?cursor=c2"},
+			{function() figma.listCommentReactions({file_key = KEY, comment_id = "7", cursor = "https://api.figma.com/v1/files/" .. KEY .. "/comments/7/reactions?cursor=YWJj%3D%3D"}) end, "/v1/files/" .. KEY .. "/comments/7/reactions?cursor=YWJj%3D%3D"},
 		} do
 			case[1]()
 			assert(last().method == "GET" and last().url == API .. case[2], last().url)
 		end
-		assert(#requests == 25)
+		assert(#requests == 26)
 
 		rejected(function() figma.getFile() end, "file_key must be a Figma file key or URL")
 		rejected(function() figma.getFile({file_key = "../v1/me"}) end, "file_key must be a Figma file key or URL")
 		rejected(function() figma.getFile({file_key = "https://evil.example/design/" .. KEY}) end, "file_key must be a Figma file key or URL")
 		rejected(function() figma.getFile({file_key = "https://www.figma.com.evil.example/design/" .. KEY}) end, "file_key must be a Figma file key or URL")
 		rejected(function() figma.getFile({file_key = "https://www.figma.com/"}) end, "file_key must be a Figma file key or URL")
+		rejected(function() figma.getFile({file_key = "https://www.figma.com/files/123/team/456/Design"}) end, "file_key must be a Figma file key or URL")
+		rejected(function() figma.getFile({file_key = "https://www.figma.com/community/file/123/Kit"}) end, "file_key must be a Figma file key or URL")
+		rejected(function() figma.getFile({file_key = KEY, save_to = "out"}) end, "getFile has no option save_to")
+		rejected(function() figma.listCommentReactions({file_key = KEY, comment_id = "7", cursor = "https://api.figma.com/v1/files/x/comments/7/reactions?page=2"}) end, "cursor must be a cursor or pagination.next_page")
 		rejected(function() figma.listTeamProjects({team_id = 42}) end, "team_id must be a numeric id string")
 		rejected(function() figma.listTeamProjects({team_id = "42/../1"}) end, "team_id must be a numeric id string")
 		rejected(function() figma.getComponent({key = "node 1:2"}) end, "key must be a Figma key")

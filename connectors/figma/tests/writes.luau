@@ -32,7 +32,7 @@ return {
 		local opts = {file_key = link, message = "Looks good", comment_id = "7"}
 		local reply = figma.postComment(opts)
 		assert(last().method == "POST" and last().url == API .. "/v1/files/" .. KEY .. "/comments")
-		assert(last().headers["Content-Type"][1] == "application/json" and last().headers.Authorization == nil)
+		assert(last().headers["Content-Type"][1] == "application/json" and last().headers.Authorization == nil and last().headers["X-Figma-Token"] == nil)
 		local body = json.decode(last().body)
 		assert(body.message == "Looks good" and body.comment_id == "7" and body.file_key == nil)
 		assert(reply.parent_id == "7" and opts.file_key == link, "caller options were modified")
