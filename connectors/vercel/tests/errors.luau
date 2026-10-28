@@ -9,6 +9,7 @@ return {
 		http = {request = function(req)
 			calls += 1
 			lastUrl = req.url
+			if headersTimeout then error({code = "timeout", message = "HTTP response headers timed out"}) end
 			return fixture.operation({statusCode = status, headers = responseHeaders, body = fixture.reader(payload)})
 		end}
 	end,
@@ -38,6 +39,11 @@ return {
 		status, payload = 404, '{"error":{"code":"not_found","message":"Deployment not found"}}'
 		local ok, err = pcall(function() vercel.listRuntimeLogs({projectId = "prj_1", deploymentId = "dpl_1"}) end)
 		assert(not ok and string.find(tostring(err), "HTTP 404 (not_found): Deployment not found", 1, true), tostring(err))
+		headersTimeout = true
+		ok, err = pcall(function() vercel.listRuntimeLogs({projectId = "prj_1", deploymentId = "dpl_1"}) end)
+		assert(not ok and string.find(tostring(err), "did not start the runtime log stream within 5 seconds", 1, true)
+			and string.find(tostring(err), '"retryable":true', 1, true), tostring(err))
+		headersTimeout = false
 		status, payload = 200, '{"projects":"nope"}'
 		ok, err = pcall(function() vercel.listProjects() end)
 		assert(not ok and string.find(tostring(err), "invalid project list", 1, true), tostring(err))

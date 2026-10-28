@@ -66,10 +66,10 @@ return {
 		assert(page.pagination.next == 1793143768000 and page.deployments[1].uid == "dpl_1")
 
 		-- Deploy hook ids complete unauthenticated trigger URLs, so deployments drop them.
-		payload = '{"deployments":[{"uid":"dpl_1","meta":{"deployHookId":"hook-secret","deployHookName":"main","githubCommitRef":"main"}}],"pagination":{"count":1,"next":null,"prev":null}}'
+		payload = '{"deployments":[{"uid":"dpl_1","meta":{"deployHookId":"hook-secret","deployHookName":"main","ciAccessToken":"tok-secret","githubCommitRef":"main"}}],"pagination":{"count":1,"next":null,"prev":null}}'
 		local hooked = vercel.listDeployments({projectIds = {"prj_1", "prj_2"}})
 		assert(last().url == API .. "/v7/deployments?projectIds=prj_1&projectIds=prj_2", last().url)
-		assert(hooked.deployments[1].meta.githubCommitRef == "main" and not string.find(json.encode(hooked), "hook", 1, true), json.encode(hooked))
+		assert(hooked.deployments[1].meta.githubCommitRef == "main" and not string.find(json.encode(hooked), "secret", 1, true), json.encode(hooked))
 		payload = '{"deployments":[],"pagination":{"count":0,"next":null,"prev":null}}'
 		assert(json.encode(vercel.listDeployments().deployments) == "[]")
 		payload = '{"id":"dpl_1","readyState":"READY","meta":{"deployHookId":"hook-secret"}}'

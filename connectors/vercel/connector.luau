@@ -35,7 +35,7 @@ local endpoints: {[string]: Endpoint} = {
 		about = "A deployment by id (dpl_...) or hostname, with readyState, target, url, alias, errorMessage and git metadata."},
 	listBuildLogs = {method = "GET", path = "/v3/deployments/{idOrUrl}/events", query = {"limit", "direction", "since", "until", "name", "statusCode", "builds"},
 		shape = "events", doc = "deployments/get-deployment-events",
-		about = "A deployment's build events as an array of {type, created, text, level?, info, payload}. limit=-1 returns all; direction: forward (default) or backward; builds=1 adds build steps."},
+		about = "A deployment's build events as an array of {type, created, text, level?, info, payload}. limit=-1 returns all, failing past 8 MiB, so prefer a limit for large builds; direction: forward (default) or backward; builds=1 adds build steps."},
 	listRuntimeLogs = {method = "GET", path = "/v1/projects/{projectId}/deployments/{deploymentId}/runtime-logs", extra = {"limit"},
 		shape = "stream", doc = "logs/get-logs-for-a-deployment",
 		about = "Live request and function logs written while listening for a few seconds, {logs, ended}: each {timestampInMs, level, message, source, requestMethod, requestPath, responseStatusCode, domain}. limit is 1..1000 lines (default 100)."},
@@ -51,7 +51,7 @@ local endpoints: {[string]: Endpoint} = {
 
 	redeploy = {method = "POST", path = "/v13/deployments", query = {"forceNew"}, required = {"name", "deploymentId"},
 		fields = {"name", "deploymentId", "target", "withLatestCommit", "meta"}, shape = "deployment", doc = "deployments/create-a-new-deployment",
-		about = "Body {name (project name), deploymentId, target?, withLatestCommit?, meta?}. Rebuilds deploymentId's source as a new deployment. target: production, staging or a custom environment id; without it, a preview. forceNew=1 deploys even when an identical deployment exists."},
+		about = "Body {name (project name), deploymentId, target?, withLatestCommit?, meta?} and no other fields. Rebuilds deploymentId's source as a new deployment. target: production, staging or a custom environment id; without it, a preview. forceNew=1 deploys even when an identical deployment exists."},
 	promoteDeployment = {method = "POST", path = "/v10/projects/{projectId}/promote/{deploymentId}", body = false, doc = "projects/point-production-traffic-to-a-given-deployment",
 		about = "Serves production traffic from a deployment without rebuilding; follow progress with listPromoteAliases."},
 	rollbackDeployment = {method = "POST", path = "/v1/projects/{projectId}/rollback/{deploymentId}", query = {"description"}, body = false,
@@ -181,20 +181,33 @@ end
 -- End of the shared request layer.
 
 -- The connection's team, by id (team_...) or slug; without one, the token's own scope applies.
+-- An invalid team fails each call rather than loading, so help still works.
 local TEAM: string? = nil
-if type(config.team) == "string" and config.team ~= "" then
-	local team = string.lower(config.team)
-	assert(string.match(team, "^[%w_%-]+$"), "The Vercel team must be a team ID or slug")
-	TEAM = if string.sub(team, 1, 5) == "team_" then "teamId=" .. config.team else "slug=" .. team
+local TEAM_VALID = true
+if type(config.team) == "string" then
+	local team = string.match(config.team, "^%s*(.-)%s*$") :: string
+	if team ~= "" then
+		TEAM_VALID = string.match(team, "^[%w_%-]+$") ~= nil
+		TEAM = if string.sub(string.lower(team), 1, 5) == "team_" then "teamId=" .. team else "slug=" .. string.lower(team)
+	end
 end
 
 -- Deployment meta can name the deploy hook that started a build, and a hook's id completes its
--- unauthenticated trigger URL, so deployments drop those fields.
+-- unauthenticated trigger URL, so deployments drop hook fields, and anything named like a token,
+-- secret or password.
+local SECRET_WORDS = {"hook", "token", "secret", "password"}
+
+local function secretKey(key: string): boolean
+	local lower = string.lower(key)
+	for _, word in SECRET_WORDS do if string.find(lower, word, 1, true) then return true end end
+	return false
+end
+
 local function deployment(value: any): any
 	if type(value) == "table" and type(value.meta) == "table" then
 		local meta: Options = {}
 		for key, item in value.meta do
-			if type(key) ~= "string" or string.find(string.lower(key), "deployhook", 1, true) == nil then meta[key] = item end
+			if type(key) ~= "string" or not secretKey(key) then meta[key] = item end
 		end
 		value.meta = meta
 	end
@@ -227,9 +240,7 @@ local function project(value: any): any
 		kept.link = pick(kept.link, LINK_FIELDS)
 		kept.latestDeployments = deployments(kept.latestDeployments)
 		-- targets maps environments, such as production, to their current deployment.
-		if type(kept.targets) == "table" then
-			for target, item in kept.targets do kept.targets[target] = deployment(item) end
-		end
+		kept.targets = deployments(kept.targets)
 	end
 	return kept
 end
@@ -251,7 +262,7 @@ end
 -- Runtime logs stream new lines as newline-delimited JSON for minutes, and an invocation lasts at
 -- most 30 seconds: read until limit lines, the stream's end, or a moment without new data, at
 -- most HEADERS_WAIT + FIRST_WAIT + (MAX_READS - 1) * IDLE_WAIT, about 23 seconds.
-local HEADERS_WAIT, FIRST_WAIT, IDLE_WAIT, MAX_READS, MAX_LINE = 5000, 3000, 250, 60, 256 * 1024
+local HEADERS_WAIT, FIRST_WAIT, IDLE_WAIT, MAX_READS, MAX_LINE = 5000, 3000, 1000, 16, 256 * 1024
 
 local function timedOut(err: any): boolean
 	if type(err) == "table" then return err.code == "timeout" end
@@ -284,13 +295,19 @@ local function stream(name: string, response: HttpResponse, limit: number): any
 			start = stop + 1
 			if string.find(line, "%S") then
 				local decoded, entry = pcall(json.decode, line)
-				if not decoded or type(entry) ~= "table" then fail(name, response, "Vercel returned an invalid log line") end
+				if not decoded or type(entry) ~= "table" then
+					pcall(function() response.body:close() end)
+					fail(name, response, "Vercel returned an invalid log line")
+				end
 				table.insert(logs, entry)
 			end
 		end
 		pending = string.sub(pending, start)
 		if ended or #logs >= limit then break end
-		if #pending > MAX_LINE then fail(name, response, "Vercel returned a log line over " .. MAX_LINE .. " bytes") end
+		if #pending > MAX_LINE then
+			pcall(function() response.body:close() end)
+			fail(name, response, "Vercel returned a log line over " .. MAX_LINE .. " bytes")
+		end
 	end
 	pcall(function() response.body:close() end)
 	return {logs = logs, ended = ended}
@@ -302,6 +319,7 @@ local function decode(name: string, endpoint: Endpoint, response: HttpResponse):
 	local arrays = endpoint.shape == "events" or endpoint.shape == "projects" or endpoint.method == "DELETE"
 	local value, list = object(name, endpoint, response, arrays)
 	if endpoint.shape == "project" then return project(value) end
+	if value == nil then return {success = true} end
 	if endpoint.shape == "deployment" then return deployment(value) end
 	if endpoint.shape == "deployments" and type(value.deployments) == "table" then deployments(value.deployments) end
 	if endpoint.shape == "projects" then
@@ -315,6 +333,7 @@ local function decode(name: string, endpoint: Endpoint, response: HttpResponse):
 end
 
 local function request(name: string, endpoint: Endpoint, input: Options?): any
+	assert(TEAM_VALID or endpoint.team == false, "The connection's Vercel team must be a team ID or slug")
 	local args = options(input)
 	local path = string.gsub(endpoint.path, "{([%w_]+)}", function(field: string)
 		local value = args[field]
@@ -368,7 +387,12 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 	local call: HttpRequest = {url = API .. path, method = endpoint.method, headers = headers, body = body}
 	if endpoint.shape == "stream" then
 		call.timeoutMs = HEADERS_WAIT
-		return stream(name, await(http.request(call)), limit)
+		local ok, response = pcall(function(): any return await(http.request(call)) end)
+		if not ok then
+			return houston.fail({operation = name, layer = "upstream", upstream_status = 0, retryable = true,
+				message = "Vercel did not start the runtime log stream within " .. HEADERS_WAIT // 1000 .. " seconds"})
+		end
+		return stream(name, response, limit)
 	end
 	return decode(name, endpoint, await(http.request(call)))
 end
@@ -378,8 +402,8 @@ local intro = {
 	"Ids: projects prj_..., deployments dpl_..., teams team_...; idOrName also takes a project name, and idOrUrl and the runtime log deploymentId a deployment hostname such as my-app-abc123.vercel.app. Times are Unix milliseconds."
 		.. (if TEAM then " Requests act on the connection's team." else " Requests act on the token's own scope: its team for a team token, else the personal account."),
 	"Lists return one page: limit (default 20, at most 100) and {pagination={count, next, prev}}; while next is not null, pass it as until for the next page (listProjects: as from).",
-	"listRuntimeLogs listens to the live stream for a few seconds and returns the lines written meanwhile; Vercel offers no history through it, so an empty result does not mean the deployment logged nothing. ended=false means the stream was still open. Use listBuildLogs for build output.",
-	"Examples: local page = vercel.listDeployments({projectId='my-app', target='production', limit=10}); local d = page.deployments[1]; vercel.getDeployment({idOrUrl=d.uid}); vercel.listBuildLogs({idOrUrl=d.uid, limit=-1}); vercel.listRuntimeLogs({projectId=d.projectId, deploymentId=d.uid, limit=200}).",
+	"listRuntimeLogs listens to the live stream until a second passes without new lines (at most about 20 seconds) and returns the lines written meanwhile; Vercel offers no history through it, so an empty result does not mean the deployment logged nothing. ended=false means the stream was still open. Use listBuildLogs for build output.",
+	"Examples: local page = vercel.listDeployments({projectId='my-app', target='production', limit=10}); local d = page.deployments[1]; vercel.getDeployment({idOrUrl=d.uid}); vercel.listBuildLogs({idOrUrl=d.uid, limit=500, direction='backward'}); vercel.listRuntimeLogs({projectId=d.projectId, deploymentId=d.uid, limit=200}).",
 	"The token's own permissions and the team's plan still apply. Rate limits are per endpoint group, such as 100 runtime log reads a minute; Houston retries an HTTP 429 twice, then reports when the limit resets. Errors report the HTTP status with Vercel's error code and message.",
 }
 if config.access == "read-write" then

@@ -54,6 +54,8 @@ return {
 		status = 200
 		payload = '{"id":"dpl_3","readyState":"CANCELED"}'
 		assert(vercel.cancelDeployment({id = "dpl_3"}).readyState == "CANCELED")
+		payload = ""
+		assert(vercel.cancelDeployment({id = "dpl_3"}).success == true, "an empty cancellation answer still succeeds")
 		assert(last().method == "PATCH" and last().url == API .. "/v12/deployments/dpl_3/cancel?" .. TEAM and last().body == nil)
 
 		payload = '{"envs":[{"id":"e1","key":"API_URL","type":"plain","value":"https://example.com","target":["production"]}]}'
@@ -83,7 +85,7 @@ return {
 		payload, status = "", 202
 		assert(vercel.promoteDeployment({projectId = "prj_1", deploymentId = "dpl_3"}).success == true, "a background promotion answers 202")
 		status = 200
-		assert(#requests == 16)
+		assert(#requests == 17)
 
 		rejected(function() vercel.redeploy({name = "web"}) end, "deploymentId is required")
 		rejected(function() vercel.redeploy({deploymentId = "dpl_1"}) end, "name is required")
