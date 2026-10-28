@@ -47,6 +47,10 @@ return {
 		assert(created.success == true and created.issue.identifier == "ENG-9")
 		assert(opts.input == input, "caller options were modified")
 
+		-- A write that succeeded keeps its result when a nested field errors.
+		payload = '{"data":{"issueCreate":{"success":true,"issue":{"id":"i10","project":null}}},"errors":[{"message":"Entity not found: Project","path":["issueCreate","issue","project"]}]}'
+		local partial = linear.createIssue({input = {teamId = "t1", title = "Partial"}})
+		assert(partial.success == true and partial.issue.id == "i10" and partial.errors[1].path[3] == "project")
 		payload = '{"data":{"issueUpdate":{"success":true,"issue":{"id":"i9","assignee":null}}}}'
 		local updated = linear.updateIssue({id = "ENG-9", input = {stateId = "s2", assigneeId = NULL, addedLabelIds = {"l2"}}})
 		body = sent()
@@ -63,14 +67,16 @@ return {
 
 		payload = '{"data":{"issue":{"attachments":{"nodes":[]}}}}'
 		local document = "query($id: String!) { issue(id: $id) { attachments { nodes { title url } } } }"
-		local data = linear.graphql({query = document, variables = {id = "ENG-9"}})
+		local response = linear.graphql({query = document, variables = {id = "ENG-9"}})
 		assert(last().method == "POST" and last().body == json.encode({query = document, variables = {id = "ENG-9"}}))
-		assert(json.encode(data.issue.attachments.nodes) == "[]")
+		assert(json.encode(response.data.issue.attachments.nodes) == "[]" and response.errors == nil)
+		linear.graphql({query = "query A { viewer { id } } query B { teams { nodes { id } } }", operationName = "B"})
+		assert(json.decode(last().body).operationName == "B")
 		linear.graphql({query = "{ viewer { id } }"})
 		assert(string.find(last().body, '"variables":{}', 1, true))
 		linear.graphql({query = "{ viewer { id } }", variables = NULL})
 		assert(string.find(last().body, '"variables":{}', 1, true), "null variables are omitted")
-		assert(#requests == 8)
+		assert(#requests == 10)
 
 		rejected(function() linear.createIssue({}) end, "input is required")
 		rejected(function() linear.createIssue({input = {"t1"}}) end, "input must be an object, not an array")
@@ -81,6 +87,7 @@ return {
 		rejected(function() linear.graphql({query = "  \n"}) end, "query must be a GraphQL document")
 		rejected(function() linear.graphql({query = string.rep(" ", 64 * 1024) .. "{ viewer { id } }"}) end, "query must be at most")
 		rejected(function() linear.graphql({query = "{ viewer { id } }", variables = {"x"}}) end, "variables must be an object, not an array")
-		rejected(function() linear.graphql({query = "{ viewer { id } }", operationName = "x"}) end, "graphql has no option operationName")
+		rejected(function() linear.graphql({query = "{ viewer { id } }", operationName = "B C"}) end, "operationName must be a GraphQL name")
+		rejected(function() linear.graphql({query = "{ viewer { id } }", operation = "B"}) end, "graphql has no option operation")
 	end,
 }

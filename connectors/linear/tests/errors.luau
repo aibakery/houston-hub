@@ -28,8 +28,8 @@ return {
 			{"Linear HTTP 401", "AUTHENTICATION_ERROR: You need to authenticate", '"retryable":false'}, {"not authenticated"})
 		upstream(400, '{"errors":[{"message":"Cannot query field \\"nosuchfield\\" on type \\"Issue\\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED","type":"graphql error"}}]}', {},
 			{"Linear HTTP 400", "GRAPHQL_VALIDATION_FAILED", "nosuchfield", '"retryable":false'})
-		upstream(429, '{"errors":[{"message":"Rate limit exceeded","extensions":{"code":"RATELIMITED"}}]}', {["retry-after"] = {"42"}},
-			{"Linear HTTP 429", "RATELIMITED", "retry after 42s", '"retryable":true'})
+		upstream(429, '{"errors":[{"message":"Rate limit exceeded","extensions":{"code":"RATELIMITED"}}]}', {["retry-after"] = {"42"}, ["x-ratelimit-requests-reset"] = {"1793145600000"}},
+			{"Linear HTTP 429", "RATELIMITED", "retry-after 42; x-ratelimit-requests-reset 1793145600000", '"retryable":true'})
 		-- Linear can answer 200 with errors and no data; a rate-limit code is retryable at any status.
 		upstream(200, '{"data":null,"errors":[{"message":"Entity not found: Issue","extensions":{"code":"INVALID_INPUT","userPresentableMessage":"Could not find referenced Issue."}},{"message":"busy","extensions":{"code":"RATELIMITED"}}]}', {},
 			{"Linear HTTP 200", "INVALID_INPUT: Could not find referenced Issue.; RATELIMITED: busy", '"retryable":true'})
@@ -37,5 +37,6 @@ return {
 			{"INVALID_INPUT: xxx", "; b; c"}, {"fourth", string.rep("x", 601)})
 		upstream(502, "<html>Bad gateway</html>", {}, {"Linear HTTP 502: <html>Bad gateway</html>", '"retryable":true'})
 		upstream(200, '{"errors":[]}', {}, {"invalid GraphQL response"})
+		upstream(200, '{"data":{"issueUpdate":null},"errors":[{"message":"Forbidden"}]}', {}, {"Linear answered issueUpdate with errors", "Forbidden"})
 	end,
 }
