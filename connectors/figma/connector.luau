@@ -271,7 +271,7 @@ end
 -- Renders live on a public bucket, fetched without credentials.
 local RENDERS = "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/"
 local FORMATS = {png = true, jpg = true, svg = true, pdf = true}
-local MAX_SAVED, CLEANUP_WAIT = 10, 1000
+local MAX_SAVED, CLEANUP_WAIT, DOWNLOAD_WAIT = 10, 1000, 15000
 
 local function failRender(name: string, status: number, retryable: boolean, message: string): never
 	return houston.fail({operation = name, layer = "upstream", upstream_status = status, retryable = retryable, message = message})
@@ -303,7 +303,7 @@ local function save(name: string, rendered: any, folder: string, format: string)
 	table.sort(ids)
 	if #ids == 0 then return rendered end
 	local downloads = {}
-	for index, id in ids do downloads[index] = http.request({method = "GET", url = rendered.images[id]}) end
+	for index, id in ids do downloads[index] = http.request({method = "GET", url = rendered.images[id], timeoutMs = DOWNLOAD_WAIT}) end
 	local fetched, responses = pcall(awaitAll, downloads)
 	if not fetched then
 		closeAll(downloads)
@@ -317,8 +317,8 @@ local function save(name: string, rendered: any, folder: string, format: string)
 		end
 	end
 	local paths = {}
+	local closes = {}
 	local written = pcall(function()
-		local closes = {}
 		for index, id in ids do
 			paths[index] = folder .. "/" .. fileName(id, format)
 			local output = fs.open(paths[index], "w")
@@ -328,6 +328,7 @@ local function save(name: string, rendered: any, folder: string, format: string)
 		awaitAll(closes)
 	end)
 	if not written then
+		for _, close in closes do pcall(function() await(close, CLEANUP_WAIT) end) end
 		closeAll(downloads)
 		return failRender(name, 0, true, "Saving the renders in " .. string.sub(folder, 1, 200) .. " failed; some files there may be partial")
 	end
