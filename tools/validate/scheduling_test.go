@@ -165,7 +165,7 @@ func TestProxyMatchesEndpointTables(t *testing.T) {
 	base := regexp.MustCompile(`(?m)^local API = "https://[^/"]+([^"]*)"`)
 	formats := regexp.MustCompile(`local FORMATS = table\.freeze\(\{([^}]*)\}\)`)
 	customMethod := regexp.MustCompile(`\}:\w+$`)
-	for _, name := range []string{"assessfirst", "calcom", "calendly", "carta", "carta-crm", "gusto", "resend", "stripe", "wise", "github", "gcalendar", "gsheets", "gforms", "gdocs", "gslides"} {
+	for _, name := range []string{"assessfirst", "calcom", "calendly", "carta", "carta-crm", "gusto", "resend", "stripe", "vercel", "wise", "github", "gcalendar", "gsheets", "gforms", "gdocs", "gslides"} {
 		lua, entries := endpointTable(t, name)
 		prefix := ""
 		if api := base.FindStringSubmatch(lua); api != nil {
