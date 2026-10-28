@@ -1,0 +1,187 @@
+{
+  "schema_version": 1,
+  "name": "Linear",
+  "files": [
+    "connector.luau"
+  ],
+  "icon": "icon.svg",
+  "config": {
+    "access": {
+      "default": "read-only",
+      "label": "Access",
+      "options": [
+        {
+          "label": "Read-only",
+          "value": "read-only"
+        },
+        {
+          "label": "Read and write",
+          "value": "read-write"
+        }
+      ],
+      "type": "string"
+    },
+    "client_id": {
+      "label": "OAuth client ID",
+      "order": 1,
+      "type": "string"
+    },
+    "client_secret": {
+      "label": "OAuth client secret",
+      "order": 2,
+      "type": "secret"
+    }
+  },
+  "auth": {
+    "token": {
+      "type": "manual",
+      "label": "Personal API key",
+      "order": 1,
+      "config": {
+        "token": {
+          "label": "Personal API key",
+          "required": true,
+          "type": "secret"
+        }
+      }
+    },
+    "oauth": {
+      "type": "oauth2",
+      "label": "Connect with Linear",
+      "order": 2,
+      "authorize_url": "https://linear.app/oauth/authorize",
+      "token_url": "https://api.linear.app/oauth/token",
+      "client_auth": "body",
+      "pkce": "S256",
+      "client_id": "{{config.client_id}}",
+      "client_secret": "{{config.client_secret}}",
+      "require_refresh": true,
+      "scopes": [
+        {
+          "if": "{{ is config.access \"read-only\" }}",
+          "values": [
+            "read"
+          ]
+        },
+        {
+          "if": "{{ is config.access \"read-write\" }}",
+          "values": [
+            "write"
+          ]
+        }
+      ],
+      "account": {
+        "url": "https://api.linear.app/graphql?query=%7Bviewer%7Bemail%7D%7D",
+        "headers": {
+          "Authorization": {
+            "value": "Bearer {{auth.oauth.access_token}}"
+          },
+          "apollo-require-preflight": {
+            "value": "true"
+          }
+        },
+        "label": "/data/viewer/email"
+      }
+    }
+  },
+  "proxy": [
+    {
+      "if": "{{ isDefined auth.token }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "api.linear.app"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/graphql"
+        ]
+      },
+      "action": {
+        "headers": {
+          "remove": [
+            "X-HTTP-Method",
+            "X-HTTP-Method-Override",
+            "X-Method-Override"
+          ],
+          "set": {
+            "Authorization": "{{auth.token.token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ isDefined auth.oauth }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "api.linear.app"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/graphql"
+        ]
+      },
+      "action": {
+        "headers": {
+          "remove": [
+            "X-HTTP-Method",
+            "X-HTTP-Method-Override",
+            "X-Method-Override"
+          ],
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ and (is config.access \"read-write\") (isDefined auth.token) }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "api.linear.app"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/graphql"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "{{auth.token.token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ and (is config.access \"read-write\") (isDefined auth.oauth) }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "api.linear.app"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/graphql"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      }
+    }
+  ]
+}
