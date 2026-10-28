@@ -4,9 +4,9 @@ Choose one way to connect:
 
 - **Personal access token** is the quickest way to connect your own account. No
   developer app is required. Figma tokens expire after at most 90 days.
-- **Connect with Figma** signs in through a Figma OAuth app that you create. A
-  new app works for members of the team or organization that owns it; people
-  outside it need the app published, which Figma reviews.
+- **Connect with Figma** signs in through a Figma OAuth app that you create and
+  publish as private, for members of the team or organization that owns it.
+  People outside it need a public app, which Figma reviews.
 
 Choose the access level in Houston first: **Read-only** to read files and
 comments, or **Read and write** to also post comments and reactions.
@@ -34,14 +34,18 @@ connection.
 1. In Houston, add the Figma connector, choose **Connect with Figma** and copy
    the **OAuth callback URL** shown.
 2. Open [My apps](https://www.figma.com/developers/apps), select **Create a new
-   app**, name it, for example, `Houston`, and choose the team or organization
-   that owns it.
-3. Add the callback URL as the app's redirect URL.
-4. Select every scope listed under [Scopes](#scopes) for both access levels, so
-   you can change the access level later without editing the app.
-5. Copy the **Client ID** and **Client secret** into Houston's **OAuth client ID**
-   and **OAuth client secret**. Figma shows the secret only once.
-6. Select **Authorize account**, sign in to Figma and allow access.
+   app**, name it, for example, `Houston`, choose the team or organization that
+   owns it and select **Create**.
+3. Copy the **Client ID** and **Client Secret** into Houston's **OAuth client ID**
+   and **OAuth client secret** right away: Figma shows the secret only now.
+4. On the **OAuth credentials** page, select **Add a redirect URL** and paste the
+   callback URL.
+5. On the **OAuth scopes** page, select every scope listed under [Scopes](#scopes)
+   for both access levels, so you can change the access level later without
+   editing the app.
+6. On the **Publish** page, choose **Private** and select **Publish**. A draft app
+   only works for you and your plan's admins.
+7. In Houston, select **Authorize account**, sign in to Figma and allow access.
 
 ## Scopes
 
