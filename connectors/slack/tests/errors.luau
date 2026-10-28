@@ -30,6 +30,11 @@ return {
 		upstream(200, '{"ok":false,"error":"fatal_error"}', {}, {"slack: fatal_error", '"retryable":false'},
 			function() slack.postMessage("C1", "Hi") end)
 		upstream(503, "unavailable", {}, {"slack: HTTP 503", '"retryable":false'}, function() slack.deleteMessage("C1", "1.0") end)
+		fs = fixture.files()
+		local file = fs.open("report.txt", "w")
+		file:write("report")
+		await(file:close())
+		upstream(503, "unavailable", {}, {"slack: HTTP 503", '"retryable":true'}, function() slack.uploadFile("report.txt") end)
 		upstream(429, '{"ok":false,"error":"ratelimited"}', {["retry-after"] = {"30"}}, {"retry after 30s", '"retryable":true'},
 			function() slack.addReaction("C1", "1.0", "eyes") end)
 		upstream(503, "<html>Service unavailable</html>", {}, {"slack: HTTP 503", '"retryable":true'})

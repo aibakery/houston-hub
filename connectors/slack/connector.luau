@@ -90,7 +90,8 @@ local function check(operation: string, response: HttpResponse, write: boolean?)
 	fail(operation, response.statusCode, if ok then body else nil, response.headers, write)
 end
 
--- Reads use GET query strings, writes JSON bodies, and files.getUploadURLExternal a form body.
+-- Reads use GET query strings and writes JSON bodies. files.getUploadURLExternal takes a form
+-- body; it only reserves an upload URL, so like reads its transient failures stay retryable.
 local function call(operation: string, method: string, params: Options, encoding: ("json" | "form")?): Options
 	local request: HttpRequest = {method = "GET", url = API .. method}
 	if encoding == "json" then
@@ -104,13 +105,13 @@ local function call(operation: string, method: string, params: Options, encoding
 		if query ~= "" then request.url ..= "?" .. query end
 	end
 	local response = await(http.request(request))
-	check(operation, response, encoding ~= nil)
+	check(operation, response, encoding == "json")
 	local ok, body = pcall(json.decode, await(response.body:readAll()))
 	if not ok or type(body) ~= "table" or type(body.ok) ~= "boolean" then
 		return houston.fail({operation = operation, layer = "upstream", upstream_status = response.statusCode,
 			retryable = false, message = "slack: invalid JSON response"})
 	end
-	if body.ok ~= true then fail(operation, response.statusCode, body, response.headers, encoding ~= nil) end
+	if body.ok ~= true then fail(operation, response.statusCode, body, response.headers, encoding == "json") end
 	local metadata = body.response_metadata
 	if type(metadata) == "table" and type(metadata.next_cursor) == "string" and metadata.next_cursor ~= "" then
 		body.nextCursor = metadata.next_cursor
@@ -177,7 +178,7 @@ end
 
 local function listMentions(opts: Options?): Options
 	local params = options(opts, MENTIONS)
-	local narrow = optional(params.query, "query")
+	local narrow = if params.query == "" then nil else optional(params.query, "query")
 	params.query = nil
 	local query = "<@" .. text(call("listMentions", "auth.test", {}).user_id, "authenticated user ID") .. ">"
 	return search("listMentions", if narrow then query .. " " .. narrow else query, params)
@@ -212,18 +213,17 @@ local function downloadFile(id: string, path: string): Options
 	text(path, "session path")
 	local file = getFile(id)
 	local source = text(file.url_private_download or file.url_private, "file download URL")
-	local output = fs.open(path, "w")
 	local response = await(http.request({method = "GET", url = source}))
+	check("downloadFile", response)
 	-- Slack answers an unauthorized file request with its HTML sign-in page.
 	local kind = response.headers["content-type"]
-	local signIn = kind ~= nil and kind[1] ~= nil and string.find(kind[1], "text/html", 1, true) ~= nil and file.mimetype ~= "text/html"
-	if signIn or response.statusCode < 200 or response.statusCode >= 300 then
-		await(output:close())
-		check("downloadFile", response)
+	local html = type(file.mimetype) == "string" and string.find(file.mimetype, "html", 1, true) ~= nil
+	if kind and kind[1] and string.find(kind[1], "text/html", 1, true) and not html then
 		response.body:close()
 		return houston.fail({operation = "downloadFile", layer = "upstream", upstream_status = 401,
 			retryable = false, message = "slack: file download returned a sign-in page; reconnect Slack"})
 	end
+	local output = fs.open(path, "w")
 	output:write(response.body)
 	await(output:close())
 	return {path = path, url = await(fs.signedGetUrl(path)), bytes = await(fs.stat(path)).size}

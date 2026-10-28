@@ -65,16 +65,24 @@ return {
 		assert(await(saved_file:readAll()) == "%PDF bytes")
 		await(saved_file:close())
 
+		-- A failed download leaves an existing session file untouched.
 		responses = {file, {body = "<html>Sign in</html>", headers = {["content-type"] = {"text/html; charset=utf-8"}}}}
-		local ok, err = pcall(slack.downloadFile, "F1", "signin.pdf")
+		local ok, err = pcall(slack.downloadFile, "F1", "report.pdf")
 		assert(not ok and string.find(tostring(err), "sign-in page", 1, true) and string.find(tostring(err), '"upstream_status":401', 1, true))
-		local partial = fs.open("signin.pdf", "r")
-		assert(await(partial:readAll()) == "", "a sign-in page was saved as the file")
-		await(partial:close())
-
 		responses = {file, {status = 403, body = "Forbidden"}}
-		ok, err = pcall(slack.downloadFile, "F1", "denied.pdf")
+		ok, err = pcall(slack.downloadFile, "F1", "report.pdf")
 		assert(not ok and string.find(tostring(err), "slack: HTTP 403", 1, true) and string.find(tostring(err), '"upstream_status":403', 1, true))
+		local kept = fs.open("report.pdf", "r")
+		assert(await(kept:readAll()) == "%PDF bytes", "a failed download replaced the file")
+		await(kept:close())
+
+		local page = '{"ok":true,"file":{"id":"F2","mimetype":"text/html","url_private_download":"https://files.slack.com/files-pri/T1-F2/download/page.html"}}'
+		responses = {page, {body = "<html>Page</html>", headers = {["content-type"] = {"text/html"}}}}
+		assert(slack.downloadFile("F2", "page.html").bytes == 17, "an HTML file downloads")
+
+		responses = {'{"ok":true,"user_id":"U1"}', '{"ok":true,"messages":{"matches":[],"total":0,"paging":{"page":1,"pages":1}}}'}
+		slack.listMentions({query = ""})
+		assert(last() == "https://slack.com/api/search.messages?query=%3C%40U1%3E&sort=timestamp&sort_dir=desc", "an empty filter is ignored")
 
 		assert(string.find(rejected(slack.getThread, "C1", 1790000000.000001), "thread timestamp must be", 1, true))
 		assert(string.find(rejected(slack.listMessages, "", nil), "channel ID must be", 1, true))
