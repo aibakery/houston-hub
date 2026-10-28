@@ -52,11 +52,15 @@ return {
 		assert(nodes.nodes["1:2"].document.id == "1:2" and nodes.nodes["9:9"] == NULL)
 		figma.getFileNodes({file_key = KEY, ids = " 1:2, 3-4 "})
 		assert(last().url == API .. "/v1/files/" .. KEY .. "/nodes?ids=1%3A2,3%3A4", last().url)
+		figma.getFileNodes({file_key = "www.figma.com/design/" .. KEY .. "/App", ids = {"12%3A34", "I1-2%3B3-4"}})
+		assert(last().url == API .. "/v1/files/" .. KEY .. "/nodes?ids=12%3A34,I1%3A2%3B3%3A4", last().url)
+		figma.getFileMeta({file_key = "http://figma.com/file/" .. KEY})
+		assert(last().url == API .. "/v1/files/" .. KEY .. "/meta", last().url)
 
 		payload = '{"err":null,"images":{"1:2":"https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/u1","1:3":null}}'
 		local rendered = figma.renderImages({file_key = KEY, ids = {"1:2", "1:3"}, format = "svg", scale = 2, svg_include_id = true})
 		assert(last().url == API .. "/v1/images/" .. KEY .. "?ids=1%3A2,1%3A3&scale=2&format=svg&svg_include_id=true", last().url)
-		assert(rendered.images["1:3"] == NULL and #requests == 9, "renders are not downloaded without save_to")
+		assert(rendered.images["1:3"] == NULL and #requests == 11, "renders are not downloaded without save_to")
 
 		payload = '{"versions":[],"pagination":{}}'
 		assert(json.encode(figma.listFileVersions({file_key = KEY, page_size = 50, before = 123}).versions) == "[]")
@@ -90,7 +94,7 @@ return {
 			case[1]()
 			assert(last().method == "GET" and last().url == API .. case[2], last().url)
 		end
-		assert(#requests == 26)
+		assert(#requests == 28)
 
 		rejected(function() figma.getFile() end, "file_key must be a Figma file key or URL")
 		rejected(function() figma.getFile({file_key = "../v1/me"}) end, "file_key must be a Figma file key or URL")
@@ -111,5 +115,6 @@ return {
 		rejected(function() figma.renderImages({file_key = KEY, ids = {"1:2"}, save_to = "out", format = "gif"}) end, "format must be png, jpg, svg or pdf")
 		rejected(function() figma.getFile({file_key = KEY, deep = 1}) end, "getFile has no option deep")
 		rejected(function() figma.getFile("key") end, "opts must be an object")
+		rejected(function() figma.listCommentReactions({file_key = KEY, comment_id = "7", cursor = {"a", "b"}}) end, "cursor must be one value")
 	end,
 }

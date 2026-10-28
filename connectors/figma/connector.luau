@@ -181,8 +181,11 @@ local FILE_KINDS = {file = true, design = true, board = true, proto = true, slid
 local function fileKey(value: any): string
 	assert(type(value) == "string", "file_key must be a Figma file key or URL")
 	local key: string? = value
-	if string.find(value, "^https://") then
-		local host, rest = string.match(value, "^https://([%w%.%-]+)/([^?#]*)")
+	-- Links pasted without a scheme, or with http://, are file URLs too.
+	local link = string.gsub(value, "^http://", "https://")
+	if string.find(link, "^[%w%.%-]*figma%.com/") then link = "https://" .. link end
+	if string.find(link, "^https://") then
+		local host, rest = string.match(link, "^https://([%w%.%-]+)/([^?#]*)")
 		local figma = host ~= nil and (string.lower(host) == "figma.com" or string.sub(string.lower(host), -10) == ".figma.com")
 		assert(figma, "file_key must be a Figma file key or URL")
 		local kind, main, tail = string.match(rest :: string, "^([%w%-]+)/(%w+)(.*)$")
@@ -208,10 +211,23 @@ local function cursor(value: any): string
 		assert(encoded and string.match(encoded, "^[%w%%%-%._~]+$"), "cursor must be a cursor or pagination.next_page")
 		return encoded
 	end
-	return queryParts(value, "cursor")[1]
+	local parts = queryParts(value, "cursor")
+	assert(#parts == 1, "cursor must be one value")
+	return parts[1]
 end
 
--- Node ids such as 1:2 or I1:2;3:4, as a list or comma-separated; URLs write 1:2 as 1-2.
+-- A node id such as 1:2 or I1:2;3:4. URLs write 1:2 as 1-2, and older links percent-encode
+-- : and ;.
+local function nodeId(item: string, field: string): string
+	local id = string.match(item, "^%s*(.-)%s*$") :: string
+	id = string.gsub(id, "%%3[Aa]", ":")
+	id = string.gsub(id, "%%3[Bb]", ";")
+	id = string.gsub(id, "-", ":")
+	assert(string.match(id, "^[%w:;]+$"), field .. " must be node ids such as 1:2")
+	return id
+end
+
+-- Node ids as a list or comma-separated.
 local function nodeIds(value: any): {string}
 	local items: {string} = {}
 	if type(value) == "string" then
@@ -224,11 +240,7 @@ local function nodeIds(value: any): {string}
 		end
 	end
 	assert(#items > 0, "ids must name at least one node")
-	for index, item in items do
-		local id = (string.gsub((string.gsub(item, "^%s*(.-)%s*$", "%1")), "-", ":"))
-		assert(string.match(id, "^[%w:;]+$"), "ids must be node ids such as 1:2")
-		items[index] = url.encode(id)
-	end
+	for index, item in items do items[index] = url.encode(nodeId(item, "ids")) end
 	return items
 end
 
@@ -259,21 +271,33 @@ end
 -- Renders live on a public bucket, fetched without credentials.
 local RENDERS = "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/"
 local FORMATS = {png = true, jpg = true, svg = true, pdf = true}
-local MAX_SAVED = 10
+local MAX_SAVED, CLEANUP_WAIT = 10, 1000
+
+local function failRender(name: string, status: number, retryable: boolean, message: string): never
+	return houston.fail({operation = name, layer = "upstream", upstream_status = status, retryable = retryable, message = message})
+end
+
+-- A render's file name: 1:2 saves as 1-2 and I1:2;3:4 as I1-2_3-4, so distinct ids never share one.
+local function fileName(id: string, format: string): string
+	local name = string.gsub(id, ":", "-")
+	name = string.gsub(name, ";", "_")
+	return name .. "." .. format
+end
+
+local function closeAll(downloads: {any})
+	for _, download in downloads do pcall(function() await(download, CLEANUP_WAIT).body:close() end) end
+end
 
 -- Downloads every render at once, so a batch fits the invocation's 30 seconds.
 local function save(name: string, rendered: any, folder: string, format: string): any
 	if type(rendered) ~= "table" or type(rendered.images) ~= "table" then
-		return houston.fail({operation = name, layer = "upstream", upstream_status = 200, retryable = false,
-			message = "Figma rendered no images" .. (if type(rendered) == "table" and type(rendered.err) == "string" then ": " .. string.sub(rendered.err, 1, 600) else "")})
+		return failRender(name, 200, false, "Figma rendered no images"
+			.. (if type(rendered) == "table" and type(rendered.err) == "string" then ": " .. string.sub(rendered.err, 1, 600) else ""))
 	end
 	local ids: {string} = {}
 	for id, link in rendered.images do
 		if type(link) ~= "string" then continue end
-		if string.find(link, RENDERS, 1, true) ~= 1 then
-			return houston.fail({operation = name, layer = "upstream", upstream_status = 200, retryable = false,
-				message = "Figma returned a render on an unexpected host"})
-		end
+		if string.find(link, RENDERS, 1, true) ~= 1 then return failRender(name, 200, false, "Figma returned a render on an unexpected host") end
 		table.insert(ids, id)
 	end
 	table.sort(ids)
@@ -282,26 +306,31 @@ local function save(name: string, rendered: any, folder: string, format: string)
 	for index, id in ids do downloads[index] = http.request({method = "GET", url = rendered.images[id]}) end
 	local fetched, responses = pcall(awaitAll, downloads)
 	if not fetched then
-		for _, download in downloads do pcall(function() await(download).body:close() end) end
-		return houston.fail({operation = name, layer = "upstream", upstream_status = 0, retryable = true,
-			message = "Downloading the renders failed before Figma's bucket answered"})
+		closeAll(downloads)
+		return failRender(name, 0, true, "Downloading the renders failed before Figma's bucket answered")
 	end
 	for index, id in ids do
 		local status = responses[index].statusCode
 		if status ~= 200 then
-			for _, response in responses do if type(response) == "table" then response.body:close() end end
-			return houston.fail({operation = name, layer = "upstream", upstream_status = status, retryable = status == 403 or status >= 500,
-				message = "Downloading the render of " .. id .. " failed with HTTP " .. tostring(status)})
+			closeAll(downloads)
+			return failRender(name, status, status == 403 or status >= 500, "Downloading the render of " .. id .. " failed with HTTP " .. tostring(status))
 		end
 	end
-	local paths, closes = {}, {}
-	for index, id in ids do
-		paths[index] = folder .. "/" .. (string.gsub(id, "[^%w]", "-")) .. "." .. format
-		local output = fs.open(paths[index], "w")
-		output:write(responses[index].body)
-		closes[index] = output:close()
+	local paths = {}
+	local written = pcall(function()
+		local closes = {}
+		for index, id in ids do
+			paths[index] = folder .. "/" .. fileName(id, format)
+			local output = fs.open(paths[index], "w")
+			output:write(responses[index].body)
+			closes[index] = output:close()
+		end
+		awaitAll(closes)
+	end)
+	if not written then
+		closeAll(downloads)
+		return failRender(name, 0, true, "Saving the renders in " .. string.sub(folder, 1, 200) .. " failed; some files there may be partial")
 	end
-	awaitAll(closes)
 	local stats, links = {}, {}
 	for index in ids do
 		stats[index] = fs.stat(paths[index])
@@ -323,6 +352,11 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 	end)
 	for _, field in endpoint.required or NONE do
 		assert(args[field] ~= nil and args[field] ~= NULL, field .. " is required")
+	end
+	-- Comment pins take node ids in their URL form too.
+	if type(args.client_meta) == "table" and type(args.client_meta.node_id) == "string" then
+		args.client_meta = table.clone(args.client_meta)
+		args.client_meta.node_id = nodeId(args.client_meta.node_id, "client_meta.node_id")
 	end
 	local folder: string? = nil
 	local format = args.format or "png"

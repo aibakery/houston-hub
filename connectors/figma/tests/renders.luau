@@ -32,7 +32,7 @@ return {
 		assert(requests[3].url == BUCKET .. "u2")
 		local one, two = saved.images["1:2"], saved.images["I3:4;5:6"]
 		assert(one.path == "renders/1-2.png" and one.size == 7 and type(one.url) == "string" and contents("renders/1-2.png") == "png-one")
-		assert(two.path == "renders/I3-4-5-6.png" and contents(two.path) == "png-two")
+		assert(two.path == "renders/I3-4_5-6.png" and contents(two.path) == "png-two")
 		assert(saved.images["7:8"] == NULL and saved.err == NULL)
 
 		respond(200, '{"err":null,"images":{"1:2":"https://evil.example/images/u1"}}')

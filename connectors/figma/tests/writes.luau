@@ -37,7 +37,7 @@ return {
 		assert(body.message == "Looks good" and body.comment_id == "7" and body.file_key == nil)
 		assert(reply.parent_id == "7" and opts.file_key == link, "caller options were modified")
 
-		figma.postComment({file_key = KEY, message = "Pinned", client_meta = {node_id = "1:2", node_offset = {x = 10, y = 20}}})
+		figma.postComment({file_key = KEY, message = "Pinned", client_meta = {node_id = "1-2", node_offset = {x = 10, y = 20}}})
 		body = json.decode(last().body)
 		assert(body.client_meta.node_id == "1:2" and body.client_meta.node_offset.y == 20)
 
