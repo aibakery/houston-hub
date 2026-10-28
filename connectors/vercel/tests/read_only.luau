@@ -66,7 +66,7 @@ return {
 		assert(page.pagination.next == 1793143768000 and page.deployments[1].uid == "dpl_1")
 
 		-- Deploy hook ids complete unauthenticated trigger URLs, so deployments drop them.
-		payload = '{"deployments":[{"uid":"dpl_1","meta":{"deployHookId":"hook-secret","deployHookName":"main","ciAccessToken":"tok-secret","githubCommitRef":"main"}}],"pagination":{"count":1,"next":null,"prev":null}}'
+		payload = '{"deployments":[{"uid":"dpl_1","meta":{"deployHookId":"hook-secret","deployHookName":"main","ciAccessToken":"tok-secret","vercelApiKey":"key-secret","githubCommitRef":"main"}}],"pagination":{"count":1,"next":null,"prev":null}}'
 		local hooked = vercel.listDeployments({projectIds = {"prj_1", "prj_2"}})
 		assert(last().url == API .. "/v7/deployments?projectIds=prj_1&projectIds=prj_2", last().url)
 		assert(hooked.deployments[1].meta.githubCommitRef == "main" and not string.find(json.encode(hooked), "secret", 1, true), json.encode(hooked))
@@ -89,12 +89,12 @@ return {
 		assert(last().url == API .. "/v1/projects/prj_1/deployments/dpl_1/runtime-logs", last().url)
 		assert(last().headers.Accept[1] == "application/stream+json")
 		-- The stream ended, so its unterminated last line counts too.
-		assert(#logs.logs == 3 and logs.logs[2].message == "boom" and logs.ended == true, json.encode(logs))
+		assert(#logs.logs == 3 and logs.logs[2].message == "boom" and logs.ended == true and logs.truncated == false, json.encode(logs))
 		logs = vercel.listRuntimeLogs({projectId = "prj_1", deploymentId = "dpl_1", limit = 1})
-		assert(#logs.logs == 1 and logs.logs[1].message == "GET /" and logs.ended == false, json.encode(logs))
+		assert(#logs.logs == 1 and logs.logs[1].message == "GET /" and logs.ended == false and logs.truncated == true, json.encode(logs))
 		payload = ""
 		logs = vercel.listRuntimeLogs({projectId = "prj_1", deploymentId = "dpl_1"})
-		assert(json.encode(logs.logs) == "[]" and logs.ended == true)
+		assert(json.encode(logs.logs) == "[]" and logs.ended == true and logs.truncated == false)
 		payload = string.rep("x", 300 * 1024)
 		local ok, err = pcall(function() vercel.listRuntimeLogs({projectId = "prj_1", deploymentId = "dpl_1"}) end)
 		assert(not ok and string.find(tostring(err), "log line over", 1, true), tostring(err))

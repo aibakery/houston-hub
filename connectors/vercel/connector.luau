@@ -38,7 +38,7 @@ local endpoints: {[string]: Endpoint} = {
 		about = "A deployment's build events as an array of {type, created, text, level?, info, payload}. limit=-1 returns all, failing past 8 MiB, so prefer a limit for large builds; direction: forward (default) or backward; builds=1 adds build steps."},
 	listRuntimeLogs = {method = "GET", path = "/v1/projects/{projectId}/deployments/{deploymentId}/runtime-logs", extra = {"limit"},
 		shape = "stream", doc = "logs/get-logs-for-a-deployment",
-		about = "Live request and function logs written while listening for a few seconds, {logs, ended}: each {timestampInMs, level, message, source, requestMethod, requestPath, responseStatusCode, domain}. limit is 1..1000 lines (default 100)."},
+		about = "Live request and function logs written while listening for a few seconds, {logs, ended, truncated}: each {timestampInMs, level, message, source, requestMethod, requestPath, responseStatusCode, domain}. limit is 1..1000 lines (default 100)."},
 	listPromoteAliases = {method = "GET", path = "/v1/projects/{projectId}/promote/aliases", query = {"failedOnly", "limit", "since", "until"},
 		doc = "projects/gets-a-list-of-aliases-with-status-for-the-current-promote",
 		about = "Progress of the project's current promotion, {aliases, pagination}."},
@@ -195,7 +195,7 @@ end
 -- Deployment meta can name the deploy hook that started a build, and a hook's id completes its
 -- unauthenticated trigger URL, so deployments drop hook fields, and anything named like a token,
 -- secret or password.
-local SECRET_WORDS = {"hook", "token", "secret", "password"}
+local SECRET_WORDS = {"hook", "token", "secret", "password", "apikey", "accesskey", "privatekey", "credential"}
 
 local function secretKey(key: string): boolean
 	local lower = string.lower(key)
@@ -216,7 +216,7 @@ end
 
 local function deployments(list: any): any
 	if type(list) == "table" then
-		for index, item in list do list[index] = deployment(item) end
+		for _, item in list do deployment(item) end
 	end
 	return list
 end
@@ -272,11 +272,14 @@ end
 local function stream(name: string, response: HttpResponse, limit: number): any
 	if response.statusCode ~= 200 then failStatus(name, response) end
 	local logs: {any} = json.decode("[]")
-	local pending, ended = "", false
+	local pending, ended, idle = "", false, false
 	for read = 1, MAX_READS do
 		local ok, chunk = pcall(function(): any return await(response.body:read(64 * 1024), if read == 1 then FIRST_WAIT else IDLE_WAIT) end)
 		if not ok then
-			if timedOut(chunk) then break end
+			if timedOut(chunk) then
+				idle = true
+				break
+			end
 			pcall(function() response.body:close() end)
 			return houston.fail({operation = name, layer = "upstream", upstream_status = 200, retryable = true,
 				message = "The runtime log stream failed after " .. #logs .. " lines"})
@@ -310,7 +313,9 @@ local function stream(name: string, response: HttpResponse, limit: number): any
 		end
 	end
 	pcall(function() response.body:close() end)
-	return {logs = logs, ended = ended}
+	-- More was likely coming when the read budget or limit ran out, or a line was cut off.
+	local truncated = (not ended and not idle) or #logs >= limit or string.find(pending, "%S") ~= nil
+	return {logs = logs, ended = ended, truncated = truncated}
 end
 
 local function decode(name: string, endpoint: Endpoint, response: HttpResponse): any
@@ -328,8 +333,7 @@ local function decode(name: string, endpoint: Endpoint, response: HttpResponse):
 		for index, item in projects do projects[index] = project(item) end
 		if list then return {projects = projects} end
 	end
-	-- Promotions, cancellations and deletions may answer without a body.
-	return value or {success = true}
+	return value
 end
 
 local function request(name: string, endpoint: Endpoint, input: Options?): any
@@ -389,6 +393,7 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 		call.timeoutMs = HEADERS_WAIT
 		local ok, response = pcall(function(): any return await(http.request(call)) end)
 		if not ok then
+			if not timedOut(response) then error(response, 0) end
 			return houston.fail({operation = name, layer = "upstream", upstream_status = 0, retryable = true,
 				message = "Vercel did not start the runtime log stream within " .. HEADERS_WAIT // 1000 .. " seconds"})
 		end
@@ -398,11 +403,11 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 end
 
 local intro = {
-	"Vercel REST API. Every function takes one named options object with Vercel's camelCase names; ? marks optional fields and ...body the JSON body fields. Results are Vercel's JSON unchanged, except that projects omit environment variables and secrets, and deployment meta omits deploy hook ids. Connector calls return completed values: use them directly, without await.",
+	"Vercel REST API. Every function takes one named options object with Vercel's camelCase names; ? marks optional fields and ...body the JSON body fields. Results are Vercel's JSON unchanged, except that projects keep only their main fields (id, name, framework, build settings, git link, crons, latest and production deployments) and deployment meta drops keys named like hooks, tokens, secrets, passwords, keys or credentials. Connector calls return completed values: use them directly, without await.",
 	"Ids: projects prj_..., deployments dpl_..., teams team_...; idOrName also takes a project name, and idOrUrl and the runtime log deploymentId a deployment hostname such as my-app-abc123.vercel.app. Times are Unix milliseconds."
 		.. (if TEAM then " Requests act on the connection's team." else " Requests act on the token's own scope: its team for a team token, else the personal account."),
 	"Lists return one page: limit (default 20, at most 100) and {pagination={count, next, prev}}; while next is not null, pass it as until for the next page (listProjects: as from).",
-	"listRuntimeLogs listens to the live stream until a second passes without new lines (at most about 20 seconds) and returns the lines written meanwhile; Vercel offers no history through it, so an empty result does not mean the deployment logged nothing. ended=false means the stream was still open. Use listBuildLogs for build output.",
+	"listRuntimeLogs listens to the live stream until a second passes without new lines (at most about 23 seconds, or 16 network reads) and returns the lines written meanwhile; Vercel offers no history through it, so an empty result does not mean the deployment logged nothing. ended=false means the stream was still open; truncated=true means more lines were likely coming, so call again for them. Use listBuildLogs for build output.",
 	"Examples: local page = vercel.listDeployments({projectId='my-app', target='production', limit=10}); local d = page.deployments[1]; vercel.getDeployment({idOrUrl=d.uid}); vercel.listBuildLogs({idOrUrl=d.uid, limit=500, direction='backward'}); vercel.listRuntimeLogs({projectId=d.projectId, deploymentId=d.uid, limit=200}).",
 	"The token's own permissions and the team's plan still apply. Rate limits are per endpoint group, such as 100 runtime log reads a minute; Houston retries an HTTP 429 twice, then reports when the limit resets. Errors report the HTTP status with Vercel's error code and message.",
 }

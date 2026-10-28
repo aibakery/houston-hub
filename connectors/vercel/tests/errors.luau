@@ -10,6 +10,7 @@ return {
 			calls += 1
 			lastUrl = req.url
 			if headersTimeout then error({code = "timeout", message = "HTTP response headers timed out"}) end
+			if refused then error({code = "permission_denied", message = "origin not allowed"}) end
 			return fixture.operation({statusCode = status, headers = responseHeaders, body = fixture.reader(payload)})
 		end}
 	end,
@@ -44,6 +45,10 @@ return {
 		assert(not ok and string.find(tostring(err), "did not start the runtime log stream within 5 seconds", 1, true)
 			and string.find(tostring(err), '"retryable":true', 1, true), tostring(err))
 		headersTimeout = false
+		refused = true
+		ok, err = pcall(function() vercel.listRuntimeLogs({projectId = "prj_1", deploymentId = "dpl_1"}) end)
+		assert(not ok and not string.find(tostring(err), "did not start", 1, true), "only timeouts are reported as a slow start")
+		refused = false
 		status, payload = 200, '{"projects":"nope"}'
 		ok, err = pcall(function() vercel.listProjects() end)
 		assert(not ok and string.find(tostring(err), "invalid project list", 1, true), tostring(err))
