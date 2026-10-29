@@ -60,6 +60,13 @@ local function sortKey(key: string): boolean
 		and (direction == "" or direction == "asc" or direction == "desc")
 end
 
+-- Lists sent comma-separated, with each value's check and the most values allowed.
+local LIST_PARAMS: {[string]: {check: (string) -> boolean, maximum: number}} = table.freeze({
+	["filter.overallStatus"] = {check = function(item: string): boolean return table.find(STATUSES, item) ~= nil end, maximum = #STATUSES},
+	["filter.ids"] = {check = isNctId, maximum = MAX_IDS},
+	sort = {check = sortKey, maximum = 2},
+})
+
 local function failure(name: string, response: HttpResponse, id: string?): never
 	local status = response.statusCode
 	local message
@@ -119,21 +126,11 @@ local function searchQuery(args: Options): string
 		if args[field] ~= nil then table.insert(query, field .. "=" .. url.encode(text(args[field], field))) end
 		args[field] = nil
 	end
-	if args["filter.overallStatus"] ~= nil then
-		local statuses = list(args["filter.overallStatus"], "filter.overallStatus", function(item)
-			return table.find(STATUSES, item) ~= nil
-		end, #STATUSES)
-		table.insert(query, "filter.overallStatus=" .. url.encode(table.concat(statuses, ",")))
-		args["filter.overallStatus"] = nil
-	end
-	if args["filter.ids"] ~= nil then
-		local ids = list(args["filter.ids"], "filter.ids", isNctId, MAX_IDS)
-		table.insert(query, "filter.ids=" .. url.encode(table.concat(ids, ",")))
-		args["filter.ids"] = nil
-	end
-	if args.sort ~= nil then
-		table.insert(query, "sort=" .. url.encode(table.concat(list(args.sort, "sort", sortKey, 2), ",")))
-		args.sort = nil
+	for field, rule in LIST_PARAMS do
+		if args[field] ~= nil then
+			table.insert(query, field .. "=" .. url.encode(table.concat(list(args[field], field, rule.check, rule.maximum), ",")))
+		end
+		args[field] = nil
 	end
 	table.insert(query, fieldsParam(args, searchField, SUMMARY_FIELDS) :: string)
 	table.sort(query)
