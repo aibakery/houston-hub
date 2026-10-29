@@ -51,7 +51,9 @@ return {
 		rejected(function() trials.searchStudies({["filter.overallStatus"] = ", |"}) end, "must list 1 to 14")
 		rejected(function() trials.searchStudies({["filter.ids"] = "NCT04368728,NCT123"}) end, "invalid value: NCT123")
 		rejected(function() trials.searchStudies({["filter.ids"] = table.create(501, "NCT04368728")}) end, "1 to 500")
-		rejected(function() trials.searchStudies({sort = "BriefTitle:up"}) end, "sort contains an invalid value")
+		for _, key in {"BriefTitle:up", "LastUpdatePostDate:", "Last Update", ":desc", "@relevance:"} do
+			rejected(function() trials.searchStudies({sort = {key}}) end, "sort contains an invalid value")
+		end
 		rejected(function() trials.searchStudies({sort = {"A", "B", "C"}}) end, "sort must list 1 to 2")
 		rejected(function() trials.searchStudies({fields = "Bad;Field"}) end, "fields contains an invalid value")
 		rejected(function() trials.searchStudies({countTotal = "true"}) end, "countTotal must be a boolean")

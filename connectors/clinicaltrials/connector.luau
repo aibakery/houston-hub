@@ -54,10 +54,15 @@ local function searchField(name: string): boolean
 	return name == "@query" or fieldName(name)
 end
 
+-- A sort key is Field or Field:asc|desc, for a dotted field name or @relevance.
 local function sortKey(key: string): boolean
-	local field, direction = string.match(key, "^([^:]+):?(%a*)$")
-	return field ~= nil and (field == "@relevance" or fieldName(field))
-		and (direction == "" or direction == "asc" or direction == "desc")
+	local field, direction = string.match(key, "^(.*):(%a+)$")
+	if field == nil then
+		field = key
+	elseif direction ~= "asc" and direction ~= "desc" then
+		return false
+	end
+	return #key <= 200 and (field == "@relevance" or string.match(field :: string, "^%a[%w%.]*$") ~= nil)
 end
 
 -- Lists sent comma-separated, with each value's check and the most values allowed.
