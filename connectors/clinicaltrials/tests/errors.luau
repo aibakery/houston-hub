@@ -96,6 +96,6 @@ return {
 		upstream(200, "[]", {}, read, {"invalid JSON object"})
 		upstream(200, '{"studies":null}', {}, search, {"unexpected search page"})
 		upstream(200, '{"studies":[],"nextPageToken":5}', {}, search, {"unexpected search page"})
-		upstream(200, '{"x":"' .. string.rep("z", 6 * 1024 * 1024) .. '"}', {}, read, {"more data than one call can hold"})
+		upstream(200, '{"x":"' .. string.rep("z", 4 * 1024 * 1024) .. '"}', {}, read, {"more data than one call can hold"})
 	end,
 }

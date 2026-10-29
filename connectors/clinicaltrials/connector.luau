@@ -3,7 +3,7 @@ type Options = {[string]: any}
 
 local API = "https://clinicaltrials.gov/api/v2"
 local DEFAULT_LIMIT, MAX_LIMIT, PAGE_SIZE, MAX_PAGES = 100, 2000, 1000, 10
-local MAX_BYTES = 6 * 1024 * 1024
+local MAX_BYTES = 4 * 1024 * 1024
 local MAX_TEXT, MAX_IDS = 2000, 500
 local SUMMARY_FIELDS = table.freeze({"NCTId", "BriefTitle", "OverallStatus", "Phase", "StudyType", "Condition",
 	"InterventionName", "LeadSponsorName", "EnrollmentCount", "StartDate", "PrimaryCompletionDate", "HasResults"})
@@ -233,7 +233,7 @@ GET /api/v2/studies/{nctId}. Returns one full study record. nctId is NCT plus 8 
 
 ## Errors and limits
 
-Invalid options fail before any request. ClinicalTrials.gov errors (plain text, such as an Essie syntax error or an invalid field name) come back as upstream errors with the HTTP status; HTTP 429 and 5xx are retryable. The API publishes no rate limit: keep calls few and use limit and fields rather than many small requests. Each call reads at most 6 MiB.
+Invalid options fail before any request. ClinicalTrials.gov errors (plain text, such as an Essie syntax error or an invalid field name) come back as upstream errors with the HTTP status; HTTP 429 and 5xx are retryable. The API publishes no rate limit: keep calls few and use limit and fields rather than many small requests. Each call reads at most 4 MiB.
 
 ## Example
 

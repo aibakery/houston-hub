@@ -90,20 +90,19 @@ return {
 		-- Large limits request at most 1,000 per page; later pages shrink to the remaining byte budget.
 		local big = '{"protocolSection":{"descriptionModule":{"briefSummary":"' .. string.rep("x", 1024 * 1024) .. '"}}}'
 		respond('{"studies":[' .. big .. '],"nextPageToken":"p2"}')
-		respond('{"studies":[' .. big .. ',' .. big .. '],"nextPageToken":"p3"}')
-		respond('{"studies":[' .. big .. '],"nextPageToken":"p4"}')
+		respond('{"studies":[' .. big .. '],"nextPageToken":"p3"}')
 		local first = #requests + 1
 		page = trials.searchStudies({fields = {"ProtocolSection"}, limit = 2000})
-		assert(#requests == first + 2, "the byte budget must stop paging")
-		for i, expected in {"pageSize=1000", "pageSize=2&pageToken=p2", "pageSize=1&pageToken=p3"} do
+		assert(#requests == first + 1, "the byte budget must stop paging")
+		for i, expected in {"pageSize=1000", "pageSize=1&pageToken=p2"} do
 			assert(url(first + i - 1) == API .. "/studies?fields=ProtocolSection&" .. expected, url(first + i - 1))
 		end
-		assert(#page.studies == 4 and page.nextPageToken ~= nil, "a budget stop keeps the continuation token")
+		assert(#page.studies == 2 and page.nextPageToken ~= nil, "a budget stop keeps the continuation token")
 		local token = page.nextPageToken
 		big, page = nil, nil
 		respond('{"studies":[' .. study("NCT00000010") .. "]}")
 		trials.searchStudies({pageToken = token})
-		assert(url(#requests) == API .. "/studies?fields=ProtocolSection&pageSize=100&pageToken=p4", url(#requests))
+		assert(url(#requests) == API .. "/studies?fields=ProtocolSection&pageSize=100&pageToken=p3", url(#requests))
 
 		-- Study reads: full record, selected modules, and the table form.
 		respond('{"protocolSection":{"identificationModule":{"nctId":"NCT04368728"}},"resultsSection":{},"hasResults":true}')
