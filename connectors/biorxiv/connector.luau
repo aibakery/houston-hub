@@ -6,11 +6,13 @@ local API = "https://api.biorxiv.org"
 local EUROPE_PMC = "https://www.ebi.ac.uk/europepmc/webservices/rest/search"
 -- Houston ends a call after 30 s and the sandbox has no clock, so each request gets a fixed share of 27 s as
 -- {total, body}. The bioRxiv API prepares a whole page before its headers (0.3 to 3.5 s, up to 8 s when busy) and
--- then sends its 70 to 230 KB within 1.5 s. A call reading one page or file gives the body 19 s, enough for the
--- slowest Europe PMC answers and PDFs; a call reading several pages gives the first 12 s and each later one 7.5 s.
+-- then sends its 70 to 230 KB within 1.5 s; it serves about three requests at a time. A call reading one answer or
+-- file gives the body 19 s, enough for the slowest Europe PMC answers and PDFs. A date range gives its first page 15 s
+-- whatever the limit, then reads up to three more pages at once in the remaining 12 s.
 local MAX_BYTES = 4 * 1024 * 1024
-local CALL, FIRST, LATER = table.freeze({27000, 19000}), table.freeze({12000, 3000}), table.freeze({7500, 2500})
-local MAX_PAGES = 1 + (CALL[1] - FIRST[1]) // LATER[1]
+local CALL, FIRST = table.freeze({27000, 19000}), table.freeze({15000, 7000})
+local LATER = table.freeze({CALL[1] - FIRST[1], 3000})
+local MAX_PAGES = 1 + 3
 -- The API serves fixed pages: 30 preprints, or 100 published-article links.
 local DETAILS_PAGE, PUBS_PAGE = 30, 100
 local MAX_CURSOR = 2 ^ 31 - 1
@@ -185,7 +187,15 @@ local function send(operation: string, provider: string, target: string, accept:
 	return response
 end
 
--- Reads and decodes a JSON object of at most budget bytes; tooMuch tells the caller how to fit.
+-- Decodes a JSON object; the anchored check is cheap, so a large page that is not JSON is never decoded.
+local function decode(operation: string, provider: string, raw: string): any
+	local ok, value = false, nil
+	if string.match(raw, "^%s*{") then ok, value = pcall(json.decode, raw) end
+	if not ok or type(value) ~= "table" then fail(operation, 200, false, provider .. " returned an invalid JSON object") end
+	return value
+end
+
+-- Reads and decodes a JSON object of at most budget bytes; tooMuch says why a smaller answer cannot be had.
 local function fetch(operation: string, provider: string, target: string, time: {number}, budget: number, tooMuch: string,
 	hint: string?): (any, number)
 	local response = send(operation, provider, target, "application/json", time)
@@ -203,31 +213,32 @@ local function fetch(operation: string, provider: string, target: string, time: 
 		local detail = if type(raw) == "table" and type(raw.message) == "string" then raw.message else tostring(raw)
 		fail(operation, 200, true, provider .. " response failed: " .. string.sub(detail, 1, 300))
 	end
-	-- The anchored check is cheap, so a large page that is not JSON is never decoded.
-	local ok, value = false, nil
-	if string.match(raw, "^%s*{") then ok, value = pcall(json.decode, raw) end
-	if not ok or type(value) ~= "table" then fail(operation, 200, false, provider .. " returned an invalid JSON object") end
-	return value, #raw
+	return decode(operation, provider, raw), #raw
 end
 
 -- Statuses the API reports, always with HTTP 200, for input it rejects.
 local REJECTIONS = table.freeze({"must be", "not recognized", "not recognizable", "not found"})
 
--- Reads one API answer: {status = "ok", collection} on success, or a status text such as "no posts found".
--- Returns the collection and message, or nil when the status is one of empty's answers for no rows.
-local function apiPage(operation: string, target: string, time: {number}, budget: number, empty: (string) -> boolean): (any, any, number)
-	local body, bytes = fetch(operation, "bioRxiv API", target, time, budget, "call again with a lower limit")
+-- Reads an API answer: {status = "ok", collection} on success, or a status text such as "no posts found". Returns the
+-- collection and message, or nil when the status is one of empty's answers for no rows.
+local function apiAnswer(operation: string, body: any, empty: (string) -> boolean): (any, any)
 	local message = if type(body.messages) == "table" then body.messages[1] else nil
 	local status = if type(message) == "table" then message.status else nil
 	if type(status) ~= "string" or type(body.collection) ~= "table" then
 		fail(operation, 200, false, "bioRxiv API returned an unexpected answer")
 	end
-	if status == "ok" then return body.collection, message, bytes end
-	if empty(status) then return nil, message, bytes end
+	if status == "ok" then return body.collection, message end
+	if empty(status) then return nil, message end
 	local lower = string.lower(status)
 	local rejected = false
 	for _, phrase in REJECTIONS do rejected = rejected or string.find(lower, phrase, 1, true) ~= nil end
 	return fail(operation, 200, not rejected, "bioRxiv API: " .. tidy(status))
+end
+
+local function apiPage(operation: string, target: string, time: {number}, empty: (string) -> boolean, tooMuch: string): (any, any, number)
+	local body, bytes = fetch(operation, "bioRxiv API", target, time, MAX_BYTES, tooMuch)
+	local rows, message = apiAnswer(operation, body, empty)
+	return rows, message, bytes
 end
 
 local function pdfUrl(site: string, id: string, version: string): string
@@ -255,48 +266,97 @@ local function noPosts(status: string): boolean
 	return status == "no posts found"
 end
 
--- Reads a date range page by page from cursor, within limit rows, the byte budget and the call time.
+-- Reads up to pages later pages at once, from offset start, and returns their answers in order until the first that
+-- fails. They share the time and the bytes left: each request's own timeout bounds its headers, and the bodies get one
+-- deadline together.
+local function laterPages(operation: string, target: (number) -> string, start: number, size: number, pages: number,
+	budget: number): {any}
+	local requests: {{any}} = {}
+	for page = 1, pages do
+		requests[page] = {pcall(function()
+			return http.request({method = "GET", url = target(start + (page - 1) * size),
+				headers = {Accept = {"application/json"}}, timeoutMs = LATER[1] - LATER[2]})
+		end)}
+	end
+	-- Every operation is observed, so no failure goes unhandled; only the leading run of 200 answers is read.
+	local responses: {HttpResponse} = {}
+	for page = 1, pages do
+		local ok, response = requests[page][1], requests[page][2]
+		if ok then ok, response = pcall(await, response) end
+		if ok and response.statusCode == 200 and #responses == page - 1 then
+			table.insert(responses, response)
+		elseif ok then
+			response.body:close()
+		elseif errorCode(response) == "cancelled" then
+			error(response, 0)
+		end
+	end
+	local reads: {any} = {}
+	-- Reads start only while every earlier page started; the bodies after a failure are closed unread.
+	for page, response in responses do
+		local started, read = false, nil
+		if #reads == page - 1 then
+			started, read = pcall(function() return response.body:readAll(budget // #responses) end)
+		end
+		if started then table.insert(reads, read) else pcall(function() response.body:close() end) end
+	end
+	if #reads > 0 then
+		local ok, err = pcall(awaitAll, reads, LATER[2])
+		if not ok and errorCode(err) == "cancelled" then error(err, 0) end
+	end
+	local answers: {any} = {}
+	for page = 1, #reads do
+		-- A zero wait returns a settled read and cancels one still running.
+		local ok, raw = pcall(await, reads[page], 0)
+		local valid, body = false, nil
+		if ok then valid, body = pcall(decode, operation, "bioRxiv API", raw) end
+		if valid and #answers == page - 1 then table.insert(answers, body) end
+	end
+	return answers
+end
+
+-- Reads a date range from cursor within limit rows, the byte budget and the call time. The first page gets the same
+-- time whatever the limit, so asking for more rows never fails a call that one page would complete; the rest are read
+-- at once in the time left, and a failure among them returns the rows so far with next_cursor.
 local function collect(operation: string, args: Options, path: string, query: string, size: number, site: string?): Options
 	local cursor = integer(optional(args, "cursor", 0), "cursor", 0, MAX_CURSOR)
 	local limit = integer(optional(args, "limit", size), "limit", 1, size * MAX_PAGES)
 	noneLeft(args, operation)
+	local function target(offset: number): string
+		return API .. path .. "/" .. string.format("%d", offset) .. query
+	end
 	local rows = json.decode("[]")
 	local result: Options = {collection = rows}
-	local used, more = 0, false
-	for page = 1, MAX_PAGES do
-		local time = if page > 1 then LATER elseif limit <= size then CALL else FIRST
-		local target = API .. path .. "/" .. string.format("%d", cursor + #rows) .. query
-		local read, found, message, bytes = pcall(function(): (any, any, number)
-			local rows, reported, length = apiPage(operation, target, time, MAX_BYTES - used, noPosts)
-			if rows and not finite(tonumber(reported.total)) then fail(operation, 200, false, "bioRxiv API returned a page without its total") end
-			return rows, reported, length
-		end)
-		if not read then
-			-- Any failure after the first page ends the call with the rows so far; the caller continues from next_cursor.
-			if page == 1 or errorCode(found) == "cancelled" then error(found, 0) end
-			break
-		end
-		used += bytes
-		-- No posts: the range is empty, or ends exactly at the cursor.
-		if found == nil then
-			more = false
-			break
-		end
-		local total = tonumber(message.total) :: number
-		if page == 1 then
-			result.total = total
-			local fresh = tonumber(message.count_new_papers)
-			if finite(fresh) then result.count_new_papers = fresh end
-		end
-		for _, row in found do
+	local found, message, used = apiPage(operation, target(cursor), FIRST, noPosts,
+		"the API's page of " .. tostring(size) .. " is too large for one call")
+	-- No posts: the range is empty, or cursor is at or past its end, and the API reports no total.
+	if found == nil then return result end
+	local total = tonumber(message.total) or math.huge
+	if not finite(total) then fail(operation, 200, false, "bioRxiv API returned a page without its total") end
+	result.total = total
+	local fresh = tonumber(message.count_new_papers)
+	if finite(fresh) then result.count_new_papers = fresh end
+	-- Adds a page's rows up to limit and tells whether the range goes on.
+	local function add(page: any): boolean
+		for _, row in page do
 			if #rows >= limit then break end
 			table.insert(rows, row)
 		end
-		more = #found > 0 and cursor + #rows < total
-		if not more or #rows >= limit then break end
+		return #page > 0
+	end
+	local going = add(found)
+	local start = cursor + #rows
+	if going and #rows < limit and start < total then
+		local pages = math.min(MAX_PAGES - 1, math.ceil(math.min(limit - #rows, total - start) / size))
+		for _, body in laterPages(operation, target, start, size, pages, MAX_BYTES - used) do
+			local valid, later, reported = pcall(apiAnswer, operation, body, noPosts)
+			if not valid or (later and not finite(tonumber(reported.total))) then break end
+			going = later ~= nil and add(later)
+			if not going then break end
+		end
 	end
 	if site then withPdf(rows, site) end
-	if more then result.next_cursor = cursor + #rows end
+	if going and cursor + #rows < total then result.next_cursor = cursor + #rows end
 	return result
 end
 
@@ -334,7 +394,8 @@ local function getPreprint(input: any): Options
 	local key, entry = server(args)
 	local id = doi(take(args, "doi"))
 	noneLeft(args, "getPreprint")
-	local rows = apiPage("getPreprint", API .. "/details/" .. key .. "/" .. id .. "/na/json", CALL, MAX_BYTES, noPosts)
+	local rows = apiPage("getPreprint", API .. "/details/" .. key .. "/" .. id .. "/na/json", CALL, noPosts,
+		"this preprint's versions are too large for one call")
 	if rows == nil then
 		fail("getPreprint", 200, false, entry.name .. " has no preprint with DOI " .. id
 			.. "; check the server, since bioRxiv and medRxiv DOIs share the 10.1101 prefix")
@@ -364,7 +425,8 @@ local function getPublication(input: any): Options
 	local key = server(args)
 	local id = anyDoi(take(args, "doi"))
 	noneLeft(args, "getPublication")
-	local rows = apiPage("getPublication", API .. "/pubs/" .. key .. "/" .. id .. "/na/json", CALL, MAX_BYTES, unlinked)
+	local rows = apiPage("getPublication", API .. "/pubs/" .. key .. "/" .. id .. "/na/json", CALL, unlinked,
+		"this link is too large for one call")
 	return {collection = if rows then array(rows) else json.decode("[]")}
 end
 
@@ -520,7 +582,7 @@ Europe PMC lists one record per preprint: read its versions and the full abstrac
 Preprint versions posted from from to to, inclusive. A revised version of an older preprint appears on the date it was posted. Returns `{collection, total?, count_new_papers?, next_cursor?}`: total counts the versions in the range, count_new_papers its first versions. When the API finds no posts from cursor on (an empty range, or a cursor at or past its end) it reports no total, so collection is empty and total absent. Each version has doi, title, authors ("Last, F.; ..."), author_corresponding, author_corresponding_institution, date, version (a string), type, license, category, abstract, jatsxml (the JATS XML address on the server's website), published (the journal DOI, or "NA") and server, plus pdf_url, the address of its PDF, added by Houston. date may lack zero padding, as in 2026-8-17.
 - category: one of the server's categories below (underscores accepted for spaces); the API would silently ignore any other.
 - funder: a ROR ID such as 00k4n6c32 (European Commission) or https://ror.org/00k4n6c32, to list only preprints declaring that funder; versions then also carry funder, an array of {name, id, id-type, award}. Funder data starts on 2025-04-10.
-- limit: versions to return, 1 to ]] .. details .. [[ (default ]] .. tostring(DETAILS_PAGE) .. [[). The API serves pages of ]] .. tostring(DETAILS_PAGE) .. [[, so a call reads up to ]] .. tostring(MAX_PAGES) .. [[ pages. cursor: versions to skip (default 0). For the next page, call again with the same options and cursor = next_cursor. next_cursor is present while cursor plus the versions returned is below total; a call can return fewer than limit versions when a later page is slow, too large or fails, and next_cursor then continues after them. A month of bioRxiv holds about 7,000 versions, so narrow with category or a short range, or use searchPreprints.
+- limit: versions to return, 1 to ]] .. details .. [[ (default ]] .. tostring(DETAILS_PAGE) .. [[). The API serves pages of ]] .. tostring(DETAILS_PAGE) .. [[: a call reads the first, then up to ]] .. tostring(MAX_PAGES - 1) .. [[ more at once. cursor: versions to skip (default 0). For the next page, call again with the same options and cursor = next_cursor. next_cursor is present while cursor plus the versions returned is below total; a call can return fewer than limit versions when a later page is slow, too large or fails, and next_cursor then continues after them. A month of bioRxiv holds about 7,000 versions, so narrow with category or a short range, or use searchPreprints.
 
 ## getPreprint({server, doi})
 
@@ -540,7 +602,7 @@ Saves the PDF of one version (an integer, or listPreprints' version string) to t
 
 ## Errors and limits
 
-Invalid input fails before any request. Provider errors come back as upstream errors with the HTTP status and message; HTTP 429 and 5xx are retryable. The API answers HTTP 200 even to errors and reports them as a status, which comes back as the message. Each call reads at most ]] .. tostring(MAX_BYTES // 1048576) .. [[ MiB of JSON and has ]] .. seconds(CALL[1]) .. [[: a call reading one page or file gives its headers ]] .. seconds(CALL[1] - CALL[2]) .. [[ and its body ]] .. seconds(CALL[2]) .. [[; with several pages the first gets ]] .. seconds(FIRST[1]) .. [[ and each later one ]] .. seconds(LATER[1]) .. [[. A call that runs out of time before it has any result fails as retryable.
+Invalid input fails before any request. Provider errors come back as upstream errors with the HTTP status and message; HTTP 429 and 5xx are retryable. The API answers HTTP 200 even to errors and reports them as a status, which comes back as the message. Each call reads at most ]] .. tostring(MAX_BYTES // 1048576) .. [[ MiB of JSON and has ]] .. seconds(CALL[1]) .. [[: a call reading one answer or file gives its headers ]] .. seconds(CALL[1] - CALL[2]) .. [[ and its body ]] .. seconds(CALL[2]) .. [[. A date range gives its first page ]] .. seconds(FIRST[1]) .. [[ whatever the limit (]] .. seconds(FIRST[1] - FIRST[2]) .. [[ for headers), so a larger limit never fails a call that one page would complete, and reads the later pages at once in the remaining ]] .. seconds(LATER[1]) .. [[. A call that runs out of time before it has any result fails as retryable; the API's page sizes are fixed, so a lower limit does not help then.
 
 Categories:
 ]] .. table.concat(categories, "\n") .. [[

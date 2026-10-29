@@ -129,7 +129,7 @@ return {
 		assert(page.collection[2].pdf_url == "https://www.biorxiv.org/content/10.1101/2025.03.20.600001v1.full.pdf")
 		assert(page.collection[1].date == "2025-3-2", "dates stay as the API sends them")
 
-		-- Several pages: the first gets 12 s, later ones 7.5 s, the last page is cut at limit and next_cursor follows it.
+		-- Several pages: the first gets 15 s (8 s for headers) whatever the limit, later ones share 12 s (9 s for headers), the last page is cut at limit and next_cursor follows it.
 		before = #requests
 		respond(details(1267, 30, 30))
 		respond(details(1267, 60, 30))
@@ -138,11 +138,11 @@ return {
 		assert(#requests == before + 2)
 		assert(req(before + 1).url == API .. "/details/medrxiv/2025-03-01/2025-03-07/30/json?category=cardiovascular_medicine", req(before + 1).url)
 		assert(req(before + 2).url == API .. "/details/medrxiv/2025-03-01/2025-03-07/60/json?category=cardiovascular_medicine", req(before + 2).url)
-		assert(req(before + 1).timeoutMs == 9000 and req(before + 2).timeoutMs == 5000)
+		assert(req(before + 1).timeoutMs == 8000 and req(before + 2).timeoutMs == 9000)
 		assert(#page.collection == 40 and page.collection[40].title == "Preprint 69" and page.total == 1267 and page.next_cursor == 70)
 		assert(page.collection[1].pdf_url == "https://www.medrxiv.org/content/10.1101/2025.03.20.600030v1.full.pdf")
 
-		-- At most three pages; the total ends the call without a needless request.
+		-- The total sizes the later pages, so no needless request is sent.
 		before = #requests
 		respond(details(95, 0, 30))
 		respond(details(95, 30, 30))
@@ -167,7 +167,7 @@ return {
 		before = #requests
 		respond(details(1267, 30, 30))
 		respond('{"messages":[{"status":"no posts found"}], "collection":[]}')
-		page = rxiv.listPreprints({server = "biorxiv", from = "2025-03-01", to = "2025-03-07", limit = 90, cursor = 30})
+		page = rxiv.listPreprints({server = "biorxiv", from = "2025-03-01", to = "2025-03-07", limit = 60, cursor = 30})
 		assert(#requests == before + 2 and #page.collection == 30 and page.next_cursor == nil, "a page without posts ends the range")
 
 		-- Any failure of a later page returns the versions so far and where to continue.
@@ -187,8 +187,31 @@ return {
 			before = #requests
 			respond(details(1267, 0, 30))
 			table.insert(responses, failure)
-			page = rxiv.listPreprints({server = "biorxiv", from = "2025-03-01", to = "2025-03-07", limit = 90})
+			page = rxiv.listPreprints({server = "biorxiv", from = "2025-03-01", to = "2025-03-07", limit = 60})
 			assert(#requests == before + 2 and #page.collection == 30 and page.next_cursor == 30 and page.total == 1267, "a later failure lost the collected versions")
+		end
+
+		-- Four pages at most: three later ones go out at once, and the first failure among them ends the rows there.
+		before = #requests
+		respond(details(1267, 0, 30))
+		respond(details(1267, 30, 30))
+		respond(details(1267, 60, 30))
+		respond(details(1267, 90, 30))
+		page = rxiv.listPreprints({server = "biorxiv", from = "2025-03-01", to = "2025-03-07", limit = 120})
+		assert(#requests == before + 4 and #page.collection == 120 and page.next_cursor == 120 and page.collection[120].title == "Preprint 119")
+		assert(req(before + 4).url == API .. "/details/biorxiv/2025-03-01/2025-03-07/90/json" and req(before + 4).timeoutMs == 9000)
+		for failed = 2, 4 do
+			before = #requests
+			for index = 1, 4 do
+				if index == failed then
+					table.insert(responses, {status = 502, body = ""})
+				else
+					respond(details(1267, (index - 1) * 30, 30))
+				end
+			end
+			page = rxiv.listPreprints({server = "biorxiv", from = "2025-03-01", to = "2025-03-07", limit = 120})
+			local kept = (failed - 1) * 30
+			assert(#requests == before + 4 and #page.collection == kept and page.next_cursor == kept, "rows after a failed page were kept")
 		end
 
 		-- A funder narrows the range; its versions keep their funder arrays.

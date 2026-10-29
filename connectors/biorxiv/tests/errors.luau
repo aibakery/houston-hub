@@ -54,10 +54,10 @@ return {
 		rejected(call("searchPreprints", {query = "x", from = "2025-03-02", to = "2025-03-01"}), "from must not be after to")
 
 		-- Paging bounds come from the API's page sizes.
-		for _, value in {0, 91, 1.5, "30", false} do
-			rejected(call("listPreprints", with(RANGE, {limit = value})), "limit must be an integer from 1 to 90")
+		for _, value in {0, 121, 1.5, "30", false} do
+			rejected(call("listPreprints", with(RANGE, {limit = value})), "limit must be an integer from 1 to 120")
 		end
-		rejected(call("listPublications", with(RANGE, {limit = 301})), "limit must be an integer from 1 to 300")
+		rejected(call("listPublications", with(RANGE, {limit = 401})), "limit must be an integer from 1 to 400")
 		for _, value in {-1, 2 ^ 31, 0.5, "30"} do
 			rejected(call("listPreprints", with(RANGE, {cursor = value})), "cursor must be an integer from 0 to 2147483647")
 		end
@@ -147,7 +147,7 @@ return {
 		upstream(503, "", {["retry-after"] = {"120"}}, list, {"bioRxiv API HTTP 503; retry after 120s", '"retryable":true'})
 		upstream(301, "", {location = {"https://example.com/"}}, links, {"bioRxiv API HTTP 301: unexpected redirect", '"retryable":false'}, "example")
 		upstream(200, '{"x":"' .. string.rep("z", 4 * 1024 * 1024) .. '"}', {}, list,
-			{"bioRxiv API returned more data than one call can hold; call again with a lower limit", '"retryable":false'}, "limit_exceeded")
+			{"bioRxiv API returned more data than one call can hold; the API's page of 30 is too large for one call", '"retryable":false'}, "limit_exceeded")
 
 		upstream(503, '{"errCode":503,"errMsg":"Search service is temporarily unavailable. Please retry later."}', {}, search,
 			{"Europe PMC HTTP 503: Search service is temporarily unavailable. Please retry later.", '"retryable":true'}, "cursorMark")
@@ -164,14 +164,14 @@ return {
 
 		requestError = {code = "timeout", message = "request deadline"}
 		upstream(200, "", {}, search, {"Europe PMC did not answer within 8 s; retry", '"retryable":true'})
-		upstream(200, "", {}, call("listPreprints", with(RANGE, {limit = 90})), {"bioRxiv API did not answer within 9 s; retry", '"retryable":true'})
+		upstream(200, "", {}, call("listPreprints", with(RANGE, {limit = 90})), {"bioRxiv API did not answer within 8 s; retry", '"retryable":true'})
 		-- Other request failures pass through unchanged; the stand-in table loses its message across the export boundary.
 		requestError = {code = "access_denied", message = "origin not allowed"}
 		upstream(200, "", {}, get, {"error"}, "retryable")
 		requestError = nil
 		readError = {code = "timeout", message = "await timed out"}
 		upstream(200, "", {}, get, {"bioRxiv API did not finish sending its answer within 19 s; retry", '"retryable":true'})
-		upstream(200, "", {}, call("listPreprints", with(RANGE, {limit = 31})), {"did not finish sending its answer within 3 s"})
+		upstream(200, "", {}, call("listPreprints", with(RANGE, {limit = 31})), {"did not finish sending its answer within 7 s"})
 		readError = {code = "io_error", message = "connection reset by peer"}
 		upstream(200, "", {}, search, {"Europe PMC response failed: connection reset by peer", '"retryable":true'}, "more data")
 		-- An error body that stalls or breaks still gives the structured failure.
