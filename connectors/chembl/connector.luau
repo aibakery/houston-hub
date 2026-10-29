@@ -319,9 +319,9 @@ local function failure(operation: string, response: HttpResponse, missing: strin
 		local value = string.sub(retry[1], 1, 32)
 		message ..= "; retry after " .. value .. (if string.match(value, "^%d+$") then "s" else "")
 	end
-	-- Input is validated first, so a 500 with ChEMBL's own error message is a deterministic rejection, such as a SMILES
-	-- ChEMBL cannot parse; gateway failures and overload are transient.
-	local transient = status == 429 or status == 502 or status == 503 or status == 504 or (status >= 500 and detail == "")
+	-- Input is validated first, so a 5xx is a server fault unless ChEMBL rejected a query structure it cannot parse.
+	local transient = status == 429 or (status >= 500 and not (string.find(detail, "standardizing the query molecule", 1, true)
+		or string.find(detail, "SanitizeMol", 1, true)))
 	return houston.fail({operation = operation, layer = "upstream", upstream_status = status, retryable = transient,
 		message = message})
 end
@@ -538,7 +538,7 @@ local HELP_END = [[
 
 ## Errors and limits
 
-Invalid input fails before any request, including requests over 4,000 bytes once URL-encoded (SMILES strings count once encoded). ChEMBL errors come back as upstream errors with the HTTP status and ChEMBL's message, such as a SMILES string it cannot parse (HTTP 500, not retryable). HTTP 429, 502, 503 and 504 are retryable. ChEMBL answers a cached query in about a second and a new one in 5 to 15 s or more, and Houston ends a call after 30 s: a first page slower than 20 s fails as retryable (ChEMBL caches results, so a retry is often fast), and a second page slower than 8 s is skipped in favor of next_offset. Prefer narrow filters and compact fields over many calls.
+Invalid input fails before any request, including requests over 4,000 bytes once URL-encoded (SMILES strings count once encoded). ChEMBL errors come back as upstream errors with the HTTP status and ChEMBL's message, such as a SMILES string it cannot parse (HTTP 500, not retryable). HTTP 429 and other 5xx errors are retryable. ChEMBL answers a cached query in about a second and a new one in 5 to 15 s or more, and Houston ends a call after 30 s: a first page slower than 20 s fails as retryable (ChEMBL caches results, so a retry is often fast), and a second page slower than 8 s is skipped in favor of next_offset. Prefer narrow filters and compact fields over many calls.
 
 ## Example
 

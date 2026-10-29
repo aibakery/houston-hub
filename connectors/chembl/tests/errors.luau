@@ -114,7 +114,10 @@ return {
 		upstream(500, '{"error_message": "Problem standardizing the query molecule"' .. traceback, {}, similar,
 			{"ChEMBL HTTP 500: Problem standardizing the query molecule", '"retryable":false'}, "Traceback")
 		upstream(500, '{"error_message": "Python argument types in\\n    rdkit.Chem.rdmolops.SanitizeMol(NoneType)"' .. traceback, {}, similar,
-			{"HTTP 500: Python argument types in rdkit.Chem.rdmolops.SanitizeMol(NoneType)"}, "chembl_ws_py3")
+			{"HTTP 500: Python argument types in rdkit.Chem.rdmolops.SanitizeMol(NoneType)", '"retryable":false'}, "chembl_ws_py3")
+		-- Other 500s, even with a message, are backend faults such as a database timeout.
+		upstream(500, '{"error_message": "canceling statement due to statement timeout"' .. traceback, {}, search,
+			{"HTTP 500: canceling statement due to statement timeout", '"retryable":true'}, "Traceback")
 		upstream(400, '{"error_message": "' .. string.rep("y", 1000) .. '"}', {}, search, {"HTTP 400: " .. string.rep("y", 300)}, string.rep("y", 301))
 		upstream(400, '{"error_message": "' .. string.rep("y", 299) .. 'é"}', {}, search, {"HTTP 400: " .. string.rep("y", 299)})
 		upstream(404, "", {}, read, {"ChEMBL HTTP 404: molecule CHEMBL999999999 was not found", '"retryable":false'})
