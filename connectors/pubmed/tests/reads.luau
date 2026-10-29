@@ -124,8 +124,8 @@ return {
 		local prisma = records[1]
 		assert(prisma.PMID == "33782057" and prisma.OWN == "NLM" and prisma.DP == "2021 Mar 29")
 		assert(prisma.TI == "The PRISMA 2020 statement: an updated guideline for reporting systematic reviews.", prisma.TI)
-		assert(prisma.AB == "BACKGROUND: Systematic reviews are useful. METHODS: We updated theguideline. CONCLUSIONS: Use it.",
-			"a wrap without a trailing space joins as NCBI sent it: " .. prisma.AB)
+		assert(prisma.AB == "BACKGROUND: Systematic reviews are useful. METHODS: We updated the guideline. CONCLUSIONS: Use it.",
+			"wrapped lines join with one space, as Biopython joins them: " .. prisma.AB)
 		assert(table.concat(prisma.LID, "|") == "10.1136/bmj.n71 [doi]|n71")
 		assert(#prisma.authors == 2 and prisma.authors[1].FAU == "Page, Matthew J" and prisma.authors[1].AU == "Page MJ")
 		assert(prisma.authors[1].AUID[1] == "ORCID: 0000-0002-4242-7526")

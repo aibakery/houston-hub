@@ -260,13 +260,20 @@ local function getSummaries(ids: any): any
 		"request fewer IDs"), "result")
 end
 
+-- A tagged value and its trimmed lines, joined with single spaces as Biopython joins them.
+type Field = {tag: string, lines: {string}}
+
+local function trim(text: string): string
+	return string.match(text, "^%s*(.-)%s*$") :: string
+end
+
 -- Groups a record's tagged values: authors in order, single tags as strings, other tags as arrays.
-local function record(fields: {{string}}): Options
+local function record(fields: {Field}): Options
 	local out: Options = {}
 	local authors: {Options} = {}
 	local author: Options? = nil
 	for _, field in fields do
-		local tag, value = field[1], string.match(field[2], "^%s*(.-)%s*$") :: string
+		local tag, value = field.tag, table.concat(field.lines, " ")
 		if tag == "FAU" or (tag == "AU" and (author == nil or author.AU ~= nil)) then
 			author = {}
 			table.insert(authors, author :: Options)
@@ -288,21 +295,23 @@ end
 -- lines indented by 6 spaces continue the value before them.
 local function medline(raw: string): {Options}
 	local records = json.decode("[]")
-	local fields: {{string}} = {}
+	local fields: {Field} = {}
 	for _, line in string.split(raw, "\n") do
 		line = string.gsub(line, "\r$", "")
 		if not string.find(line, "%S") then
 			if #fields > 0 then table.insert(records, record(fields)) end
 			fields = {}
 		elseif string.sub(line, 1, 6) == "      " and #fields > 0 then
-			fields[#fields][2] ..= string.sub(line, 7)
+			local text = trim(line)
+			if text ~= "" then table.insert(fields[#fields].lines, text) end
 		else
 			local tag = string.match(string.sub(line, 1, 4), "^(%u[%u%d]*) *$")
 			if not tag or string.sub(line, 5, 6) ~= "- " then
 				local detail = reason(raw)
 				fail("getRecords", 200, detail ~= "", if detail ~= "" then "NCBI: " .. detail else "NCBI returned an unexpected MEDLINE record")
 			end
-			table.insert(fields, {tag :: string, string.sub(line, 7)})
+			local text = trim(string.sub(line, 7))
+			table.insert(fields, {tag = tag :: string, lines = if text == "" then {} else {text}})
 		end
 	end
 	if #fields > 0 then table.insert(records, record(fields)) end
