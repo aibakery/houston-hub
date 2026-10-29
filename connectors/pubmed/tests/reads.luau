@@ -144,6 +144,14 @@ return {
 		respond("\n", "text/plain; charset=UTF-8")
 		records = pubmed.getRecords("99999999").records
 		assert(json.encode(records) == "[]", "unknown PMIDs are left out")
+		-- Lines that are not tagged, such as NCBI's note about a PMID it cannot serve, are skipped rather than failing the
+		-- batch; a tag line may have an empty value without a trailing space.
+		respond(table.concat({"id: 99999999 Error occurred: The following PMID is not available", "      stray continuation", "",
+			"PMID- 31452104", "AB  -", "not tagged", "TI  - Molegro Virtual Docker", "      for Docking.", ""}, "\n"),
+			"text/plain; charset=UTF-8")
+		records = pubmed.getRecords({99999999, 31452104}).records
+		assert(#records == 1 and records[1].PMID == "31452104" and records[1].AB == "", json.encode(records))
+		assert(records[1].TI == "Molegro Virtual Docker for Docking.", records[1].TI)
 
 		-- Links: one id parameter per PMID, so each gets its own linkset; absent linksetdbs pass through.
 		respond('{"header":{"type":"elink"},"linksets":[{"dbfrom":"pubmed","ids":["25977807"],"linksetdbs":[{"dbto":"pubmed",'

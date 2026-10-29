@@ -137,10 +137,9 @@ return {
 		upstream(200, "", {}, links, {"NCBI returned an empty answer; retry, or pass fewer ids", '"retryable":true'})
 		upstream(200, '{"result":"none"}', {}, summaries, {"NCBI returned an unexpected answer", '"retryable":false'})
 		upstream(200, '{"header":{}}', {}, links, {"NCBI returned an unexpected answer"})
-		upstream(200, "PMID- 1\nnot a MEDLINE line", {}, records, {"NCBI returned an unexpected MEDLINE record", '"retryable":false'}, "not a")
-		upstream(200, "      continuation first", {}, records, {"unexpected MEDLINE record"})
 		upstream(200, "<eFetchResult><ERROR>Backend unavailable</ERROR></eFetchResult>", {}, records,
 			{"NCBI: Backend unavailable", '"retryable":true'})
+		upstream(200, "<html><body>Maintenance</body></html>", {}, records, {"NCBI returned an unexpected MEDLINE answer", '"retryable":false'}, "Maintenance")
 		upstream(200, "TI  - No PMID\n", {}, records, {"NCBI returned a MEDLINE record without a PMID", '"retryable":false'})
 
 		upstream(200, "[Error] : No result can be found. <BR><HR><B> - https://www.ncbi.nlm.nih.gov/research/bionlp/RESTful/</B>",

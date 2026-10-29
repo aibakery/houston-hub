@@ -294,6 +294,12 @@ end
 -- Parses MEDLINE text: empty lines separate records, a line is a tag padded to 4 characters, "- " and a value, and
 -- lines indented by 6 spaces continue the value before them.
 local function medline(raw: string): {Options}
+	-- An XML answer is an efetch error.
+	if string.match(raw, "^%s*<") then
+		local message = string.match(raw, "<ERROR>(.-)</ERROR>")
+		if message then reportedFailure("getRecords", message) end
+		fail("getRecords", 200, false, "NCBI returned an unexpected MEDLINE answer")
+	end
 	local records = json.decode("[]")
 	local fields: {Field} = {}
 	for _, line in string.split(raw, "\n") do
@@ -308,12 +314,12 @@ local function medline(raw: string): {Options}
 			if text ~= "" then table.insert(fields[#fields].lines, text) end
 		else
 			local tag = string.match(string.sub(line, 1, 4), "^(%u[%u%d]*) *$")
-			if not tag or string.sub(line, 5, 6) ~= "- " then
-				local detail = reason(raw)
-				fail("getRecords", 200, detail ~= "", if detail ~= "" then "NCBI: " .. detail else "NCBI returned an unexpected MEDLINE record")
+			local dash = string.sub(line, 5, 6)
+			-- Other lines, such as NCBI's note about a PMID it cannot serve, are skipped.
+			if tag and (dash == "- " or dash == "-") then
+				local text = trim(string.sub(line, 7))
+				table.insert(fields, {tag = tag, lines = if text == "" then {} else {text}})
 			end
-			local text = trim(string.sub(line, 7))
-			table.insert(fields, {tag = tag :: string, lines = if text == "" then {} else {text}})
 		end
 	end
 	if #fields > 0 then table.insert(records, record(fields)) end
