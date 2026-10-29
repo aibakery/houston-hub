@@ -575,7 +575,7 @@ Europe PMC search, restricted to bioRxiv and medRxiv preprints (both unless serv
 - from and to together filter firstPublicationDate, when Europe PMC first listed the preprint.
 - sort: ]] .. table.concat(SORTS, ", ") .. [[ (relevance by default; CITED desc puts the most cited first).
 - limit: results to return, 1 to ]] .. tostring(MAX_SEARCH.core) .. [[ with resultType core and 1 to ]] .. tostring(MAX_SEARCH.lite) .. [[ with lite, which fit one call (default ]] .. tostring(DEFAULT_SEARCH) .. [[). For the next page, call again with the same options and cursorMark = nextCursorMark. nextCursorMark is present after every full page while results may remain: when the last results exactly fill limit, continuing returns no results and no nextCursorMark.
-Europe PMC lists one record per preprint: read its versions and the full abstract with getPreprint.
+Europe PMC lists one record per preprint and names no version, so results have no pdf_url: read the versions, their abstracts and pdf_url with getPreprint.
 
 ## listPreprints({server, from, to, category?, funder?, limit?, cursor?})
 
@@ -590,7 +590,7 @@ Every version of one preprint, oldest first: `{collection}` with the fields of l
 
 ## getPublication({server, doi})
 
-The journal article a preprint became: `{collection}` with at most one link {preprint_doi, published_doi, published_journal, preprint_platform, preprint_title, preprint_authors, preprint_category, preprint_date, published_date, preprint_abstract, preprint_author_corresponding, preprint_author_corresponding_institution}, or an empty collection when there is none. The API answers alike when the preprint is not published yet, when no preprint matches an article DOI, and when a preprint DOI belongs to the other server (both share 10.1101), so check the server with getPreprint before reading an empty collection as unpublished. doi is the preprint's DOI or the article's own DOI (such as 10.1016/S0140-6736(20)30183-5), which finds the preprint of an article; the API cannot look up DOIs with several slashes, such as 10.1093/nar/gkaf118.
+The journal article a preprint became: `{collection}` with at most one link {preprint_doi, published_doi, published_journal, preprint_platform, preprint_title, preprint_authors, preprint_category, preprint_date, published_date, preprint_abstract, preprint_author_corresponding, preprint_author_corresponding_institution} (no pdf_url, since a link names no version), or an empty collection when there is none. The API answers alike when the preprint is not published yet, when no preprint matches an article DOI, and when a preprint DOI belongs to the other server (both share 10.1101), so check the server with getPreprint before reading an empty collection as unpublished. doi is the preprint's DOI or the article's own DOI (such as 10.1016/S0140-6736(20)30183-5), which finds the preprint of an article; the API cannot look up DOIs with several slashes, such as 10.1093/nar/gkaf118.
 
 ## listPublications({server, from, to, limit?, cursor?})
 
