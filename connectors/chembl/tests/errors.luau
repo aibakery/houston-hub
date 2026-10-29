@@ -11,7 +11,9 @@ return {
 			-- A table stands for a failure while waiting for headers, such as a timeout or a refused origin.
 			if requestError then error(requestError, 0) end
 			-- A body whose read fails stands in for a dropped connection or a cancelled invocation.
-			local body = if readError then {readAll = function() error(readError, 0) end, close = function() end} else fixture.reader(payload)
+			local body = if readError
+				then {readAll = function() error(readError, 0) end, readPrefix = function() error(readError, 0) end, close = function() end}
+				else fixture.reader(payload)
 			return fixture.operation({statusCode = status, headers = responseHeaders, body = body})
 		end}
 	end,
@@ -153,6 +155,10 @@ return {
 		upstream(200, "", {}, search, {"ChEMBL did not finish sending its answer within 3 s", '"retryable":true'})
 		readError = {code = "io_error", message = "connection reset by peer"}
 		upstream(200, "", {}, search, {"ChEMBL response failed: connection reset by peer", '"retryable":true'}, "more data")
+		-- An error body that stalls or breaks still gives the structured failure.
+		upstream(503, "", {}, search, {"ChEMBL HTTP 503", '"retryable":true', '"upstream_status":503'}, "reset")
+		readError = {code = "timeout", message = "await timed out"}
+		upstream(400, "", {}, read, {"ChEMBL HTTP 400", '"retryable":false', '"upstream_status":400'}, "timed out")
 		readError = {code = "cancelled", message = "invocation cancelled"}
 		local before = calls
 		local ok, err = pcall(read)

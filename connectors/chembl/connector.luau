@@ -304,8 +304,11 @@ local function failure(operation: string, response: HttpResponse, missing: strin
 		response.body:close()
 		detail = "unexpected redirect"
 	else
-		-- ChEMBL errors are JSON with error_message and often a long traceback; other bodies are never shown.
-		local ok, decoded = pcall(json.decode, await(response.body:readPrefix(64 * 1024)))
+		-- ChEMBL errors are JSON with error_message and often a long traceback; other bodies are never shown. An error
+		-- body that stalls or breaks counts as empty, within its page's body time.
+		local read, prefix = pcall(function() return await(response.body:readPrefix(64 * 1024), BODY_TIME) end)
+		if not read and errorCode(prefix) == "cancelled" then error(prefix, 0) end
+		local ok, decoded = pcall(json.decode, if read then prefix else "")
 		if ok and type(decoded) == "table" and type(decoded.error_message) == "string" then
 			-- houston.fail repairs a character split by the cut.
 			detail = string.sub(string.match(string.gsub(decoded.error_message, "%s+", " "), "^ ?(.-) ?$") :: string, 1, 300)
