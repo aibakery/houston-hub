@@ -40,6 +40,7 @@
               "scope_parameter": false,
               "scope_separator": false,
               "scopes": false,
+              "shared": false,
               "token_encoding": false,
               "token_headers": false,
               "token_params": false,
@@ -182,6 +183,9 @@
             "$ref": "#/$defs/ScopeGroup"
           },
           "type": "array"
+        },
+        "shared": {
+          "$ref": "#/$defs/OAuthShared"
         },
         "token_encoding": {
           "enum": [
@@ -618,6 +622,45 @@
       "required": [
         "url",
         "label"
+      ],
+      "type": "object"
+    },
+    "OAuthShared": {
+      "additionalProperties": false,
+      "properties": {
+        "body": {
+          "additionalProperties": {
+            "type": [
+              "string",
+              "boolean",
+              "number"
+            ]
+          },
+          "type": "object"
+        },
+        "headers": {
+          "additionalProperties": {
+            "$ref": "#/$defs/HeaderValue"
+          },
+          "type": "object"
+        },
+        "items": {
+          "type": "string"
+        },
+        "method": {
+          "enum": [
+            "GET",
+            "POST"
+          ],
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "url",
+        "items"
       ],
       "type": "object"
     },

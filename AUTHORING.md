@@ -265,6 +265,13 @@ Google's OAuth verification requires (see the
 [Google Sheets manifest](connectors/gsheets/houston.json)). Without `brand`, the
 button stays Houston's primary "Authorize account".
 
+When users pick what to share on the provider's consent screen, an OAuth method
+can declare `shared`: one request Houston sends with the new token right after
+sign-in, and a JSON pointer to the array of shared items. When that array is
+empty, Houston opens the connection's edit form and asks the user to authorize
+again (see the [Notion manifest](connectors/notion/houston.json)). A failed
+request never blocks the connection.
+
 An omitted `auth` map permits root-secret injection without a synthetic method.
 Fields activate through the bounded `if` operations `is`, `isDefined`, and `and`.
 Dependencies precede presentation order. Missing required selectors are errors;
