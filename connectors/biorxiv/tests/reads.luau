@@ -99,6 +99,15 @@ return {
 		local link = rxiv.getPublication({server = "medrxiv", doi = "10.1371/journal.pone.0256482"})
 		assert(req(7).url == API .. "/pubs/medrxiv/10.1371/journal.pone.0256482/na/json", req(7).url)
 		assert(link.collection[1].published_journal == "PLOS ONE")
+		-- A suffix with punctuation, as in Lancet DOIs, is URL-encoded; the API decodes it.
+		respond('{"messages":[{"status":"ok"}], "collection":[{"preprint_doi":"10.1101\\/2020.04.01.20049908","published_doi":"10.1016\\/S2468-2667(20)30133-X"}]}')
+		link = rxiv.getPublication({server = "medrxiv", doi = "10.1016/S2468-2667(20)30133-X"})
+		assert(req(#requests).url == API .. "/pubs/medrxiv/10.1016/S2468-2667%2820%2930133-X/na/json", req(#requests).url)
+		assert(link.collection[1].preprint_doi == "10.1101/2020.04.01.20049908")
+		respond('{"messages":[{"status":"ok"}], "collection":[]}')
+		rxiv.getPublication({server = "biorxiv", doi = "10.1002/(SICI)1097-0258(19980815)17:15<1661::AID-SIM968>3.0.CO;2-2"})
+		assert(req(#requests).url == API .. "/pubs/biorxiv/10.1002/%28SICI%291097-0258%2819980815%2917%3A15%3C1661%3A%3AAID-SIM968%3E3.0.CO%3B2-2/na/json",
+			req(#requests).url)
 		respond('{"messages":[{"status":"no articles found for published version of 10.1101\\/339747"}], "collection":[]}')
 		assert(json.encode(rxiv.getPublication({server = "biorxiv", doi = "10.1101/339747"}).collection) == "[]")
 		respond('{"messages":[{"status":"Preprint for DOI 10.1038\\/s41586-020-2012-7 not found"}], "collection":[]}')

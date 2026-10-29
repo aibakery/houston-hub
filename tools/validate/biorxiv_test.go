@@ -24,7 +24,8 @@ func TestBioRxivPublicReadRoutes(t *testing.T) {
 		"GET "+api+"/details/biorxiv/2025-03-01/2025-03-07/30/json?category=cell_biology",
 		"GET "+api+"/details/medrxiv/10.1101/2020.09.09.20191205/na/json",
 		"GET "+api+"/funder/biorxiv/2025-04-10/2025-07-10/00k4n6c32/0/json",
-		"GET "+api+"/pubs/medrxiv/10.1371/journal.pone.0256482/na/json", "GET "+api+"/pubs/biorxiv/2025-04-01/2025-04-30/100",
+		"GET "+api+"/pubs/medrxiv/10.1371/journal.pone.0256482/na/json",
+		"GET "+api+"/pubs/medrxiv/10.1016/S2468-2667%2820%2930133-X/na/json", "GET "+api+"/pubs/biorxiv/2025-04-01/2025-04-30/100",
 		"GET "+search+"?query=%28x%29%20AND%20SRC%3APPR&resultType=core&pageSize=25&format=json&cursorMark=%2A",
 		"GET https://www.biorxiv.org/content/10.1101/339747v4.full.pdf",
 		"GET https://www.medrxiv.org/content/10.64898/2026.09.01.26361059v2.full.pdf")

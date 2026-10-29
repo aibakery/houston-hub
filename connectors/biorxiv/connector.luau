@@ -331,12 +331,15 @@ local function getPreprint(input: any): Options
 	return {collection = withPdf(array(rows), entry.site)}
 end
 
--- A journal DOI with one slash and plain characters, such as 10.1371/journal.pone.0256482.
+-- A DOI with one slash, such as 10.1371/journal.pone.0256482 or 10.1016/S0140-6736(20)30183-5, as a path whose suffix
+-- is URL-encoded. The API reads the DOI from two path segments, so it cannot look up a suffix containing a slash.
 local function anyDoi(value: any): string
-	assert(type(value) == "string" and #value <= 200 and string.match(value, "^10%.%d%d%d%d+/[%w%-%._]+$")
-		and not string.match(value, "/%.+$"), "doi must be a bare DOI with one slash, such as 10.1101/339747 or "
-		.. "10.1371/journal.pone.0256482; the API cannot look up DOIs with several slashes")
-	return value
+	local prefix, suffix = string.match(if type(value) == "string" and #value <= 200 then value else "", "^(10%.%d%d%d%d+)/([%w%-%._;:()<>%[%]+]+)$")
+	if not prefix or string.match(suffix :: string, "^%.+$") then
+		error("doi must be a bare DOI with one slash, such as 10.1101/339747 or 10.1016/S0140-6736(20)30183-5; the API cannot "
+			.. "look up DOIs with several slashes", 0)
+	end
+	return prefix .. "/" .. url.encode(suffix :: string)
 end
 
 -- "no articles found for published version of ..." (a preprint not yet published) and "Preprint for DOI ... not found"
@@ -517,7 +520,7 @@ Every version of one preprint, oldest first: `{collection}` with the fields of l
 
 ## getPublication({server, doi})
 
-The journal article a preprint became: `{collection}` with at most one link {preprint_doi, published_doi, published_journal, preprint_platform, preprint_title, preprint_authors, preprint_category, preprint_date, published_date, preprint_abstract, preprint_author_corresponding, preprint_author_corresponding_institution}, or an empty collection when there is none yet. doi is the preprint's DOI or the article's own DOI, which finds the preprint of an article; the API cannot look up DOIs with several slashes, such as 10.1093/nar/gkaf118.
+The journal article a preprint became: `{collection}` with at most one link {preprint_doi, published_doi, published_journal, preprint_platform, preprint_title, preprint_authors, preprint_category, preprint_date, published_date, preprint_abstract, preprint_author_corresponding, preprint_author_corresponding_institution}, or an empty collection when there is none yet. doi is the preprint's DOI or the article's own DOI (such as 10.1016/S0140-6736(20)30183-5), which finds the preprint of an article; the API cannot look up DOIs with several slashes, such as 10.1093/nar/gkaf118.
 
 ## listPublications({server, from, to, limit?, cursor?})
 

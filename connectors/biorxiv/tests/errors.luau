@@ -78,7 +78,7 @@ return {
 			rejected(call("downloadPdf", {server = "biorxiv", doi = value, version = 1, session_path = "a.pdf"}), "doi must be a bare")
 		end
 		rejected(call("getPreprint", {server = "biorxiv", doi = "10.1101/1", version = 1}), "getPreprint received an unknown option version")
-		for _, value in {"10.1093/nar/gkaf118", "10.1/x", "10.1101/a b", "10.1101/x?y", "10.1101/x%2F", "10.1101/..", "https://doi.org/10.1101/1"} do
+		for _, value in {"10.1093/nar/gkaf118", "10.1/x", "10.1101/a b", "10.1101/x?y", "10.1101/x%2F", "10.1101/..", "10.1101/x#y", "10.1101/x\\y", "10.1101/x\"y", "https://doi.org/10.1101/1"} do
 			rejected(call("getPublication", {server = "biorxiv", doi = value}), "doi must be a bare DOI with one slash")
 		end
 
