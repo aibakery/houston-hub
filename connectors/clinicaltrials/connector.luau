@@ -88,7 +88,8 @@ local function failure(name: string, response: HttpResponse, id: string?): never
 	else
 		-- Errors are plain text; keep a bounded snippet that ends on a whole UTF-8 character.
 		local snippet = string.match(string.gsub(await(response.body:readPrefix(300)), "%s+", " "), "^ ?(.-) ?$") :: string
-		while snippet ~= "" and not utf8.len(snippet) do snippet = string.sub(snippet, 1, -2) end
+		local valid, invalid = utf8.len(snippet)
+		if not valid and invalid then snippet = string.sub(snippet, 1, invalid - 1) end
 		message = "ClinicalTrials.gov HTTP " .. tostring(status) .. (if snippet == "" then "" else ": " .. snippet)
 	end
 	local retry = response.headers["retry-after"]
