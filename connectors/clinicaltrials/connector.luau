@@ -2,7 +2,8 @@
 type Options = {[string]: any}
 
 local API = "https://clinicaltrials.gov/api/v2"
-local DEFAULT_LIMIT, MAX_LIMIT, PAGE_SIZE, MAX_PAGES = 100, 2000, 1000, 10
+-- The first page stays small because record sizes vary widely; later pages grow to fit the budget.
+local DEFAULT_LIMIT, MAX_LIMIT, FIRST_PAGE, PAGE_SIZE, MAX_PAGES = 50, 2000, 50, 1000, 10
 local MAX_BYTES = 4 * 1024 * 1024
 local MAX_TEXT, MAX_IDS = 2000, 500
 -- Bounds the encoded criteria, which go in every page URL and the sealed continuation token.
@@ -192,7 +193,7 @@ local function searchStudies(input: Options?)
 	local result: Options = {studies = studies}
 	local used = 0
 	for page = 1, MAX_PAGES do
-		local size = math.min(limit - #studies, PAGE_SIZE)
+		local size = math.min(limit - #studies, if page == 1 then FIRST_PAGE else PAGE_SIZE)
 		if page > 1 then
 			-- Size later pages from the bytes per study so far, so they fit the remaining budget.
 			size = math.min(size, (MAX_BYTES - used) // (2 * used / #studies))
@@ -251,7 +252,7 @@ GET /api/v2/studies. Returns `{studies, totalCount?, nextPageToken?}`. Options u
 - sort: up to 2 keys such as `LastUpdatePostDate:desc`, `EnrollmentCount:desc` or `@relevance`; only date and numeric fields sort. Without sort and without a text query, order is unspecified.
 - fields: array or comma-separated names of fields, modules or sections, such as `NCTId`, `BriefSummary`, `EligibilityModule`, `ContactsLocationsModule`, `ProtocolSection`, or `@query` (the fields the query matched). Default: NCTId, BriefTitle, OverallStatus, Phase, StudyType, Condition, InterventionName, LeadSponsorName, EnrollmentCount, StartDate, PrimaryCompletionDate, HasResults. Selected fields keep their nested position, for example Phase is protocolSection.designModule.phases.
 - countTotal: true adds totalCount, the number of matching studies.
-- limit: studies to return, 1 to 2000 (default 100). The call pages internally, up to 1000 per request.
+- limit: studies to return, 1 to 2000 (default 50). The call pages internally: 50 studies first, then pages of up to 1000 sized to fit.
 - pageToken: pass an earlier result's nextPageToken, with only limit, to continue that same search. nextPageToken is present while more matches may remain: when the last matches exactly fill limit it is still returned, and continuing then returns no studies and no token. A call may return fewer than limit studies when they would exceed one call's size budget; continue with nextPageToken.
 
 ## getStudy(nctId, opts?)
