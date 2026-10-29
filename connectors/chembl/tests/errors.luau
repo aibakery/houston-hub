@@ -133,8 +133,9 @@ return {
 		upstream(200, '{"molecules": {}, "page_meta": null}', {}, search, {"unexpected molecule page", '"retryable":false'})
 		upstream(200, '{"targets": [], "page_meta": {"total_count": 0}}', {}, search, {"unexpected molecule page"})
 		upstream(200, '{"molecules": [], "page_meta": {"total_count": "3"}}', {}, search, {"unexpected molecule page"})
-		upstream(200, '{"x":"' .. string.rep("z", 4 * 1024 * 1024) .. '"}', {}, read, {"more data than one call can hold", '"retryable":false'})
-		upstream(200, '{"molecules":[],"x":"' .. string.rep("z", 4 * 1024 * 1024) .. '"}', {}, search, {"more data than one call can hold"})
+		upstream(200, '{"x":"' .. string.rep("z", 4 * 1024 * 1024) .. '"}', {}, read,
+			{"more data than one call can hold; request fewer fields", '"retryable":false'}, "limit")
+		upstream(200, '{"molecules":[],"x":"' .. string.rep("z", 4 * 1024 * 1024) .. '"}', {}, search, {"more data than one call can hold; request fewer fields or a lower limit"})
 
 		requestError = {code = "timeout", message = "request deadline"}
 		upstream(200, "", {}, search, {"ChEMBL did not answer within 20 s", '"retryable":true'})

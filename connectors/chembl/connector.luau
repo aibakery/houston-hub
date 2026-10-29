@@ -344,7 +344,7 @@ local function fetch(operation: string, target: string, budget: number, later: b
 			return nil, 0
 		elseif code == "limit_exceeded" then
 			houston.fail({operation = operation, layer = "upstream", upstream_status = 200, retryable = false,
-				message = "ChEMBL returned more data than one call can hold; request fewer fields or a lower limit"})
+				message = "ChEMBL returned more data than one call can hold; request fewer fields" .. (if missing then "" else " or a lower limit")})
 		elseif code == "cancelled" or code == "timeout" then
 			error(raw, 0)
 		end
