@@ -104,6 +104,18 @@ return {
 		trials.searchStudies({pageToken = token})
 		assert(url(#requests) == API .. "/studies?fields=ProtocolSection&pageSize=100&pageToken=p3", url(#requests))
 
+		-- A later page over the remaining budget ends the call with what was collected and that page's token.
+		local medium = '{"protocolSection":{"descriptionModule":{"briefSummary":"' .. string.rep("m", 512 * 1024) .. '"}}}'
+		respond('{"studies":[' .. medium .. '],"nextPageToken":"q2"}')
+		respond('{"studies":[{"x":"' .. string.rep("o", 3584 * 1024) .. '"}],"nextPageToken":"q3"}')
+		page = trials.searchStudies({fields = {"ProtocolSection"}, limit = 2000})
+		assert(url(#requests) == API .. "/studies?fields=ProtocolSection&pageSize=3&pageToken=q2", url(#requests))
+		assert(#page.studies == 1 and page.nextPageToken ~= nil, "collected studies were discarded")
+		token, medium, page = page.nextPageToken, nil, nil
+		respond('{"studies":[]}')
+		trials.searchStudies({pageToken = token, limit = 1})
+		assert(url(#requests) == API .. "/studies?fields=ProtocolSection&pageSize=1&pageToken=q2", url(#requests))
+
 		-- Study reads: full record, selected modules, and the table form.
 		respond('{"protocolSection":{"identificationModule":{"nctId":"NCT04368728"}},"resultsSection":{},"hasResults":true}')
 		local record = trials.getStudy("NCT04368728")

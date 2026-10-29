@@ -104,14 +104,16 @@ local function failure(name: string, response: HttpResponse, id: string?): never
 		retryable = status == 429 or status >= 500, message = message})
 end
 
--- Returns the decoded JSON object and the bytes read, refusing bodies over budget.
-local function fetch(name: string, target: string, budget: number, id: string?): (any, number)
+-- Returns the decoded JSON object and the bytes read. A body over budget fails, or returns nil when partial.
+local function fetch(name: string, target: string, budget: number, id: string?, partial: boolean?): (any, number)
 	local response = await(http.request({method = "GET", url = target, headers = {Accept = {"application/json"}}}))
 	if response.statusCode ~= 200 then failure(name, response, id) end
 	local read, raw = pcall(function() return await(response.body:readAll(budget)) end)
 	if not read then
-		local code = if type(raw) == "table" then raw.code else nil
-		if code == "limit_exceeded" then
+		local code: any = if type(raw) == "table" then (raw :: any).code else nil
+		if code == "limit_exceeded" and partial then
+			return nil, 0
+		elseif code == "limit_exceeded" then
 			houston.fail({operation = name, layer = "upstream", upstream_status = 200, retryable = false,
 				message = "ClinicalTrials.gov returned more data than one call can hold; request fewer fields or a lower limit"})
 		elseif code == "cancelled" or code == "timeout" then
@@ -199,7 +201,9 @@ local function searchStudies(input: Options?)
 		local target = API .. "/studies?" .. query .. "&pageSize=" .. tostring(size)
 			.. (if countTotal and page == 1 then "&countTotal=true" else "")
 			.. (if token then "&pageToken=" .. url.encode(token) else "")
-		local body, bytes = fetch("searchStudies", target, MAX_BYTES - used)
+		-- After the first page, an oversized page ends the call; its token stays for the continuation.
+		local body, bytes = fetch("searchStudies", target, MAX_BYTES - used, nil, page > 1)
+		if body == nil then break end
 		used += bytes
 		if type(body.studies) ~= "table" or (body.nextPageToken ~= nil and type(body.nextPageToken) ~= "string") then
 			houston.fail({operation = "searchStudies", layer = "upstream", upstream_status = 200, retryable = false,
