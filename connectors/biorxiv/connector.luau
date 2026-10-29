@@ -47,24 +47,25 @@ local function finite(value: any): boolean
 end
 
 local function integer(value: any, field: string, minimum: number, maximum: number): number
-	assert(finite(value) and value % 1 == 0 and value >= minimum and value <= maximum,
-		field .. " must be an integer from " .. string.format("%d", minimum) .. " to " .. string.format("%d", maximum))
+	if not (finite(value) and value % 1 == 0 and value >= minimum and value <= maximum) then
+		error(field .. " must be an integer from " .. string.format("%d", minimum) .. " to " .. string.format("%d", maximum), 0)
+	end
 	return value
 end
 
 local function choice(value: any, field: string, values: {string}): string
-	assert(type(value) == "string" and table.find(values, value), field .. " must be one of " .. table.concat(values, ", "))
+	if not (type(value) == "string" and table.find(values, value)) then error(field .. " must be one of " .. table.concat(values, ", "), 0) end
 	return value
 end
 
 local function options(value: any, operation: string): Options
-	assert(type(value) == "table", operation .. " takes one options table")
+	if type(value) ~= "table" then error(operation .. " takes one options table", 0) end
 	return table.clone(value :: Options)
 end
 
 local function noneLeft(args: Options, operation: string)
 	local unknown = next(args)
-	assert(unknown == nil, operation .. " received an unknown option " .. string.sub(tostring(unknown), 1, 64))
+	if unknown ~= nil then error(operation .. " received an unknown option " .. string.sub(tostring(unknown), 1, 64), 0) end
 end
 
 local function take(args: Options, field: string): any
@@ -93,8 +94,12 @@ local function preprintDoi(value: any): string?
 end
 
 local function doi(value: any): string
-	return assert(preprintDoi(value), "doi must be a bare bioRxiv or medRxiv DOI such as 10.1101/339747 or "
-		.. "10.64898/2026.10.15.759504, without a version, doi: or https://doi.org/")
+	local id = preprintDoi(value)
+	if not id then
+		error("doi must be a bare bioRxiv or medRxiv DOI such as 10.1101/339747 or 10.64898/2026.10.15.759504, without a "
+			.. "version, doi: or https://doi.org/", 0)
+	end
+	return id
 end
 
 local DAYS = table.freeze({31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31})
@@ -105,7 +110,7 @@ local function date(value: any, field: string): string
 	local year, month, day = tonumber(y), tonumber(m), tonumber(d)
 	local leap = year and year % 4 == 0 and (year % 100 ~= 0 or year % 400 == 0)
 	local days = if month and month >= 1 and month <= 12 then DAYS[month] + (if month == 2 and leap then 1 else 0) else nil
-	assert(year and days and day and day >= 1 and day <= days, field .. " must be a date such as 2025-03-21")
+	if not (year and days and day and day >= 1 and day <= days) then error(field .. " must be a date such as 2025-03-21", 0) end
 	return value
 end
 
@@ -288,8 +293,9 @@ local function category(args: Options, entry: Server): string
 	local value = take(args, "category")
 	if value == nil then return "" end
 	local name = if type(value) == "string" then string.gsub(string.lower(value), "_", " ") else ""
-	assert(table.find(entry.categories, name), "category must be one of the " .. entry.name .. " categories: "
-		.. table.concat(entry.categories, ", "))
+	if not table.find(entry.categories, name) then
+		error("category must be one of the " .. entry.name .. " categories: " .. table.concat(entry.categories, ", "), 0)
+	end
 	return "?category=" .. string.gsub(name, " ", "_")
 end
 
@@ -379,8 +385,9 @@ end
 local function searchPreprints(input: any): Options
 	local args = options(input, "searchPreprints")
 	local query = take(args, "query")
-	assert(type(query) == "string" and string.find(query, "%S") and #query <= MAX_QUERY,
-		"query must be a Europe PMC query of at most " .. tostring(MAX_QUERY) .. " bytes, not only spaces")
+	if not (type(query) == "string" and string.find(query, "%S") and #query <= MAX_QUERY) then
+		error("query must be a Europe PMC query of at most " .. tostring(MAX_QUERY) .. " bytes, not only spaces", 0)
+	end
 	assert(balanced(query), "query must balance its parentheses and double quotes")
 	local full = "(" .. query .. ") AND SRC:PPR AND "
 	if args.server == nil then
