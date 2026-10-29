@@ -131,8 +131,13 @@ local function reportedFailure(operation: string, message: string): never
 end
 
 local function reason(body: string): string
-	local ok, decoded = pcall(json.decode, body)
-	local message = (if ok then reported(decoded) else nil) or string.match(body, "<ERROR>(.-)</ERROR>")
+	local message
+	if string.match(body, "^%s*{") then
+		local ok, decoded = pcall(json.decode, body)
+		message = if ok then reported(decoded) else nil
+	else
+		message = string.match(body, "<ERROR>(.-)</ERROR>")
+	end
 	return if message then tidy(message) else ""
 end
 
@@ -194,10 +199,10 @@ end
 local function decode(operation: string, raw: string, key: string): any
 	-- ELink gives up after about 15 s and still answers 200, with an empty body.
 	if not string.find(raw, "%S") then fail(operation, 200, true, "NCBI returned an empty answer; retry, or pass fewer ids") end
-	local ok, value = pcall(json.decode, raw)
-	if not ok or type(value) ~= "table" or not string.match(raw, "^%s*{") then
-		fail(operation, 200, false, "NCBI returned an invalid JSON object")
-	end
+	-- The anchored check is cheap, so a large page that is not JSON is never decoded.
+	local ok, value = false, nil
+	if string.match(raw, "^%s*{") then ok, value = pcall(json.decode, raw) end
+	if not ok or type(value) ~= "table" then fail(operation, 200, false, "NCBI returned an invalid JSON object") end
 	local message = reported(value)
 	if message then reportedFailure(operation, message) end
 	if type(value[key]) ~= "table" then fail(operation, 200, false, "NCBI returned an unexpected answer") end
