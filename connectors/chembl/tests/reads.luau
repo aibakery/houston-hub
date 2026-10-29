@@ -56,7 +56,7 @@ return {
 		respond(page("molecules", molecules(1, 2), 2, false))
 		local found = chembl.searchMolecules()
 		assert(url() == API .. "/molecule.json?" .. MOLECULE .. "&limit=100&offset=0", url())
-		assert(requests[1].timeoutMs == 20000)
+		assert(requests[1].timeoutMs == 15000, "the first page waits 15 s for headers")
 		assert(#found.molecules == 2 and found.molecules[2].molecule_chembl_id == "CHEMBL2")
 		assert(found.total_count == 2 and found.next_offset == nil)
 
@@ -114,7 +114,7 @@ return {
 		found = chembl.searchMolecules({limit = 1500})
 		assert(url(first) == API .. "/molecule.json?" .. MOLECULE .. "&limit=1000&offset=0", url(first))
 		assert(url() == API .. "/molecule.json?" .. MOLECULE .. "&limit=500&offset=1000", url())
-		assert(requests[first].timeoutMs == 20000 and requests[first + 1].timeoutMs == 8000)
+		assert(requests[first].timeoutMs == 15000 and requests[first + 1].timeoutMs == 6000, "the second page gets what the call has left")
 		assert(#found.molecules == 1500 and found.molecules[1500].molecule_chembl_id == "CHEMBL1500")
 		assert(found.total_count == 4000 and found.next_offset == 1500, "total_count comes from the first page")
 
@@ -161,6 +161,7 @@ return {
 		assert(#found.molecules == 10 and found.next_offset == 15)
 		-- Any other failure of a later page also keeps the collected rows; cancellation still ends the call.
 		for _, failed in {{status = 500, body = '{"error_message": "statement timeout"}'}, {status = 404}, {code = "io_error", message = "reset"},
+			{readError = {code = "timeout", message = "await timed out"}},
 			{readError = {code = "io_error", message = "reset"}}, '<html>', '{"molecules": null}'} do
 			respond(page("molecules", molecules(1, 10), 4000, true))
 			respond(failed)
@@ -208,7 +209,7 @@ return {
 			respond('{"id":"record"}')
 			assert(case.fn(case.id).id == "record")
 			assert(url() == API .. "/" .. case.path, url())
-			assert(requests[#requests].timeoutMs == 20000)
+			assert(requests[#requests].timeoutMs == 24000)
 		end
 		respond('{"target_chembl_id":"CHEMBL203","target_components":[]}')
 		local target = chembl.getTarget("CHEMBL203", {fields = {"target_chembl_id", "target_components"}})

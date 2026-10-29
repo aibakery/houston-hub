@@ -142,12 +142,15 @@ return {
 		upstream(200, '{"molecules":[],"x":"' .. string.rep("z", 4 * 1024 * 1024) .. '"}', {}, search, {"more data than one call can hold; request fewer fields or a lower limit"})
 
 		requestError = {code = "timeout", message = "request deadline"}
-		upstream(200, "", {}, search, {"ChEMBL did not answer within 20 s", '"retryable":true'})
-		upstream(200, "", {}, read, {"did not answer within 20 s"})
+		upstream(200, "", {}, search, {"ChEMBL did not answer within 15 s", '"retryable":true'})
+		upstream(200, "", {}, read, {"did not answer within 24 s"})
 		-- Other request failures pass through unchanged; the stand-in table loses its message across the export boundary.
 		requestError = {code = "access_denied", message = "origin not allowed"}
 		upstream(200, "", {}, read, {"error"}, "retryable")
 		requestError = nil
+		-- The body read has its own share of the call's time.
+		readError = {code = "timeout", message = "await timed out"}
+		upstream(200, "", {}, search, {"ChEMBL did not finish sending its answer within 3 s", '"retryable":true'})
 		readError = {code = "io_error", message = "connection reset by peer"}
 		upstream(200, "", {}, search, {"ChEMBL response failed: connection reset by peer", '"retryable":true'}, "more data")
 		readError = {code = "cancelled", message = "invocation cancelled"}

@@ -7,9 +7,10 @@ type Resource = {name: string, path: string, rows: string, label: string, search
 
 local API = "https://www.ebi.ac.uk/chembl/api/data"
 -- ChEMBL serves at most 1,000 rows per page. Houston ends a call after 30 s and an uncached ChEMBL page can take 5 to
--- 15 s, so a call reads at most two pages and gives the second one less time.
+-- 15 s, so a call reads at most two pages within a 27 s budget. The sandbox has no clock, so each wait gets a fixed
+-- share: the second page keeps 9 s, and each response body, an error body included, 3 s of its page's share.
 local DEFAULT_LIMIT, MAX_LIMIT, PAGE_SIZE, MAX_PAGES = 100, 2000, 1000, 2
-local FIRST_TIMEOUT, NEXT_TIMEOUT = 20000, 8000
+local CALL_TIME, LATER_TIME, BODY_TIME = 27000, 9000, 3000
 local MAX_BYTES = 4 * 1024 * 1024
 -- Upper bounds of one row in bytes, which size the first page from the byte budget.
 local COMPACT_ROW, FULL_ROW = 2048, 128 * 1024
@@ -327,24 +328,27 @@ local function failure(operation: string, response: HttpResponse, missing: strin
 end
 
 -- Returns the decoded JSON object and the bytes read.
-local function fetch(operation: string, target: string, budget: number, timeout: number, missing: string?): (any, number)
+local function fetch(operation: string, target: string, budget: number, time: number, missing: string?): (any, number)
 	local sent, response = pcall(function()
 		return await(http.request({method = "GET", url = target, headers = {Accept = {"application/json"}},
-			timeoutMs = timeout}))
+			timeoutMs = time - BODY_TIME}))
 	end)
 	if not sent then
 		if errorCode(response) ~= "timeout" then error(response, 0) end
 		houston.fail({operation = operation, layer = "upstream", retryable = true,
-			message = "ChEMBL did not answer within " .. tostring(timeout // 1000) .. " s; retry, since ChEMBL caches results, or narrow the request"})
+			message = "ChEMBL did not answer within " .. tostring((time - BODY_TIME) // 1000) .. " s; retry, since ChEMBL caches results, or narrow the request"})
 	end
 	if response.statusCode ~= 200 then failure(operation, response, missing) end
-	local read, raw = pcall(function() return await(response.body:readAll(budget)) end)
+	local read, raw = pcall(function() return await(response.body:readAll(budget), BODY_TIME) end)
 	if not read then
 		local code = errorCode(raw)
 		if code == "limit_exceeded" then
 			houston.fail({operation = operation, layer = "upstream", upstream_status = 200, retryable = false,
 				message = "ChEMBL returned more data than one call can hold; request fewer fields" .. (if missing then "" else " or a lower limit")})
-		elseif code == "cancelled" or code == "timeout" then
+		elseif code == "timeout" then
+			houston.fail({operation = operation, layer = "upstream", upstream_status = 200, retryable = true,
+				message = "ChEMBL did not finish sending its answer within " .. tostring(BODY_TIME // 1000) .. " s; retry, or request fewer rows or fields"})
+		elseif code == "cancelled" then
 			error(raw, 0)
 		end
 		local detail = if type(raw) == "table" and type(raw.message) == "string" then raw.message else tostring(raw)
@@ -407,7 +411,7 @@ local function collect(operation: string, resource: Resource, args: Options, que
 		end
 		local read, body, bytes = pcall(function(): (any, number)
 			local value, length = fetch(operation, base .. "limit=" .. tostring(size) .. "&offset=" .. tostring(offset + #rows),
-				MAX_BYTES - used, if page == 1 then FIRST_TIMEOUT else NEXT_TIMEOUT)
+				MAX_BYTES - used, if page == 1 then CALL_TIME - LATER_TIME else LATER_TIME)
 			if type(value[resource.rows]) ~= "table" or type(value.page_meta) ~= "table" or not finite(value.page_meta.total_count) then
 				houston.fail({operation = operation, layer = "upstream", upstream_status = 200, retryable = false,
 					message = "ChEMBL returned an unexpected " .. resource.label .. " page"})
@@ -451,7 +455,7 @@ local function get(resource: Resource): (any, Options?) -> any
 		noneLeft(args, operation)
 		local target = API .. "/" .. resource.path .. "/" .. id .. ".json" .. (if only then "?" .. only else "")
 		assert(#target <= MAX_URL, "fields is too long once URL-encoded, at most " .. tostring(MAX_URL) .. " bytes")
-		return (fetch(operation, target, MAX_BYTES, FIRST_TIMEOUT, resource.label .. " " .. id))
+		return (fetch(operation, target, MAX_BYTES, CALL_TIME, resource.label .. " " .. id))
 	end
 end
 
@@ -541,7 +545,7 @@ local HELP_END = [[
 
 ## Errors and limits
 
-Invalid input fails before any request, including requests over 4,000 bytes once URL-encoded (SMILES strings count once encoded). ChEMBL errors come back as upstream errors with the HTTP status and ChEMBL's message, such as a SMILES string it cannot parse (HTTP 500, not retryable). HTTP 429 and other 5xx errors are retryable. ChEMBL answers a cached query in about a second and a new one in 5 to 15 s or more, and Houston ends a call after 30 s: a first page slower than 20 s fails as retryable (ChEMBL caches results, so a retry is often fast), and a second page slower than 8 s is skipped in favor of next_offset. Prefer narrow filters and compact fields over many calls.
+Invalid input fails before any request, including requests over 4,000 bytes once URL-encoded (SMILES strings count once encoded). ChEMBL errors come back as upstream errors with the HTTP status and ChEMBL's message, such as a SMILES string it cannot parse (HTTP 500, not retryable). HTTP 429 and other 5xx errors are retryable. ChEMBL answers a cached query in about a second and a new one in 5 to 15 s or more. Houston ends a call after 30 s, so a call gives ChEMBL 27 s: 18 s for the first page and 9 s for the second, each including 3 s to receive the body; a record read gets all 27 s. A first page or record that runs out of time fails as retryable (ChEMBL caches results, so a retry is often fast). A second page that runs out of time or fails for any other reason ends the call with the rows so far and next_offset. Prefer narrow filters and compact fields over many calls.
 
 ## Example
 
