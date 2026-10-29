@@ -291,16 +291,18 @@ local function record(fields: {Field}): Options
 	return out
 end
 
--- Parses MEDLINE text: blank lines separate records, a line is a tag padded to 4 characters, "- " and a value, and
+-- Parses MEDLINE text: empty lines separate records, a line is a tag padded to 4 characters, "- " and a value, and
 -- lines indented by 6 spaces continue the value before them.
 local function medline(raw: string): {Options}
 	local records = json.decode("[]")
 	local fields: {Field} = {}
 	for _, line in string.split(raw, "\n") do
 		line = string.gsub(line, "\r$", "")
-		if not string.find(line, "%S") then
+		if line == "" then
 			if #fields > 0 then table.insert(records, record(fields)) end
 			fields = {}
+		elseif not string.find(line, "%S") then
+			continue
 		elseif string.sub(line, 1, 6) == "      " and #fields > 0 then
 			local text = trim(line)
 			if text ~= "" then table.insert(fields[#fields].lines, text) end

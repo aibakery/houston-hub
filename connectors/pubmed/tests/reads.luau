@@ -87,6 +87,8 @@ return {
 			"LID - 10.1136/bmj.n71 [doi]",
 			"LID - n71",
 			"AB  - BACKGROUND: Systematic reviews are useful. METHODS: We updated the",
+			-- Only an empty line ends a record; a line of spaces inside a value is ignored.
+			"   ",
 			"      guideline. CONCLUSIONS: Use it.",
 			"FAU - Page, Matthew J",
 			"AU  - Page MJ",
