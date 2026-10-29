@@ -90,6 +90,10 @@ return {
 		upstream(404, "", {}, read, {"HTTP 404"}, "HTTP 404:")
 		upstream(301, "", {location = {"/api/v2/studies/NCT03682900"}}, read,
 			{"HTTP 301: NCT05730322 is an alias of NCT03682900; call getStudy with NCT03682900", '"retryable":false'})
+		for _, location in {"https://clinicaltrials.gov/api/v2/studies/NCT03682900", "/api/v2/studies/NCT03682900?fields=NCTId"} do
+			upstream(301, "", {location = {location}}, read, {"NCT05730322 is an alias of NCT03682900; call getStudy with NCT03682900"})
+		end
+		upstream(301, "", {location = {"https://clinicaltrials.gov.example.com/api/v2/studies/NCT03682900"}}, read, {"unexpected redirect"}, "alias")
 		upstream(302, "", {location = {"https://evil.example.com/"}}, read, {"HTTP 302: unexpected redirect"}, "evil")
 		upstream(429, "Too Many Requests", {["retry-after"] = {"7"}}, search, {"HTTP 429", "retry after 7s", '"retryable":true'})
 		upstream(503, "", {["retry-after"] = {"Thu, 29 Oct 2026 20:00:00 GMT"}}, search,

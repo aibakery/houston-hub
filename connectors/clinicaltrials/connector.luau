@@ -78,7 +78,10 @@ local function failure(name: string, response: HttpResponse, id: string?): never
 	if status >= 300 and status < 400 then
 		response.body:close()
 		local location = response.headers.location
-		local target = if location and location[1] then string.match(location[1], "^/api/v2/studies/(NCT%d%d%d%d%d%d%d%d)$") else nil
+		-- An alias redirects to the current study, by relative or absolute URL, with or without a query.
+		local path = if location and location[1] then string.match(location[1], "^[^?#]*") :: string else ""
+		if string.sub(path, 1, 26) == "https://clinicaltrials.gov" then path = string.sub(path, 27) end
+		local target = string.match(path, "^/api/v2/studies/(NCT%d%d%d%d%d%d%d%d)$")
 		message = if target and id
 			then "ClinicalTrials.gov HTTP " .. tostring(status) .. ": " .. id .. " is an alias of " .. target .. "; call getStudy with " .. target
 			else "ClinicalTrials.gov HTTP " .. tostring(status) .. ": unexpected redirect"
