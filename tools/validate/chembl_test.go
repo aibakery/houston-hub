@@ -1,6 +1,9 @@
 package main
 
-import "testing"
+import (
+	"net/http"
+	"testing"
+)
 
 func TestChEMBLPublicReadRoutes(t *testing.T) {
 	m := parseManifest(t, "../../connectors/chembl/houston.json")
@@ -17,7 +20,7 @@ func TestChEMBLPublicReadRoutes(t *testing.T) {
 		"GET " + api + "/similarity.json?smiles=CC%28%3DO%29Oc1ccccc1C%28%3DO%29O&similarity=80",
 		"GET " + api + "/substructure.json?smiles=C%23CC%2FC%3DC%5Cc1ccccc1",
 	} {
-		assertAuthorizedRoutes(t, r, "forged", true, route)
+		assertAuthorizedRoutes(t, r, "", true, route)
 	}
 	assertAuthorizedRoutes(t, r, "", false,
 		"POST "+api+"/similarity.json", "POST "+api+"/molecule.json", "DELETE "+api+"/molecule/CHEMBL25.json",
@@ -27,7 +30,7 @@ func TestChEMBLPublicReadRoutes(t *testing.T) {
 		"GET https://www.ebi.ac.uk.example.com/chembl/api/data/molecule.json", "GET http://www.ebi.ac.uk:8080/chembl/api/data/molecule.json")
 }
 
-func TestChEMBLRemovesMethodOverride(t *testing.T) {
+func TestChEMBLDropsCallerOverridesAndCredentials(t *testing.T) {
 	m := parseManifest(t, "../../connectors/chembl/houston.json")
 	r, err := m.Resolve(nil, nil, nil, "")
 	if err != nil {
@@ -37,8 +40,18 @@ func TestChEMBLRemovesMethodOverride(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	headers, err := recipe.Prepare(r.Context, map[string][]string{"X-Http-Method-Override": {"DELETE"}, "Accept": {"application/json"}})
-	if err != nil || headers.Get("X-HTTP-Method-Override") != "" || headers.Get("Accept") != "application/json" {
-		t.Fatalf("method override kept: %v %v", headers, err)
+	dropped := []string{"X-HTTP-Method-Override", "X-HTTP-Method", "X-Method-Override", "Authorization", "Cookie"}
+	caller := http.Header{"Accept": {"application/json"}}
+	for _, name := range dropped {
+		caller.Set(name, "caller-value")
+	}
+	headers, err := recipe.Prepare(r.Context, caller)
+	if err != nil || headers.Get("Accept") != "application/json" {
+		t.Fatalf("prepare: %v %v", headers, err)
+	}
+	for _, name := range dropped {
+		if headers.Get(name) != "" {
+			t.Fatalf("%s reached ChEMBL", name)
+		}
 	}
 }

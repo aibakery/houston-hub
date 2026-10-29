@@ -113,8 +113,11 @@ func TestEveryProviderAuthenticationAndTransport(t *testing.T) {
 					credentialHeader = "X-Figma-Token"
 					authorization = "synthetic-method-secret"
 				}
-				if provider == "clinicaltrials" || provider == "chembl" { // The public APIs take no credential, so the rule leaves headers unchanged.
+				if provider == "clinicaltrials" { // The public API takes no credential, so the rule leaves headers unchanged.
 					authorization = "caller-forgery"
+				}
+				if provider == "chembl" { // The public API takes no credential, so the rule drops the caller's.
+					authorization = ""
 				}
 				if provider == "dolibarr" { // Dolibarr reads the bare key from its own header.
 					config["host"] = "erp.example.com"
