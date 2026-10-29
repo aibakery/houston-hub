@@ -509,7 +509,7 @@ local HELP = [[ChEMBL: search and read EMBL-EBI's open database of bioactive mol
 
 ## Searches: search<Rows>(opts?), similarMolecules(opts), substructureMolecules(opts)
 
-Return `{<rows>, total_count, next_offset?}`, for example `{molecules = {...}, total_count = 52, next_offset = 100}`. Options use ChEMBL's names; unknown options, filters, lookups, sort fields and field names are rejected before any request, because ChEMBL itself silently ignores unknown filters and returns every record.
+Return `{<rows>, total_count, next_offset?}`, for example `{molecules = {...100 rows}, total_count = 2921148, next_offset = 100}` for the default limit of 100 from offset 0. Options use ChEMBL's names; unknown options, filters, lookups, sort fields and field names are rejected before any request, because ChEMBL itself silently ignores unknown filters and returns every record.
 - q: free text, for searches that support it; results rank by relevance unless order_by is given. ChEMBL counts at most 10,000 text matches.
 - filters: a table of `field__lookup = value`, all of which must match, such as `{pref_name__icontains = "statin", max_phase = 4, ["molecule_properties__full_mwt__lte"] = 500}`. A bare field means exact. `in` takes an array (values without commas), `range` takes {low, high}, `isnull` takes true or false. Each resource below lists its filters by kind. Lookups by kind: ]] .. listHelp(LOOKUP_LISTS) .. [[. text and term values are strings, number values numbers, flag values true, false or an integer, id values ChEMBL IDs and smiles values SMILES strings.
 - order_by: a field, or -field for descending, or an array of up to 3. Descending order puts missing values first; add a filter such as `pchembl_value__isnull = false`.
