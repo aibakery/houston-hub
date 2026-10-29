@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "name": "ClinicalTrials.gov",
+  "files": [
+    "connector.luau"
+  ],
+  "icon": "icon.svg",
+  "proxy": [
+    {
+      "match": {
+        "protocol": "http",
+        "host": [
+          "clinicaltrials.gov"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/api/v2/studies",
+          "/api/v2/studies/{nctId}"
+        ]
+      },
+      "action": {}
+    }
+  ]
+}
