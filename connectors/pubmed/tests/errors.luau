@@ -114,12 +114,17 @@ return {
 		upstream(503, "", {["retry-after"] = {"30"}}, records, {"NCBI HTTP 503; retry after 30s", '"retryable":true'})
 		upstream(301, "", {location = {"https://www.ncbi.nlm.nih.gov/elsewhere"}}, find, {"NCBI HTTP 301: unexpected redirect", '"retryable":false'}, "elsewhere")
 
-		-- Errors inside a successful answer: input is validated, so they are server faults.
+		-- Errors inside a successful answer: known input rejections are final, other failures are server faults.
 		upstream(200, '{"esearchresult":{"ERROR":"Search Backend failed: An error occurred while processing request.\\nStatus: 500."}}', {}, find,
 			{"NCBI: Search Backend failed: An error occurred while processing request. Status: 500.", '"retryable":true', '"upstream_status":200'})
 		upstream(200, '{"esummaryresult":["Unable to obtain query #1"]}', {}, summaries, {"NCBI: Unable to obtain query #1", '"retryable":true'})
-		upstream(200, '{"error":"Too many UIDs in request."}', {}, summaries, {"NCBI: Too many UIDs in request."})
-		upstream(200, '{"ERROR":"Invalid linkname"}', {}, links, {"NCBI: Invalid linkname", '"retryable":true'})
+		upstream(200, '{"error":"Too many UIDs in request. Maximum number of UIDs is 500 for JSON format output."}', {}, summaries,
+			{"NCBI: Too many UIDs in request.", '"retryable":false'})
+		upstream(200, '{"ERROR":"Invalid linkname"}', {}, links, {"NCBI: Invalid linkname", '"retryable":false'})
+		-- NCBI answers a query of only parentheses this way: it names the empty term after its generic outage text.
+		upstream(200, '{"esearchresult":{"ERROR":"Search Backend failed: An error occurred while processing request. Status: 500. Details: Search is temporarily unavailable. Please try again later. Details: Empty Term in the request"}}', {},
+			find, {"Empty Term in the request", '"retryable":false'})
+		upstream(200, '{"error":"API key not wellformed"}', {}, summaries, {"NCBI: API key not wellformed", '"retryable":false'})
 		upstream(200, "<html>maintenance</html>", {}, find, {"NCBI returned an invalid JSON object", '"retryable":false'}, "maintenance")
 		upstream(200, "[]", {}, summaries, {"NCBI returned an invalid JSON object"})
 		-- ELink stops after about 15 s and then sends an empty 200.

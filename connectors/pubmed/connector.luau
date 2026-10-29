@@ -118,6 +118,18 @@ local function tidy(message: string): string
 	return string.sub(string.match(string.gsub(message, "%s+", " "), "^ ?(.-) ?$") :: string, 1, 300)
 end
 
+-- Phrases of NCBI's messages about input it rejects, which retrying cannot fix, even inside a successful answer.
+local REJECTIONS = table.freeze({"invalid", "too many", "cannot be larger", "empty term", "nothing todo", "not wellformed"})
+
+-- Fails with an error NCBI reported in a 200 answer: a rejection is final, any other failure, such as
+-- "Search Backend failed", a server fault.
+local function reportedFailure(operation: string, message: string): never
+	local lower = string.lower(message)
+	local rejected = false
+	for _, phrase in REJECTIONS do rejected = rejected or string.find(lower, phrase, 1, true) ~= nil end
+	return fail(operation, 200, not rejected, "NCBI: " .. tidy(message))
+end
+
 local function reason(body: string): string
 	local ok, decoded = pcall(json.decode, body)
 	local message = (if ok then reported(decoded) else nil) or string.match(body, "<ERROR>(.-)</ERROR>")
@@ -186,10 +198,8 @@ local function decode(operation: string, raw: string, key: string): any
 	if not ok or type(value) ~= "table" or not string.match(raw, "^%s*{") then
 		fail(operation, 200, false, "NCBI returned an invalid JSON object")
 	end
-	-- Input is validated first, so an error NCBI reports in a successful answer, such as "Search Backend failed", is
-	-- a server fault.
 	local message = reported(value)
-	if message then fail(operation, 200, true, "NCBI: " .. tidy(message)) end
+	if message then reportedFailure(operation, message) end
 	if type(value[key]) ~= "table" then fail(operation, 200, false, "NCBI returned an unexpected answer") end
 	return value[key]
 end
@@ -363,7 +373,7 @@ PMC open-access full text as one BioC document: `{id, infons, passages}`, where 
 
 ## Errors and limits
 
-Invalid input fails before any request. NCBI errors come back as upstream errors with the HTTP status and NCBI's message; HTTP 429 and 5xx are retryable, as are failures NCBI reports inside a successful answer (such as "Search Backend failed"). Without an API key, NCBI accepts 3 requests per second from Houston as a whole, and 10 per connection with one; Houston waits and retries a refused request briefly, so prefer fewer calls with more IDs over many small ones. Each call reads at most ]] .. tostring(MAX_BYTES // 1048576) .. [[ MiB and gives NCBI ]] .. tostring(CALL_TIME // 1000) .. [[ s: ]] .. tostring((CALL_TIME - BODY_TIME) // 1000) .. [[ to start answering and ]] .. tostring(BODY_TIME // 1000) .. [[ to send the body; a call that runs out of time fails as retryable. Too much data fails as not retryable: pass fewer ids; a larger full text cannot be read.
+Invalid input fails before any request. NCBI errors come back as upstream errors with the HTTP status and NCBI's message; HTTP 429 and 5xx are retryable, as are failures NCBI reports inside a successful answer (such as "Search Backend failed"), except its rejections of input (messages about invalid or too many values or an empty term). Without an API key, NCBI accepts 3 requests per second from Houston as a whole, and 10 per connection with one; Houston waits and retries a refused request briefly, so prefer fewer calls with more IDs over many small ones. Each call reads at most ]] .. tostring(MAX_BYTES // 1048576) .. [[ MiB and gives NCBI ]] .. tostring(CALL_TIME // 1000) .. [[ s: ]] .. tostring((CALL_TIME - BODY_TIME) // 1000) .. [[ to start answering and ]] .. tostring(BODY_TIME // 1000) .. [[ to send the body; a call that runs out of time fails as retryable. Too much data fails as not retryable: pass fewer ids; a larger full text cannot be read.
 
 ## Example
 
