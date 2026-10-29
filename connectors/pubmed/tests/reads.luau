@@ -100,6 +100,7 @@ return {
 			"AD  - Monash University.",
 			"AD  - University of Ottawa.",
 			"CN  - PRISMA Group",
+			"AD  - PRISMA secretariat.",
 			"LA  - eng",
 			"PT  - Journal Article",
 			"PT  - Review",
@@ -129,12 +130,14 @@ return {
 		assert(prisma.AB == "BACKGROUND: Systematic reviews are useful. METHODS: We updated the guideline. CONCLUSIONS: Use it.",
 			"wrapped lines join with one space, as Biopython joins them: " .. prisma.AB)
 		assert(table.concat(prisma.LID, "|") == "10.1136/bmj.n71 [doi]|n71")
-		assert(#prisma.authors == 2 and prisma.authors[1].FAU == "Page, Matthew J" and prisma.authors[1].AU == "Page MJ")
+		assert(#prisma.authors == 3 and prisma.authors[1].FAU == "Page, Matthew J" and prisma.authors[1].AU == "Page MJ")
 		assert(prisma.authors[1].AUID[1] == "ORCID: 0000-0002-4242-7526")
 		assert(prisma.authors[1].AD[1] == "School of Public Health and Preventive Medicine, Monash University, Melbourne, Australia matthew.page@monash.edu.")
 		assert(table.concat(prisma.authors[2].AD, "|") == "Monash University.|University of Ottawa." and prisma.authors[2].AUID == nil)
 		assert(prisma.FAU == nil and prisma.AU == nil and prisma.AD == nil, "author tags live in authors")
-		assert(prisma.CN[1] == "PRISMA Group" and prisma.LA[1] == "eng" and table.concat(prisma.PT, "|") == "Journal Article|Review")
+		-- A corporate author is its own entry, so its affiliation does not go to the person before it.
+		assert(prisma.authors[3].CN == "PRISMA Group" and prisma.authors[3].AD[1] == "PRISMA secretariat." and prisma.authors[3].AU == nil)
+		assert(prisma.CN == nil and prisma.LA[1] == "eng" and table.concat(prisma.PT, "|") == "Journal Article|Review")
 		assert(table.concat(prisma.MH, "|") == "Checklist|*Guidelines as Topic|Proteins/*chemistry")
 		assert(prisma.OTO[1] == "NOTNLM" and prisma.OT[1] == "reporting" and prisma.PMC == "PMC8005924")
 		assert(prisma.SO == "BMJ. 2021 Mar 29;372:n71. doi: 10.1136/bmj.n71.")

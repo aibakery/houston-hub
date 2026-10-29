@@ -35,8 +35,8 @@ local LINK_LIST = table.concat(linkNames, ", ")
 local SINGLE_TAGS = "PMID OWN STAT DCOM LR VI IP DP TI BTI VTI TT PG AB CI JT TA JID PL EDAT MHDA CRDT PST SO PMC DEP"
 local SINGLE: {[string]: boolean} = {}
 for tag in string.gmatch(SINGLE_TAGS, "%S+") do SINGLE[tag] = true end
--- Tags that describe the author named by the FAU or AU line before them.
-local AUTHOR = table.freeze({FAU = true, AU = true, AUID = true, AD = true})
+-- Author tags: FAU, AU or CN (a corporate author) starts an author, and AUID and AD describe the one before them.
+local AUTHOR = table.freeze({FAU = true, AU = true, CN = true, AUID = true, AD = true})
 
 local function finite(value: any): boolean
 	return type(value) == "number" and value == value and math.abs(value) < 2 ^ 53
@@ -274,12 +274,12 @@ local function record(fields: {Field}): Options
 	local author: Options? = nil
 	for _, field in fields do
 		local tag, value = field.tag, table.concat(field.lines, " ")
-		if tag == "FAU" or (tag == "AU" and (author == nil or author.AU ~= nil)) then
+		if tag == "FAU" or tag == "CN" or (tag == "AU" and (author == nil or author.AU ~= nil or author.CN ~= nil)) then
 			author = {}
 			table.insert(authors, author :: Options)
 		end
 		local target: Options = if AUTHOR[tag] and author then author else out
-		if SINGLE[tag] or tag == "FAU" or tag == "AU" then
+		if SINGLE[tag] or tag == "FAU" or tag == "AU" or tag == "CN" then
 			if target[tag] == nil then target[tag] = value end
 		elseif target[tag] then
 			table.insert(target[tag], value)
@@ -392,7 +392,7 @@ ESummary. Returns `{uids, [pmid] = summary}`: uids lists the PMIDs in order and 
 
 ## getRecords(ids)
 
-EFetch in MEDLINE format. Returns `{records}`, one complete record per known PMID in the order given; unknown PMIDs are left out, so the array can be empty. Records use MEDLINE tags as keys. These are strings: ]] .. string.gsub(SINGLE_TAGS, " ", ", ") .. [[; every other tag is an array of strings in record order. authors is always an array of {FAU (full name), AU (short name), AUID? (array, such as "ORCID: 0000-0002-4242-7526"), AD? (array of affiliations)} in author order; corporate authors are CN.
+EFetch in MEDLINE format. Returns `{records}`, one complete record per known PMID in the order given; unknown PMIDs are left out, so the array can be empty. Records use MEDLINE tags as keys. These are strings: ]] .. string.gsub(SINGLE_TAGS, " ", ", ") .. [[; every other tag is an array of strings in record order. authors is always an array of {FAU (full name), AU (short name), AUID? (array, such as "ORCID: 0000-0002-4242-7526"), AD? (array of affiliations)} in author order, where a corporate author is {CN (group name), AD?}.
 Main tags: PMID; TI title; AB abstract (structured abstracts keep labels such as "BACKGROUND:"); DP publication date; TA journal abbreviation and JT full title; VI, IP and PG volume, issue and pages; LID and AID identifiers such as "10.1136/bmj.n71 [doi]"; PMC the PMCID; MH MeSH headings, where `*` marks a major topic and `/` a subheading, as in "*Molecular Docking Simulation" or "Proteins/chemistry"; OT keywords; PT publication types (such as "Review" or "Retracted Publication"); RN substances; GR grants; LA languages; CIN, EIN and RIN comments, errata and retractions; SO the citation.
 
 ## getLinks(ids, linkname, opts?)
