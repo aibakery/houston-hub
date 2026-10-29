@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "name": "ChEMBL",
+  "files": [
+    "connector.luau"
+  ],
+  "icon": "icon.svg",
+  "proxy": [
+    {
+      "match": {
+        "protocol": "http",
+        "host": [
+          "www.ebi.ac.uk"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/chembl/api/data/molecule.json",
+          "/chembl/api/data/molecule/{id}",
+          "/chembl/api/data/target.json",
+          "/chembl/api/data/target/{id}",
+          "/chembl/api/data/activity.json",
+          "/chembl/api/data/activity/{id}",
+          "/chembl/api/data/assay.json",
+          "/chembl/api/data/assay/{id}",
+          "/chembl/api/data/document.json",
+          "/chembl/api/data/document/{id}",
+          "/chembl/api/data/mechanism.json",
+          "/chembl/api/data/mechanism/{id}",
+          "/chembl/api/data/drug_indication.json",
+          "/chembl/api/data/drug_indication/{id}",
+          "/chembl/api/data/similarity.json",
+          "/chembl/api/data/substructure.json"
+        ]
+      },
+      "action": {
+        "headers": {
+          "remove": [
+            "X-HTTP-Method-Override"
+          ]
+        }
+      }
+    }
+  ]
+}
