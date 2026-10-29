@@ -94,9 +94,11 @@ return {
 			rejected(call("searchPreprints", {query = "x", sort = value}), "sort must be one of relevance, FIRST_PDATE_D desc")
 		end
 		rejected(call("searchPreprints", {query = "x", resultType = "idlist"}), "resultType must be one of core, lite")
-		for _, value in {0, 501, 2.5} do
-			rejected(call("searchPreprints", {query = "x", limit = value}), "limit must be an integer from 1 to 500")
+		-- limit fits the byte budget: about 40 KiB per core record and 4 KiB per lite one.
+		for _, value in {0, 103, 2.5} do
+			rejected(call("searchPreprints", {query = "x", limit = value}), "limit must be an integer from 1 to 102")
 		end
+		rejected(call("searchPreprints", {query = "x", limit = 1001, resultType = "lite"}), "limit must be an integer from 1 to 1000")
 		for _, value in {"", "a b", "a&b", string.rep("A", 257), 1} do
 			rejected(call("searchPreprints", {query = "x", cursorMark = value}), "cursorMark must be the nextCursorMark")
 		end

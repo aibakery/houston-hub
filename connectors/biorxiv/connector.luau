@@ -8,13 +8,19 @@ local EUROPE_PMC = "https://www.ebi.ac.uk/europepmc/webservices/rest/search"
 -- {total, body}. The bioRxiv API prepares a whole page before its headers (0.3 to 3.5 s, up to 8 s when busy) and
 -- then sends its 70 to 230 KB within 1.5 s. A call reading one page or file gives the body 19 s, enough for the
 -- slowest Europe PMC answers and PDFs; a call reading several pages gives the first 12 s and each later one 7.5 s.
+local MAX_BYTES = 4 * 1024 * 1024
 local CALL, FIRST, LATER = table.freeze({27000, 19000}), table.freeze({12000, 3000}), table.freeze({7500, 2500})
 local MAX_PAGES = 1 + (CALL[1] - FIRST[1]) // LATER[1]
-local MAX_BYTES = 4 * 1024 * 1024
 -- The API serves fixed pages: 30 preprints, or 100 published-article links.
 local DETAILS_PAGE, PUBS_PAGE = 30, 100
 local MAX_CURSOR = 2 ^ 31 - 1
-local MAX_QUERY, MAX_SEARCH, DEFAULT_SEARCH = 2000, 500, 25
+local MAX_QUERY, DEFAULT_SEARCH = 2000, 25
+-- Upper bounds of one Europe PMC record's average size in bytes, which cap limit within the byte budget. 250 highly
+-- cited core records with large author lists took 2.75 MB (11 KB each, up to 72 KB) and 17.7 s; lite records stay under
+-- 1.4 KB. Europe PMC serves at most 1,000 records a page.
+local RECORD_BYTES: {[string]: number} = table.freeze({core = 40 * 1024, lite = 4 * 1024})
+local MAX_SEARCH: {[string]: number} = table.freeze({core = math.min(1000, MAX_BYTES // RECORD_BYTES.core),
+	lite = math.min(1000, MAX_BYTES // RECORD_BYTES.lite)})
 local SORTS = table.freeze({"relevance", "FIRST_PDATE_D desc", "FIRST_PDATE_D asc", "CITED desc"})
 local RESULT_TYPES = table.freeze({"core", "lite"})
 
@@ -406,7 +412,7 @@ local function searchPreprints(input: any): Options
 	local sort = take(args, "sort")
 	if sort ~= nil then choice(sort, "sort", SORTS) end
 	local resultType = choice(optional(args, "resultType", "core"), "resultType", RESULT_TYPES)
-	local limit = integer(optional(args, "limit", DEFAULT_SEARCH), "limit", 1, MAX_SEARCH)
+	local limit = integer(optional(args, "limit", DEFAULT_SEARCH), "limit", 1, MAX_SEARCH[resultType])
 	local cursorMark = take(args, "cursorMark")
 	assert(cursorMark == nil or (type(cursorMark) == "string" and #cursorMark <= 256 and string.match(cursorMark, "^[%w+/=*]+$")),
 		"cursorMark must be the nextCursorMark of an earlier searchPreprints result")
@@ -504,7 +510,7 @@ Europe PMC search, restricted to bioRxiv and medRxiv preprints (both unless serv
 - query: Europe PMC syntax, at most ]] .. tostring(MAX_QUERY) .. [[ bytes with balanced parentheses and quotes, for example `crispr AND "base editing"`, `TITLE:"single-cell" AND AUTH:"Smith J"`, `ABSTRACT:zebrafish` or `DOI:"10.1101/2021.10.22.465130"`. AND, OR and NOT must be capitalized.
 - from and to together filter firstPublicationDate, when Europe PMC first listed the preprint.
 - sort: ]] .. table.concat(SORTS, ", ") .. [[ (relevance by default; CITED desc puts the most cited first).
-- limit: results to return, 1 to ]] .. tostring(MAX_SEARCH) .. [[ (default ]] .. tostring(DEFAULT_SEARCH) .. [[). For the next page, call again with the same options and cursorMark = nextCursorMark. nextCursorMark is present after every full page while results may remain: when the last results exactly fill limit, continuing returns no results and no nextCursorMark.
+- limit: results to return, 1 to ]] .. tostring(MAX_SEARCH.core) .. [[ with resultType core and 1 to ]] .. tostring(MAX_SEARCH.lite) .. [[ with lite, which fit one call (default ]] .. tostring(DEFAULT_SEARCH) .. [[). For the next page, call again with the same options and cursorMark = nextCursorMark. nextCursorMark is present after every full page while results may remain: when the last results exactly fill limit, continuing returns no results and no nextCursorMark.
 Europe PMC lists one record per preprint: read its versions and the full abstract with getPreprint.
 
 ## listPreprints({server, from, to, category?, funder?, limit?, cursor?})

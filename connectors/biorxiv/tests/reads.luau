@@ -74,22 +74,28 @@ return {
 		assert(req(3).url == EPMC .. "%28x%29%20AND%20SRC%3APPR%20AND%20PUBLISHER%3A%22bioRxiv%22&resultType=core&pageSize=2&format=json&cursorMark=%2A",
 			req(3).url)
 		assert(#found.results == 1 and found.nextCursorMark == nil)
+		respond('{"hitCount":0,"resultList":{"result":[]}}')
+		rxiv.searchPreprints({query = "x", resultType = "lite", limit = 1000})
+		assert(string.find(req(#requests).url, "&resultType=lite&pageSize=1000&", 1, true), req(#requests).url)
+		respond('{"hitCount":0,"resultList":{"result":[]}}')
+		rxiv.searchPreprints({query = "x", limit = 102})
+		assert(string.find(req(#requests).url, "&resultType=core&pageSize=102&", 1, true), req(#requests).url)
 		-- A cursor equal to the one sent ends the search; quotes and escapes may hold parentheses.
 		respond('{"hitCount":3,"nextCursorMark":"AoIIQ==","resultList":{"result":[{"id":"PPR4"}]}}')
 		found = rxiv.searchPreprints({query = '"a (b" AND c\\)', limit = 1, cursorMark = "AoIIQ==", sort = "CITED desc"})
-		assert(found.nextCursorMark == nil and string.find(req(4).url, "&sort=CITED%20desc", 1, true))
+		assert(found.nextCursorMark == nil and string.find(req(#requests).url, "&sort=CITED%20desc", 1, true))
 
 		-- A single DOI: every version, each with its PDF address.
 		respond('{"messages":[{"status":"ok","category":"all"}], "collection":[{"doi":"10.1101\\/339747","version":"1","server":"bioRxiv",'
 			.. '"date":"2018-06-05","published":"10.1038\\/s41592-019-0476-5"},{"doi":"10.1101\\/339747","version":"4","date":"2019-05-10"}]}')
 		local preprint = rxiv.getPreprint({server = "biorxiv", doi = "10.1101/339747"})
-		assert(req(5).url == API .. "/details/biorxiv/10.1101/339747/na/json" and req(5).timeoutMs == 8000, req(5).url)
+		assert(req(#requests).url == API .. "/details/biorxiv/10.1101/339747/na/json" and req(#requests).timeoutMs == 8000, req(#requests).url)
 		assert(#preprint.collection == 2 and preprint.collection[1].published == "10.1038/s41592-019-0476-5")
 		assert(preprint.collection[1].pdf_url == "https://www.biorxiv.org/content/10.1101/339747v1.full.pdf")
 		assert(preprint.collection[2].pdf_url == "https://www.biorxiv.org/content/10.1101/339747v4.full.pdf")
 		respond('{"messages":[{"status":"ok"}], "collection":[{"doi":"10.64898\\/2026.09.01.26361059","version":"2"},{"doi":"bad","version":"1"}]}')
 		preprint = rxiv.getPreprint({server = "medrxiv", doi = "10.64898/2026.09.01.26361059"})
-		assert(req(6).url == API .. "/details/medrxiv/10.64898/2026.09.01.26361059/na/json")
+		assert(req(#requests).url == API .. "/details/medrxiv/10.64898/2026.09.01.26361059/na/json")
 		assert(preprint.collection[1].pdf_url == "https://www.medrxiv.org/content/10.64898/2026.09.01.26361059v2.full.pdf")
 		assert(preprint.collection[2].pdf_url == nil, "a malformed row gets no PDF address")
 
@@ -97,7 +103,7 @@ return {
 		respond('{"messages":[{"status":"ok"}], "collection":[{"preprint_doi":"10.1101\\/2021.04.29.21256344",'
 			.. '"published_doi":"10.1371\\/journal.pone.0256482","published_journal":"PLOS ONE"}]}')
 		local link = rxiv.getPublication({server = "medrxiv", doi = "10.1371/journal.pone.0256482"})
-		assert(req(7).url == API .. "/pubs/medrxiv/10.1371/journal.pone.0256482/na/json", req(7).url)
+		assert(req(#requests).url == API .. "/pubs/medrxiv/10.1371/journal.pone.0256482/na/json", req(#requests).url)
 		assert(link.collection[1].published_journal == "PLOS ONE")
 		-- A suffix with punctuation, as in Lancet DOIs, is URL-encoded; the API decodes it.
 		respond('{"messages":[{"status":"ok"}], "collection":[{"preprint_doi":"10.1101\\/2020.04.01.20049908","published_doi":"10.1016\\/S2468-2667(20)30133-X"}]}')
