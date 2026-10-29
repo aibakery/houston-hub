@@ -42,9 +42,20 @@ return {
 		local MED = {server = "medrxiv", doi = "10.1101/2020.09.09.20191205", version = 2, session_path = "med.pdf"}
 		local BIO_URL = "https://www.biorxiv.org/content/10.64898/2026.10.15.759504v1.full.pdf"
 		local MED_URL = "https://www.medrxiv.org/content/10.1101/2020.09.09.20191205v2.full.pdf"
+		-- A refused download leaves an existing file unchanged.
+		local existing = fs.open("bio.pdf", "w")
+		existing:write("kept")
+		await(existing:close())
+		local function kept()
+			local file = fs.open("bio.pdf", "r")
+			local chunk = await(file:read(16))
+			await(file:close())
+			assert(chunk.data == "kept", "a refused download changed the session file")
+		end
 		-- Cloudflare's rate limit asks for a long wait, which Houston leaves to the caller.
 		refused({status = 429, body = "error code: 1015", headers = {["retry-after"] = {"43"}, ["content-type"] = {"text/plain"}}}, BIO,
 			{"bioRxiv HTTP 429; retry after 43s; open " .. BIO_URL .. " in a browser instead", '"retryable":true', '"upstream_status":429'}, "1015")
+		kept()
 		refused({status = 403, body = "<html><title>Attention Required! | Cloudflare</title>Sorry, you have been blocked</html>",
 			headers = {["content-type"] = {"text/html"}}}, MED,
 			{"medRxiv HTTP 403: blocked the automated download; open " .. MED_URL .. " in a browser instead", '"retryable":false'}, "Cloudflare")
@@ -58,6 +69,7 @@ return {
 			{"medRxiv returned a web page instead of the PDF; open " .. MED_URL, '"retryable":false'}, "moment")
 		refused({body = "x", headers = {}}, BIO, {"bioRxiv returned a web page instead of the PDF"})
 		refused({requestError = {code = "timeout", message = "request deadline"}}, BIO, {"bioRxiv did not answer within 8 s; retry", '"retryable":true'})
+		kept()
 		-- A stream that breaks surfaces at the file's close instead of returning a download.
 		refused({reader = compression.gunzip(fixture.reader("not a gzip stream"))}, BIO, {"bioRxiv download failed", '"retryable":true'})
 		-- An invalid session path fails before any request.

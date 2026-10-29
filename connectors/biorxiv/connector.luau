@@ -155,6 +155,8 @@ local function failure(operation: string, provider: string, response: HttpRespon
 	else
 		-- An error body that stalls or breaks counts as empty.
 		local read, prefix = pcall(function() return await(response.body:readPrefix(4096), time[2]) end)
+		-- readPrefix closes the body; after a failed read, close it explicitly.
+		if not read then pcall(function() response.body:close() end) end
 		if not read and errorCode(prefix) == "cancelled" then error(prefix, 0) end
 		local ok, decoded = false, nil
 		if read and string.match(prefix, "^%s*{") then ok, decoded = pcall(json.decode, prefix) end
@@ -449,19 +451,12 @@ local function downloadPdf(input: any): Options
 	noneLeft(args, "downloadPdf")
 	local target = pdfUrl(entry.site, id, version)
 	local browser = "; open " .. target .. " in a browser instead"
-	-- Opening the session file first refuses an invalid path before any request.
-	local output = fs.open(path, "w")
-	local opened, response = pcall(function(): HttpResponse
-		await(output)
-		return send("downloadPdf", entry.name, target, "application/pdf", CALL)
-	end)
-	if not opened then
-		pcall(function() await(output:close()) end)
-		error(response, 0)
-	end
+	-- Checking the session path first refuses an invalid one before any request, without creating or changing a file;
+	-- the file is opened only for a PDF, so a refused download leaves an existing one unchanged.
+	await(fs.exists(path))
+	local response = send("downloadPdf", entry.name, target, "application/pdf", CALL)
 	local status = response.statusCode
 	if status ~= 200 then
-		await(output:close())
 		-- Cloudflare in front of both sites blocks some automated clients outright.
 		local reason = if status == 403 then "blocked the automated download"
 			elseif status == 404 then "has no PDF of version " .. version .. " of " .. id .. "; getPreprint lists the versions"
@@ -475,8 +470,12 @@ local function downloadPdf(input: any): Options
 	local kind = response.headers["content-type"]
 	if not (kind and kind[1] and string.find(string.lower(kind[1]), "pdf", 1, true)) then
 		response.body:close()
-		await(output:close())
 		fail("downloadPdf", 200, false, entry.name .. " returned a web page instead of the PDF" .. browser)
+	end
+	local opened, output = pcall(function() return fs.open(path, "w") end)
+	if not opened then
+		response.body:close()
+		error(output, 0)
 	end
 	output:write(response.body)
 	local written, err = pcall(function() await(output:close(), CALL[2]) end)
@@ -534,7 +533,7 @@ Preprints whose journal article was recorded from from to to: `{collection, tota
 
 ## downloadPdf({server, doi, version, session_path})
 
-Saves the PDF of one version (an integer, or listPreprints' version string) to the session file session_path and returns `{session_path, url, size, pdf_url}`: url is a signed link to the saved file, pdf_url the PDF's address on the server's website. The website is behind Cloudflare, which limits and blocks automated downloads: HTTP 429 fails as retryable with the wait it asks (often one or two minutes), and HTTP 403, which medRxiv answers to automated PDF downloads, fails as not retryable. Either way, give people pdf_url to open in a browser. A failed download can leave an empty or partial file at session_path.
+Saves the PDF of one version (an integer, or listPreprints' version string) to the session file session_path and returns `{session_path, url, size, pdf_url}`: url is a signed link to the saved file, pdf_url the PDF's address on the server's website. The website is behind Cloudflare, which limits and blocks automated downloads: HTTP 429 fails as retryable with the wait it asks (often one or two minutes), and HTTP 403, which medRxiv answers to automated PDF downloads, fails as not retryable. Either way, give people pdf_url to open in a browser. A refused download leaves session_path unchanged; one that breaks while the PDF streams can leave a partial file there.
 
 ## Errors and limits
 
