@@ -235,7 +235,7 @@ GET /api/v2/studies. Returns `{studies, totalCount?, nextPageToken?}`. Options u
 - fields: array or comma-separated names of fields, modules or sections, such as `NCTId`, `BriefSummary`, `EligibilityModule`, `ContactsLocationsModule`, `ProtocolSection`, or `@query` (the fields the query matched). Default: NCTId, BriefTitle, OverallStatus, Phase, StudyType, Condition, InterventionName, LeadSponsorName, EnrollmentCount, StartDate, PrimaryCompletionDate, HasResults. Selected fields keep their nested position, for example Phase is protocolSection.designModule.phases.
 - countTotal: true adds totalCount, the number of matching studies.
 - limit: studies to return, 1 to 2000 (default 100). The call pages internally, up to 1000 per request.
-- pageToken: pass an earlier result's nextPageToken, with only limit, to continue that same search. nextPageToken is absent once every match is returned. A call may return fewer than limit studies when they would exceed one call's size budget; continue with nextPageToken.
+- pageToken: pass an earlier result's nextPageToken, with only limit, to continue that same search. nextPageToken is present while more matches may remain: when the last matches exactly fill limit it is still returned, and continuing then returns no studies and no token. A call may return fewer than limit studies when they would exceed one call's size budget; continue with nextPageToken.
 
 ## getStudy(nctId, opts?)
 
