@@ -92,6 +92,8 @@ return {
 			{"HTTP 301: NCT05730322 is an alias of NCT03682900; call getStudy with NCT03682900", '"retryable":false'})
 		upstream(302, "", {location = {"https://evil.example.com/"}}, read, {"HTTP 302: unexpected redirect"}, "evil")
 		upstream(429, "Too Many Requests", {["retry-after"] = {"7"}}, search, {"HTTP 429", "retry after 7s", '"retryable":true'})
+		upstream(503, "", {["retry-after"] = {"Thu, 29 Oct 2026 20:00:00 GMT"}}, search,
+			{"retry after Thu, 29 Oct 2026 20:00:00 GMT", '"retryable":true'}, "GMTs")
 		upstream(503, "<html>Unavailable</html>", {}, read, {"HTTP 503", '"retryable":true'})
 		upstream(500, "", {}, search, {"HTTP 500", '"retryable":true'})
 		upstream(200, "<html>Maintenance</html>", {}, read, {"invalid JSON object", '"retryable":false'})

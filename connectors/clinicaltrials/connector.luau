@@ -89,7 +89,11 @@ local function failure(name: string, response: HttpResponse, id: string?): never
 		message = "ClinicalTrials.gov HTTP " .. tostring(status) .. (if snippet == "" then "" else ": " .. snippet)
 	end
 	local retry = response.headers["retry-after"]
-	if (status == 429 or status == 503) and retry and retry[1] then message ..= "; retry after " .. string.sub(retry[1], 1, 32) .. "s" end
+	if (status == 429 or status == 503) and retry and retry[1] then
+		-- Retry-After is either delay seconds or an HTTP date.
+		local value = string.sub(retry[1], 1, 32)
+		message ..= "; retry after " .. value .. (if string.match(value, "^%d+$") then "s" else "")
+	end
 	return houston.fail({operation = name, layer = "upstream", upstream_status = status,
 		retryable = status == 429 or status >= 500, message = message})
 end
