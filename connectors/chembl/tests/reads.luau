@@ -57,12 +57,12 @@ return {
 		local opts = {q = "aspirin", filters = {max_phase = 4, molecule_properties__full_mwt__range = {100, 200.5},
 			pref_name__isnull = false, molecule_chembl_id__in = "chembl25, CHEMBL2", oral = true,
 			molecule_structures__canonical_smiles__flexmatch = "C#N", molecule_synonyms__molecule_synonym__iexact = "Aspirin 81",
-			atc_classifications__level5 = "N02BA01", availability_type__in = {1, 2}},
+			atc_classifications__level5 = "N02BA01", availability_type__in = {1, 2}, first_approval__range = "1990, 2000.5"},
 			order_by = {"-max_phase", "pref_name"}, fields = "molecule_chembl_id,pref_name", limit = 5, offset = 10}
 		respond(page("molecules", molecules(25, 1), 1, false))
 		found = chembl.searchMolecules(opts)
 		assert(url() == API .. "/molecule/search.json?atc_classifications__level5=N02BA01&availability_type__in=1%2C2"
-			.. "&max_phase=4&molecule_chembl_id__in=CHEMBL25%2CCHEMBL2&molecule_properties__full_mwt__range=100%2C200.5"
+			.. "&first_approval__range=1990%2C2000.5&max_phase=4&molecule_chembl_id__in=CHEMBL25%2CCHEMBL2&molecule_properties__full_mwt__range=100%2C200.5"
 			.. "&molecule_structures__canonical_smiles__flexmatch=C%23N&molecule_synonyms__molecule_synonym__iexact=Aspirin%2081"
 			.. "&oral=true&pref_name__isnull=false&q=aspirin&order_by=-max_phase&order_by=pref_name"
 			.. "&only=molecule_chembl_id%2Cpref_name&limit=5&offset=10", url())

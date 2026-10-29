@@ -53,6 +53,7 @@ return {
 		rejected(molecules({filters = {pref_name__in = {"A, B"}}}), "values must not contain commas")
 		rejected(molecules({filters = {max_phase__range = {1, 2, 3}}}), "must list 1 to 2 values")
 		rejected(molecules({filters = {max_phase__range = {1}}}), "must be {low, high}")
+		rejected(molecules({filters = {max_phase__in = "3,x"}}), "max_phase__in must be a finite number")
 		rejected(molecules({filters = {molecule_structures__canonical_smiles__flexmatch = "C C"}}), "without spaces")
 		rejected(molecules({order_by = "score"}), "order_by contains score, which cannot sort molecule results")
 		rejected(molecules({order_by = "--pref_name"}), "lowercase ChEMBL field names")

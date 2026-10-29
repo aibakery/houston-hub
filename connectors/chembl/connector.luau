@@ -257,6 +257,8 @@ local function filterParam(resource: Resource, key: any, value: any): string
 		local items = list(value, key, if lookup == "range" then 2 else 1000)
 		assert(lookup == "in" or #items == 2, key .. " must be {low, high}")
 		for index, item in items do
+			-- A comma-separated string gives string items; numbers are read back first.
+			if kind == "number" and type(item) == "string" then item = tonumber(item) end
 			items[index] = scalar(item, kind, key)
 			assert(not string.find(items[index], ",", 1, true), key .. " values must not contain commas")
 		end
