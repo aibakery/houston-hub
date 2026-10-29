@@ -10,9 +10,16 @@ return {
 			assert(req.headers.Accept[1] == "application/json")
 			assert(#responses > 0, "unexpected request: " .. req.url)
 			local queued = table.remove(responses, 1)
-			-- A table stands for a failure while waiting for headers, such as a request timeout.
-			if type(queued) == "table" then error(queued, 0) end
-			return fixture.operation({statusCode = 200, headers = {}, body = fixture.reader(queued)})
+			if type(queued) == "string" then
+				return fixture.operation({statusCode = 200, headers = {}, body = fixture.reader(queued)})
+			end
+			-- A table with a code fails while waiting for headers, such as a timeout; one with a status answers with it;
+			-- one with readError has a body whose read fails.
+			if queued.code then error(queued, 0) end
+			local body = if queued.readError
+				then {readAll = function() error(queued.readError, 0) end, readPrefix = function() error(queued.readError, 0) end, close = function() end}
+				else fixture.reader(queued.body or "")
+			return fixture.operation({statusCode = queued.status or 200, headers = {}, body = body})
 		end}
 		function respond(body) table.insert(responses, body) end
 		-- One ChEMBL page: rows are JSON texts, and more links a next page.
@@ -152,6 +159,18 @@ return {
 		found = chembl.searchMolecules({limit = 20, offset = 5})
 		assert(url() == API .. "/molecule.json?" .. MOLECULE .. "&limit=10&offset=15", url())
 		assert(#found.molecules == 10 and found.next_offset == 15)
+		-- Any other failure of a later page also keeps the collected rows; cancellation still ends the call.
+		for _, failed in {{status = 500, body = '{"error_message": "statement timeout"}'}, {status = 404}, {code = "io_error", message = "reset"},
+			{readError = {code = "io_error", message = "reset"}}, '<html>', '{"molecules": null}'} do
+			respond(page("molecules", molecules(1, 10), 4000, true))
+			respond(failed)
+			found = chembl.searchMolecules({limit = 20})
+			assert(#found.molecules == 10 and found.next_offset == 10, "a later page failure discarded the collected rows")
+		end
+		respond(page("molecules", molecules(1, 10), 4000, true))
+		respond({readError = {code = "cancelled", message = "invocation cancelled"}})
+		local cancelled, err = pcall(chembl.searchMolecules, {limit = 20})
+		assert(not cancelled and not string.find(tostring(err), "retryable", 1, true), "cancellation became a result: " .. tostring(err))
 		found = nil
 
 		-- Structure searches use the query-string form, so SMILES characters such as # and / are encoded.

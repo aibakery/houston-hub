@@ -326,25 +326,22 @@ local function failure(operation: string, response: HttpResponse, missing: strin
 		message = message})
 end
 
--- Returns the decoded JSON object and the bytes read. A later page that is too slow or over budget returns nil.
-local function fetch(operation: string, target: string, budget: number, later: boolean, missing: string?): (any, number)
+-- Returns the decoded JSON object and the bytes read.
+local function fetch(operation: string, target: string, budget: number, timeout: number, missing: string?): (any, number)
 	local sent, response = pcall(function()
 		return await(http.request({method = "GET", url = target, headers = {Accept = {"application/json"}},
-			timeoutMs = if later then NEXT_TIMEOUT else FIRST_TIMEOUT}))
+			timeoutMs = timeout}))
 	end)
 	if not sent then
 		if errorCode(response) ~= "timeout" then error(response, 0) end
-		if later then return nil, 0 end
 		houston.fail({operation = operation, layer = "upstream", retryable = true,
-			message = "ChEMBL did not answer within " .. tostring(FIRST_TIMEOUT // 1000) .. " s; retry, since ChEMBL caches results, or narrow the request"})
+			message = "ChEMBL did not answer within " .. tostring(timeout // 1000) .. " s; retry, since ChEMBL caches results, or narrow the request"})
 	end
 	if response.statusCode ~= 200 then failure(operation, response, missing) end
 	local read, raw = pcall(function() return await(response.body:readAll(budget)) end)
 	if not read then
 		local code = errorCode(raw)
-		if code == "limit_exceeded" and later then
-			return nil, 0
-		elseif code == "limit_exceeded" then
+		if code == "limit_exceeded" then
 			houston.fail({operation = operation, layer = "upstream", upstream_status = 200, retryable = false,
 				message = "ChEMBL returned more data than one call can hold; request fewer fields" .. (if missing then "" else " or a lower limit")})
 		elseif code == "cancelled" or code == "timeout" then
@@ -408,16 +405,22 @@ local function collect(operation: string, resource: Resource, args: Options, que
 			size = math.min(size, (MAX_BYTES - used) // (2 * used / #rows))
 			if size < 1 then break end
 		end
-		local body, bytes = fetch(operation, base .. "limit=" .. tostring(size) .. "&offset=" .. tostring(offset + #rows),
-			MAX_BYTES - used, page > 1)
-		-- A later page that is too slow or too large ends the call; the caller continues from next_offset.
-		if body == nil then break end
+		local read, body, bytes = pcall(function(): (any, number)
+			local value, length = fetch(operation, base .. "limit=" .. tostring(size) .. "&offset=" .. tostring(offset + #rows),
+				MAX_BYTES - used, if page == 1 then FIRST_TIMEOUT else NEXT_TIMEOUT)
+			if type(value[resource.rows]) ~= "table" or type(value.page_meta) ~= "table" or not finite(value.page_meta.total_count) then
+				houston.fail({operation = operation, layer = "upstream", upstream_status = 200, retryable = false,
+					message = "ChEMBL returned an unexpected " .. resource.label .. " page"})
+			end
+			return value, length
+		end)
+		if not read then
+			-- Any failure after the first page ends the call with the rows so far; the caller continues from next_offset.
+			if page == 1 or errorCode(body) == "cancelled" then error(body, 0) end
+			break
+		end
 		used += bytes
 		local found, meta = body[resource.rows], body.page_meta
-		if type(found) ~= "table" or type(meta) ~= "table" or not finite(meta.total_count) then
-			houston.fail({operation = operation, layer = "upstream", upstream_status = 200, retryable = false,
-				message = "ChEMBL returned an unexpected " .. resource.label .. " page"})
-		end
 		if page == 1 then result.total_count = meta.total_count end
 		for _, row in found do table.insert(rows, row) end
 		-- ChEMBL links the next page while rows remain after this one.
@@ -448,7 +451,7 @@ local function get(resource: Resource): (any, Options?) -> any
 		noneLeft(args, operation)
 		local target = API .. "/" .. resource.path .. "/" .. id .. ".json" .. (if only then "?" .. only else "")
 		assert(#target <= MAX_URL, "fields is too long once URL-encoded, at most " .. tostring(MAX_URL) .. " bytes")
-		return (fetch(operation, target, MAX_BYTES, false, resource.label .. " " .. id))
+		return (fetch(operation, target, MAX_BYTES, FIRST_TIMEOUT, resource.label .. " " .. id))
 	end
 end
 
