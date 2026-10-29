@@ -79,3 +79,16 @@ func TestPubMedSendsTheKeyOnlyToEUtilities(t *testing.T) {
 		}
 	}
 }
+
+func TestPubMedEmptyKeyNeverReachesNCBI(t *testing.T) {
+	m := parseManifest(t, "../../connectors/pubmed/houston.json")
+	r, err := m.Resolve(nil, map[string]any{"api_key": ""}, nil, "")
+	if err == nil {
+		recipe, err := r.Proxy.HTTPRecipe("POST", pubmedEUtilities+"/esearch.fcgi", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		prepared, _ := recipe.PrepareURL(r.Context)
+		t.Fatalf("an empty key resolved and prepared %s", prepared)
+	}
+}
