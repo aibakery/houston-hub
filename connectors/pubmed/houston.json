@@ -1,0 +1,103 @@
+{
+  "schema_version": 1,
+  "name": "PubMed",
+  "files": [
+    "connector.luau"
+  ],
+  "icon": "icon.svg",
+  "config": {
+    "api_key": {
+      "type": "secret",
+      "label": "NCBI API key",
+      "min_length": 1,
+      "description": "Optional. Without a key, every Houston connection shares NCBI's limit of 3 requests per second; with one, this connection gets 10 per second."
+    }
+  },
+  "proxy": [
+    {
+      "if": "{{ isDefined config.api_key }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "eutils.ncbi.nlm.nih.gov"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/entrez/eutils/esearch.fcgi",
+          "/entrez/eutils/esummary.fcgi",
+          "/entrez/eutils/efetch.fcgi",
+          "/entrez/eutils/elink.fcgi"
+        ]
+      },
+      "action": {
+        "headers": {
+          "remove": [
+            "X-HTTP-Method-Override",
+            "X-HTTP-Method",
+            "X-Method-Override",
+            "Authorization",
+            "Cookie"
+          ]
+        },
+        "query": {
+          "api_key": "{{config.api_key}}"
+        }
+      }
+    },
+    {
+      "match": {
+        "protocol": "http",
+        "host": [
+          "eutils.ncbi.nlm.nih.gov"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/entrez/eutils/esearch.fcgi",
+          "/entrez/eutils/esummary.fcgi",
+          "/entrez/eutils/efetch.fcgi",
+          "/entrez/eutils/elink.fcgi"
+        ]
+      },
+      "action": {
+        "headers": {
+          "remove": [
+            "X-HTTP-Method-Override",
+            "X-HTTP-Method",
+            "X-Method-Override",
+            "Authorization",
+            "Cookie"
+          ]
+        }
+      }
+    },
+    {
+      "match": {
+        "protocol": "http",
+        "host": [
+          "www.ncbi.nlm.nih.gov"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/research/bionlp/RESTful/pmcoa.cgi/BioC_json/{id}/unicode"
+        ]
+      },
+      "action": {
+        "headers": {
+          "remove": [
+            "X-HTTP-Method-Override",
+            "X-HTTP-Method",
+            "X-Method-Override",
+            "Authorization",
+            "Cookie"
+          ]
+        }
+      }
+    }
+  ]
+}
