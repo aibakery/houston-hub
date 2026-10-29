@@ -6,7 +6,7 @@ return {
 		http = {request = function(req)
 			table.insert(requests, req)
 			assert(req.headers == nil or req.headers.Authorization == nil, "the public API takes no credentials")
-			assert(req.timeoutMs == 22000, "headers get the call's time less the body's share")
+			assert(req.timeoutMs == 8000, "headers get the call's time less the body's share")
 			assert(#responses > 0, "unexpected request: " .. req.url)
 			local queued = table.remove(responses, 1)
 			return fixture.operation({statusCode = 200, headers = {["content-type"] = {queued.type}}, body = fixture.reader(queued.body)})

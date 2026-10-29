@@ -71,7 +71,7 @@ return {
 		local many = {}
 		for i = 1, 201 do many[i] = i end
 		rejected(function() pubmed.getRecords(many) end, "ids must list 1 to 200 PMIDs")
-		rejected(function() pubmed.getLinks(many, "pubmed_pubmed") end, "ids must list 1 to 200 PMIDs")
+		rejected(function() pubmed.getLinks(table.move(many, 1, 101, 1, {}), "pubmed_pubmed") end, "ids must list 1 to 100 PMIDs")
 		rejected(function() pubmed.getLinks(1) end, "linkname must be one of pubmed_pubmed, pubmed_pubmed_reviews, "
 			.. "pubmed_pubmed_citedin, pubmed_pubmed_refs, pubmed_pmc, pubmed_pmc_refs")
 		rejected(function() pubmed.getLinks(1, "pubmed_gene") end, "linkname must be one of")
@@ -122,6 +122,8 @@ return {
 		upstream(200, '{"ERROR":"Invalid linkname"}', {}, links, {"NCBI: Invalid linkname", '"retryable":true'})
 		upstream(200, "<html>maintenance</html>", {}, find, {"NCBI returned an invalid JSON object", '"retryable":false'}, "maintenance")
 		upstream(200, "[]", {}, summaries, {"NCBI returned an invalid JSON object"})
+		-- ELink stops after about 15 s and then sends an empty 200.
+		upstream(200, "", {}, links, {"NCBI returned an empty answer; retry, or pass fewer ids", '"retryable":true'})
 		upstream(200, '{"result":"none"}', {}, summaries, {"NCBI returned an unexpected answer", '"retryable":false'})
 		upstream(200, '{"header":{}}', {}, links, {"NCBI returned an unexpected answer"})
 		upstream(200, "PMID- 1\nnot a MEDLINE line", {}, records, {"NCBI returned an unexpected MEDLINE record", '"retryable":false'}, "not a")
@@ -145,13 +147,13 @@ return {
 		upstream(200, '{"esearchresult":{"x":"' .. string.rep("z", 4 * 1024 * 1024) .. '"}}', {}, find, {"more data than one call can hold; lower retmax"})
 
 		requestError = {code = "timeout", message = "request deadline"}
-		upstream(200, "", {}, find, {"NCBI did not answer within 22 s; retry", '"retryable":true'})
+		upstream(200, "", {}, find, {"NCBI did not answer within 8 s; retry", '"retryable":true'})
 		-- Other request failures pass through unchanged; the stand-in table loses its message across the export boundary.
 		requestError = {code = "access_denied", message = "origin not allowed"}
 		upstream(200, "", {}, fullText, {"error"}, "retryable")
 		requestError = nil
 		readError = {code = "timeout", message = "await timed out"}
-		upstream(200, "", {}, summaries, {"NCBI did not finish sending its answer within 5 s; retry", '"retryable":true'})
+		upstream(200, "", {}, summaries, {"NCBI did not finish sending its answer within 19 s; retry", '"retryable":true'})
 		readError = {code = "io_error", message = "connection reset by peer"}
 		upstream(200, "", {}, links, {"NCBI response failed: connection reset by peer", '"retryable":true'}, "more data")
 		-- An error body that stalls or breaks still gives the structured failure.

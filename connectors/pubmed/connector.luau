@@ -6,10 +6,12 @@ local BIOC = "https://www.ncbi.nlm.nih.gov/research/bionlp/RESTful/pmcoa.cgi/Bio
 -- NCBI asks each request to name the software and its developer's contact address, never an end user's.
 local CONTACT = "tool=houston&email=" .. url.encode("hello@ok-houston.com")
 -- Each call makes one request. Houston ends a call after 30 s and the sandbox has no clock, so a fixed split of
--- 27 s gives the response body, an error body included, 5 s and the headers the rest.
-local CALL_TIME, BODY_TIME = 27000, 5000
+-- 27 s gives the response body, an error body included, 19 s and the headers the rest. NCBI sends headers within
+-- 0.3 s and then streams the body: 1.7 s for 200 MEDLINE records, 0.1 s per PMID for ELink, which gives up after
+-- about 15 s with an empty 200; the 8 s for headers leave room for Houston's two short waits after an HTTP 429.
+local CALL_TIME, BODY_TIME = 27000, 19000
 local MAX_BYTES = 4 * 1024 * 1024
-local MAX_IDS, MAX_TERM, DEFAULT_RETMAX = 200, 4000, 20
+local MAX_IDS, MAX_LINK_IDS, MAX_TERM, DEFAULT_RETMAX = 200, 100, 4000, 20
 -- PubMed returns only the first 9,999 matches of a search.
 local MAX_RESULTS = 9999
 local SORTS = table.freeze({"relevance", "pub_date", "Author", "JournalName"})
@@ -68,7 +70,7 @@ local function pmid(value: any): string?
 end
 
 -- Takes one PMID, an array of them or one string separated by commas or spaces; drops repeats and keeps the order.
-local function pmids(value: any): {string}
+local function pmids(value: any, maximum: number): {string}
 	local items: {any} = {}
 	if type(value) == "string" then
 		for item in string.gmatch(value, "[^,%s]+") do table.insert(items, item) end
@@ -89,7 +91,7 @@ local function pmids(value: any): {string}
 			table.insert(out, id)
 		end
 	end
-	assert(#out > 0 and #out <= MAX_IDS, "ids must list 1 to " .. tostring(MAX_IDS) .. " PMIDs")
+	assert(#out > 0 and #out <= maximum, "ids must list 1 to " .. tostring(maximum) .. " PMIDs")
 	return out
 end
 
@@ -178,6 +180,8 @@ local function eutility(operation: string, name: string, params: {string}, tooMu
 end
 
 local function decode(operation: string, raw: string, key: string): any
+	-- ELink gives up after about 15 s and still answers 200, with an empty body.
+	if not string.find(raw, "%S") then fail(operation, 200, true, "NCBI returned an empty answer; retry, or pass fewer ids") end
 	local ok, value = pcall(json.decode, raw)
 	if not ok or type(value) ~= "table" or not string.match(raw, "^%s*{") then
 		fail(operation, 200, false, "NCBI returned an invalid JSON object")
@@ -219,7 +223,7 @@ local function searchArticles(input: Options?): any
 end
 
 local function idParam(ids: any): string
-	return "id=" .. url.encode(table.concat(pmids(ids), ","))
+	return "id=" .. url.encode(table.concat(pmids(ids, MAX_IDS), ","))
 end
 
 local function getSummaries(ids: any): any
@@ -286,7 +290,7 @@ end
 
 local function getLinks(ids: any, linkname: any, input: Options?): any
 	local params = {"dbfrom=pubmed", "retmode=json"}
-	for _, id in pmids(ids) do table.insert(params, "id=" .. id) end
+	for _, id in pmids(ids, MAX_LINK_IDS) do table.insert(params, "id=" .. id) end
 	assert(type(linkname) == "string" and LINK_NAMES[linkname], "linkname must be one of " .. LINK_LIST)
 	table.insert(params, "linkname=" .. linkname)
 	local args = options(input, "getLinks")
@@ -326,7 +330,7 @@ local function help(): string
 	for _, link in LINKS do table.insert(links, "- " .. link[1] .. ": " .. link[2] .. ".") end
 	return [[PubMed: search and read NLM's database of biomedical literature citations and abstracts through NCBI's E-utilities (https://www.ncbi.nlm.nih.gov/books/NBK25501/), and the open-access full text of PubMed Central (PMC) articles through NCBI's BioC API. No account needed; an optional NCBI API key only raises the rate limit. Read-only. Calls return completed values; do not wrap them in await(). Results keep NCBI's field names and values: numbers such as count come back as strings. Each call makes one NCBI request. Abstracts can be protected by copyright and PMC articles carry their own licenses (see each document's license); NCBI's disclaimer and copyright notice: https://www.ncbi.nlm.nih.gov/About/disclaimer.html.
 
-IDs are PMIDs, positive integers such as 31452104, given as a number or a string. ids takes one PMID, an array of up to ]] .. tostring(MAX_IDS) .. [[ or one string separated by commas or spaces; repeats are dropped.
+IDs are PMIDs, positive integers such as 31452104, given as a number or a string. ids takes one PMID, an array of up to ]] .. tostring(MAX_IDS) .. [[ (]] .. tostring(MAX_LINK_IDS) .. [[ for getLinks) or one string separated by commas or spaces; repeats are dropped.
 
 ## searchArticles({term, retstart?, retmax?, sort?, datetype?, mindate?, maxdate?, reldate?})
 
@@ -351,7 +355,7 @@ ELink, one linkset per PMID. Returns an array of `{dbfrom, ids, linksetdbs?}` in
 ]] .. table.concat(links, "\n") .. [[
 
 
-A long list, such as the citations of a highly cited article, comes back whole: pass fewer ids if a call holds too much.
+A long list, such as the citations of a highly cited article, comes back whole: pass fewer ids if a call holds too much. ELink takes about 0.1 s per PMID and gives up after about 15 s with an empty answer, which fails as retryable: pass fewer ids.
 
 ## getFullText(id)
 
@@ -359,7 +363,7 @@ PMC open-access full text as one BioC document: `{id, infons, passages}`, where 
 
 ## Errors and limits
 
-Invalid input fails before any request. NCBI errors come back as upstream errors with the HTTP status and NCBI's message; HTTP 429 and 5xx are retryable, as are failures NCBI reports inside a successful answer (such as "Search Backend failed"). Without an API key, NCBI accepts 3 requests per second from Houston as a whole, and 10 per connection with one; Houston waits and retries a refused request briefly, so prefer fewer calls with more IDs over many small ones. Each call reads at most ]] .. tostring(MAX_BYTES // 1048576) .. [[ MiB and gives NCBI ]] .. tostring(CALL_TIME // 1000) .. [[ s, ]] .. tostring(BODY_TIME // 1000) .. [[ of them to send the body; a call that runs out of time fails as retryable. Too much data fails as not retryable: pass fewer ids; a larger full text cannot be read.
+Invalid input fails before any request. NCBI errors come back as upstream errors with the HTTP status and NCBI's message; HTTP 429 and 5xx are retryable, as are failures NCBI reports inside a successful answer (such as "Search Backend failed"). Without an API key, NCBI accepts 3 requests per second from Houston as a whole, and 10 per connection with one; Houston waits and retries a refused request briefly, so prefer fewer calls with more IDs over many small ones. Each call reads at most ]] .. tostring(MAX_BYTES // 1048576) .. [[ MiB and gives NCBI ]] .. tostring(CALL_TIME // 1000) .. [[ s: ]] .. tostring((CALL_TIME - BODY_TIME) // 1000) .. [[ to start answering and ]] .. tostring(BODY_TIME // 1000) .. [[ to send the body; a call that runs out of time fails as retryable. Too much data fails as not retryable: pass fewer ids; a larger full text cannot be read.
 
 ## Example
 
