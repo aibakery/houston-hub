@@ -305,10 +305,8 @@ local function failure(operation: string, response: HttpResponse, missing: strin
 		-- ChEMBL errors are JSON with error_message and often a long traceback; other bodies are never shown.
 		local ok, decoded = pcall(json.decode, await(response.body:readPrefix(64 * 1024)))
 		if ok and type(decoded) == "table" and type(decoded.error_message) == "string" then
-			detail = string.match(string.gsub(decoded.error_message, "%s+", " "), "^ ?(.-) ?$") :: string
-			detail = string.sub(detail, 1, 300)
-			local valid, invalid = utf8.len(detail)
-			if not valid and invalid then detail = string.sub(detail, 1, invalid - 1) end
+			-- houston.fail repairs a character split by the cut.
+			detail = string.sub(string.match(string.gsub(decoded.error_message, "%s+", " "), "^ ?(.-) ?$") :: string, 1, 300)
 		elseif status == 404 and missing then
 			detail = missing .. " was not found"
 		end
