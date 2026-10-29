@@ -204,6 +204,26 @@ local function decode(operation: string, raw: string, key: string): any
 	return value[key]
 end
 
+local DAYS = table.freeze({31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31})
+
+-- Checks a YYYY, YYYY/MM or YYYY/MM/DD date, which NCBI would otherwise answer with no matches, and returns the
+-- first and last day it covers as comparable YYYY/MM/DD strings.
+local function dateRange(value: any, field: string): (string, string)
+	local y: any, m: any, d: any
+	if type(value) == "string" then
+		y = string.match(value, "^(%d%d%d%d)$")
+		if not y then y, m = string.match(value, "^(%d%d%d%d)/(%d%d)$") end
+		if not y then y, m, d = string.match(value, "^(%d%d%d%d)/(%d%d)/(%d%d)$") end
+	end
+	local year: any, month: any, day: any = tonumber(y), tonumber(m), tonumber(d)
+	local leap = year and year % 4 == 0 and (year % 100 ~= 0 or year % 400 == 0)
+	local days = if month and month >= 1 and month <= 12 then DAYS[month] + (if month == 2 and leap then 1 else 0) else nil
+	assert(year and year >= 1 and (m == nil or days) and (d == nil or (day >= 1 and day <= days)),
+		field .. " must be YYYY, YYYY/MM or YYYY/MM/DD")
+	return string.format("%04d/%02d/%02d", year, month or 1, day or 1),
+		string.format("%04d/%02d/%02d", year, month or 12, day or days or 31)
+end
+
 local function searchArticles(input: Options?): any
 	local args = options(input, "searchArticles")
 	local term = args.term
@@ -214,13 +234,12 @@ local function searchArticles(input: Options?): any
 		"retmax=" .. tostring(integer(if args.retmax == nil then DEFAULT_RETMAX else args.retmax, "retmax", 0, MAX_RESULTS))}
 	if args.sort ~= nil then table.insert(params, "sort=" .. choice(args.sort, "sort", SORTS)) end
 	assert((args.mindate == nil) == (args.maxdate == nil), "mindate and maxdate go together")
-	for _, field in {"mindate", "maxdate"} do
-		local value = args[field]
-		if value ~= nil then
-			assert(type(value) == "string" and (string.match(value, "^%d%d%d%d$") or string.match(value, "^%d%d%d%d/%d%d$")
-				or string.match(value, "^%d%d%d%d/%d%d/%d%d$")), field .. " must be YYYY, YYYY/MM or YYYY/MM/DD")
-			table.insert(params, field .. "=" .. url.encode(value))
-		end
+	if args.mindate ~= nil then
+		local from = dateRange(args.mindate, "mindate")
+		local _, to = dateRange(args.maxdate, "maxdate")
+		assert(from <= to, "mindate must not be after maxdate")
+		table.insert(params, "mindate=" .. url.encode(args.mindate))
+		table.insert(params, "maxdate=" .. url.encode(args.maxdate))
 	end
 	if args.reldate ~= nil then table.insert(params, "reldate=" .. tostring(integer(args.reldate, "reldate", 1, 100000))) end
 	if args.datetype ~= nil then
@@ -348,7 +367,7 @@ ESearch. Returns `{count, retstart, retmax, idlist, querytranslation, translatio
 - term: a query in PubMed syntax, at most ]] .. tostring(MAX_TERM) .. [[ bytes, for example `crispr[tiab] AND review[pt]`, `"Smith J"[au]`, `asthma[majr]`, `Nature[ta] AND 2024[dp]` or `31452104[pmid]`. Tags include [tiab] (title or abstract), [ti], [au], [1au] (first author), [ad] (affiliation), [mh] (MeSH, with subheadings), [majr] (major MeSH topic), [pt] (publication type), [ta] (journal), [dp] (publication date), [la] (language), [ot] (keyword) and [sb] (subset, such as free full text[sb]); combine with AND, OR, NOT and parentheses.
 - retmax: PMIDs to return, 0 to ]] .. tostring(MAX_RESULTS) .. [[ (default ]] .. tostring(DEFAULT_RETMAX) .. [[; 0 returns only count). retstart: matches to skip, 0 to ]] .. tostring(MAX_RESULTS - 1) .. [[ (default 0). For the next page, call again with retstart + retmax as retstart while that is below both count and ]] .. tostring(MAX_RESULTS) .. [[. PubMed returns only the first ]] .. tostring(MAX_RESULTS) .. [[ matches: retstart plus the PMIDs returned never exceeds ]] .. tostring(MAX_RESULTS) .. [[ (retstart = 9990 with retmax = 20 returns 9), so narrow larger result sets, for example by date.
 - sort: ]] .. table.concat(SORTS, ", ") .. [[. relevance (PubMed's Best Match) is the default; pub_date sorts newest first, Author and JournalName ascending.
-- mindate and maxdate together: YYYY, YYYY/MM or YYYY/MM/DD. reldate: only the last n days. datetype selects the date they filter: edat (added to PubMed, the default), pdat (publication) or mdat (modification).
+- mindate and maxdate together: YYYY, YYYY/MM or YYYY/MM/DD, real dates with mindate not after maxdate (NCBI would answer other dates with no matches). reldate: only the last n days. datetype selects the date they filter: edat (added to PubMed, the default), pdat (publication) or mdat (modification).
 
 ## getSummaries(ids)
 

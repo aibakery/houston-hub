@@ -53,6 +53,12 @@ return {
 			rejected(search({term = "x", mindate = value, maxdate = "2025"}), "mindate must be YYYY, YYYY/MM or YYYY/MM/DD")
 		end
 		rejected(search({term = "x", mindate = "2024", maxdate = "2025/13/01x"}), "maxdate must be YYYY")
+		-- NCBI answers impossible or reversed dates with no matches rather than an error.
+		for _, value in {"2024/13", "2024/00", "2024/01/00", "2024/01/32", "2024/04/31", "2023/02/29", "1900/02/29", "0000"} do
+			rejected(search({term = "x", mindate = value, maxdate = "2025"}), "mindate must be YYYY, YYYY/MM or YYYY/MM/DD")
+		end
+		rejected(search({term = "x", mindate = "2025", maxdate = "2024/12/31"}), "mindate must not be after maxdate")
+		rejected(search({term = "x", mindate = "2024/06/02", maxdate = "2024/06/01"}), "mindate must not be after maxdate")
 		for _, value in {0, 100001, 1.5, "30"} do
 			rejected(search({term = "x", reldate = value}), "reldate must be an integer from 1 to 100000")
 		end

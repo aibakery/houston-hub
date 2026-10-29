@@ -53,6 +53,12 @@ return {
 		respond('{"esearchresult":{"count":"918","retmax":"0","retstart":"0","idlist":[]}}')
 		pubmed.searchArticles({term = "crispr", retmax = 0, reldate = 30, datetype = "edat", sort = "relevance"})
 		posted("esearch", "db=pubmed&retmode=json&term=crispr&retstart=0&retmax=0&sort=relevance&reldate=30&datetype=edat")
+		-- Leap days, partial dates and one-day ranges are valid.
+		respond('{"esearchresult":{"count":"1","retmax":"0","retstart":"0","idlist":[]}}')
+		pubmed.searchArticles({term = "crispr", mindate = "2024/02/29", maxdate = "2024/02/29"})
+		respond('{"esearchresult":{"count":"1","retmax":"0","retstart":"0","idlist":[]}}')
+		pubmed.searchArticles({term = "crispr", mindate = "2000/02/29", maxdate = "2000/02"})
+		posted("esearch", "db=pubmed&retmode=json&term=crispr&retstart=0&retmax=20&mindate=2000%2F02%2F29&maxdate=2000%2F02")
 
 		-- Summaries take numbers, strings and lists, drop repeats and keep NCBI's per-ID errors.
 		respond('{"header":{"type":"esummary"},"result":{"uids":["31452104","99999999"],"31452104":{"uid":"31452104",'
