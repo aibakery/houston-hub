@@ -110,8 +110,16 @@ local function fetch(name: string, target: string, budget: number, id: string?):
 	if response.statusCode ~= 200 then failure(name, response, id) end
 	local read, raw = pcall(function() return await(response.body:readAll(budget)) end)
 	if not read then
-		houston.fail({operation = name, layer = "upstream", upstream_status = 200, retryable = false,
-			message = "ClinicalTrials.gov returned more data than one call can hold; request fewer fields or a lower limit"})
+		local code = if type(raw) == "table" then raw.code else nil
+		if code == "limit_exceeded" then
+			houston.fail({operation = name, layer = "upstream", upstream_status = 200, retryable = false,
+				message = "ClinicalTrials.gov returned more data than one call can hold; request fewer fields or a lower limit"})
+		elseif code == "cancelled" or code == "timeout" then
+			error(raw, 0)
+		end
+		local detail = if type(raw) == "table" and type(raw.message) == "string" then raw.message else tostring(raw)
+		houston.fail({operation = name, layer = "upstream", upstream_status = 200, retryable = true,
+			message = "ClinicalTrials.gov response failed: " .. string.sub(detail, 1, 300)})
 	end
 	local ok, value = pcall(json.decode, raw)
 	if not ok or type(value) ~= "table" or not string.match(raw, "^%s*{") then

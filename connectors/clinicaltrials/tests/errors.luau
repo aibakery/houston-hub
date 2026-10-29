@@ -20,7 +20,9 @@ return {
 		end
 		http = {request = function()
 			calls += 1
-			return fixture.operation({statusCode = status, headers = responseHeaders, body = fixture.reader(payload)})
+			-- A body whose read fails stands in for a dropped connection or a cancelled invocation.
+			local body = if readError then {readAll = function() error(readError, 0) end, close = function() end} else fixture.reader(payload)
+			return fixture.operation({statusCode = status, headers = responseHeaders, body = body})
 		end}
 	end,
 	run = function(trials)
@@ -109,5 +111,15 @@ return {
 		upstream(200, '{"studies":null}', {}, search, {"unexpected search page"})
 		upstream(200, '{"studies":[],"nextPageToken":5}', {}, search, {"unexpected search page"})
 		upstream(200, '{"x":"' .. string.rep("z", 4 * 1024 * 1024) .. '"}', {}, read, {"more data than one call can hold"})
+		upstream(200, '{"studies":[],"x":"' .. string.rep("z", 4 * 1024 * 1024) .. '"}', {}, search, {"more data than one call can hold"})
+		readError = {code = "io_error", message = "connection reset by peer"}
+		upstream(200, "", {}, search, {"ClinicalTrials.gov response failed: connection reset by peer", '"retryable":true'}, "more data")
+		readError = {code = "cancelled", message = "invocation cancelled"}
+		local before = calls
+		local ok, err = pcall(read)
+		-- A stand-in error loses its native identity across the export boundary; it must still not become an upstream failure.
+		assert(not ok and not string.find(tostring(err), "retryable", 1, true), "cancellation became an upstream error: " .. tostring(err))
+		assert(calls == before + 1)
+		readError = nil
 	end,
 }
