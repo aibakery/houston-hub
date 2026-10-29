@@ -1,8 +1,9 @@
 -- ChEMBL data web services (https://www.ebi.ac.uk/chembl/api/data), public and read-only. Arguments and results keep ChEMBL's native field names.
 type Options = {[string]: any}
-type Spec = {name: string, path: string, rows: string, label: string, search: boolean, id: string, about: string,
-	compact: string, fields: string, sort: string, filters: {[string]: string}}
-type Resource = Spec & {compactSet: {[string]: boolean}, fieldSet: {[string]: boolean}, sortSet: {[string]: boolean}, filterKinds: {[string]: string}}
+-- Each resource lists its fields as space-separated names; the loop after RESOURCES derives the rest.
+type Resource = {name: string, path: string, rows: string, label: string, search: boolean, id: string, about: string,
+	compact: string, fields: string, sort: string, filters: {[string]: string}, only: string, compactSet: {[string]: boolean},
+	fieldSet: {[string]: boolean}, sortSet: {[string]: boolean}, filterKinds: {[string]: string}}
 
 local API = "https://www.ebi.ac.uk/chembl/api/data"
 -- ChEMBL serves at most 1,000 rows per page. Houston ends a call after 30 s and an uncached ChEMBL page can take 5 to
@@ -72,7 +73,7 @@ local STRUCTURE_FILTERS = table.freeze({
 local STRUCTURE_SORT = "molecule_chembl_id pref_name max_phase first_approval usan_year molecule_type structure_type " .. PROPERTIES
 local MOLECULE_COMPACT = "molecule_chembl_id pref_name max_phase molecule_type first_approval molecule_properties"
 
-local SPECS: {Spec} = {
+local RESOURCES: {Resource} = ({
 	{name = "Molecule", path = "molecule", rows = "molecules", label = "molecule", search = true, id = "molecule",
 		about = "Compounds, biologics and approved drugs. id is a ChEMBL ID such as CHEMBL25 or a standard InChIKey. q searches names and synonyms. Find an exact structure with filters `[\"molecule_structures__canonical_smiles__flexmatch\"] = smiles` (or `__connectivity` to ignore stereochemistry and salts), a trade name with `molecule_synonyms__molecule_synonym__iexact`. max_phase is the highest development phase, returned as a string such as \"4.0\" (approved); filter it as a number.",
 		compact = MOLECULE_COMPACT, fields = STRUCTURE_FIELDS .. " molecule_synonyms", sort = STRUCTURE_SORT,
@@ -152,19 +153,17 @@ local SPECS: {Spec} = {
 	{name = "Substructure", path = "substructure", rows = "molecules", label = "substructure search", search = false,
 		id = "", about = "", compact = MOLECULE_COMPACT, fields = STRUCTURE_FIELDS, sort = STRUCTURE_SORT,
 		filters = STRUCTURE_FILTERS},
-}
+} :: {Options}) :: any
 
-local RESOURCES: {Resource} = {}
 local BY_NAME: {[string]: Resource} = {}
-for _, spec in SPECS do
-	local resource: Resource = table.clone(spec) :: any
-	resource.compactSet, resource.fieldSet, resource.sortSet = set(spec.compact), set(spec.fields), set(spec.sort)
+for _, resource in RESOURCES do
+	resource.only = "only=" .. url.encode(table.concat(words(resource.compact), ","))
+	resource.compactSet, resource.fieldSet, resource.sortSet = set(resource.compact), set(resource.fields), set(resource.sort)
 	resource.filterKinds = {}
-	for kind, list in spec.filters do
+	for kind, list in resource.filters do
 		for _, field in words(list) do resource.filterKinds[field] = kind end
 	end
-	table.insert(RESOURCES, resource)
-	BY_NAME[spec.name] = resource
+	BY_NAME[resource.name] = resource
 end
 
 local function finite(value: any): boolean
@@ -271,7 +270,7 @@ end
 -- Returns the only parameter, or nil for complete records, and whether every row field is a compact default.
 local function onlyParam(resource: Resource, value: any): (string?, boolean)
 	if value == "all" then return nil, false end
-	if value == nil then return "only=" .. url.encode(table.concat(words(resource.compact), ",")), true end
+	if value == nil then return resource.only, true end
 	local fields = list(value, "fields", 100)
 	local compact = true
 	for _, field in fields do
