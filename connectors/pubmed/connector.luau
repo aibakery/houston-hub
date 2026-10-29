@@ -419,16 +419,20 @@ Here pubmed is the configured PubMed connection.
 local found = pubmed.searchArticles({term = "crispr[tiab] AND review[pt]", sort = "pub_date", retmax = 20,
 	datetype = "pdat", mindate = "2024", maxdate = "2025"})
 print(found.count)
+if #found.idlist == 0 then return end -- ids must list at least one PMID
 local summaries = pubmed.getSummaries(found.idlist)
 for _, uid in summaries.uids do print(uid, summaries[uid].title, summaries[uid].source, summaries[uid].pubdate) end
 local record = pubmed.getRecords(found.idlist[1]).records[1]
-print(record.TI, record.AB, record.authors[1].FAU)
-local linkset = pubmed.getLinks(found.idlist[1], "pubmed_pubmed_citedin")[1]
-local citingIds = if linkset.linksetdbs then linkset.linksetdbs[1].links else {}
-if record.PMC then
-	local article = pubmed.getFullText(record.PMC)
-	for _, passage in article.passages do
-		if passage.infons.section_type == "METHODS" then print(passage.text) end
+if record then
+	print(record.TI, record.AB, if record.authors[1] then record.authors[1].FAU else nil)
+	local linkset = pubmed.getLinks(record.PMID, "pubmed_pubmed_citedin")[1]
+	local citingIds = if linkset.linksetdbs then linkset.linksetdbs[1].links else {}
+	print(#citingIds, "citing articles")
+	if record.PMC then
+		local article = pubmed.getFullText(record.PMC)
+		for _, passage in article.passages do
+			if passage.infons.section_type == "METHODS" then print(passage.text) end
+		end
 	end
 end
 ```]]
