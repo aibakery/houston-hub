@@ -44,6 +44,7 @@ func TestEveryProviderAuthenticationAndTransport(t *testing.T) {
 		"linear":      {"GET", "https://api.linear.app/graphql"},
 		"vercel":      {"GET", "https://api.vercel.com/v2/user"},
 		"figma":       {"GET", "https://api.figma.com/v1/me"},
+		"biorxiv":     {"GET", "https://api.biorxiv.org/details/biorxiv/10.1101/339747/na/json"},
 		"pubmed":      {"POST", "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi"},
 	}
 	for _, path := range paths {
@@ -121,6 +122,9 @@ func TestEveryProviderAuthenticationAndTransport(t *testing.T) {
 					authorization = ""
 				}
 				if provider == "pubmed" { // The optional NCBI key goes in the query, so the rule drops the caller's header.
+					authorization = ""
+				}
+				if provider == "biorxiv" { // The public APIs take no credential, so the rules drop the caller's.
 					authorization = ""
 				}
 				if provider == "dolibarr" { // Dolibarr reads the bare key from its own header.
