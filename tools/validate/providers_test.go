@@ -115,17 +115,11 @@ func TestEveryProviderAuthenticationAndTransport(t *testing.T) {
 					credentialHeader = "X-Figma-Token"
 					authorization = "synthetic-method-secret"
 				}
-				if provider == "clinicaltrials" { // The public API takes no credential, so the rule leaves headers unchanged.
+				if method == "" && m.Proxy[0].Match.Protocol == "http" { // A public API takes no credential, so its rules drop the caller's.
+					authorization = ""
+				}
+				if provider == "clinicaltrials" { // ClinicalTrials.gov's rule leaves the caller's headers unchanged.
 					authorization = "caller-forgery"
-				}
-				if provider == "chembl" { // The public API takes no credential, so the rule drops the caller's.
-					authorization = ""
-				}
-				if provider == "pubmed" { // The optional NCBI key goes in the query, so the rule drops the caller's header.
-					authorization = ""
-				}
-				if provider == "biorxiv" { // The public APIs take no credential, so the rules drop the caller's.
-					authorization = ""
 				}
 				if provider == "dolibarr" { // Dolibarr reads the bare key from its own header.
 					config["host"] = "erp.example.com"
