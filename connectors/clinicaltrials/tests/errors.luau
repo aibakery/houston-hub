@@ -38,6 +38,7 @@ return {
 		rejected(function() trials.getStudy("NCT04368728", {format = "csv"}) end, "unknown option format")
 		rejected(function() trials.getStudy("NCT04368728", {fields = "@query"}) end, "fields contains an invalid value")
 		rejected(function() trials.getStudy("NCT04368728", {fields = {}}) end, "fields must list 1 to 200")
+		rejected(function() trials.getStudy("NCT04368728", {fields = table.create(60, string.rep("A", 150))}) end, "fields is too long")
 		rejected(function() trials.getStudy("NCT04368728", "fields") end, "options must be a table")
 		rejected(function() trials.searchStudies("diabetes") end, "options must be a table")
 		rejected(function() trials.searchStudies({pageSize = 10}) end, "unknown option pageSize")
@@ -51,6 +52,9 @@ return {
 		rejected(function() trials.searchStudies({["filter.overallStatus"] = ", |"}) end, "must list 1 to 14")
 		rejected(function() trials.searchStudies({["filter.ids"] = "NCT04368728,NCT123"}) end, "invalid value: NCT123")
 		rejected(function() trials.searchStudies({["filter.ids"] = table.create(501, "NCT04368728")}) end, "1 to 500")
+		rejected(function()
+			trials.searchStudies({["filter.ids"] = table.create(500, "NCT04368728"), ["query.term"] = string.rep("%", 2000)})
+		end, "search criteria are too long")
 		for _, key in {"BriefTitle:up", "LastUpdatePostDate:", "Last Update", ":desc", "@relevance:"} do
 			rejected(function() trials.searchStudies({sort = {key}}) end, "sort contains an invalid value")
 		end

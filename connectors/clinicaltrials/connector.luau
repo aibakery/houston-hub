@@ -5,6 +5,8 @@ local API = "https://clinicaltrials.gov/api/v2"
 local DEFAULT_LIMIT, MAX_LIMIT, PAGE_SIZE, MAX_PAGES = 100, 2000, 1000, 10
 local MAX_BYTES = 4 * 1024 * 1024
 local MAX_TEXT, MAX_IDS = 2000, 500
+-- Bounds the encoded criteria, which go in every page URL and the sealed continuation token.
+local MAX_QUERY = 8192
 local SUMMARY_FIELDS = table.freeze({"NCTId", "BriefTitle", "OverallStatus", "Phase", "StudyType", "Condition",
 	"InterventionName", "LeadSponsorName", "EnrollmentCount", "StartDate", "PrimaryCompletionDate", "HasResults"})
 local STATUSES = table.freeze({"ACTIVE_NOT_RECRUITING", "COMPLETED", "ENROLLING_BY_INVITATION", "NOT_YET_RECRUITING",
@@ -147,7 +149,9 @@ local function searchQuery(args: Options): string
 	end
 	table.insert(query, fieldsParam(args, searchField, SUMMARY_FIELDS) :: string)
 	table.sort(query)
-	return table.concat(query, "&")
+	local encoded = table.concat(query, "&")
+	assert(#encoded <= MAX_QUERY, "search criteria are too long: " .. tostring(#encoded) .. " bytes once URL-encoded, at most " .. tostring(MAX_QUERY))
+	return encoded
 end
 
 local function searchStudies(input: Options?)
@@ -217,6 +221,7 @@ local function getStudy(id: any, input: Options?)
 	local fields = fieldsParam(args, fieldName, nil)
 	local unknown = next(args)
 	assert(unknown == nil, "getStudy received an unknown option " .. string.sub(tostring(unknown), 1, 64))
+	assert(fields == nil or #fields <= MAX_QUERY, "fields is too long once URL-encoded, at most " .. tostring(MAX_QUERY) .. " bytes")
 	local target = API .. "/studies/" .. id .. (if fields then "?" .. fields else "")
 	return (fetch("getStudy", target, MAX_BYTES, id))
 end
@@ -243,7 +248,7 @@ GET /api/v2/studies/{nctId}. Returns one full study record. nctId is NCT plus 8 
 
 ## Errors and limits
 
-Invalid options fail before any request. ClinicalTrials.gov errors (plain text, such as an Essie syntax error or an invalid field name) come back as upstream errors with the HTTP status; HTTP 429 and 5xx are retryable. The API publishes no rate limit: keep calls few and use limit and fields rather than many small requests. Each call reads at most 4 MiB.
+Invalid options fail before any request, including search criteria or fields over 8 KB once URL-encoded. ClinicalTrials.gov errors (plain text, such as an Essie syntax error or an invalid field name) come back as upstream errors with the HTTP status; HTTP 429 and 5xx are retryable. The API publishes no rate limit: keep calls few and use limit and fields rather than many small requests. Each call reads at most 4 MiB.
 
 ## Example
 
