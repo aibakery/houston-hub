@@ -266,7 +266,11 @@ local function collect(operation: string, args: Options, path: string, query: st
 	for page = 1, MAX_PAGES do
 		local time = if page > 1 then LATER elseif limit <= size then CALL else FIRST
 		local target = API .. path .. "/" .. string.format("%d", cursor + #rows) .. query
-		local read, found, message, bytes = pcall(apiPage, operation, target, time, MAX_BYTES - used, noPosts)
+		local read, found, message, bytes = pcall(function(): (any, any, number)
+			local rows, reported, length = apiPage(operation, target, time, MAX_BYTES - used, noPosts)
+			if rows and not finite(tonumber(reported.total)) then fail(operation, 200, false, "bioRxiv API returned a page without its total") end
+			return rows, reported, length
+		end)
 		if not read then
 			-- Any failure after the first page ends the call with the rows so far; the caller continues from next_cursor.
 			if page == 1 or errorCode(found) == "cancelled" then error(found, 0) end
@@ -278,8 +282,7 @@ local function collect(operation: string, args: Options, path: string, query: st
 			more = false
 			break
 		end
-		local total = tonumber(message.total) or math.huge
-		if not finite(total) then fail(operation, 200, false, "bioRxiv API returned a page without its total") end
+		local total = tonumber(message.total) :: number
 		if page == 1 then
 			result.total = total
 			local fresh = tonumber(message.count_new_papers)

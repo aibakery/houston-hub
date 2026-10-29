@@ -179,6 +179,7 @@ return {
 			{readError = {code = "io_error", message = "connection reset"}},
 			{body = "<html>maintenance</html>"},
 			{body = '{"messages":[{"status":"Both dates must be in yyyy-mm-dd format"}], "collection":[]}'},
+			{body = '{"messages":[{"status":"ok","total":"many"}], "collection":[{"doi":"10.1101/1"}]}'},
 			-- The first page used part of the budget, so this one overflows what remains.
 			{body = '{"x":"' .. string.rep("z", 4 * 1024 * 1024 - 1000) .. '"}'},
 		}
