@@ -261,7 +261,7 @@ local function collect(operation: string, args: Options, path: string, query: st
 	local limit = integer(optional(args, "limit", size), "limit", 1, size * MAX_PAGES)
 	noneLeft(args, operation)
 	local rows = json.decode("[]")
-	local result: Options = {collection = rows, total = 0}
+	local result: Options = {collection = rows}
 	local used, more = 0, false
 	for page = 1, MAX_PAGES do
 		local time = if page > 1 then LATER elseif limit <= size then CALL else FIRST
@@ -517,7 +517,7 @@ Europe PMC lists one record per preprint: read its versions and the full abstrac
 
 ## listPreprints({server, from, to, category?, funder?, limit?, cursor?})
 
-Preprint versions posted from from to to, inclusive. A revised version of an older preprint appears on the date it was posted. Returns `{collection, total, count_new_papers?, next_cursor?}`: total counts the versions in the range, count_new_papers its first versions. Each version has doi, title, authors ("Last, F.; ..."), author_corresponding, author_corresponding_institution, date, version (a string), type, license, category, abstract, jatsxml (the JATS XML address on the server's website), published (the journal DOI, or "NA") and server, plus pdf_url, the address of its PDF, added by Houston. date may lack zero padding, as in 2026-8-17.
+Preprint versions posted from from to to, inclusive. A revised version of an older preprint appears on the date it was posted. Returns `{collection, total?, count_new_papers?, next_cursor?}`: total counts the versions in the range, count_new_papers its first versions. When the API finds no posts from cursor on (an empty range, or a cursor at or past its end) it reports no total, so collection is empty and total absent. Each version has doi, title, authors ("Last, F.; ..."), author_corresponding, author_corresponding_institution, date, version (a string), type, license, category, abstract, jatsxml (the JATS XML address on the server's website), published (the journal DOI, or "NA") and server, plus pdf_url, the address of its PDF, added by Houston. date may lack zero padding, as in 2026-8-17.
 - category: one of the server's categories below (underscores accepted for spaces); the API would silently ignore any other.
 - funder: a ROR ID such as 00k4n6c32 (European Commission) or https://ror.org/00k4n6c32, to list only preprints declaring that funder; versions then also carry funder, an array of {name, id, id-type, award}. Funder data starts on 2025-04-10.
 - limit: versions to return, 1 to ]] .. details .. [[ (default ]] .. tostring(DETAILS_PAGE) .. [[). The API serves pages of ]] .. tostring(DETAILS_PAGE) .. [[, so a call reads up to ]] .. tostring(MAX_PAGES) .. [[ pages. cursor: versions to skip (default 0). For the next page, call again with the same options and cursor = next_cursor. next_cursor is present while cursor plus the versions returned is below total; a call can return fewer than limit versions when a later page is slow, too large or fails, and next_cursor then continues after them. A month of bioRxiv holds about 7,000 versions, so narrow with category or a short range, or use searchPreprints.
@@ -532,7 +532,7 @@ The journal article a preprint became: `{collection}` with at most one link {pre
 
 ## listPublications({server, from, to, limit?, cursor?})
 
-Preprints whose journal article was recorded from from to to: `{collection, total, next_cursor?}` of the links getPublication returns. limit: 1 to ]] .. pubs .. [[ (default ]] .. tostring(PUBS_PAGE) .. [[), in pages of ]] .. tostring(PUBS_PAGE) .. [[; cursor and next_cursor work as in listPreprints.
+Preprints whose journal article was recorded from from to to: `{collection, total?, next_cursor?}` of the links getPublication returns. limit: 1 to ]] .. pubs .. [[ (default ]] .. tostring(PUBS_PAGE) .. [[), in pages of ]] .. tostring(PUBS_PAGE) .. [[; cursor and next_cursor work as in listPreprints.
 
 ## downloadPdf({server, doi, version, session_path})
 

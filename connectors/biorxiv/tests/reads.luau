@@ -163,7 +163,7 @@ return {
 		-- No posts: an empty range, or a cursor at its end, is an empty array.
 		respond('{"messages":[{"status":"no posts found"}], "collection":[]}')
 		page = rxiv.listPreprints({server = "biorxiv", from = "2030-01-01", to = "2030-01-01"})
-		assert(json.encode(page.collection) == "[]" and page.total == 0 and page.next_cursor == nil)
+		assert(json.encode(page.collection) == "[]" and page.total == nil and page.next_cursor == nil, "an unknown total is absent")
 		before = #requests
 		respond(details(1267, 30, 30))
 		respond('{"messages":[{"status":"no posts found"}], "collection":[]}')
