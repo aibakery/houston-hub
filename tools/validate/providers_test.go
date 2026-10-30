@@ -50,6 +50,7 @@ func TestEveryProviderAuthenticationAndTransport(t *testing.T) {
 		"sentry":      {"GET", "https://us.sentry.io/api/0/organizations/"},
 		"posthog":     {"GET", "https://us.posthog.com/api/organizations/"},
 		"blockscout":  {"GET", "https://eth.blockscout.com/api/v2/stats"},
+		"dockerhub":   {"GET", "https://hub.docker.com/v2/namespaces/library/repositories/nginx/tags"},
 	}
 	for _, path := range paths {
 		provider := filepath.Base(filepath.Dir(path))
