@@ -46,6 +46,7 @@ func TestEveryProviderAuthenticationAndTransport(t *testing.T) {
 		"figma":       {"GET", "https://api.figma.com/v1/me"},
 		"biorxiv":     {"GET", "https://api.biorxiv.org/details/biorxiv/10.1101/339747/na/json"},
 		"pubmed":      {"POST", "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi"},
+		"exa":         {"POST", "https://api.exa.ai/search"},
 	}
 	for _, path := range paths {
 		provider := filepath.Base(filepath.Dir(path))
@@ -113,6 +114,10 @@ func TestEveryProviderAuthenticationAndTransport(t *testing.T) {
 				}
 				if provider == "figma" && method == "token" { // Figma reads personal tokens from its own header.
 					credentialHeader = "X-Figma-Token"
+					authorization = "synthetic-method-secret"
+				}
+				if provider == "exa" { // Exa reads the bare API key from its own header.
+					credentialHeader = "x-api-key"
 					authorization = "synthetic-method-secret"
 				}
 				if method == "" && m.Proxy[0].Match.Protocol == "http" { // A public API takes no credential, so its rules drop the caller's.

@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "name": "Exa",
+  "stateless": true,
+  "files": [
+    "connector.luau"
+  ],
+  "icon": "icon.svg",
+  "auth": {
+    "api_key": {
+      "type": "manual",
+      "label": "API key",
+      "config": {
+        "token": {
+          "type": "secret",
+          "label": "API key",
+          "description": "Create a key on the API Keys page of your Exa dashboard. Exa bills each search, page read and answer to your Exa account.",
+          "required": true
+        }
+      }
+    }
+  },
+  "proxy": [
+    {
+      "match": {
+        "protocol": "http",
+        "host": [
+          "api.exa.ai"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/search",
+          "/contents",
+          "/findSimilar",
+          "/answer"
+        ]
+      },
+      "action": {
+        "headers": {
+          "remove": [
+            "Authorization",
+            "X-HTTP-Method-Override",
+            "X-HTTP-Method",
+            "X-Method-Override"
+          ],
+          "set": {
+            "x-api-key": "{{auth.api_key.token}}"
+          }
+        }
+      }
+    }
+  ]
+}
