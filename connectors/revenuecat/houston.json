@@ -1,0 +1,133 @@
+{
+  "schema_version": 1,
+  "name": "RevenueCat",
+  "files": [
+    "connector.luau"
+  ],
+  "icon": "icon.svg",
+  "config": {
+    "access": {
+      "default": "read-only",
+      "label": "Access",
+      "options": [
+        {
+          "label": "Read-only",
+          "value": "read-only"
+        },
+        {
+          "label": "Read and write",
+          "value": "read-write"
+        }
+      ],
+      "type": "string"
+    }
+  },
+  "auth": {
+    "token": {
+      "type": "manual",
+      "label": "Secret API key",
+      "config": {
+        "token": {
+          "label": "Secret API key (v2)",
+          "required": true,
+          "type": "secret"
+        }
+      }
+    }
+  },
+  "proxy": [
+    {
+      "match": {
+        "protocol": "http",
+        "host": [
+          "api.revenuecat.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/v2/projects",
+          "/v2/projects/{project_id}/apps",
+          "/v2/projects/{project_id}/apps/{app_id}",
+          "/v2/projects/{project_id}/customers",
+          "/v2/projects/{project_id}/customers/{customer_id}",
+          "/v2/projects/{project_id}/customers/{customer_id}/active_entitlements",
+          "/v2/projects/{project_id}/customers/{customer_id}/purchases",
+          "/v2/projects/{project_id}/customers/{customer_id}/subscriptions",
+          "/v2/projects/{project_id}/entitlements",
+          "/v2/projects/{project_id}/entitlements/{entitlement_id}",
+          "/v2/projects/{project_id}/entitlements/{entitlement_id}/products",
+          "/v2/projects/{project_id}/metrics/overview",
+          "/v2/projects/{project_id}/offerings",
+          "/v2/projects/{project_id}/offerings/{offering_id}",
+          "/v2/projects/{project_id}/offerings/{offering_id}/packages",
+          "/v2/projects/{project_id}/packages/{package_id}",
+          "/v2/projects/{project_id}/packages/{package_id}/products",
+          "/v2/projects/{project_id}/products",
+          "/v2/projects/{project_id}/products/{product_id}",
+          "/v2/projects/{project_id}/purchases/{purchase_id}",
+          "/v2/projects/{project_id}/subscriptions/{subscription_id}",
+          "/v2/projects/{project_id}/subscriptions/{subscription_id}/entitlements"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.token.token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "api.revenuecat.com"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/v2/projects/{project_id}/customers/{customer_id}/actions/grant_entitlement",
+          "/v2/projects/{project_id}/customers/{customer_id}/actions/revoke_granted_entitlement",
+          "/v2/projects/{project_id}/offerings",
+          "/v2/projects/{project_id}/offerings/{offering_id}",
+          "/v2/projects/{project_id}/offerings/{offering_id}/packages",
+          "/v2/projects/{project_id}/packages/{package_id}",
+          "/v2/projects/{project_id}/packages/{package_id}/actions/attach_products",
+          "/v2/projects/{project_id}/packages/{package_id}/actions/detach_products"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.token.token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "api.revenuecat.com"
+        ],
+        "method": [
+          "DELETE"
+        ],
+        "path": [
+          "/v2/projects/{project_id}/packages/{package_id}"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.token.token}}"
+          }
+        }
+      }
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 # Houston Hub
 
-This repository contains fifty-two connector bundles, the authoritative manifest v1
+This repository contains fifty-three connector bundles, the authoritative manifest v1
 contract and configured Luau operations. Registrations in Houston define the live
 catalog; repository files are not published automatically.
 
@@ -26,7 +26,7 @@ go run ./tools/validate
 Set `HOUSTON_RUNTIME` to a freshly built Houston service runtime and put the pinned
 `luau-analyze` on `PATH`; the Go validator runs every resolved behavior fixture
 in the selected bundle. AssessFirst, bioRxiv and medRxiv, Blockscout, Cal.com, Calendly, Carta, Carta CRM, ChEMBL, ClinicalTrials.gov, Cloudflare, Docker Hub, Dolibarr, Dropbox, Exa, Fastmail, Figma, GitHub, Gmail, Google Calendar, Google Docs, Google Drive, Google Forms, Google Sheets, Google Slides, Granola, Gusto, IMAP, incident.io, Linear, LinkedIn, Mercury,
-Meta Business Suite, Notion, PostHog, PrestaShop, PubMed, Resend, Sentry, Slack, Stripe, Tipeee, Vercel, Wise, WooCommerce, X and the ClickHouse, MariaDB, MySQL,
+Meta Business Suite, Notion, PostHog, PrestaShop, PubMed, Resend, RevenueCat, Sentry, Slack, Stripe, Tipeee, Vercel, Wise, WooCommerce, X and the ClickHouse, MariaDB, MySQL,
 PostgreSQL, Redis and Supabase database connectors are migrated to the current
 runtime; other provider bundles remain available for future migration.
 From the Houston checkout, `go -C tools/runtime run . test-connectors` builds the
