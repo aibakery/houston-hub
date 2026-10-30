@@ -1,0 +1,111 @@
+{
+  "schema_version": 1,
+  "name": "incident.io",
+  "files": [
+    "connector.luau"
+  ],
+  "icon": "icon.svg",
+  "config": {
+    "access": {
+      "default": "read-only",
+      "label": "Access",
+      "options": [
+        {
+          "label": "Read-only",
+          "value": "read-only"
+        },
+        {
+          "label": "Read and write",
+          "value": "read-write"
+        }
+      ],
+      "type": "string"
+    }
+  },
+  "auth": {
+    "token": {
+      "type": "manual",
+      "label": "API key",
+      "config": {
+        "token": {
+          "label": "API key",
+          "required": true,
+          "type": "secret"
+        }
+      }
+    }
+  },
+  "proxy": [
+    {
+      "match": {
+        "protocol": "http",
+        "host": [
+          "api.incident.io"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/v1/custom_field_options",
+          "/v1/identity",
+          "/v1/incident_statuses",
+          "/v1/incident_types",
+          "/v1/severities",
+          "/v2/alerts",
+          "/v2/alerts/{id}",
+          "/v2/custom_fields",
+          "/v2/incident_alerts",
+          "/v2/incident_roles",
+          "/v2/incident_timeline_items",
+          "/v2/incident_timestamps",
+          "/v2/incident_updates",
+          "/v2/incidents",
+          "/v2/incidents/{id}",
+          "/v2/schedule_entries",
+          "/v2/schedules",
+          "/v2/schedules/{id}",
+          "/v2/users",
+          "/v2/users/{id}",
+          "/v3/catalog_entries",
+          "/v3/catalog_entries/{id}",
+          "/v3/catalog_types",
+          "/v3/follow_ups",
+          "/v3/follow_ups/{id}",
+          "/v3/teams"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.token.token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "api.incident.io"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/v2/incident_updates",
+          "/v2/incidents",
+          "/v2/incidents/{id}/actions/edit",
+          "/v3/follow_ups"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.token.token}}"
+          }
+        }
+      }
+    }
+  ]
+}
