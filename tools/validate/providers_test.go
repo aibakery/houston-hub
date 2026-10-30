@@ -48,6 +48,7 @@ func TestEveryProviderAuthenticationAndTransport(t *testing.T) {
 		"pubmed":      {"POST", "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi"},
 		"exa":         {"POST", "https://api.exa.ai/search"},
 		"sentry":      {"GET", "https://us.sentry.io/api/0/organizations/"},
+		"posthog":     {"GET", "https://us.posthog.com/api/organizations/"},
 	}
 	for _, path := range paths {
 		provider := filepath.Base(filepath.Dir(path))

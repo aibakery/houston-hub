@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "name": "PostHog",
+  "files": [
+    "connector.luau"
+  ],
+  "icon": "icon.svg",
+  "config": {
+    "region": {
+      "type": "string",
+      "label": "Cloud region",
+      "description": "Where your PostHog organization is hosted: the address you use to open PostHog.",
+      "default": "us.posthog.com",
+      "options": [
+        {
+          "label": "US Cloud (us.posthog.com)",
+          "value": "us.posthog.com"
+        },
+        {
+          "label": "EU Cloud (eu.posthog.com)",
+          "value": "eu.posthog.com"
+        }
+      ]
+    }
+  },
+  "auth": {
+    "token": {
+      "type": "manual",
+      "label": "Personal API key",
+      "config": {
+        "token": {
+          "type": "secret",
+          "label": "Personal API key",
+          "description": "A PostHog personal API key with read scopes, starting with phx_.",
+          "required": true
+        }
+      }
+    }
+  },
+  "proxy": [
+    {
+      "match": {
+        "protocol": "http",
+        "host": [
+          "{{config.region}}"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/api/organizations/",
+          "/api/organizations/{organization_id}/projects/",
+          "/api/projects/{project_id}/events/",
+          "/api/projects/{project_id}/feature_flags/",
+          "/api/projects/{project_id}/insights/",
+          "/api/projects/{project_id}/insights/{id}/",
+          "/api/projects/{project_id}/persons/"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.token.token}}"
+          }
+        }
+      }
+    },
+    {
+      "match": {
+        "protocol": "http",
+        "host": [
+          "{{config.region}}"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/api/projects/{project_id}/query/"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.token.token}}"
+          }
+        }
+      }
+    }
+  ]
+}
