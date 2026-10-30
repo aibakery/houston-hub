@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "name": "Docker Hub",
+  "files": [
+    "connector.luau"
+  ],
+  "icon": "icon.svg",
+  "proxy": [
+    {
+      "match": {
+        "protocol": "http",
+        "host": [
+          "hub.docker.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/v2/namespaces/{namespace}/repositories",
+          "/v2/namespaces/{namespace}/repositories/{repository}",
+          "/v2/namespaces/{namespace}/repositories/{repository}/tags",
+          "/v2/namespaces/{namespace}/repositories/{repository}/tags/{tag}"
+        ]
+      },
+      "action": {
+        "headers": {
+          "remove": [
+            "X-HTTP-Method-Override",
+            "X-HTTP-Method",
+            "X-Method-Override",
+            "Authorization",
+            "Cookie"
+          ]
+        }
+      }
+    }
+  ]
+}
