@@ -1,0 +1,92 @@
+{
+  "schema_version": 1,
+  "name": "bioRxiv and medRxiv",
+  "files": [
+    "connector.luau"
+  ],
+  "icon": "icon.svg",
+  "proxy": [
+    {
+      "match": {
+        "protocol": "http",
+        "host": [
+          "api.biorxiv.org"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/details/biorxiv/*",
+          "/details/medrxiv/*",
+          "/funder/biorxiv/*",
+          "/funder/medrxiv/*",
+          "/pubs/biorxiv/*",
+          "/pubs/medrxiv/*"
+        ]
+      },
+      "action": {
+        "headers": {
+          "remove": [
+            "X-HTTP-Method-Override",
+            "X-HTTP-Method",
+            "X-Method-Override",
+            "Authorization",
+            "Cookie"
+          ]
+        }
+      }
+    },
+    {
+      "match": {
+        "protocol": "http",
+        "host": [
+          "www.ebi.ac.uk"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/europepmc/webservices/rest/search"
+        ]
+      },
+      "action": {
+        "headers": {
+          "remove": [
+            "X-HTTP-Method-Override",
+            "X-HTTP-Method",
+            "X-Method-Override",
+            "Authorization",
+            "Cookie"
+          ]
+        }
+      }
+    },
+    {
+      "match": {
+        "protocol": "http",
+        "host": [
+          "www.biorxiv.org",
+          "www.medrxiv.org"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/content/10.1101/{file}",
+          "/content/10.64898/{file}"
+        ]
+      },
+      "action": {
+        "headers": {
+          "remove": [
+            "X-HTTP-Method-Override",
+            "X-HTTP-Method",
+            "X-Method-Override",
+            "Authorization",
+            "Cookie"
+          ]
+        }
+      }
+    }
+  ]
+}

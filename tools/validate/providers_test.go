@@ -44,6 +44,7 @@ func TestEveryProviderAuthenticationAndTransport(t *testing.T) {
 		"linear":      {"GET", "https://api.linear.app/graphql"},
 		"vercel":      {"GET", "https://api.vercel.com/v2/user"},
 		"figma":       {"GET", "https://api.figma.com/v1/me"},
+		"biorxiv":     {"GET", "https://api.biorxiv.org/details/biorxiv/10.1101/339747/na/json"},
 		"pubmed":      {"POST", "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi"},
 	}
 	for _, path := range paths {
@@ -114,14 +115,11 @@ func TestEveryProviderAuthenticationAndTransport(t *testing.T) {
 					credentialHeader = "X-Figma-Token"
 					authorization = "synthetic-method-secret"
 				}
-				if provider == "clinicaltrials" { // The public API takes no credential, so the rule leaves headers unchanged.
+				if method == "" && m.Proxy[0].Match.Protocol == "http" { // A public API takes no credential, so its rules drop the caller's.
+					authorization = ""
+				}
+				if provider == "clinicaltrials" { // ClinicalTrials.gov's rule leaves the caller's headers unchanged.
 					authorization = "caller-forgery"
-				}
-				if provider == "chembl" { // The public API takes no credential, so the rule drops the caller's.
-					authorization = ""
-				}
-				if provider == "pubmed" { // The optional NCBI key goes in the query, so the rule drops the caller's header.
-					authorization = ""
 				}
 				if provider == "dolibarr" { // Dolibarr reads the bare key from its own header.
 					config["host"] = "erp.example.com"
