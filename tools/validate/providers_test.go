@@ -47,6 +47,7 @@ func TestEveryProviderAuthenticationAndTransport(t *testing.T) {
 		"biorxiv":     {"GET", "https://api.biorxiv.org/details/biorxiv/10.1101/339747/na/json"},
 		"pubmed":      {"POST", "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi"},
 		"exa":         {"POST", "https://api.exa.ai/search"},
+		"sentry":      {"GET", "https://us.sentry.io/api/0/organizations/"},
 	}
 	for _, path := range paths {
 		provider := filepath.Base(filepath.Dir(path))
@@ -102,6 +103,9 @@ func TestEveryProviderAuthenticationAndTransport(t *testing.T) {
 					config["store_host"] = "shop.example.com"
 					input = map[string]any{"consumer_key": "synthetic-method-key", "consumer_secret": "synthetic-method-secret"}
 					authorization = "Basic " + base64.StdEncoding.EncodeToString([]byte("synthetic-method-key:synthetic-method-secret"))
+				}
+				if provider == "sentry" {
+					config["organization"] = "acme"
 				}
 				if provider == "prestashop" { // A 32-character key is the Basic username, with no password.
 					config["store_host"] = "shop.example.com"
