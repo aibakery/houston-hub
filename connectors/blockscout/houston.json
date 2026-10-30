@@ -1,0 +1,241 @@
+{
+  "schema_version": 1,
+  "name": "Blockscout",
+  "files": [
+    "connector.luau"
+  ],
+  "icon": "icon.svg",
+  "config": {
+    "chain": {
+      "type": "string",
+      "label": "Chain",
+      "default": "eth.blockscout.com",
+      "description": "The blockchain this connection reads, through its Blockscout explorer. Add another connection for each chain.",
+      "options": [
+        {
+          "label": "Ethereum",
+          "value": "eth.blockscout.com"
+        },
+        {
+          "label": "Base",
+          "value": "base.blockscout.com"
+        },
+        {
+          "label": "OP Mainnet",
+          "value": "explorer.optimism.io"
+        },
+        {
+          "label": "Arbitrum One",
+          "value": "arbitrum.blockscout.com"
+        },
+        {
+          "label": "Arbitrum Nova",
+          "value": "arbitrum-nova.blockscout.com"
+        },
+        {
+          "label": "Gnosis",
+          "value": "gnosisscan.io"
+        },
+        {
+          "label": "Polygon PoS",
+          "value": "polygon.blockscout.com"
+        },
+        {
+          "label": "ZKsync Era",
+          "value": "zksync.blockscout.com"
+        },
+        {
+          "label": "Scroll",
+          "value": "scrollscan.com"
+        },
+        {
+          "label": "Celo",
+          "value": "celo.blockscout.com"
+        },
+        {
+          "label": "Unichain",
+          "value": "unichain.blockscout.com"
+        },
+        {
+          "label": "Soneium",
+          "value": "soneium.blockscout.com"
+        },
+        {
+          "label": "Ink",
+          "value": "explorer.inkonchain.com"
+        },
+        {
+          "label": "Mode",
+          "value": "explorer.mode.network"
+        },
+        {
+          "label": "Lisk",
+          "value": "blockscout.lisk.com"
+        },
+        {
+          "label": "World Chain",
+          "value": "worldchain-mainnet.explorer.alchemy.com"
+        },
+        {
+          "label": "Ethereum Classic",
+          "value": "etc.blockscout.com"
+        },
+        {
+          "label": "Rootstock",
+          "value": "rootstock.blockscout.com"
+        },
+        {
+          "label": "Filecoin",
+          "value": "filecoin.blockscout.com"
+        },
+        {
+          "label": "Ethereum Sepolia (testnet)",
+          "value": "eth-sepolia.blockscout.com"
+        },
+        {
+          "label": "Base Sepolia (testnet)",
+          "value": "base-sepolia.blockscout.com"
+        },
+        {
+          "label": "OP Sepolia (testnet)",
+          "value": "testnet-explorer.optimism.io"
+        },
+        {
+          "label": "Arbitrum Sepolia (testnet)",
+          "value": "arbitrum-sepolia.blockscout.com"
+        },
+        {
+          "label": "Gnosis Chiado (testnet)",
+          "value": "gnosis-chiado.blockscout.com"
+        }
+      ]
+    },
+    "use_api_key": {
+      "type": "boolean",
+      "label": "Use a Blockscout API key",
+      "default": false,
+      "description": "Optional. Without a key, Houston reads the chain's public explorer, whose limits every Houston connection shares, and some explorers refuse these requests. A free key gives this connection its own limit on every chain."
+    },
+    "api_key": {
+      "type": "secret",
+      "label": "Blockscout API key",
+      "if": "{{ is config.use_api_key true }}",
+      "required": true,
+      "min_length": 1,
+      "description": "Starts with proapi_. Create one for free in the Blockscout Developer Portal."
+    }
+  },
+  "proxy": [
+    {
+      "if": "{{ is config.use_api_key true }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "api.blockscout.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/{chain}/api/v2/addresses/{address}",
+          "/{chain}/api/v2/addresses/{address}/counters",
+          "/{chain}/api/v2/addresses/{address}/transactions",
+          "/{chain}/api/v2/addresses/{address}/token-transfers",
+          "/{chain}/api/v2/addresses/{address}/internal-transactions",
+          "/{chain}/api/v2/addresses/{address}/logs",
+          "/{chain}/api/v2/addresses/{address}/tokens",
+          "/{chain}/api/v2/addresses/{address}/coin-balance-history",
+          "/{chain}/api/v2/addresses/{address}/nft",
+          "/{chain}/api/v2/transactions",
+          "/{chain}/api/v2/transactions/{hash}",
+          "/{chain}/api/v2/transactions/{hash}/logs",
+          "/{chain}/api/v2/transactions/{hash}/token-transfers",
+          "/{chain}/api/v2/transactions/{hash}/internal-transactions",
+          "/{chain}/api/v2/transactions/{hash}/summary",
+          "/{chain}/api/v2/blocks",
+          "/{chain}/api/v2/blocks/{block}",
+          "/{chain}/api/v2/blocks/{block}/transactions",
+          "/{chain}/api/v2/tokens",
+          "/{chain}/api/v2/tokens/{address}",
+          "/{chain}/api/v2/tokens/{address}/counters",
+          "/{chain}/api/v2/tokens/{address}/holders",
+          "/{chain}/api/v2/tokens/{address}/transfers",
+          "/{chain}/api/v2/tokens/{address}/instances",
+          "/{chain}/api/v2/tokens/{address}/instances/{token_id}",
+          "/{chain}/api/v2/smart-contracts",
+          "/{chain}/api/v2/smart-contracts/{address}",
+          "/{chain}/api/v2/search",
+          "/{chain}/api/v2/stats"
+        ]
+      },
+      "action": {
+        "headers": {
+          "remove": [
+            "X-HTTP-Method-Override",
+            "X-HTTP-Method",
+            "X-Method-Override",
+            "Authorization",
+            "Cookie"
+          ],
+          "set": {
+            "Authorization": "Bearer {{config.api_key}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.use_api_key false }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "{{config.chain}}"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/api/v2/addresses/{address}",
+          "/api/v2/addresses/{address}/counters",
+          "/api/v2/addresses/{address}/transactions",
+          "/api/v2/addresses/{address}/token-transfers",
+          "/api/v2/addresses/{address}/internal-transactions",
+          "/api/v2/addresses/{address}/logs",
+          "/api/v2/addresses/{address}/tokens",
+          "/api/v2/addresses/{address}/coin-balance-history",
+          "/api/v2/addresses/{address}/nft",
+          "/api/v2/transactions",
+          "/api/v2/transactions/{hash}",
+          "/api/v2/transactions/{hash}/logs",
+          "/api/v2/transactions/{hash}/token-transfers",
+          "/api/v2/transactions/{hash}/internal-transactions",
+          "/api/v2/transactions/{hash}/summary",
+          "/api/v2/blocks",
+          "/api/v2/blocks/{block}",
+          "/api/v2/blocks/{block}/transactions",
+          "/api/v2/tokens",
+          "/api/v2/tokens/{address}",
+          "/api/v2/tokens/{address}/counters",
+          "/api/v2/tokens/{address}/holders",
+          "/api/v2/tokens/{address}/transfers",
+          "/api/v2/tokens/{address}/instances",
+          "/api/v2/tokens/{address}/instances/{token_id}",
+          "/api/v2/smart-contracts",
+          "/api/v2/smart-contracts/{address}",
+          "/api/v2/search",
+          "/api/v2/stats"
+        ]
+      },
+      "action": {
+        "headers": {
+          "remove": [
+            "X-HTTP-Method-Override",
+            "X-HTTP-Method",
+            "X-Method-Override",
+            "Authorization",
+            "Cookie"
+          ]
+        }
+      }
+    }
+  ]
+}
