@@ -198,7 +198,7 @@ local endpoints: {[string]: Endpoint} = {
 		about = "Campaign email events, newest first (limit up to 100, default 50)."},
 }
 
--- Request layer shared verbatim by the Cal.com, Calendly, Carta, Carta CRM, Figma, Gusto, Resend and Vercel connectors
+-- Request layer shared verbatim by the endpoint-table connectors
 -- (tools/validate checks they match). It uses each connector's PROVIDER, DOCS and Endpoint type.
 local NULL = json.decode("null")
 local NONE: {string} = table.freeze({})

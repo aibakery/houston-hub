@@ -1,0 +1,145 @@
+{
+  "schema_version": 1,
+  "name": "Sentry",
+  "files": [
+    "connector.luau"
+  ],
+  "icon": "icon.svg",
+  "config": {
+    "access": {
+      "default": "read-only",
+      "label": "Access",
+      "options": [
+        {
+          "label": "Read-only",
+          "value": "read-only"
+        },
+        {
+          "label": "Read and write",
+          "value": "read-write"
+        }
+      ],
+      "type": "string"
+    },
+    "region": {
+      "default": "us.sentry.io",
+      "description": "Where your organization stores its data, shown under Data Storage Location in your organization's settings.",
+      "label": "Data storage location",
+      "options": [
+        {
+          "label": "United States (US)",
+          "value": "us.sentry.io"
+        },
+        {
+          "label": "European Union (EU)",
+          "value": "de.sentry.io"
+        }
+      ],
+      "order": 1,
+      "required": true,
+      "type": "string"
+    },
+    "organization": {
+      "description": "Your organization's slug, as in https://<slug>.sentry.io or sentry.io/organizations/<slug>/.",
+      "label": "Organization",
+      "order": 2,
+      "required": true,
+      "type": "string"
+    }
+  },
+  "auth": {
+    "token": {
+      "type": "manual",
+      "label": "Auth token",
+      "config": {
+        "token": {
+          "label": "Auth token",
+          "required": true,
+          "type": "secret"
+        }
+      }
+    }
+  },
+  "proxy": [
+    {
+      "match": {
+        "protocol": "http",
+        "host": [
+          "{{config.region}}"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/api/0/organizations/",
+          "/api/0/organizations/{organization}/",
+          "/api/0/organizations/{organization}/issues/",
+          "/api/0/organizations/{organization}/issues/{issue_id}/",
+          "/api/0/organizations/{organization}/issues/{issue_id}/comments/",
+          "/api/0/organizations/{organization}/issues/{issue_id}/events/",
+          "/api/0/organizations/{organization}/issues/{issue_id}/events/{event_id}/",
+          "/api/0/organizations/{organization}/issues/{issue_id}/tags/{key}/",
+          "/api/0/organizations/{organization}/members/",
+          "/api/0/organizations/{organization}/projects/",
+          "/api/0/organizations/{organization}/releases/",
+          "/api/0/organizations/{organization}/releases/{version}/",
+          "/api/0/organizations/{organization}/sessions/",
+          "/api/0/organizations/{organization}/teams/",
+          "/api/0/projects/{organization}/{project_id_or_slug}/",
+          "/api/0/projects/{organization}/{project_id_or_slug}/events/{event_id}/"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.token.token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "{{config.region}}"
+        ],
+        "method": [
+          "PUT"
+        ],
+        "path": [
+          "/api/0/organizations/{organization}/issues/{issue_id}/"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.token.token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "{{config.region}}"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/api/0/organizations/{organization}/issues/{issue_id}/comments/"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.token.token}}"
+          }
+        }
+      }
+    }
+  ]
+}

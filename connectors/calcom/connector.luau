@@ -209,7 +209,7 @@ local endpoints: {[string]: Endpoint} = {
 	listTimezones = {method = "GET", path = "/v2/timezones", doc = "timezones/get-timezones", query = {"search", "limit"}, about = "Supported time zones."},
 }
 
--- Request layer shared verbatim by the Cal.com, Calendly, Carta, Carta CRM, Figma, Gusto, Resend and Vercel connectors
+-- Request layer shared verbatim by the endpoint-table connectors
 -- (tools/validate checks they match). It uses each connector's PROVIDER, DOCS and Endpoint type.
 local NULL = json.decode("null")
 local NONE: {string} = table.freeze({})
