@@ -49,6 +49,7 @@ func TestEveryProviderAuthenticationAndTransport(t *testing.T) {
 		"exa":         {"POST", "https://api.exa.ai/search"},
 		"sentry":      {"GET", "https://us.sentry.io/api/0/organizations/"},
 		"posthog":     {"GET", "https://us.posthog.com/api/organizations/"},
+		"blockscout":  {"GET", "https://eth.blockscout.com/api/v2/stats"},
 	}
 	for _, path := range paths {
 		provider := filepath.Base(filepath.Dir(path))
