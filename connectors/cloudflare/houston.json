@@ -1,0 +1,167 @@
+{
+  "schema_version": 1,
+  "name": "Cloudflare",
+  "files": [
+    "connector.luau"
+  ],
+  "icon": "icon.svg",
+  "config": {
+    "access": {
+      "default": "read-only",
+      "label": "Access",
+      "options": [
+        {
+          "label": "Read-only",
+          "value": "read-only"
+        },
+        {
+          "label": "Read and write",
+          "value": "read-write"
+        }
+      ],
+      "type": "string"
+    }
+  },
+  "auth": {
+    "token": {
+      "type": "manual",
+      "label": "API token",
+      "config": {
+        "token": {
+          "type": "secret",
+          "label": "API token",
+          "description": "A Cloudflare user or account API token with the permissions for your access level.",
+          "required": true
+        }
+      }
+    }
+  },
+  "proxy": [
+    {
+      "match": {
+        "protocol": "http",
+        "host": [
+          "api.cloudflare.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/client/v4/accounts",
+          "/client/v4/accounts/{account_id}",
+          "/client/v4/accounts/{account_id}/pages/projects",
+          "/client/v4/accounts/{account_id}/pages/projects/{project_name}",
+          "/client/v4/accounts/{account_id}/pages/projects/{project_name}/deployments",
+          "/client/v4/accounts/{account_id}/pages/projects/{project_name}/deployments/{deployment_id}",
+          "/client/v4/accounts/{account_id}/pages/projects/{project_name}/deployments/{deployment_id}/history/logs",
+          "/client/v4/accounts/{account_id}/r2/buckets",
+          "/client/v4/accounts/{account_id}/r2/buckets/{bucket_name}",
+          "/client/v4/accounts/{account_id}/workers/scripts",
+          "/client/v4/accounts/{account_id}/workers/scripts/{script_name}/deployments",
+          "/client/v4/accounts/{account_id}/workers/scripts/{script_name}/versions",
+          "/client/v4/accounts/{account_id}/workers/scripts/{script_name}/versions/{version_id}",
+          "/client/v4/zones",
+          "/client/v4/zones/{zone_id}",
+          "/client/v4/zones/{zone_id}/dns_records",
+          "/client/v4/zones/{zone_id}/dns_records/{dns_record_id}"
+        ]
+      },
+      "action": {
+        "headers": {
+          "remove": [
+            "X-HTTP-Method-Override",
+            "X-HTTP-Method",
+            "X-Method-Override"
+          ],
+          "set": {
+            "Authorization": "Bearer {{auth.token.token}}"
+          }
+        }
+      }
+    },
+    {
+      "match": {
+        "protocol": "http",
+        "host": [
+          "api.cloudflare.com"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/client/v4/graphql"
+        ]
+      },
+      "action": {
+        "headers": {
+          "remove": [
+            "X-HTTP-Method-Override",
+            "X-HTTP-Method",
+            "X-Method-Override"
+          ],
+          "set": {
+            "Authorization": "Bearer {{auth.token.token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "api.cloudflare.com"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/client/v4/accounts/{account_id}/pages/projects/{project_name}/deployments/{deployment_id}/rollback",
+          "/client/v4/accounts/{account_id}/workers/scripts/{script_name}/deployments",
+          "/client/v4/zones/{zone_id}/dns_records",
+          "/client/v4/zones/{zone_id}/purge_cache"
+        ]
+      },
+      "action": {
+        "headers": {
+          "remove": [
+            "X-HTTP-Method-Override",
+            "X-HTTP-Method",
+            "X-Method-Override"
+          ],
+          "set": {
+            "Authorization": "Bearer {{auth.token.token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "api.cloudflare.com"
+        ],
+        "method": [
+          "PATCH",
+          "DELETE"
+        ],
+        "path": [
+          "/client/v4/zones/{zone_id}/dns_records/{dns_record_id}"
+        ]
+      },
+      "action": {
+        "headers": {
+          "remove": [
+            "X-HTTP-Method-Override",
+            "X-HTTP-Method",
+            "X-Method-Override"
+          ],
+          "set": {
+            "Authorization": "Bearer {{auth.token.token}}"
+          }
+        }
+      }
+    }
+  ]
+}
