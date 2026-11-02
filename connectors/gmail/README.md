@@ -14,5 +14,6 @@ Give agents the context they need from your Gmail inbox.
   labels, archive and trash.
 
 Read-only access cannot send mail or change your inbox. Read and draft access
-can only save drafts: Houston refuses every request to send. Messages are never
+can create, update and delete drafts, including ones you wrote, but Houston
+refuses every request to send. Apart from deleted drafts, messages are never
 permanently deleted: trash keeps them for 30 days.

@@ -190,7 +190,7 @@ local endpoints: {[string]: Endpoint} = {
 		help = "deleteLabel({id}) -> {success=true}. Removes the label from its messages; the messages remain."},
 	sendDraft = {method = "POST", path = "/drafts/send", read = false, body = true,
 		help = "sendDraft({id}) -> sent message {id, threadId, labelIds}."},
-	deleteDraft = {method = "DELETE", path = "/drafts/{id}", read = DRAFTS,
+	deleteDraft = {method = "DELETE", path = "/drafts/{id}", read = false,
 		help = "deleteDraft({id}) -> {success=true}. Permanently deletes the draft."},
 }
 
@@ -478,6 +478,10 @@ local function submit(name: string, method: string, path: string, args: Options,
 end
 
 exportEndpoints(endpoints)
+-- Read and draft also lets writing callers delete drafts; the endpoint itself stays a write.
+if DRAFTS then
+	export("deleteDraft", true, function(args: Options?): any return invoke("deleteDraft", endpoints.deleteDraft, args) end, endpoints.deleteDraft.help)
+end
 
 local READ_OPTIONS = "bodyFormat: auto (default) chooses the first nonblank decoded plain text, HTML, then snippet; text or html selects only that format, preserving whitespace and returning an empty string if missing. Whitespace is ignored only when deciding emptiness. format: full (default), metadata (headers only) or minimal; metadataHeaders limits metadata headers; maxBodyBytes caps the selected body (default 65536, 0 for no cap) and sets bodyTruncated."
 export("getMessage", true, function(input: any): Options
