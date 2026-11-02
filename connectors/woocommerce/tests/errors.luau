@@ -28,6 +28,7 @@ return {
 		rejected(function() woo.listOrders({"processing"}) end, "named fields")
 		rejected(function() woo.listOrders({status = {processing = true}}) end, "array, not an object")
 		rejected(function() woo.listOrders({after = json.decode("null")}) end, "after must be")
+		rejected(function() woo.listOrders({include = json.decode("[]")}) end, "must not be an empty array")
 		-- WordPress would let these change the request's method or route.
 		for _, key in {"_method", "rest_route", "rest.route", "rest route", "_envelope", "status[0]"} do
 			rejected(function() woo.getOrder({id = 1, [key] = "DELETE"}) end, "not a WooCommerce query parameter")
@@ -55,7 +56,7 @@ return {
 			{server = {"host-firewall"}}, {"HTTP 429: 429 HTTP_Code = 429 Too many requests", "Server: host-firewall"})
 		upstream(500, "<html>Fatal error</html>", {}, {"HTTP 500: Fatal error", '"retryable":true'})
 		upstream(301, "", {location = {"https://www.shop.example.com/wp-json/wc/v3/orders/1"}},
-			{"HTTP 301", "redirected to https://www.shop.example.com/", "store domain"})
+			{"HTTP 301", "redirected to https://www.shop.example.com/", "connection's domain"})
 		upstream(200, "<!doctype html><title>Maintenance</title>", {}, {"not JSON", "/wp-json"})
 		upstream(200, '"ok"', {}, {"not JSON"})
 	end,

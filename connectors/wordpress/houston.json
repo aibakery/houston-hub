@@ -1,0 +1,172 @@
+{
+  "schema_version": 1,
+  "name": "WordPress",
+  "files": [
+    "connector.luau"
+  ],
+  "icon": "icon.svg",
+  "config": {
+    "access": {
+      "default": "read-only",
+      "label": "Access",
+      "options": [
+        {
+          "label": "Read-only",
+          "value": "read-only"
+        },
+        {
+          "label": "Read and write",
+          "value": "read-write"
+        }
+      ],
+      "order": 1,
+      "type": "string"
+    },
+    "site_host": {
+      "description": "The domain your WordPress site is served from, without https:// or a path.",
+      "label": "Site domain",
+      "max_length": 253,
+      "order": 2,
+      "placeholder": "blog.example.com",
+      "required": true,
+      "type": "string"
+    }
+  },
+  "auth": {
+    "application_password": {
+      "config": {
+        "password": {
+          "label": "Application password",
+          "order": 2,
+          "required": true,
+          "type": "secret"
+        },
+        "username": {
+          "description": "The WordPress username the application password belongs to.",
+          "label": "Username",
+          "max_length": 60,
+          "order": 1,
+          "required": true,
+          "type": "string"
+        }
+      },
+      "label": "WordPress application password",
+      "type": "manual"
+    }
+  },
+  "proxy": [
+    {
+      "action": {
+        "basic_auth": {
+          "password": "{{auth.application_password.password}}",
+          "username": "{{auth.application_password.username}}"
+        },
+        "headers": {
+          "remove": [
+            "X-HTTP-Method-Override"
+          ]
+        }
+      },
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "host": [
+          "{{config.site_host}}"
+        ],
+        "method": [
+          "POST",
+          "DELETE"
+        ],
+        "path": [
+          "/wp-json/wp/v2/posts",
+          "/wp-json/wp/v2/posts/{id}",
+          "/wp-json/wp/v2/pages",
+          "/wp-json/wp/v2/pages/{id}",
+          "/wp-json/wp/v2/media",
+          "/wp-json/wp/v2/media/{id}",
+          "/wp-json/wp/v2/categories",
+          "/wp-json/wp/v2/categories/{id}",
+          "/wp-json/wp/v2/tags",
+          "/wp-json/wp/v2/tags/{id}",
+          "/wp-json/wp/v2/comments",
+          "/wp-json/wp/v2/comments/{id}"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "basic_auth": {
+          "password": "{{auth.application_password.password}}",
+          "username": "{{auth.application_password.username}}"
+        },
+        "headers": {
+          "remove": [
+            "X-HTTP-Method-Override"
+          ]
+        }
+      },
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "host": [
+          "{{config.site_host}}"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/wp-json/wp/v2/settings"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "basic_auth": {
+          "password": "{{auth.application_password.password}}",
+          "username": "{{auth.application_password.username}}"
+        },
+        "headers": {
+          "remove": [
+            "X-HTTP-Method-Override"
+          ]
+        }
+      },
+      "match": {
+        "host": [
+          "{{config.site_host}}"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/wp-json/wp/v2/categories",
+          "/wp-json/wp/v2/categories/{id}",
+          "/wp-json/wp/v2/comments",
+          "/wp-json/wp/v2/comments/{id}",
+          "/wp-json/wp/v2/media",
+          "/wp-json/wp/v2/media/{id}",
+          "/wp-json/wp/v2/pages",
+          "/wp-json/wp/v2/pages/{id}",
+          "/wp-json/wp/v2/pages/{parent}/revisions",
+          "/wp-json/wp/v2/pages/{parent}/revisions/{id}",
+          "/wp-json/wp/v2/posts",
+          "/wp-json/wp/v2/posts/{id}",
+          "/wp-json/wp/v2/posts/{parent}/revisions",
+          "/wp-json/wp/v2/posts/{parent}/revisions/{id}",
+          "/wp-json/wp/v2/search",
+          "/wp-json/wp/v2/statuses",
+          "/wp-json/wp/v2/statuses/{id}",
+          "/wp-json/wp/v2/tags",
+          "/wp-json/wp/v2/tags/{id}",
+          "/wp-json/wp/v2/taxonomies",
+          "/wp-json/wp/v2/taxonomies/{id}",
+          "/wp-json/wp/v2/types",
+          "/wp-json/wp/v2/types/{id}",
+          "/wp-json/wp/v2/users",
+          "/wp-json/wp/v2/users/{id}"
+        ],
+        "protocol": "http"
+      }
+    }
+  ]
+}
