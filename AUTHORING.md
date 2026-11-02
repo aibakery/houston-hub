@@ -259,11 +259,13 @@ when their token endpoint requires them (see the
 transport framing headers. Credentials still stay outside Luau.
 
 An OAuth method whose provider publishes sign-in button guidelines sets `brand`
-to `google`, `microsoft` or `dropbox`. Houston then renders its authorize button
-as "Continue with <Provider>" with the provider's official mark and colors, as
+to `google`, `microsoft`, `dropbox` or `slack`. Houston then renders its authorize
+button as "Continue with <Provider>" with the provider's official mark and colors, as
 Google's OAuth verification requires (see the
-[Google Sheets manifest](connectors/gsheets/houston.json)). Without `brand`, the
-button stays Houston's primary "Authorize account".
+[Google Sheets manifest](connectors/gsheets/houston.json)). Slack's brand terms
+allow its logo only in Slack's own artwork, so `slack` shows Slack's official
+"Add to Slack" button image instead. Without `brand`, the button stays Houston's
+primary "Authorize connector".
 
 When users pick what to share on the provider's consent screen, an OAuth method
 can declare `shared`: one request Houston sends with the new token right after

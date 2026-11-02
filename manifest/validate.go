@@ -17,7 +17,7 @@ import (
 const MaxInteger = 9007199254740991
 
 // Brands are the providers whose official branding an OAuth connect button can show.
-var Brands = []string{"google", "microsoft", "dropbox"}
+var Brands = []string{"google", "microsoft", "dropbox", "slack"}
 
 func ValidateValue(f Field, v any) error {
 	if v == nil {

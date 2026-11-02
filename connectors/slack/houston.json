@@ -26,6 +26,7 @@
     "oauth": {
       "type": "oauth2",
       "label": "Connect with Slack",
+      "brand": "slack",
       "authorize_url": "https://slack.com/oauth/v2/authorize",
       "token_url": "https://slack.com/api/oauth.v2.access",
       "client_id": "{{publisher.client_id}}",
