@@ -27,6 +27,12 @@ local USER_OPTIONS = set("id", "context", "page", "per_page", "offset", "include
 	"order", "orderby", "_fields", "_embed")
 local COMMENT_OPTIONS = set("id", "context", "page", "per_page", "offset", "include", "exclude", "post", "parent", "parent_exclude",
 	"author", "author_exclude", "status", "type", "after", "before", "password", "order", "orderby", "_fields", "_embed")
+local function names(options: {[string]: boolean}): string
+	local list: {string} = {}
+	for name in options do if name ~= "id" and name ~= "context" then table.insert(list, name) end end
+	table.sort(list)
+	return table.concat(list, ", ")
+end
 local ALL = {"list", "get", "create", "update", "delete"}
 local READ = {"list", "get"}
 local RESOURCES = {
@@ -297,7 +303,7 @@ if WRITE then
 end
 table.insert(intro, (if WRITE
 	then "Access: context='edit' returns post passwords and users' and commenters' email and IP addresses, and getSettings (Administrators only) includes the site's admin email: treat them as sensitive."
-	else "Access: this connection is read-only. It refuses context='edit', which adds post passwords and users' and commenters' email and IP addresses, and users and comments accept only their paging, ID, slug, post, parent, author, status, type, date and order options, because searches and email filters match those addresses; look users up by slug or include.")
+	else "Access: this connection is read-only. It refuses context='edit', which adds post passwords and users' and commenters' email and IP addresses, Users and comments accept only these options, because searches and email filters match those addresses: users " .. names(USER_OPTIONS) .. "; comments " .. names(COMMENT_OPTIONS) .. ". List authors with listUsers({who='authors'}) and look users up by slug or include.")
 	.. " Plugins, themes, application passwords, user changes and site settings changes are not available. The WordPress user's role still applies: an Author can only publish and edit their own posts, can add tags but not categories, and cannot manage pages or comments; an Editor manages everyone's content and comments. Houston waits and retries HTTP 429 at most twice unless Retry-After asks for more than 5 seconds; nothing else is retried: after a timeout or 5xx, read the item again before repeating a write. A remaining 429 usually comes from the site's host firewall or a security plugin: space calls out. Errors report the HTTP status, WordPress code (such as rest_forbidden or incorrect_password), message, invalid parameters, Retry-After, the Server header and the start of non-JSON bodies; a 401 usually means the application password is wrong or revoked, or the web server drops the Authorization header.")
 
 return operations(endpoints, call, intro)

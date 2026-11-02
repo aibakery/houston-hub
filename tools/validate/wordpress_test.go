@@ -79,6 +79,7 @@ func TestWordPressSiteHostAndAccessBoundaries(t *testing.T) {
 			{"POST", api + "/users"}, {"POST", api + "/users/1"}, {"DELETE", api + "/users/1"},
 			{"POST", api + "/settings"}, {"POST", api + "/media/3/post-process"}, {"POST", api + "/posts/1/autosaves"},
 			{"DELETE", api + "/posts/1/revisions/2"}, {"PUT", api + "/posts/1"}, {"PATCH", api + "/posts/1"},
+			{"DELETE", api + "/posts"}, {"DELETE", api + "/comments"}, {"DELETE", api + "/media"},
 			{"POST", "https://blog.example.com/wp-json/batch/v1"}, {"GET", api + "/block-directory/search"},
 			{"POST", api + "/templates"}, {"POST", api + "/global-styles/1"}, {"GET", "https://blog.example.com/wp-json/"},
 			{"GET", "https://blog.example.com/wp-json/wc/v3/orders"}, {"GET", "https://blog.example.com/wp-admin/"},

@@ -73,8 +73,7 @@
           "{{config.site_host}}"
         ],
         "method": [
-          "POST",
-          "DELETE"
+          "POST"
         ],
         "path": [
           "/wp-json/wp/v2/posts",
@@ -88,6 +87,37 @@
           "/wp-json/wp/v2/tags",
           "/wp-json/wp/v2/tags/{id}",
           "/wp-json/wp/v2/comments",
+          "/wp-json/wp/v2/comments/{id}"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "basic_auth": {
+          "password": "{{auth.application_password.password}}",
+          "username": "{{auth.application_password.username}}"
+        },
+        "headers": {
+          "remove": [
+            "X-HTTP-Method-Override"
+          ]
+        }
+      },
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "host": [
+          "{{config.site_host}}"
+        ],
+        "method": [
+          "DELETE"
+        ],
+        "path": [
+          "/wp-json/wp/v2/posts/{id}",
+          "/wp-json/wp/v2/pages/{id}",
+          "/wp-json/wp/v2/media/{id}",
+          "/wp-json/wp/v2/categories/{id}",
+          "/wp-json/wp/v2/tags/{id}",
           "/wp-json/wp/v2/comments/{id}"
         ],
         "protocol": "http"
