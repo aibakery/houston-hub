@@ -112,7 +112,8 @@
             "notion",
             "github",
             "linear",
-            "figma"
+            "figma",
+            "discord"
           ],
           "type": "string"
         },
@@ -170,7 +171,17 @@
           "type": "object"
         },
         "refresh_response": {
-          "$ref": "#/$defs/TokenResponse"
+          "allOf": [
+            {
+              "$ref": "#/$defs/TokenResponse"
+            },
+            {
+              "properties": {
+                "facts": false,
+                "label": false
+              }
+            }
+          ]
         },
         "require_refresh": {
           "type": "boolean"
@@ -882,6 +893,7 @@
           "uniqueItems": true
         },
         "path": {
+          "description": "Path patterns. A whole segment such as {{auth.oauth.team_id}} names one declared OAuth fact, rendered per connection.",
           "items": {
             "type": "string"
           },
@@ -1018,6 +1030,27 @@
           "type": "array"
         },
         "expires_in": {
+          "type": "string"
+        },
+        "facts": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Public string values from the initial token response, bound to the connection; method oauth exposes fact team_id as {{auth.oauth.team_id}}.",
+          "maxProperties": 16,
+          "propertyNames": {
+            "not": {
+              "enum": [
+                "access_token",
+                "refresh_token"
+              ]
+            },
+            "pattern": "^[a-z][a-z0-9_]{0,63}$"
+          },
+          "type": "object"
+        },
+        "label": {
+          "description": "Account label from the initial token response, when no account request is declared.",
           "type": "string"
         },
         "refresh_token": {

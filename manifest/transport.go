@@ -151,8 +151,27 @@ func ValidatePathPattern(s string) error {
 	}
 	return nil
 }
+
+// validatePath accepts whole segments naming one OAuth fact, rendered per connection by RenderPaths.
+func (m *Manifest) validatePath(pattern string, used map[string]bool) error {
+	parts := strings.Split(pattern, "/")
+	for i, part := range parts {
+		if templated(part) {
+			if err := m.template(part, "path", used); err != nil {
+				return err
+			}
+			parts[i] = "{fact}"
+		}
+	}
+	return ValidatePathPattern(strings.Join(parts, "/"))
+}
 func placeholder(s string) bool { return strings.HasPrefix(s, "{") && strings.HasSuffix(s, "}") }
+
+// PathMatches never matches an unrendered template, even a request segment spelling it.
 func PathMatches(pattern, p string) bool {
+	if templated(pattern) {
+		return false
+	}
 	a, b := strings.Split(pattern, "/"), strings.Split(p, "/")
 	for i := 0; i < len(a) && i < len(b); i++ {
 		if a[i] == "*" {
@@ -231,7 +250,7 @@ func (m *Manifest) validateProxy(p Proxy, used map[string]bool) error {
 					return fmt.Errorf("invalid HTTP method")
 				}
 				if field == "path" {
-					if err := ValidatePathPattern(value); err != nil {
+					if err := m.validatePath(value, used); err != nil {
 						return err
 					}
 				}
@@ -337,7 +356,7 @@ func (m *Manifest) publisherRecipient(credentials, destinations []string) error 
 		for _, r := range refs {
 			f, _ := m.reference(r)
 			method, oauth := m.oauthMethod(r)
-			bound = bound || strings.HasPrefix(r, "publisher.") && f.Type == "secret" || oauth && method.PublisherClient()
+			bound = bound || f.Type == "secret" && (strings.HasPrefix(r, "publisher.") || oauth && method.PublisherClient())
 		}
 	}
 	if !bound {
@@ -401,32 +420,75 @@ func (r HTTPRecipe) PrepareURL(c Context) (string, error) {
 // render fills templated HTTP hosts from connection settings. A rendered host
 // names exactly one origin; only literal patterns may contain wildcards.
 func (rules ProxyRules) render(c Context) (ProxyRules, error) {
-	out, copied := rules, false
-	for i, p := range rules {
-		if !slices.ContainsFunc(p.Match.Host, templated) {
-			continue
+	return rules.renderMatch(func(m *ProxyMatch) *[]string { return &m.Host }, func(host string) (string, error) {
+		rendered, err := RenderString(host, c)
+		if err != nil {
+			return "", fmt.Errorf("proxy host %s: %w", host, err)
 		}
-		hosts := slices.Clone(p.Match.Host)
-		for j, host := range hosts {
-			if !templated(host) {
+		origin, err := NormalizeOrigin("https://" + rendered)
+		if err != nil {
+			return "", fmt.Errorf("invalid proxy host %q: %w", rendered, err)
+		}
+		return strings.TrimPrefix(origin, "https://"), nil
+	})
+}
+
+// RenderPaths fills OAuth fact path segments once the connection's grant is in
+// the context. Until then those patterns match nothing; a missing or unsafe
+// fact fails the whole rule set rather than widening a route.
+func (rules ProxyRules) RenderPaths(c Context) (ProxyRules, error) {
+	return rules.renderMatch(func(m *ProxyMatch) *[]string { return &m.Path }, func(pattern string) (string, error) {
+		parts := strings.Split(pattern, "/")
+		for i, part := range parts {
+			if !templated(part) {
 				continue
 			}
-			rendered, err := RenderString(host, c)
+			value, err := RenderString(part, c)
 			if err != nil {
-				return nil, fmt.Errorf("proxy host %s: %w", host, err)
+				return "", fmt.Errorf("proxy path %s: %w", part, err)
 			}
-			origin, err := NormalizeOrigin("https://" + rendered)
+			if !pathSegment(value) {
+				return "", fmt.Errorf("invalid proxy path segment for %s", part)
+			}
+			parts[i] = value
+		}
+		return strings.Join(parts, "/"), nil
+	})
+}
+
+// renderMatch copies only the rules whose selected match values contain templates.
+func (rules ProxyRules) renderMatch(values func(*ProxyMatch) *[]string, render func(string) (string, error)) (ProxyRules, error) {
+	out, copied := rules, false
+	for i := range rules {
+		list := *values(&rules[i].Match)
+		if !slices.ContainsFunc(list, templated) {
+			continue
+		}
+		list = slices.Clone(list)
+		for j, value := range list {
+			if !templated(value) {
+				continue
+			}
+			rendered, err := render(value)
 			if err != nil {
-				return nil, fmt.Errorf("invalid proxy host %q: %w", rendered, err)
+				return nil, err
 			}
-			hosts[j] = strings.TrimPrefix(origin, "https://")
+			list[j] = rendered
 		}
 		if !copied {
 			out, copied = slices.Clone(rules), true
 		}
-		out[i].Match.Host = hosts
+		*values(&out[i].Match) = list
 	}
 	return out, nil
+}
+
+// pathSegment accepts one literal, non-traversing segment that cannot act as a placeholder or wildcard.
+func pathSegment(s string) bool {
+	if strings.Trim(s, ".") == "" || strings.ContainsAny(s, "/\\%*{}?#") {
+		return false
+	}
+	return !strings.ContainsFunc(s, func(r rune) bool { return r < 32 || r == 127 })
 }
 
 func templated(s string) bool { return strings.Contains(s, "{{") }

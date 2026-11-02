@@ -17,7 +17,7 @@ import (
 const MaxInteger = 9007199254740991
 
 // Brands are the providers whose official branding an OAuth connect button can show.
-var Brands = []string{"google", "microsoft", "dropbox", "slack", "notion", "github", "linear", "figma"}
+var Brands = []string{"google", "microsoft", "dropbox", "slack", "notion", "github", "linear", "figma", "discord"}
 
 func ValidateValue(f Field, v any) error {
 	if v == nil {
@@ -291,6 +291,9 @@ func (m *Manifest) template(s, mode string, used map[string]bool) error {
 	if (mode == "port" || mode == "host") && (len(parts) != 1 || len(parts[0].refs) == 0) {
 		return fmt.Errorf("%s must be a literal or whole-value reference", mode)
 	}
+	if mode == "path" && (len(parts) != 1 || len(refs) != 1 || !m.oauthFact(refs[0])) {
+		return fmt.Errorf("a templated path segment must be exactly one declared OAuth fact reference")
+	}
 	for _, ref := range refs {
 		f, e := m.reference(ref)
 		if e != nil {
@@ -405,6 +408,39 @@ func validateResponse(r TokenResponse) error {
 	}
 	return validateChecks(r.Checks)
 }
+
+// MaxFacts bounds the public values one OAuth authorization can bind to a connection.
+const MaxFacts = 16
+
+// validateFacts keeps bound facts and the token-response account label public:
+// they come only from the initial exchange and never select its credentials.
+func validateFacts(a AuthMethod) error {
+	r := ResponseDefaults(a.TokenResponse)
+	if len(a.RefreshResponse.Facts) > 0 || a.RefreshResponse.Label != "" {
+		return fmt.Errorf("refresh_response forbids facts and label")
+	}
+	if len(r.Facts) > MaxFacts {
+		return fmt.Errorf("token_response allows at most %d facts", MaxFacts)
+	}
+	if r.Label != "" && a.Account != nil {
+		return fmt.Errorf("token_response.label conflicts with account")
+	}
+	pointers := mapValues(r.Facts)
+	if r.Label != "" {
+		pointers = append(pointers, r.Label)
+	}
+	for name := range r.Facts {
+		if !nameRE.MatchString(name) || name == "access_token" || name == "refresh_token" {
+			return fmt.Errorf("invalid or reserved OAuth fact name %s", name)
+		}
+	}
+	for _, p := range pointers {
+		if !validPointer(p) || overlapPointer(p, r.AccessToken) || overlapPointer(p, r.RefreshToken) {
+			return fmt.Errorf("OAuth facts and label require pointers outside credentials")
+		}
+	}
+	return nil
+}
 func (m *Manifest) validateOAuth(key string, a AuthMethod, used map[string]bool) error {
 	if a.Brand != "" && !slices.Contains(Brands, a.Brand) {
 		return fmt.Errorf("invalid brand")
@@ -487,6 +523,9 @@ func (m *Manifest) validateOAuth(key string, a AuthMethod, used map[string]bool)
 		return e
 	}
 	if e := validateResponse(a.RefreshResponse); e != nil {
+		return e
+	}
+	if e := validateFacts(a); e != nil {
 		return e
 	}
 	if a.Account != nil {
@@ -693,7 +732,7 @@ func checkPresence(data []byte) error {
 				}
 				for _, k := range []string{"token_response", "refresh_response"} {
 					if r, ok := a[k].(map[string]any); ok {
-						for _, p := range []string{"access_token", "refresh_token", "expires_in", "scopes"} {
+						for _, p := range []string{"access_token", "refresh_token", "expires_in", "scopes", "label"} {
 							if v, ok := r[p]; ok && v == "" {
 								return fmt.Errorf("empty token selector")
 							}
@@ -764,4 +803,12 @@ func (m *Manifest) oauthMethod(ref string) (AuthMethod, bool) {
 		return AuthMethod{}, false
 	}
 	return m.Auth[p[1]], true
+}
+
+// oauthFact reports whether ref is an auth.<method>.<fact> captured from an OAuth token response.
+func (m *Manifest) oauthFact(ref string) bool {
+	p := strings.Split(ref, ".")
+	a, oauth := m.oauthMethod(ref)
+	_, declared := a.TokenResponse.Facts[p[len(p)-1]]
+	return oauth && len(p) == 3 && declared
 }
