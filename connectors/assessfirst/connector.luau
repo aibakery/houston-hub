@@ -2,7 +2,7 @@
 type Options = {[string]: any}
 type Endpoint = {method: string, path: string, query: {string}?, body: {string}?, required: {string}?, array: boolean?, pdf: boolean?, about: string}
 
-local API = "https://app.assessfirst.com/betty-V2"
+local API = "https://" .. config.api_host .. "/betty-V2"
 local DOCS = "https://documenter.getpostman.com/view/12154847/2sB2qWGjNX"
 local NULL = json.decode("null")
 local NONE: {string} = table.freeze({})
@@ -279,6 +279,9 @@ exports.help = function(): string
 		"Results are personal data: share them only with people entitled to see them. Predictive models, campaigns, consents and API tokens are managed in the AssessFirst app.",
 		"No automatic retries except Houston's for short 429 waits; AssessFirst allows about 100 requests a minute. Errors report the HTTP status and AssessFirst's message, and retryable is true only for 429 and for failed reads. AssessFirst also answers an invalid or revoked API token with HTTP 500 'an error occured': ask an administrator to check the connection's token rather than retrying.",
 	}
+	if config.api_host ~= "app.assessfirst.com" then
+		table.insert(lines, "This connection uses AssessFirst's test environment, " .. config.api_host .. ": its candidates and results are test data, not the company's production AssessFirst account.")
+	end
 	if exports.sendInvitation then
 		table.insert(lines, "To invite: sendInvitation({email='ana@example.com', first_name='Ana', last_name='Silva', predictive_model_uuid=pm}) emails the candidate. Status ask_share means they already have an AssessFirst account and must accept to share their results with you; wait for that before reading them. createCandidate adds a person without asking them, so collect their consent first. Deletions return {}. After a timeout or 5xx, read the candidate, group or webhook again before repeating a write.")
 	else

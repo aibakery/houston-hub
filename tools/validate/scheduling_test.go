@@ -156,13 +156,13 @@ func endpointTable(t *testing.T, name string) (string, []endpointEntry) {
 
 // The proxy must allow exactly the routes in each connector's endpoint table, and the
 // writes only on read-write connections. Paths are relative to the connector's API base URL,
-// such as Calendar's /calendar/v3.
+// such as Calendar's /calendar/v3. Its host may be a config setting, such as AssessFirst's api_host.
 // Credential-free rules, such as Resend's signed attachment links, are not API routes.
 // A {format} placeholder expands to the connector's FORMATS list (Wise statements). A custom
 // method such as Carta's {capitalCallId}:adjust is routed by its whole-segment placeholder.
 func TestProxyMatchesEndpointTables(t *testing.T) {
 	const readWrite = `{{ is config.access "read-write" }}`
-	base := regexp.MustCompile(`(?m)^local API = "https://[^/"]+([^"]*)"`)
+	base := regexp.MustCompile(`(?m)^local API = "https://(?:[^/"]+|" \.\. config\.\w+ \.\. ")([^"]*)"`)
 	formats := regexp.MustCompile(`local FORMATS = table\.freeze\(\{([^}]*)\}\)`)
 	customMethod := regexp.MustCompile(`\}:\w+$`)
 	for _, name := range []string{"assessfirst", "calcom", "calendly", "carta", "carta-crm", "gusto", "resend", "stripe", "vercel", "wise", "github", "incidentio", "gcalendar", "gsheets", "gforms", "gdocs", "gslides", "cloudflare", "revenuecat"} {

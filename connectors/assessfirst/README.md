@@ -21,6 +21,7 @@ directly skips asking them, so collect their consent first.
 Assessment results are personal data. The API token gives access to all your
 company's AssessFirst data and stays on Houston's server; keep the connection
 read-only unless agents need to invite candidates. AssessFirst's API is an open
-beta that AssessFirst may still change.
+beta that AssessFirst may still change. A connection can also use AssessFirst's
+test environment, to try Houston with fictional candidates first.
 
 [Connect your AssessFirst account](SETUP.md).

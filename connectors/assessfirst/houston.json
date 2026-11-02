@@ -20,6 +20,24 @@
           "value": "read-write"
         }
       ],
+      "order": 1,
+      "type": "string"
+    },
+    "api_host": {
+      "default": "app.assessfirst.com",
+      "description": "Use Test only with a token generated on simu.assessfirst.com, AssessFirst's test environment.",
+      "label": "Environment",
+      "options": [
+        {
+          "label": "Production",
+          "value": "app.assessfirst.com"
+        },
+        {
+          "label": "Test",
+          "value": "simu.assessfirst.com"
+        }
+      ],
+      "order": 2,
       "type": "string"
     }
   },
@@ -51,7 +69,7 @@
       },
       "match": {
         "host": [
-          "app.assessfirst.com"
+          "{{config.api_host}}"
         ],
         "method": [
           "GET"
@@ -93,7 +111,7 @@
       "if": "{{ is config.access \"read-write\" }}",
       "match": {
         "host": [
-          "app.assessfirst.com"
+          "{{config.api_host}}"
         ],
         "method": [
           "POST"
@@ -123,7 +141,7 @@
       "if": "{{ is config.access \"read-write\" }}",
       "match": {
         "host": [
-          "app.assessfirst.com"
+          "{{config.api_host}}"
         ],
         "method": [
           "DELETE"
