@@ -107,7 +107,8 @@
           "enum": [
             "google",
             "microsoft",
-            "dropbox"
+            "dropbox",
+            "slack"
           ],
           "type": "string"
         },
