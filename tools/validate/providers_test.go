@@ -22,6 +22,7 @@ func TestEveryProviderAuthenticationAndTransport(t *testing.T) {
 		"gmail": {"GET", "https://gmail.googleapis.com/gmail/v1/users/me/profile"}, "gdrive": {"GET", "https://www.googleapis.com/drive/v3/files"}, "gsheets": {"GET", "https://sheets.googleapis.com/v4/spreadsheets/s1"}, "gforms": {"GET", "https://forms.googleapis.com/v1/forms/f1"}, "gdocs": {"GET", "https://docs.googleapis.com/v1/documents/d1"}, "gslides": {"GET", "https://slides.googleapis.com/v1/presentations/p1"},
 		"gcalendar": {"GET", "https://www.googleapis.com/calendar/v3/users/me/calendarList"}, "dropbox": {"POST", "https://api.dropboxapi.com/2/files/list_folder"},
 		"slack": {"GET", "https://slack.com/api/auth.test"}, "fastmail": {"GET", "https://api.fastmail.com/jmap/session"},
+		"discord":     {"GET", "https://discord.com/api/v10/channels/1300000000000000001"},
 		"notion":      {"GET", "https://api.notion.com/v1/users/me"},
 		"mercury":     {"GET", "https://api.mercury.com/api/v1/accounts"},
 		"x":           {"GET", "https://api.x.com/2/tweets/123"},
@@ -141,6 +142,9 @@ func TestEveryProviderAuthenticationAndTransport(t *testing.T) {
 					credentialHeader = "DOLAPIKEY"
 					authorization = "synthetic-method-secret"
 				}
+				if provider == "discord" { // Discord calls use the publication's bot token, not the installer's OAuth token.
+					publisher["bot_token"] = "synthetic-bot-secret"
+				}
 				r, err := m.Resolve(publisher, config, input, method)
 				if err != nil {
 					t.Fatal(err)
@@ -154,6 +158,9 @@ func TestEveryProviderAuthenticationAndTransport(t *testing.T) {
 					if m.Auth[method].Type == "oauth2" {
 						authorization = "Bearer synthetic-oauth-token"
 						r.Context.Auth[method]["access_token"] = "synthetic-oauth-token"
+						if provider == "discord" {
+							authorization = "Bot synthetic-bot-secret"
+						}
 						if len(m.Auth[method].Scopes) > 0 && len(r.Scopes) == 0 {
 							t.Fatal("OAuth scopes missing")
 						}
