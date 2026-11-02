@@ -48,6 +48,7 @@
     "oauth": {
       "type": "oauth2",
       "label": "Connect with Linear",
+      "brand": "linear",
       "order": 2,
       "authorize_url": "https://linear.app/oauth/authorize",
       "token_url": "https://api.linear.app/oauth/token",

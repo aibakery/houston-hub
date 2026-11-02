@@ -42,6 +42,7 @@
       "client_id": "{{publisher.client_id}}",
       "client_secret": "{{publisher.client_secret}}",
       "label": "Connect with GitHub",
+      "brand": "github",
       "pkce": "S256",
       "require_refresh": true,
       "token_headers": {

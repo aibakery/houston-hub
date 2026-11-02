@@ -34,6 +34,7 @@
       "client_id": "{{publisher.client_id}}",
       "client_secret": "{{publisher.client_secret}}",
       "label": "Connect with Notion",
+      "brand": "notion",
       "order": 1,
       "pkce": "none",
       "shared": {
