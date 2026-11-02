@@ -4,14 +4,20 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
-	"slices"
 	"testing"
 )
 
 func TestSupportedBundles(t *testing.T) {
-	for _, dir := range migrated {
-		t.Run(filepath.Base(dir), func(t *testing.T) {
-			count, err := validate("../../" + dir)
+	entries, err := os.ReadDir("../../connectors")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		t.Run(entry.Name(), func(t *testing.T) {
+			count, err := validate("../../connectors/" + entry.Name())
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -22,18 +28,6 @@ func TestSupportedBundles(t *testing.T) {
 	}
 }
 
-func TestEveryBundleIsListed(t *testing.T) {
-	entries, err := os.ReadDir("../../connectors")
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, entry := range entries {
-		dir := "connectors/" + entry.Name()
-		if entry.IsDir() && !slices.Contains(migrated, dir) {
-			t.Errorf("%s must be in the migrated list", dir)
-		}
-	}
-}
 func TestStandaloneBundleAndPrivateFiles(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.Mkdir(filepath.Join(dir, "lib"), 0755); err != nil {

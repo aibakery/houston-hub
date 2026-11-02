@@ -49,6 +49,5 @@ and limitations within supported operations.
 - [manifest/](manifest/): shared manifest parser and generated schema used by Houston.
 
 Use `go run ./tools/validate [bundle-directory]` for a selected bundle, or omit
-the path to validate every bundle listed in `tools/validate/main.go`. Use `go run ./tools/validate .` to validate
-every bundle in the catalog directory. Either command performs manifest validation, Luau type checking
+the path to validate every bundle in `connectors/`. It performs manifest validation, Luau type checking
 and mocked behavior verification.

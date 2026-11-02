@@ -14,11 +14,8 @@ import (
 	"strings"
 )
 
-// Bundles migrated to the current runtime. Pass a directory to validate another.
-var migrated = []string{"connectors/fastmail", "connectors/notion", "connectors/gmail", "connectors/gcalendar", "connectors/gdrive", "connectors/gsheets", "connectors/gforms", "connectors/gdocs", "connectors/gslides", "connectors/mercury", "connectors/x", "connectors/linkedin", "connectors/clickhouse", "connectors/mariadb", "connectors/mysql", "connectors/postgres", "connectors/redis", "connectors/imap", "connectors/supabase", "connectors/woocommerce", "connectors/prestashop", "connectors/dolibarr", "connectors/calcom", "connectors/calendly", "connectors/carta", "connectors/carta-crm", "connectors/dropbox", "connectors/resend", "connectors/stripe", "connectors/wise", "connectors/github", "connectors/meta", "connectors/gusto", "connectors/assessfirst", "connectors/tipeee", "connectors/granola", "connectors/slack", "connectors/linear", "connectors/vercel", "connectors/figma", "connectors/clinicaltrials", "connectors/chembl", "connectors/pubmed", "connectors/biorxiv", "connectors/exa", "connectors/sentry", "connectors/posthog", "connectors/blockscout", "connectors/dockerhub", "connectors/incidentio", "connectors/cloudflare", "connectors/revenuecat", "connectors/attio"}
-
 func main() {
-	roots := migrated
+	roots := []string{"."}
 	if len(os.Args) > 2 {
 		fmt.Fprintln(os.Stderr, "usage: go run ./tools/validate [bundle-or-catalog-directory]")
 		os.Exit(2)
