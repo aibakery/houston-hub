@@ -483,12 +483,15 @@ func (rules ProxyRules) renderMatch(values func(*ProxyMatch) *[]string, render f
 	return out, nil
 }
 
-// pathSegment accepts one literal, non-traversing segment that cannot act as a placeholder or wildcard.
+// pathSegment accepts one non-traversing segment of unreserved URL characters, so it
+// matches identically in escaped and decoded paths and cannot act as a placeholder.
 func pathSegment(s string) bool {
-	if strings.Trim(s, ".") == "" || strings.ContainsAny(s, "/\\%*{}?#") {
+	if strings.Trim(s, ".") == "" {
 		return false
 	}
-	return !strings.ContainsFunc(s, func(r rune) bool { return r < 32 || r == 127 })
+	return !strings.ContainsFunc(s, func(r rune) bool {
+		return !(r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || strings.ContainsRune("-._~", r))
+	})
 }
 
 func templated(s string) bool { return strings.Contains(s, "{{") }

@@ -31,8 +31,8 @@ return {
 			{"Houston configuration problem", "reconnecting does not fix it", '"upstream_status":401', '"retryable":false'})
 		upstream({{401, '{"message":"401: Unauthorized","code":0}'}}, {"Houston configuration problem"}, function() discord.getChannel(C) end)
 		upstream({{403, '{"message":"Missing Access","code":50001}'}},
-			{"Houston was removed from this Discord server; open the connection settings and add it again", '"upstream_status":403', '"retryable":false'})
-		upstream({{404, '{"message":"Unknown Guild","code":10004}'}}, {"Houston was removed from this Discord server"},
+			{"discord: Missing Access (code 50001)", '"upstream_status":403', '"retryable":false'})
+		upstream({{404, '{"message":"Unknown Guild","code":10004}'}}, {"Houston was removed from this Discord server; open the connection settings and add it again", '"upstream_status":404'},
 			function() discord.searchMessages("x") end)
 		upstream({{404, '{"message":"Unknown Member","code":10007}'}}, {"discord: Unknown Member (code 10007)", '"upstream_status":404'},
 			function() discord.getMember("80351110224678912") end)

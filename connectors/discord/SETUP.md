@@ -71,6 +71,6 @@ contact Houston support.
 Removing the connection in Houston deletes its stored authorization, but the
 bot stays in your server, because other connections may use it. To remove it,
 open **Server Settings > Integrations** in Discord, select Houston and choose
-**Remove from server** (or kick the bot from the member list). Any connection to
-that server then reports that Houston was removed; add it again from the
-connection's settings to resume.
+**Remove from server** (or kick the bot from the member list). Requests to that
+server then fail, saying Houston was removed or that its bot cannot view the
+channel; add it again from the connection's settings to resume.

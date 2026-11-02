@@ -376,8 +376,9 @@ different path sets: combining method/path arrays permits their Cartesian produc
 A segment can be exactly one OAuth fact, as in
 `/api/v10/guilds/{{auth.oauth.guild_id}}/channels`: Houston renders it per
 connection, so the route only reaches the bound server. An unrendered template
-never matches, and a missing or unsafe value (empty, dots only, or containing
-`/`, `\`, `%`, `*`, `{`, `}`, `?`, `#` or control bytes) denies the whole rule set.
+never matches, and a missing or unsafe value (empty, dots only, or with
+characters other than letters, digits, `-`, `.`, `_` and `~`) denies the whole
+rule set.
 All `header` entries must match. Header names are case-insensitive; string values
 match exactly and `true` means present, including an empty value. Filters are
 literal and inspect caller headers before action changes.

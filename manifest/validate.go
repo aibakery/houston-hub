@@ -435,7 +435,7 @@ func validateFacts(a AuthMethod) error {
 		}
 	}
 	for _, p := range pointers {
-		if !validPointer(p) || overlapPointer(p, r.AccessToken) || overlapPointer(p, r.RefreshToken) {
+		if !validPointer(p) || targetsCredentials(p, r) {
 			return fmt.Errorf("OAuth facts and label require pointers outside credentials")
 		}
 	}
@@ -552,7 +552,7 @@ func (m *Manifest) validateOAuth(key string, a AuthMethod, used map[string]bool)
 		}
 		for _, r := range []TokenResponse{ResponseDefaults(a.TokenResponse), ResponseDefaults(a.RefreshResponse)} {
 			for _, p := range append([]string{c.Label}, mapValues(c.Bindings)...) {
-				if overlapPointer(p, r.AccessToken) || overlapPointer(p, r.RefreshToken) {
+				if targetsCredentials(p, r) {
 					return fmt.Errorf("account metadata targets credentials")
 				}
 			}
@@ -803,6 +803,11 @@ func (m *Manifest) oauthMethod(ref string) (AuthMethod, bool) {
 		return AuthMethod{}, false
 	}
 	return m.Auth[p[1]], true
+}
+
+// targetsCredentials reports whether pointer p selects or contains a token in r.
+func targetsCredentials(p string, r TokenResponse) bool {
+	return overlapPointer(p, r.AccessToken) || overlapPointer(p, r.RefreshToken)
 }
 
 // oauthFact reports whether ref is an auth.<method>.<fact> captured from an OAuth token response.

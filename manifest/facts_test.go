@@ -118,7 +118,7 @@ func TestOAuthFactPathsRenderPerConnection(t *testing.T) {
 			t.Errorf("rule rendered for team A matched %s", request)
 		}
 	}
-	for _, unsafe := range []string{"", ".", "..", "...", "a/b", `a\b`, "%41", "*", "{id}", "a?b", "a#b", "a\x01"} {
+	for _, unsafe := range []string{"", ".", "..", "...", "a/b", `a\b`, "%41", "*", "{id}", "a?b", "a#b", "a\x01", "a b", "équipe"} {
 		r.Context.Auth["oauth"]["team_id"] = unsafe
 		if _, err := r.Proxy.RenderPaths(r.Context); err == nil {
 			t.Errorf("rendered unsafe segment %q", unsafe)

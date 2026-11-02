@@ -126,6 +126,16 @@ func Check(ctx context.Context, binary string, m manifest.Manifest, modules, fix
 				return fmt.Errorf("fixture %s fact %s is not declared by auth method %q", name, fact, scenario.AuthMethod)
 			}
 		}
+		if len(scenario.Facts) > 0 {
+			bound := resolved.Context
+			bound.Auth = map[string]map[string]any{scenario.AuthMethod: {}}
+			for fact, value := range scenario.Facts {
+				bound.Auth[scenario.AuthMethod][fact] = value
+			}
+			if _, err := resolved.Proxy.RenderPaths(bound); err != nil {
+				return fmt.Errorf("fixture %s facts: %w", name, err)
+			}
+		}
 		input["auth"] = m.DiscoveryAuth(scenario.AuthMethod, scenario.GrantedScopes, scenario.Facts)
 		if callerAccess != "" {
 			input["access"] = callerAccess

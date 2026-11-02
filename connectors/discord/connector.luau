@@ -173,7 +173,7 @@ local function fail(operation: string, response: HttpResponse, write: boolean, g
 	local message: string
 	if status == 401 then
 		message = "discord: Discord rejected Houston's bot credentials. This is a Houston configuration problem, not a problem with your connection; reconnecting does not fix it"
-	elseif guildRoute and ((status == 403 and code == 50001) or (status == 404 and code == 10004)) then
+	elseif guildRoute and status == 404 and code == 10004 then
 		message = "discord: Houston was removed from this Discord server; open the connection settings and add it again"
 	elseif status == 403 and code == 50013 then
 		message = "discord: Houston's bot lacks a Discord permission for this action (code 50013); a server admin can grant it in the channel or role settings"
@@ -248,7 +248,7 @@ local function inGuild(operation: string, channel: string): Options
 		if type(found) == "table" and found.guild_id == GUILD then return found end
 	end
 	return houston.fail({operation = operation, layer = "upstream", upstream_status = 404, retryable = false,
-		message = "discord: channel " .. channel .. " is not in this server, or Houston's bot cannot view it"})
+		message = "discord: channel " .. channel .. " is not in this server, or Houston's bot cannot view it (for example after the bot was removed from the server)"})
 end
 
 local function channelPath(operation: string, channel: string, rest: string): string
@@ -257,7 +257,6 @@ local function channelPath(operation: string, channel: string, rest: string): st
 end
 
 local function messagePath(operation: string, channel: string, message: string, rest: string): string
-	snowflake(channel, "channel ID")
 	snowflake(message, "message ID")
 	return channelPath(operation, channel, "/messages/" .. message .. rest)
 end
@@ -287,7 +286,6 @@ end
 
 local function listMessages(channel: string, opts: Options?): Options
 	local params = options(opts, MESSAGES)
-	snowflake(channel, "channel ID")
 	local anchors = (if params.before then 1 else 0) + (if params.after then 1 else 0) + (if params.around then 1 else 0)
 	assert(anchors <= 1, "discord: pass only one of before, after and around")
 	params.limit = params.limit or LIMIT
@@ -304,7 +302,6 @@ end
 
 local function listArchivedThreads(channel: string, opts: Options?): Options
 	local params = options(opts, ARCHIVED)
-	snowflake(channel, "channel ID")
 	params.limit = params.limit or LIMIT
 	return call("listArchivedThreads", "GET", channelPath("listArchivedThreads", channel, "/threads/archived/public"), params)
 end
@@ -339,13 +336,13 @@ end
 
 local function postMessage(channel: string, content: string, opts: Options?): Options
 	local body = messageBody(content, opts, POST)
-	return call("postMessage", "POST", channelPath("postMessage", snowflake(channel, "channel ID"), "/messages"), nil, body)
+	return call("postMessage", "POST", channelPath("postMessage", channel, "/messages"), nil, body)
 end
 
 local function reply(channel: string, message: string, content: string, opts: Options?): Options
 	local body = messageBody(content, opts, POST)
 	body.message_reference = {message_id = snowflake(message, "message ID")}
-	return call("reply", "POST", channelPath("reply", snowflake(channel, "channel ID"), "/messages"), nil, body)
+	return call("reply", "POST", channelPath("reply", channel, "/messages"), nil, body)
 end
 
 local function editMessage(channel: string, message: string, content: string, opts: Options?): Options
@@ -365,7 +362,6 @@ end
 local function createThread(channel: string, name: string, opts: Options?): Options
 	local body = options(opts, THREAD)
 	body.name = text(name, "name", 100)
-	snowflake(channel, "channel ID")
 	local start = body.message
 	body.message = nil
 	local parent = inGuild("createThread", channel)
