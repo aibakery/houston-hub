@@ -39,10 +39,10 @@ return {
 		assert(last().url == API .. "/posts/7/revisions")
 		assert(json.encode(empty.items) == "[]" and empty.total == nil and empty.total_pages == nil)
 
-		payload = '{"id":12,"title":{"raw":"Draft","rendered":"Draft"},"status":"draft","date_gmt":null,"_embedded":{"author":[{"id":2}]}}'
-		local post = wp.getPost({id = 12, context = "edit", _fields = "id,title,status,date_gmt", _embed = true})
-		assert(last().url == API .. "/posts/12?_embed=true&_fields=id%2Ctitle%2Cstatus%2Cdate_gmt&context=edit", last().url)
-		assert(post.title.raw == "Draft" and post.date_gmt == json.decode("null") and post._embedded.author[1].id == 2)
+		payload = '{"id":12,"title":{"rendered":"Draft"},"status":"draft","date_gmt":null,"_embedded":{"author":[{"id":2}]}}'
+		local post = wp.getPost({id = 12, context = "view", _fields = "id,title,status,date_gmt", _embed = true})
+		assert(last().url == API .. "/posts/12?_embed=true&_fields=id%2Ctitle%2Cstatus%2Cdate_gmt&context=view", last().url)
+		assert(post.title.rendered == "Draft" and post.date_gmt == json.decode("null") and post._embedded.author[1].id == 2)
 
 		wp.getPageRevision({parent = 3, id = 9})
 		assert(last().url == API .. "/pages/3/revisions/9")
@@ -62,10 +62,15 @@ return {
 		assert(last().url == API .. "/taxonomies/post_tag")
 		wp.listMedia({media_type = "image", parent = 12})
 		assert(last().url == API .. "/media?media_type=image&parent=12")
+		payload = "[]"
+		wp.listUsers({slug = {"jane"}, who = "authors", per_page = 5})
+		assert(last().url == API .. "/users?per_page=5&slug%5B%5D=jane&who=authors", last().url)
 
-		-- The edit context adds commenters' and users' email and IP addresses.
+		-- The edit context adds post passwords and commenters' and users' email and IP addresses.
 		local before = #requests
 		for _, call in {
+			function() wp.listPosts({context = "edit", _fields = "id,password"}) end,
+			function() wp.getPage({id = 3, context = "edit"}) end,
 			function() wp.listComments({context = "edit"}) end,
 			function() wp.getComment({id = 5, context = "edit"}) end,
 			function() wp.listUsers({context = {"edit"}}) end,
@@ -76,10 +81,12 @@ return {
 			function() wp.listUsers({orderby = "email"}) end,
 			function() wp.listComments({status = "hold", search = "10.0."}) end,
 			function() wp.listComments({author_email = "reader@example.com"}) end,
+			function() wp.listUsers({email = "reader@example.com"}) end,
+			function() wp.getComment({id = 5, author_ip = "10.0.0.1"}) end,
 		} do
 			local ok, err = pcall(call)
-			assert(not ok and string.find(tostring(err), "needs read-write access", 1, true), tostring(err))
+			assert(not ok and (string.find(tostring(err), "needs read-write access", 1, true) or string.find(tostring(err), "not available on read-only connections", 1, true)), tostring(err))
 		end
-		assert(#requests == before and #requests == 10, "edit context reached WordPress")
+		assert(#requests == before and #requests == 11, "edit context reached WordPress")
 	end,
 }

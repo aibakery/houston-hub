@@ -7,6 +7,7 @@ local STORE = string.lower(config.store_host)
 local API = "https://" .. STORE .. "/wp-json/wc/v3"
 local DOCS = "https://developer.woocommerce.com/docs/apis/rest-api/v3/"
 local META_QUERY = {_fields = true}
+local DOMAIN = "store domain"
 
 -- WooCommerce resources share one CRUD shape; path placeholders are required parent
 -- IDs. Sensitive resources can return payment-gateway credentials, webhook secrets or
@@ -80,8 +81,8 @@ for _, resource in RESOURCES do
 end
 
 -- Request layer shared verbatim by the WordPress REST connectors
--- (tools/validate checks they match). It uses each connector's PROVIDER, API, DOCS,
--- META_QUERY and Endpoint type.
+-- (tools/validate checks they match). It uses each connector's PROVIDER, API, DOCS, DOMAIN
+-- (its domain setting), META_QUERY and Endpoint type.
 local function options(input: Options?): Options
 	if input == nil then return {} end
 	assert(type(input) == "table", "opts must be an object")
@@ -175,7 +176,7 @@ local function failStatus(name: string, response: HttpResponse): never
 	if server then message ..= "; Server: " .. string.sub(server, 1, 100) end
 	local location = header(response, "location")
 	if response.statusCode >= 300 and response.statusCode < 400 and location then
-		message ..= "; redirected to " .. string.sub(location, 1, 200) .. ". Set the connection's domain to the final host."
+		message ..= "; redirected to " .. string.sub(location, 1, 200) .. ". Set the connection's " .. DOMAIN .. " to the final host."
 	end
 	local retry = header(response, "retry-after")
 	if retry then message ..= "; Retry-After: " .. retry end
@@ -188,7 +189,7 @@ local function decode(name: string, response: HttpResponse): any
 	local raw = await(response.body:readAll())
 	local ok, value = pcall(json.decode, raw)
 	if not ok or type(value) ~= "table" then
-		fail(name, response, PROVIDER .. " returned a response that is not JSON; check that the connection's domain serves the WordPress REST API at /wp-json")
+		fail(name, response, PROVIDER .. " returned a response that is not JSON; check that the " .. DOMAIN .. " serves the WordPress REST API at /wp-json")
 	end
 	if string.match(raw, "^%s*%[") then
 		return {items = value, total = tonumber(header(response, "x-wp-total")), total_pages = tonumber(header(response, "x-wp-totalpages"))}
@@ -258,7 +259,7 @@ end
 -- End of the shared request layer.
 
 return operations(endpoints, request, {
-	"WooCommerce REST API v3 for " .. STORE .. ". Every function takes one named options object with WooCommerce's snake_case names; ? marks optional fields. Path IDs (id, order_id, product_id, ...) are numbers, or slugs/codes for settings, gateways, tax classes, tools and data. Other options are query parameters on list/get/delete calls (arrays send key[]=value; names are plain WooCommerce parameters or _fields) and the unchanged JSON body on create/update/batch calls. Results keep WooCommerce's native fields and nulls. Connector calls return completed values: use them directly, without await.",
+	"WooCommerce REST API v3 for " .. STORE .. ". Every function takes one named options object with WooCommerce's snake_case names; ? marks optional fields. Path IDs (id, order_id, product_id, ...) are numbers, or slugs/codes for settings, gateways, tax classes, tools and data. Other options are query parameters on list/get/delete calls (arrays send key[]=value and must not be empty; names are plain WooCommerce parameters or _fields) and the unchanged JSON body on create/update/batch calls. Results keep WooCommerce's native fields and nulls. Connector calls return completed values: use them directly, without await.",
 	"JSON array responses return {items, total?, total_pages?}, with totals from X-WP-Total/X-WP-TotalPages when WooCommerce sends them. Lists fetch one page: pass page (1-based) and per_page (1-100, default 10), and continue while page < total_pages. per_page=1 with total counts matches without fetching them. _fields='id,status,total' trims each item. Dates such as after, before and modified_after are ISO 8601 in the store's time zone.",
 	"Examples: listOrders({status={'processing','on-hold'}, after='2026-10-01T00:00:00', per_page=50}); getOrder({id=123}); listProducts({search='mug', stock_status='instock', _fields='id,name,price,stock_quantity'}); getSalesReport({period='month'}); updateOrder({id=123, status='completed'}); createOrderNote({order_id=123, note='Shipped', customer_note=true}); runSystemStatusTool({id='clear_transients', confirm=true}).",
 	"Read-only connections omit writes and the settings, payment gateway and webhook functions, whose responses can contain payment credentials and webhook secrets; treat those values as sensitive. The API key's own Read/Write permission and its WordPress user's role also apply. Orders, products and coupons move to the trash unless force=true; resources that cannot be trashed require force=true. Batch functions take create/update/delete arrays (100 objects in total by default; batchSettings accepts only update) and report failures per item: check each entry's error. Pass json.decode('[]') for empty arrays and json.decode('null') to clear nullable fields.",

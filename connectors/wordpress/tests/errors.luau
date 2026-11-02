@@ -42,9 +42,11 @@ return {
 		rejected(function() wp.uploadMedia({content_type = "image/jpeg"}) end, "path must name a session file")
 		rejected(function() wp.uploadMedia({path = "photo.jpg"}) end, "content_type must be")
 		rejected(function() wp.uploadMedia({path = "photo.jpg", content_type = "image/jpeg\r\nX-Evil: 1"}) end, "content_type must be")
-		-- PHP parses form bodies into $_POST, where rest_route would reroute the upload.
-		for _, contentType in {"application/x-www-form-urlencoded", "Application/X-WWW-Form-Urlencoded", "multipart/form-data"} do
-			rejected(function() wp.uploadMedia({path = "photo.jpg", content_type = contentType}) end, "not a form type")
+		-- PHP parses form bodies into $_POST, where rest_route would reroute the upload, and
+		-- WordPress reads JSON bodies as parameters that outrank the query string.
+		for _, contentType in {"application/x-www-form-urlencoded", "Application/X-WWW-Form-Urlencoded", "multipart/form-data",
+			"application/json", "application/ld+json", "application/json+oembed"} do
+			rejected(function() wp.uploadMedia({path = "photo.jpg", content_type = contentType}) end, "not a form or JSON type")
 		end
 		rejected(function() wp.uploadMedia({path = "photo.jpg", content_type = "image/jpeg", url = "https://example.com/a.jpg"}) end, "url is not supported")
 		local accented = fs.open("Café.jpg", "w")
@@ -79,7 +81,7 @@ return {
 			{server = {"host-firewall"}}, {"HTTP 429: 429 blocked by firewall Too many requests", "Server: host-firewall"})
 		upstream(500, "<html>Fatal error</html>", {}, {"HTTP 500: Fatal error", '"retryable":true'})
 		upstream(301, "", {location = {"https://www.blog.example.com/wp-json/wp/v2/posts/1"}},
-			{"HTTP 301", "redirected to https://www.blog.example.com/", "connection's domain"})
+			{"HTTP 301", "redirected to https://www.blog.example.com/", "connection's site domain"})
 		upstream(200, "<!doctype html><title>Maintenance</title>", {}, {"not JSON", "/wp-json"})
 		upstream(200, '"ok"', {}, {"not JSON"})
 	end,

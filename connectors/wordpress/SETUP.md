@@ -38,9 +38,10 @@ moderate comments, within the WordPress user's role. Publishing makes content
 public immediately. Deleted posts, pages and comments go to the trash first, but
 deleted media, categories and tags are removed permanently.
 
-Read-and-write connections can also read the site's general settings, such as its
-title, time zone and admin email. Read-only connections hide commenters' and users'
-email and IP addresses.
+When the WordPress user is an Administrator, read-and-write connections can also
+read the site's general settings, such as its title, time zone and admin email.
+Read-only connections hide post passwords and commenters' and users' email and IP
+addresses.
 
 ### Troubleshooting
 
