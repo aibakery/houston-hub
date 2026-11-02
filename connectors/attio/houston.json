@@ -1,33 +1,71 @@
 {
-  "auth": {
-    "token": {
-      "config": {
-        "token": {
-          "label": "API key",
-          "required": true,
-          "type": "secret"
-        }
-      },
-      "label": "API key",
-      "type": "manual"
-    }
-  },
-  "description": "Read-only access to Attio objects, records, and notes.",
+  "schema_version": 1,
+  "name": "Attio",
   "files": [
     "connector.luau"
   ],
-  "icon": "icon.png",
-  "name": "Attio",
+  "icon": "icon.svg",
+  "auth": {
+    "token": {
+      "type": "manual",
+      "label": "API key",
+      "config": {
+        "token": {
+          "type": "secret",
+          "label": "API key",
+          "description": "An Attio workspace API key with read scopes.",
+          "required": true
+        }
+      }
+    }
+  },
   "proxy": [
     {
+      "match": {
+        "protocol": "http",
+        "host": [
+          "api.attio.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/v2/self",
+          "/v2/objects",
+          "/v2/objects/{object}/attributes",
+          "/v2/objects/{object}/records/{record_id}",
+          "/v2/notes",
+          "/v2/notes/{note_id}",
+          "/v2/emails",
+          "/v2/tasks",
+          "/v2/tasks/{task_id}",
+          "/v2/threads",
+          "/v2/threads/{thread_id}",
+          "/v2/comments/{comment_id}",
+          "/v2/meetings",
+          "/v2/meetings/{meeting_id}",
+          "/v2/meetings/{meeting_id}/call_recordings",
+          "/v2/meetings/{meeting_id}/call_recordings/{call_recording_id}",
+          "/v2/lists",
+          "/v2/lists/{list}",
+          "/v2/lists/{list}/attributes",
+          "/v2/workspace_members",
+          "/v2/workspace_members/{workspace_member_id}",
+          "/v2/files",
+          "/v2/files/{file_id}"
+        ]
+      },
       "action": {
         "headers": {
           "set": {
             "Authorization": "Bearer {{auth.token.token}}"
           }
         }
-      },
+      }
+    },
+    {
       "match": {
+        "protocol": "http",
         "host": [
           "api.attio.com"
         ],
@@ -38,33 +76,15 @@
           "/v2/objects/{object}/records/query",
           "/v2/objects/records/search",
           "/v2/lists/{list}/entries/query"
-        ],
-        "protocol": "http"
-      }
-    },
-    {
+        ]
+      },
       "action": {
         "headers": {
           "set": {
             "Authorization": "Bearer {{auth.token.token}}"
           }
         }
-      },
-      "match": {
-        "host": [
-          "api.attio.com"
-        ],
-        "method": [
-          "GET",
-          "HEAD"
-        ],
-        "path": [
-          "/v2/*"
-        ],
-        "protocol": "http"
       }
     }
-  ],
-  "schema_version": 1,
-  "setup": "The API key stays on this server. Houston reads CRM data from Attio; your records stay in Attio."
+  ]
 }

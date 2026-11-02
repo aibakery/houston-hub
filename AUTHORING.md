@@ -552,10 +552,8 @@ go test ./...
 go run ./tools/validate connectors/fastmail
 ```
 
-Replace `connectors/fastmail` with the bundle you are authoring. The no-argument
-validator selects the bundles migrated to the current runtime; see the maintained
-list in [README.md](README.md). An explicit catalog directory validates all its
-bundles.
+Replace `connectors/fastmail` with the bundle you are authoring. Without an argument, the
+validator checks every bundle in `connectors/`.
 
 Set `HOUSTON_RUNTIME` to a newly built Houston service runtime and put the pinned
 `luau-analyze` on `PATH`. A fixture returns a table with `scenario`, optional
