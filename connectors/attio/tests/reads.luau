@@ -113,7 +113,18 @@ return {
 			API .. "/files?object=companies&record_id=" .. RECORD .. "&storage_provider=google-drive")
 		get(function() attio.getFile(RECORD) end, API .. "/files/" .. RECORD)
 
+		get(function() attio.getRecord("people", "r:2 ü@") end, API .. "/objects/people/records/r%3A2%20%C3%BC%40")
+		get(function() attio.getList("Sales Pipeline") end, API .. "/lists/Sales%20Pipeline")
+		get(function() attio.getNote({id = {workspace_id = "w", note_id = RECORD}, title = "Call"}) end, API .. "/notes/" .. RECORD)
+		get(function() attio.getRecord("people", {id = {object_id = "o", record_id = RECORD}, values = {}}) end, API .. "/objects/people/records/" .. RECORD)
+		get(function() attio.getCallRecording({meeting_id = MEETING}, {call_recording_id = RECORDING}) end,
+			API .. "/meetings/" .. MEETING .. "/call_recordings/" .. RECORDING)
+		post(function() attio.queryListEntries({id = {list_id = "l"}, api_slug = "sales"}) end, API .. "/lists/sales/entries/query", "{}")
+
 		rejected(function() attio.getRecord("people") end, "record_id must be a nonempty string")
+		rejected(function() attio.getNote({id = {record_id = RECORD}}) end, "note_id must be a nonempty string")
+		rejected(function() attio.listAttributes("objects", "people", {target = "lists"}) end, "unknown option target")
+		rejected(function() attio.queryRecords("people", {sorts = {{attribute = "name"}, direction = "asc"}}) end, "sorts must be an array")
 		rejected(function() attio.getRecord("people", "r/2") end, "record_id")
 		rejected(function() attio.getRecord("..", RECORD) end, "object")
 		rejected(function() attio.getNote(42) end, "note_id must be a nonempty string")

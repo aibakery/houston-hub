@@ -34,7 +34,8 @@ return {
 			{"HTTP 404 not_found: Record not found.", '"retryable":false'}, "API key")
 		upstream(400, '{"status_code":400,"type":"invalid_request_error","code":"validation_type","message":"' .. string.rep("x", 1000) .. '"}', {}, query,
 			{"HTTP 400 validation_type: " .. string.rep("x", 300)}, string.rep("x", 301))
-		upstream(400, '{"code":"validation_type","message":"' .. string.rep("x", 5000) .. '"}', {}, query, {"Attio HTTP 400"}, "xxx")
+		upstream(400, '{"status_code":400,"code":"validation_type","message":"' .. string.rep("x", 5000) .. '"}', {}, query, {"Attio HTTP 400 validation_type"}, "xxx")
+		upstream(400, '{"message":"' .. string.rep("x", 5000) .. '","code":"validation_type"}', {}, query, {"Attio HTTP 400"}, "xxx")
 		upstream(429, '{"status_code":429,"type":"rate_limit_error","code":"rate_limit_exceeded","message":"Rate limit exceeded, please try again later"}',
 			{["retry-after"] = {"Sun, 01 Nov 2026 12:00:05 GMT"}}, query,
 			{"HTTP 429 rate_limit_exceeded", "retry after Sun, 01 Nov 2026 12:00:05 GMT", '"retryable":true'})

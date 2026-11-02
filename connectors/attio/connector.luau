@@ -1,9 +1,10 @@
 -- Attio REST API v2, read-only. Arguments and results keep Attio's native field names.
 type Kind = string | number | {string}
-type Endpoint = {method: string, path: string, params: {string}, options: {[string]: Kind}, required: {string}?, bare: boolean?, help: string}
+type Endpoint = {method: string, path: string, params: {string}, options: {[string]: Kind}, required: {string}?, defaults: {[string]: any}?, bare: boolean?, help: string}
 
 local API = "https://api.attio.com/v2"
 local NONE: {string} = table.freeze({})
+local NO_DEFAULTS: {[string]: any} = table.freeze({})
 local QUERY: {[string]: Kind} = {filter = "table", filter_view_id = "text", sorts = "array", limit = "count", offset = "offset"}
 local QUERY_HELP = "Optional filter (Attio filter object) or filter_view_id (a saved view's UUID), sorts (array), limit (Attio defaults to 500) and offset. Page with offset and stop as soon as you have enough. Records are `{id = {workspace_id, object_id, record_id}, created_at, web_url, values}`; each attribute in values is an array of historic values, newest active first."
 local endpoints: {[string]: Endpoint} = {
@@ -12,14 +13,14 @@ local endpoints: {[string]: Endpoint} = {
 	listObjects = {method = "GET", path = "/objects", params = {}, options = {},
 		help = "List every object: `{data = {{id = {object_id}, api_slug, singular_noun, plural_noun, created_at}}}`. Standard slugs include people, companies, deals, users and workspaces."},
 	listAttributes = {method = "GET", path = "/{target}/{identifier}/attributes", params = {"target", "identifier"},
-		options = {limit = "count", offset = "offset", show_archived = "boolean"},
+		options = {target = {"objects", "lists"}, limit = "count", offset = "offset", show_archived = "boolean"},
 		help = "List the attributes of an object or list: target is \"objects\" or \"lists\" and identifier is its slug or UUID. Each attribute has api_slug, title, type (text, number, select, status, record-reference, …), is_multiselect and config. Read them before filtering or sorting queries."},
 	queryRecords = {method = "POST", path = "/objects/{object}/records/query", params = {"object"}, options = QUERY,
 		help = "Query an object's records (object is a slug or UUID). " .. QUERY_HELP},
 	getRecord = {method = "GET", path = "/objects/{object}/records/{record_id}", params = {"object", "record_id"}, options = {},
 		help = "Read one record with all its attribute values."},
 	searchRecords = {method = "POST", path = "/objects/records/search", params = {"query"}, required = {"objects"},
-		options = {query = "string", objects = "texts", limit = 25, request_as = "table"},
+		options = {query = "string", objects = "texts", limit = 25, request_as = "table"}, defaults = {request_as = {type = "workspace"}},
 		help = "Fuzzy-search record names, domains, emails, phone numbers and social handles. objects (required) lists object slugs or UUIDs; request_as defaults to `{type = \"workspace\"}`, or pass `{type = \"workspace-member\", workspace_member_id = …}` to see only what that member can. Attio defaults limit to 25. Results are eventually consistent: use queryRecords for up-to-date or exhaustive results."},
 	listNotes = {method = "GET", path = "/notes", params = {},
 		options = {limit = 50, offset = "offset", parent_object = "text", parent_record_id = "text"},
@@ -84,12 +85,17 @@ local function integer(value: any, field: string, minimum: number, maximum: numb
 	return value
 end
 
+local function array(value: any, field: string): {any}
+	local count = 0
+	if type(value) == "table" then for _ in value do count += 1 end end
+	assert(type(value) == "table" and count == #value, field .. " must be an array")
+	return value
+end
+
 local function texts(value: any, field: string): {string}
 	if type(value) == "string" then return {text(value, field)} end
 	assert(type(value) == "table" and #value > 0, field .. " must be a nonempty string or array of strings")
-	local count = 0
-	for _ in value do count += 1 end
-	assert(count == #value, field .. " must be an array of strings")
+	array(value, field)
 	for index, item in value do text(item, field .. "[" .. tostring(index) .. "]") end
 	return value
 end
@@ -115,8 +121,7 @@ local function option(value: any, field: string, kind: Kind, query: boolean): an
 		local items = texts(value, field)
 		return if query then table.concat(items, ",") else items
 	elseif kind == "array" then
-		assert(type(value) == "table" and (#value > 0 or next(value) == nil), field .. " must be an array")
-		return if #value > 0 then value else json.decode("[]")
+		return if #array(value, field) > 0 then value else json.decode("[]")
 	elseif kind == "table" then
 		assert(type(value) == "table", field .. " must be a table")
 		return value
@@ -128,7 +133,7 @@ local function failure(name: string, response: HttpResponse): never
 	local status = response.statusCode
 	local prefix = await(response.body:readPrefix(4096))
 	local ok, body = pcall(json.decode, prefix)
-	if not ok or type(body) ~= "table" then body = {} end
+	if not ok or type(body) ~= "table" then body = {code = string.match(prefix, '^%s*{.-"code"%s*:%s*"([%w_]+)"')} end
 	local message = "Attio HTTP " .. tostring(status)
 	if type(body.code) == "string" then message ..= " " .. string.sub(body.code, 1, 64) end
 	if type(body.message) == "string" then message ..= ": " .. string.sub(body.message, 1, 300) end
@@ -148,16 +153,19 @@ local function request(name: string, endpoint: Endpoint, args: {any}, input: any
 	for index, param in endpoint.params do
 		local value = args[index]
 		if string.find(path, "{" .. param .. "}", 1, true) then
-			text(value, param)
-			assert(param ~= "target" or value == "objects" or value == "lists", "target must be \"objects\" or \"lists\"")
-			path = string.gsub(path, "{" .. param .. "}", url.segment(value, param))
+			if type(value) == "table" then
+				local id = if type(value.id) == "table" then value.id else {}
+				value = value[param] or id[param] or value.api_slug
+			end
+			local segment = url.segment(option(value, param, endpoint.options[param] or "text", false), param)
+			path = string.gsub(path, "{" .. param .. "}", function() return segment end)
 		else
 			body[param] = option(value, param, endpoint.options[param], false)
 		end
 	end
 	for field, value in (input or {}) :: {[string]: any} do
 		local kind = endpoint.options[field]
-		assert(type(field) == "string" and kind and body[field] == nil, name .. " received an unknown option " .. tostring(field))
+		assert(type(field) == "string" and kind and body[field] == nil and not table.find(endpoint.params, field), name .. " received an unknown option " .. tostring(field))
 		if endpoint.method == "POST" then
 			body[field] = option(value, field, kind, false)
 		else
@@ -167,8 +175,8 @@ local function request(name: string, endpoint: Endpoint, args: {any}, input: any
 	for _, field in endpoint.required or NONE do
 		assert((input or {})[field] ~= nil, name .. " requires " .. field)
 	end
-	if name == "searchRecords" then
-		body.request_as = body.request_as or {type = "workspace"}
+	for field, value in endpoint.defaults or NO_DEFAULTS do
+		if body[field] == nil then body[field] = value end
 	end
 	table.sort(query)
 	local target = API .. path .. (if #query > 0 then "?" .. table.concat(query, "&") else "")
@@ -212,7 +220,7 @@ end
 
 function functions.help(): string
 	local sections = {"Attio: read-only access to this workspace's CRM objects, records, lists, notes, tasks, comments, meetings, emails and files, limited by the API key's scopes. Credentials stay on Houston. Each call makes one request and returns Attio's JSON unchanged, with results under data. Calls return completed values; do not wrap them in await(). Unknown options are rejected.",
-		"IDs are UUIDs; objects, lists and attributes also accept their api_slug. Attio returns composite ids such as `record.id.record_id`: pass the inner UUID. Offset-paged calls take limit and offset; cursor-paged calls return pagination.next_cursor, which you pass back as cursor until it is null. Attio allows 100 reads per second and limits queries by complexity, so prefer filters to paging through everything. HTTP 429 and 5xx errors are retryable."}
+		"IDs are UUIDs; objects, lists and attributes also accept their api_slug. Attio returns composite ids such as `record.id.record_id`: pass the inner UUID, or the row or id table itself, as in `attio.getNote(row)` or `attio.getRecord(\"people\", row)`. Offset-paged calls take limit and offset; cursor-paged calls return pagination.next_cursor, which you pass back as cursor until it is null. Attio allows 100 reads per second and limits queries by complexity, so prefer filters to paging through everything. HTTP 429 and 5xx errors are retryable."}
 	local names: {string} = {}
 	for name in endpoints do table.insert(names, name) end
 	table.sort(names)
