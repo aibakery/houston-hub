@@ -387,6 +387,9 @@ func (m *Manifest) reference(ref string) (Field, error) {
 			if a.Type == "oauth2" && p[2] == "access_token" {
 				return Field{Type: "secret"}, nil
 			}
+			if _, fact := a.TokenResponse.Facts[p[2]]; fact && a.Type == "oauth2" {
+				return Field{Type: "string", Required: true}, nil
+			}
 			if a.Type == "manual" {
 				if f, ok := a.Config[p[2]]; ok {
 					return f, nil
@@ -419,6 +422,9 @@ func (m *Manifest) validatePredicate(s, phase string, used map[string]bool) erro
 			return e
 		}
 		isAuth := strings.HasPrefix(n.ref, "auth.")
+		if m.oauthFact(n.ref) {
+			return fmt.Errorf("OAuth facts are known only after authorization and cannot be used in predicates")
+		}
 		if phase == "publisher" && !strings.HasPrefix(n.ref, "publisher.") {
 			return fmt.Errorf("publisher predicates require publisher references")
 		}

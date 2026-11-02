@@ -99,6 +99,12 @@ func Schema() ([]byte, error) {
 	props("ProxyMatch")["header"].(map[string]any)["additionalProperties"] = map[string]any{"oneOf": []any{map[string]any{"type": "string"}, map[string]any{"const": true}}}
 	props("ProxyMatch")["host"].(map[string]any)["description"] = "Hostnames with optional ports; HTTPS only. Leading *. matches subdomains, not the base host. A template such as {{config.host}} renders one exact origin per connection."
 
+	props("ProxyMatch")["path"].(map[string]any)["description"] = "Path patterns. A whole segment such as {{auth.oauth.team_id}} names one declared OAuth fact, rendered per connection."
+	props("TokenResponse")["facts"].(map[string]any)["propertyNames"] = map[string]any{"pattern": nameRE.String(), "not": map[string]any{"enum": []string{"access_token", "refresh_token"}}}
+	props("TokenResponse")["facts"].(map[string]any)["maxProperties"] = MaxFacts
+	props("TokenResponse")["facts"].(map[string]any)["description"] = "Public string values from the initial token response, bound to the connection; method oauth exposes fact team_id as {{auth.oauth.team_id}}."
+	props("TokenResponse")["label"].(map[string]any)["description"] = "Account label from the initial token response, when no account request is declared."
+
 	props("AuthMethod")["config"].(map[string]any)["minProperties"] = 1
 	// Conditional requirements mirror discriminated unions without adding aliases.
 	condition := func(key string, value any) map[string]any {
@@ -123,6 +129,8 @@ func Schema() ([]byte, error) {
 			"else": map[string]any{"properties": map[string]any{"action": map[string]any{"properties": map[string]any{"connection": map[string]any{"required": []string{"database"}}}}}},
 		},
 	}
+
+	props("AuthMethod")["refresh_response"] = map[string]any{"allOf": []any{props("AuthMethod")["refresh_response"], forbid("facts", "label")}}
 
 	manualKeys := []string{"brand", "authorize_url", "token_url", "client_id", "client_secret", "client_auth", "token_encoding", "token_headers", "pkce", "scopes", "scope_parameter", "scope_separator", "authorize_params", "token_params", "refresh_params", "token_response", "refresh_response", "require_refresh", "account", "shared"}
 	manual := forbid(manualKeys...)

@@ -18,12 +18,13 @@ import (
 )
 
 type Scenario struct {
-	Publisher     map[string]any `json:"publisher"`
-	Config        map[string]any `json:"config"`
-	AuthMethod    string         `json:"auth_method"`
-	AuthConfig    map[string]any `json:"auth_config"`
-	GrantedScopes []string       `json:"granted_scopes"`
-	CallerAccess  string         `json:"caller_access"`
+	Publisher     map[string]any    `json:"publisher"`
+	Config        map[string]any    `json:"config"`
+	AuthMethod    string            `json:"auth_method"`
+	AuthConfig    map[string]any    `json:"auth_config"`
+	GrantedScopes []string          `json:"granted_scopes"`
+	Facts         map[string]string `json:"facts"`
+	CallerAccess  string            `json:"caller_access"`
 }
 type metadata struct {
 	Scenario Scenario       `json:"scenario"`
@@ -120,7 +121,22 @@ func Check(ctx context.Context, binary string, m manifest.Manifest, modules, fix
 			resolved.PublicConfig["access"] = "read-only"
 		}
 		input := map[string]any{"files": m.Files, "modules": modules, "config": resolved.PublicConfig, "protocol": m.Proxy[resolved.ProxyIndices[0]].Match.Protocol, "args": []any{}}
-		input["auth"] = m.DiscoveryAuth(scenario.AuthMethod, scenario.GrantedScopes)
+		for fact := range scenario.Facts {
+			if _, declared := m.Auth[scenario.AuthMethod].TokenResponse.Facts[fact]; !declared {
+				return fmt.Errorf("fixture %s fact %s is not declared by auth method %q", name, fact, scenario.AuthMethod)
+			}
+		}
+		if len(scenario.Facts) > 0 {
+			bound := resolved.Context
+			bound.Auth = map[string]map[string]any{scenario.AuthMethod: {}}
+			for fact, value := range scenario.Facts {
+				bound.Auth[scenario.AuthMethod][fact] = value
+			}
+			if _, err := resolved.Proxy.RenderPaths(bound); err != nil {
+				return fmt.Errorf("fixture %s facts: %w", name, err)
+			}
+		}
+		input["auth"] = m.DiscoveryAuth(scenario.AuthMethod, scenario.GrantedScopes, scenario.Facts)
 		if callerAccess != "" {
 			input["access"] = callerAccess
 		}

@@ -79,11 +79,13 @@ type ScopeGroup struct {
 	Values []string `json:"values"`
 }
 type TokenResponse struct {
-	AccessToken  string          `json:"access_token,omitempty"`
-	RefreshToken string          `json:"refresh_token,omitempty"`
-	ExpiresIn    string          `json:"expires_in,omitempty"`
-	Scopes       string          `json:"scopes,omitempty"`
-	Checks       []ResponseCheck `json:"checks,omitempty"`
+	AccessToken  string            `json:"access_token,omitempty"`
+	RefreshToken string            `json:"refresh_token,omitempty"`
+	ExpiresIn    string            `json:"expires_in,omitempty"`
+	Scopes       string            `json:"scopes,omitempty"`
+	Checks       []ResponseCheck   `json:"checks,omitempty"`
+	Facts        map[string]string `json:"facts,omitempty"`
+	Label        string            `json:"label,omitempty"`
 }
 type ResponseCheck struct {
 	Path  string `json:"path"`

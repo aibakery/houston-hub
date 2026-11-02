@@ -144,6 +144,22 @@ func TestPublicationProjectsKnownAuthRestrictions(t *testing.T) {
 	}
 }
 
+func TestPublicationProjectsBoundFacts(t *testing.T) {
+	m, err := manifest.Parse([]byte(`{"auth":{"oauth":{"authorize_url":"https://example.com/auth","client_auth":"none","client_id":"{{config.client_id}}","label":"OAuth","pkce":"S256","token_response":{"facts":{"team_id":"/team/id"}},"token_url":"https://example.com/token","type":"oauth2"}},"config":{"client_id":{"default":"public-id","label":"Client","type":"string"}},"files":["main.lua"],"name":"Facts fixture","proxy":[{"action":{},"match":{"host":["example.com"],"path":["/teams/{{auth.oauth.team_id}}"],"protocol":"http"}}],"schema_version":1}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	modules := map[string]string{"main.lua": `local team=assert(auth.facts and auth.facts.team_id); assert(not pcall(function() auth.facts.team_id="forged" end)); return {help=function() return "team() returns the bound team" end,team=function() return team end}`}
+	fixtures := map[string]string{"facts.lua": `return {scenario={auth_method="oauth",facts={team_id="T1"}},run=function(c) assert(c.team()=="T1") end}`}
+	if err := Check(context.Background(), fixtureHost(t), *m, modules, fixtures); err != nil {
+		t.Fatal(err)
+	}
+	fixtures["facts.lua"] = `return {scenario={auth_method="oauth",facts={team_id="T1",other="x"}},run=function() end}`
+	if err := Check(context.Background(), fixtureHost(t), *m, modules, fixtures); err == nil || !strings.Contains(err.Error(), "fact other is not declared") {
+		t.Fatalf("undeclared fixture fact accepted: %v", err)
+	}
+}
+
 func TestPublicationRequiresLuaHelp(t *testing.T) {
 	m, err := manifest.Parse([]byte(`{"files":["main.lua"],"name":"Fixture","proxy":[{"action":{},"match":{"host":["mail.example.com"],"protocol":"http"}}],"schema_version":1}`))
 	if err != nil {

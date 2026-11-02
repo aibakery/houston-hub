@@ -234,6 +234,21 @@ during initialization. Unknown upstream restrictions must produce clear errors
 when an operation is invoked. Publication fixtures can set synthetic
 `scenario.granted_scopes` to test known OAuth restrictions.
 
+For "app install" providers whose code exchange names the installed workspace or
+server, an OAuth method can bind public facts from the initial token response:
+`"token_response": {"facts": {"guild_id": "/guild/id"}, "label": "/guild/name"}`.
+Each fact is a required nonempty string (at most 16 facts of 256 bytes). It is
+exposed as the read-only `auth.facts` table (`auth.facts.guild_id`), as
+`{{auth.oauth.guild_id}}` in proxy header and query values, and as a whole proxy
+path segment (see [Transport and exports](#transport-and-exports)); facts are
+not allowed in hosts, OAuth parameters, database settings or `if` predicates.
+`label` names the connection's account when no `account` request is declared.
+Refreshes keep the original facts and label, so `refresh_response` cannot
+declare them and its body may omit them. Reconnecting with a different value for
+a bound fact is rejected and the user must add a new connection, so bind stable
+identifiers only and keep display names in `label`. Fixtures set
+`scenario.facts = {guild_id = "1"}`; undeclared names are rejected.
+
 Houston restricts effective config using current caller grants; Luau selects the
 exports from that config. Discovery is recomputed from the
 current connection release, settings and authentication facts on each request;
@@ -259,7 +274,7 @@ when their token endpoint requires them (see the
 transport framing headers. Credentials still stay outside Luau.
 
 An OAuth method whose provider has an official mark sets `brand` to `google`,
-`microsoft`, `dropbox`, `slack`, `notion`, `github`, `linear` or `figma`. Houston then renders its authorize
+`microsoft`, `dropbox`, `slack`, `notion`, `github`, `linear`, `figma` or `discord`. Houston then renders its authorize
 button as "Continue with <Provider>" with the provider's official mark and colors, as
 Google's OAuth verification requires (see the
 [Google Sheets manifest](connectors/gsheets/houston.json)). Slack's brand terms
@@ -358,6 +373,12 @@ fields combine with AND. Omission leaves that filter unrestricted; empty arrays
 are invalid. Paths support exact paths, whole-segment `{id}` placeholders, and a
 terminal `/*` subtree wildcard. Keep separate rules when different methods allow
 different path sets: combining method/path arrays permits their Cartesian product.
+A segment can be exactly one OAuth fact, as in
+`/api/v10/guilds/{{auth.oauth.guild_id}}/channels`: Houston renders it per
+connection, so the route only reaches the bound server. An unrendered template
+never matches, and a missing or unsafe value (empty, dots only, or with
+characters other than letters, digits, `-`, `.`, `_` and `~`) denies the whole
+rule set.
 All `header` entries must match. Header names are case-insensitive; string values
 match exactly and `true` means present, including an empty value. Filters are
 literal and inspect caller headers before action changes.
@@ -561,8 +582,9 @@ Set `HOUSTON_RUNTIME` to a newly built Houston service runtime and put the pinne
 `luau-analyze` on `PATH`. A fixture returns a table with `scenario`, optional
 public `config` overrides, optional `configure`, and `run`. The scenario contains
 synthetic `publisher`, root `config`, `auth_method`, and selected `auth_config`
-inputs, plus optional `caller_access` (`read-only` or `read-write`). Without it,
-caller access defaults to read-write only for canonical read-write configuration;
+inputs, plus optional `granted_scopes`, OAuth `facts` and `caller_access`
+(`read-only` or `read-write`). Without it, caller access defaults to read-write
+only for canonical read-write configuration;
 custom policy fixtures default to read-only. Explicit caller access is intersected
 with connection access before resolving conditional fields, preserving custom
 policy. Houston resolves settings through the production manifest contract before

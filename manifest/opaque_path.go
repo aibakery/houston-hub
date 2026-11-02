@@ -39,6 +39,9 @@ func (p Proxy) validateOpaquePathParameters() error {
 func (m ProxyMatch) matchesOpaquePath(raw string) bool {
 	segments := strings.Split(raw, "/")
 	for _, pattern := range m.Path {
+		if templated(pattern) {
+			continue
+		}
 		parts := strings.Split(pattern, "/")
 		wildcard := parts[len(parts)-1] == "*"
 		if len(segments) < len(parts) || (!wildcard && len(parts) != len(segments)) {

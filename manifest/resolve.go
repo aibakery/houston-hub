@@ -34,6 +34,7 @@ type Resolved struct {
 	Scopes           []string
 	ProxyIndices     []int
 	// Proxy holds the active rules, with templated hosts rendered for this connection.
+	// OAuth fact path segments match nothing until RenderPaths fills them from the grant.
 	// It is set only by Resolve, not ResolveDraft.
 	Proxy ProxyRules
 }
@@ -328,7 +329,14 @@ func (m *Manifest) resolve(publisher, config, auth map[string]any, selected stri
 		preparation := *c
 		// OAuth setup precedes acquisition; use a private stand-in only here.
 		if selected != "" && m.Auth[selected].Type == "oauth2" {
-			preparation.Auth = map[string]map[string]any{selected: {"access_token": "pending-oauth-acquisition"}}
+			pending := map[string]any{"access_token": "pending-oauth-acquisition"}
+			for fact := range m.Auth[selected].TokenResponse.Facts {
+				pending[fact] = "pending-oauth-acquisition"
+			}
+			preparation.Auth = map[string]map[string]any{selected: pending}
+		}
+		if _, err := active.RenderPaths(preparation); err != nil {
+			return r, err
 		}
 		for i, p := range active {
 			if p.Match.Protocol != "http" {

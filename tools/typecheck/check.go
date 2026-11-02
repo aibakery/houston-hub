@@ -18,7 +18,7 @@ import (
 )
 
 const hosts = `--!strict
-local auth: {method:string,scopes:{string}?} = nil :: any
+local auth: {method:string,scopes:{string}?,facts:{[string]:string}?} = nil :: any
 -- _result is a type-only witness for generic result inference, not a Lua field.
 type Operation<T> = { cancel: (Operation<T>) -> (), _result: T }
 type ReadResult = {done: false, data: string} | {done: true}

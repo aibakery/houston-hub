@@ -1,0 +1,188 @@
+{
+  "schema_version": 1,
+  "name": "Discord",
+  "files": [
+    "connector.luau"
+  ],
+  "icon": "icon.svg",
+  "config": {
+    "access": {
+      "default": "read-only",
+      "label": "Access",
+      "options": [
+        {
+          "label": "Read-only",
+          "value": "read-only"
+        },
+        {
+          "label": "Read and write",
+          "value": "read-write"
+        }
+      ],
+      "type": "string"
+    }
+  },
+  "auth": {
+    "oauth": {
+      "type": "oauth2",
+      "label": "Continue with Discord",
+      "brand": "discord",
+      "authorize_url": "https://discord.com/oauth2/authorize",
+      "token_url": "https://discord.com/api/oauth2/token",
+      "client_id": "{{publisher.client_id}}",
+      "client_secret": "{{publisher.client_secret}}",
+      "client_auth": "basic",
+      "pkce": "none",
+      "scopes": [
+        {
+          "values": [
+            "bot"
+          ]
+        }
+      ],
+      "authorize_params": {
+        "permissions": "309237730368"
+      },
+      "token_response": {
+        "checks": [
+          {
+            "op": "equals",
+            "path": "/token_type",
+            "value": "Bearer"
+          },
+          {
+            "op": "exists",
+            "path": "/guild/id"
+          }
+        ],
+        "facts": {
+          "guild_id": "/guild/id"
+        },
+        "label": "/guild/name"
+      }
+    }
+  },
+  "publisher": {
+    "client_id": {
+      "label": "Discord client ID",
+      "order": 1,
+      "required": true,
+      "type": "string"
+    },
+    "client_secret": {
+      "label": "Discord client secret",
+      "order": 2,
+      "required": true,
+      "type": "secret"
+    },
+    "bot_token": {
+      "label": "Discord bot token",
+      "order": 3,
+      "required": true,
+      "type": "secret"
+    }
+  },
+  "proxy": [
+    {
+      "match": {
+        "protocol": "http",
+        "host": [
+          "discord.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/api/v10/guilds/{{auth.oauth.guild_id}}",
+          "/api/v10/guilds/{{auth.oauth.guild_id}}/channels",
+          "/api/v10/guilds/{{auth.oauth.guild_id}}/threads/active",
+          "/api/v10/guilds/{{auth.oauth.guild_id}}/roles",
+          "/api/v10/guilds/{{auth.oauth.guild_id}}/members/search",
+          "/api/v10/guilds/{{auth.oauth.guild_id}}/members/{user_id}",
+          "/api/v10/guilds/{{auth.oauth.guild_id}}/messages/search",
+          "/api/v10/channels/{channel_id}",
+          "/api/v10/channels/{channel_id}/messages",
+          "/api/v10/channels/{channel_id}/messages/{message_id}",
+          "/api/v10/channels/{channel_id}/threads/archived/public"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bot {{publisher.bot_token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "discord.com"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/api/v10/channels/{channel_id}/messages",
+          "/api/v10/channels/{channel_id}/messages/{message_id}/threads",
+          "/api/v10/channels/{channel_id}/threads"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bot {{publisher.bot_token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "discord.com"
+        ],
+        "method": [
+          "PATCH",
+          "DELETE"
+        ],
+        "path": [
+          "/api/v10/channels/{channel_id}/messages/{message_id}"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bot {{publisher.bot_token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "discord.com"
+        ],
+        "method": [
+          "PUT",
+          "DELETE"
+        ],
+        "path": [
+          "/api/v10/channels/{channel_id}/messages/{message_id}/reactions/{emoji}/@me"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bot {{publisher.bot_token}}"
+          }
+        }
+      }
+    }
+  ]
+}
