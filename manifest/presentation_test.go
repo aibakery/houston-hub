@@ -111,7 +111,7 @@ func TestOAuthBrandContract(t *testing.T) {
 		}
 	}
 	for _, invalid := range [][2]string{
-		{oauth + `,"brand":"github"`, "access_token"},
+		{oauth + `,"brand":"example"`, "access_token"},
 		{oauth + `,"brand":""`, "access_token"},
 		{`"type":"manual","label":"Token","brand":"google","config":{"token":{"type":"secret","label":"Token"}}`, "token"},
 	} {

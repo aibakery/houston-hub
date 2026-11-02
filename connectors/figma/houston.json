@@ -48,6 +48,7 @@
     "oauth": {
       "type": "oauth2",
       "label": "Connect with Figma",
+      "brand": "figma",
       "order": 2,
       "authorize_url": "https://www.figma.com/oauth",
       "token_url": "https://api.figma.com/v1/oauth/token",

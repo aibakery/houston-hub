@@ -108,7 +108,11 @@
             "google",
             "microsoft",
             "dropbox",
-            "slack"
+            "slack",
+            "notion",
+            "github",
+            "linear",
+            "figma"
           ],
           "type": "string"
         },

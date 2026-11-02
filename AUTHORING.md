@@ -258,8 +258,8 @@ when their token endpoint requires them (see the
 [Notion manifest](connectors/notion/houston.json)). These headers cannot replace authentication or
 transport framing headers. Credentials still stay outside Luau.
 
-An OAuth method whose provider publishes sign-in button guidelines sets `brand`
-to `google`, `microsoft`, `dropbox` or `slack`. Houston then renders its authorize
+An OAuth method whose provider has an official mark sets `brand` to `google`,
+`microsoft`, `dropbox`, `slack`, `notion`, `github`, `linear` or `figma`. Houston then renders its authorize
 button as "Continue with <Provider>" with the provider's official mark and colors, as
 Google's OAuth verification requires (see the
 [Google Sheets manifest](connectors/gsheets/houston.json)). Slack's brand terms
