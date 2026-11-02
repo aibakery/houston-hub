@@ -163,7 +163,7 @@ local function failStatus(name: string, endpoint: Endpoint, response: HttpRespon
 		if type(value.message) == "string" then message ..= ": " .. string.sub(value.message, 1, 600) end
 		if type(value.errors) == "table" then message ..= " " .. string.sub(json.encode(value.errors), 1, 600) end
 		revoked = response.statusCode == 500 and value.message == "an error occured"
-		if revoked then message ..= " (AssessFirst also answers this way when the API token is invalid or revoked)" end
+		if revoked then message ..= " (AssessFirst also answers this way when the API token is invalid or revoked; check the token and the connection's Environment)" end
 	end
 	local retry = response.headers["retry-after"]
 	if retry and retry[1] then message ..= "; Retry-After: " .. retry[1] end
@@ -277,9 +277,9 @@ exports.help = function(): string
 		"Paging: lists with page (from 1) and per_page (1..50) return {data, meta={total, current_page, per_page, previous_page, next_page, last_page}}, one page per call; continue while meta.current_page < meta.last_page.",
 		"To follow a candidate: listCandidates({email='ana@example.com'}) finds their uuid; getCandidateCompletion({candidate_uuid=uuid, pm_uuid=pm}) tells whether they finished; then getCandidateAdequacies({candidate_uuid=uuid, pm_uuid=pm}), getCandidateScores({candidate_uuid=uuid}) or downloadCandidateReport({candidate_uuid=uuid, report_id=20, path='ana-summary.pdf'}). pm is a predictive model uuid from listPredictiveModels({name='Sales'}).",
 		"Results are personal data: share them only with people entitled to see them. Predictive models, campaigns, consents and API tokens are managed in the AssessFirst app.",
-		"No automatic retries except Houston's for short 429 waits; AssessFirst allows about 100 requests a minute. Errors report the HTTP status and AssessFirst's message, and retryable is true only for 429 and for failed reads. AssessFirst also answers an invalid or revoked API token with HTTP 500 'an error occured': ask an administrator to check the connection's token rather than retrying.",
+		"No automatic retries except Houston's for short 429 waits; AssessFirst allows about 100 requests a minute. Errors report the HTTP status and AssessFirst's message, and retryable is true only for 429 and for failed reads. AssessFirst also answers an invalid or revoked API token with HTTP 500 'an error occured', and probably a token from the other environment too: ask an administrator to check the connection's token and Environment rather than retrying.",
 	}
-	if config.api_host ~= "app.assessfirst.com" then
+	if config.api_host == "simu.assessfirst.com" then
 		table.insert(lines, "This connection uses AssessFirst's test environment, " .. config.api_host .. ": its candidates and results are test data, not the company's production AssessFirst account.")
 	end
 	if exports.sendInvitation then

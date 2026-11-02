@@ -54,6 +54,8 @@ AssessFirst keeps one API token per company. Generating a new token may stop
 another integration that uses the current one, such as your applicant tracking
 system: check with your AssessFirst administrator before you generate one, or
 reuse the existing token. If requests start failing with "an error occured",
-the token was probably replaced or revoked; update the connection's token.
+first check that **Environment** matches where the token was generated.
+Otherwise the token was probably replaced or revoked; update the connection's
+token.
 
 AssessFirst allows about 100 API requests a minute.
