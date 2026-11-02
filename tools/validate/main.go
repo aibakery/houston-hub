@@ -11,19 +11,14 @@ import (
 	"github.com/aibakery/houston-hub/tools/typecheck"
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
 )
 
 // Bundles migrated to the current runtime. Pass a directory to validate another.
-var migrated = []string{"connectors/fastmail", "connectors/notion", "connectors/gmail", "connectors/gcalendar", "connectors/gdrive", "connectors/gsheets", "connectors/gforms", "connectors/gdocs", "connectors/gslides", "connectors/mercury", "connectors/x", "connectors/linkedin", "connectors/clickhouse", "connectors/mariadb", "connectors/mysql", "connectors/postgres", "connectors/redis", "connectors/imap", "connectors/supabase", "connectors/woocommerce", "connectors/prestashop", "connectors/dolibarr", "connectors/calcom", "connectors/calendly", "connectors/carta", "connectors/carta-crm", "connectors/dropbox", "connectors/resend", "connectors/stripe", "connectors/wise", "connectors/github", "connectors/meta", "connectors/gusto", "connectors/assessfirst", "connectors/tipeee", "connectors/granola", "connectors/slack", "connectors/linear", "connectors/vercel", "connectors/figma", "connectors/clinicaltrials", "connectors/chembl", "connectors/pubmed", "connectors/biorxiv", "connectors/exa", "connectors/sentry", "connectors/posthog", "connectors/blockscout", "connectors/dockerhub", "connectors/incidentio", "connectors/cloudflare", "connectors/revenuecat"}
-
-// Bundles still on the old synchronous HTTP API: they fail type analysis, but their
-// fixtures run. Every bundle belongs to exactly one of these lists.
-var unmigrated = []string{"connectors/attio"}
+var migrated = []string{"connectors/fastmail", "connectors/notion", "connectors/gmail", "connectors/gcalendar", "connectors/gdrive", "connectors/gsheets", "connectors/gforms", "connectors/gdocs", "connectors/gslides", "connectors/mercury", "connectors/x", "connectors/linkedin", "connectors/clickhouse", "connectors/mariadb", "connectors/mysql", "connectors/postgres", "connectors/redis", "connectors/imap", "connectors/supabase", "connectors/woocommerce", "connectors/prestashop", "connectors/dolibarr", "connectors/calcom", "connectors/calendly", "connectors/carta", "connectors/carta-crm", "connectors/dropbox", "connectors/resend", "connectors/stripe", "connectors/wise", "connectors/github", "connectors/meta", "connectors/gusto", "connectors/assessfirst", "connectors/tipeee", "connectors/granola", "connectors/slack", "connectors/linear", "connectors/vercel", "connectors/figma", "connectors/clinicaltrials", "connectors/chembl", "connectors/pubmed", "connectors/biorxiv", "connectors/exa", "connectors/sentry", "connectors/posthog", "connectors/blockscout", "connectors/dockerhub", "connectors/incidentio", "connectors/cloudflare", "connectors/revenuecat", "connectors/attio"}
 
 func main() {
-	roots := append(append([]string{}, migrated...), unmigrated...)
+	roots := migrated
 	if len(os.Args) > 2 {
 		fmt.Fprintln(os.Stderr, "usage: go run ./tools/validate [bundle-or-catalog-directory]")
 		os.Exit(2)
@@ -44,7 +39,7 @@ func main() {
 }
 func validate(root string) (int, error) {
 	if _, err := os.Stat(filepath.Join(root, "houston.json")); err == nil {
-		return 1, validateBundle(root, typed(filepath.Base(root)))
+		return 1, validateBundle(root)
 	}
 	entries, err := os.ReadDir(filepath.Join(root, "connectors"))
 	if err != nil {
@@ -55,7 +50,7 @@ func validate(root string) (int, error) {
 		if !entry.IsDir() {
 			continue
 		}
-		if err := validateBundle(filepath.Join(root, "connectors", entry.Name()), typed(entry.Name())); err != nil {
+		if err := validateBundle(filepath.Join(root, "connectors", entry.Name())); err != nil {
 			return count, fmt.Errorf("%s: %w", entry.Name(), err)
 		}
 		count++
@@ -66,12 +61,8 @@ func validate(root string) (int, error) {
 	return count, nil
 }
 
-// typed reports whether a bundle is on the current runtime and so gets type analysis.
-func typed(name string) bool { return !slices.Contains(unmigrated, "connectors/"+name) }
-
-// validateBundle runs every publication check; typed=false skips type analysis for
-// bundles still on the old runtime API.
-func validateBundle(dir string, typed bool) error {
+// validateBundle runs every publication check.
+func validateBundle(dir string) error {
 	raw, err := bundleFile(dir, "houston.json")
 	if err != nil {
 		return err
@@ -111,10 +102,8 @@ func validateBundle(dir string, typed bool) error {
 	}); err != nil {
 		return err
 	}
-	if typed {
-		if err := typecheck.Check(context.Background(), "", *m, modules); err != nil {
-			return err
-		}
+	if err := typecheck.Check(context.Background(), "", *m, modules); err != nil {
+		return err
 	}
 	if err := conformance.Check(context.Background(), "", *m, modules, fixtures); err != nil {
 		return err

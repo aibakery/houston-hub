@@ -22,24 +22,15 @@ func TestSupportedBundles(t *testing.T) {
 	}
 }
 
-func TestUnmigratedBundleFixtures(t *testing.T) {
-	for _, dir := range unmigrated {
-		t.Run(filepath.Base(dir), func(t *testing.T) {
-			if _, err := validate("../../" + dir); err != nil {
-				t.Fatal(err)
-			}
-		})
-	}
-}
-func TestEveryBundleIsListedOnce(t *testing.T) {
+func TestEveryBundleIsListed(t *testing.T) {
 	entries, err := os.ReadDir("../../connectors")
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, entry := range entries {
 		dir := "connectors/" + entry.Name()
-		if entry.IsDir() && slices.Contains(migrated, dir) == slices.Contains(unmigrated, dir) {
-			t.Errorf("%s must be in exactly one of migrated and unmigrated", dir)
+		if entry.IsDir() && !slices.Contains(migrated, dir) {
+			t.Errorf("%s must be in the migrated list", dir)
 		}
 	}
 }

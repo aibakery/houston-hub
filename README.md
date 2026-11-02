@@ -25,10 +25,7 @@ go run ./tools/validate
 
 Set `HOUSTON_RUNTIME` to a freshly built Houston service runtime and put the pinned
 `luau-analyze` on `PATH`; the Go validator runs every resolved behavior fixture
-in the selected bundle. AssessFirst, bioRxiv and medRxiv, Blockscout, Cal.com, Calendly, Carta, Carta CRM, ChEMBL, ClinicalTrials.gov, Cloudflare, Docker Hub, Dolibarr, Dropbox, Exa, Fastmail, Figma, GitHub, Gmail, Google Calendar, Google Docs, Google Drive, Google Forms, Google Sheets, Google Slides, Granola, Gusto, IMAP, incident.io, Linear, LinkedIn, Mercury,
-Meta Business Suite, Notion, PostHog, PrestaShop, PubMed, Resend, RevenueCat, Sentry, Slack, Stripe, Tipeee, Vercel, Wise, WooCommerce, X and the ClickHouse, MariaDB, MySQL,
-PostgreSQL, Redis and Supabase database connectors are migrated to the current
-runtime; other provider bundles remain available for future migration.
+in the selected bundle. Every bundle runs on the current runtime.
 From the Houston checkout, `go -C tools/runtime run . test-connectors` builds the
 runner and invokes this validator. See the
 [authoring guide](AUTHORING.md) and [provider bundles](connectors/). Register a copied bundle or an edited local
@@ -52,7 +49,6 @@ and limitations within supported operations.
 - [manifest/](manifest/): shared manifest parser and generated schema used by Houston.
 
 Use `go run ./tools/validate [bundle-directory]` for a selected bundle, or omit
-the path to validate the migrated bundles. Use `go run ./tools/validate .` to explicitly
-validate every bundle, including providers that have not yet migrated to the
-current runtime. This command performs manifest validation, Luau type checking
+the path to validate every bundle listed in `tools/validate/main.go`. Use `go run ./tools/validate .` to validate
+every bundle in the catalog directory. Either command performs manifest validation, Luau type checking
 and mocked behavior verification.
