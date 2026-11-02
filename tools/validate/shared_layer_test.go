@@ -43,7 +43,7 @@ func TestConnectorsShareOneRequestLayer(t *testing.T) {
 		groups = append(groups, group)
 	}
 	slices.Sort(groups)
-	if !slices.Equal(groups, []string{"Google", "endpoint-table"}) {
+	if !slices.Equal(groups, []string{"Google", "WordPress REST", "endpoint-table"}) {
 		t.Errorf("shared request layer groups %v", groups)
 	}
 }

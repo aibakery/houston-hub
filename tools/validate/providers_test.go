@@ -27,6 +27,7 @@ func TestEveryProviderAuthenticationAndTransport(t *testing.T) {
 		"x":           {"GET", "https://api.x.com/2/tweets/123"},
 		"linkedin":    {"GET", "https://api.linkedin.com/v2/userinfo"},
 		"woocommerce": {"GET", "https://shop.example.com/wp-json/wc/v3/orders"},
+		"wordpress":   {"GET", "https://blog.example.com/wp-json/wp/v2/posts"},
 		"prestashop":  {"GET", "https://shop.example.com/api/orders"},
 		"dolibarr":    {"GET", "https://erp.example.com/api/index.php/status"},
 		"calcom":      {"GET", "https://api.cal.com/v2/me"},
@@ -109,6 +110,11 @@ func TestEveryProviderAuthenticationAndTransport(t *testing.T) {
 					config["store_host"] = "shop.example.com"
 					input = map[string]any{"consumer_key": "synthetic-method-key", "consumer_secret": "synthetic-method-secret"}
 					authorization = "Basic " + base64.StdEncoding.EncodeToString([]byte("synthetic-method-key:synthetic-method-secret"))
+				}
+				if provider == "wordpress" { // An application password is the Basic password of its WordPress user.
+					config["site_host"] = "blog.example.com"
+					input = map[string]any{"username": "editor", "password": "synthetic-method-secret"}
+					authorization = "Basic " + base64.StdEncoding.EncodeToString([]byte("editor:synthetic-method-secret"))
 				}
 				if provider == "sentry" {
 					config["organization"] = "acme"

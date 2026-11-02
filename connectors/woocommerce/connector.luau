@@ -1,10 +1,13 @@
--- WooCommerce REST API v3. Native fields, nulls and arrays pass through unchanged.
+-- WooCommerce REST API v3. Arguments and results keep WooCommerce's native field names, nulls and arrays.
 type Options = {[string]: any}
-type Endpoint = {method: string, path: string, doc: string, sensitive: boolean?}
+type Endpoint = {method: string, path: string, doc: string, sensitive: boolean?, signature: string?}
 
+local PROVIDER = "WooCommerce"
 local STORE = string.lower(config.store_host)
 local API = "https://" .. STORE .. "/wp-json/wc/v3"
 local DOCS = "https://developer.woocommerce.com/docs/apis/rest-api/v3/"
+local META_QUERY = {_fields = true}
+local DOMAIN = "store domain"
 
 -- WooCommerce resources share one CRUD shape; path placeholders are required parent
 -- IDs. Sensitive resources can return payment-gateway credentials, webhook secrets or
@@ -72,10 +75,14 @@ for _, resource in RESOURCES do
 	for _, verb in resource.ops do
 		local operation = OPERATIONS[verb]
 		endpoints[verb .. (if operation.many then resource.many else resource.one)] = {method = operation.method,
-			path = resource.path .. operation.suffix, doc = resource.doc, sensitive = resource.sensitive}
+			path = resource.path .. operation.suffix, doc = resource.doc, sensitive = resource.sensitive,
+			signature = if verb == "batch" then "create?, update?, delete?" else nil}
 	end
 end
 
+-- Request layer shared verbatim by the WordPress REST connectors
+-- (tools/validate checks they match). It uses each connector's PROVIDER, API, DOCS, DOMAIN
+-- (its domain setting), META_QUERY and Endpoint type.
 local function options(input: Options?): Options
 	if input == nil then return {} end
 	assert(type(input) == "table", "opts must be an object")
@@ -83,8 +90,8 @@ local function options(input: Options?): Options
 	return table.clone(input)
 end
 
--- WooCommerce IDs are nonnegative integers (shipping zone 0 is "rest of the
--- world"); settings, gateways, tax classes, tools and data use slugs or codes.
+-- IDs are nonnegative integers (WooCommerce's shipping zone 0 is "rest of the world");
+-- other resources use slugs or codes, such as a post type, a setting group or "me".
 local function identifier(value: any, field: string): string
 	if type(value) == "number" then
 		assert(value >= 0 and value % 1 == 0 and value <= 9007199254740991, field .. " must be a nonnegative integer ID")
@@ -96,9 +103,9 @@ end
 
 -- WordPress reads _method and rest_route from any query string, so they could change
 -- a request's method or route, and PHP turns dots and spaces in names into
--- underscores. WooCommerce's own parameters are plain names, plus _fields.
+-- underscores. Query names are plain parameters, plus the connector's META_QUERY.
 local function queryKey(key: string): string
-	assert(key == "_fields" or (string.match(key, "^%a[%w_]*$") and key ~= "rest_route"), key .. " is not a WooCommerce query parameter")
+	assert(META_QUERY[key] or (string.match(key, "^%a[%w_]*$") and key ~= "rest_route"), key .. " is not a " .. PROVIDER .. " query parameter")
 	return key
 end
 
@@ -124,6 +131,7 @@ local function query(args: Options): string
 				count += 1
 			end
 			assert(count == #value, key .. " must be a dense array")
+			assert(count > 0, key .. " must not be an empty array: pass at least one value or omit it")
 			for _, item in ipairs(value) do table.insert(parts, key .. "%5B%5D=" .. scalar(item, key)) end
 		else
 			table.insert(parts, key .. "=" .. scalar(value, key))
@@ -152,7 +160,7 @@ local function excerpt(raw: string): string
 end
 
 local function failStatus(name: string, response: HttpResponse): never
-	local message = "WooCommerce HTTP " .. tostring(response.statusCode)
+	local message = PROVIDER .. " HTTP " .. tostring(response.statusCode)
 	local raw = await(response.body:readPrefix(16 * 1024))
 	local ok, value = pcall(json.decode, raw)
 	if ok and type(value) == "table" then
@@ -168,7 +176,7 @@ local function failStatus(name: string, response: HttpResponse): never
 	if server then message ..= "; Server: " .. string.sub(server, 1, 100) end
 	local location = header(response, "location")
 	if response.statusCode >= 300 and response.statusCode < 400 and location then
-		message ..= "; redirected to " .. string.sub(location, 1, 200) .. ". Set the connection's store domain to the final host."
+		message ..= "; redirected to " .. string.sub(location, 1, 200) .. ". Set the connection's " .. DOMAIN .. " to the final host."
 	end
 	local retry = header(response, "retry-after")
 	if retry then message ..= "; Retry-After: " .. retry end
@@ -181,7 +189,7 @@ local function decode(name: string, response: HttpResponse): any
 	local raw = await(response.body:readAll())
 	local ok, value = pcall(json.decode, raw)
 	if not ok or type(value) ~= "table" then
-		fail(name, response, "WooCommerce returned a response that is not JSON; check that the store domain serves the WordPress REST API at /wp-json")
+		fail(name, response, PROVIDER .. " returned a response that is not JSON; check that the " .. DOMAIN .. " serves the WordPress REST API at /wp-json")
 	end
 	if string.match(raw, "^%s*%[") then
 		return {items = value, total = tonumber(header(response, "x-wp-total")), total_pages = tonumber(header(response, "x-wp-totalpages"))}
@@ -189,13 +197,18 @@ local function decode(name: string, response: HttpResponse): any
 	return value
 end
 
-local function request(name: string, endpoint: Endpoint, input: Options?): any
-	local args = options(input)
-	local path = string.gsub(endpoint.path, "{([%w_]+)}", function(field: string)
+-- The endpoint's path with its {fields} taken out of args.
+local function route(endpoint: Endpoint, args: Options): string
+	return (string.gsub(endpoint.path, "{([%w_]+)}", function(field: string)
 		local value = identifier(args[field], field)
 		args[field] = nil
 		return value
-	end)
+	end))
+end
+
+local function request(name: string, endpoint: Endpoint, input: Options?): any
+	local args = options(input)
+	local path = route(endpoint, args)
 	local headers: HttpHeaders = {Accept = {"application/json"}}
 	local body: string? = nil
 	if endpoint.method == "GET" or endpoint.method == "DELETE" then
@@ -210,8 +223,8 @@ end
 local function signature(endpoint: Endpoint): string
 	local fields: {string} = {}
 	for field in string.gmatch(endpoint.path, "{([%w_]+)}") do table.insert(fields, field) end
-	if string.sub(endpoint.path, -6) == "/batch" then
-		table.insert(fields, "create?, update?, delete?")
+	if endpoint.signature then
+		table.insert(fields, endpoint.signature)
 	elseif endpoint.method == "GET" or endpoint.method == "DELETE" then
 		table.insert(fields, "...query?")
 	else
@@ -220,28 +233,35 @@ local function signature(endpoint: Endpoint): string
 	return "({" .. table.concat(fields, ", ") .. "})"
 end
 
-local exports: {[string]: any} = {}
-for name, endpoint in endpoints do
-	if (endpoint.method == "GET" and not endpoint.sensitive) or config.access == "read-write" then
-		exports[name] = function(args: Options?): any return request(name, endpoint, args) end
+-- Reads, plus writes and sensitive reads on read-write connections, and help listing them
+-- after intro.
+local function operations(endpoints: {[string]: Endpoint}, call: (string, Endpoint, Options?) -> any, intro: {string}): {[string]: any}
+	local exports: {[string]: any} = {}
+	for name, endpoint in endpoints do
+		if (endpoint.method == "GET" and not endpoint.sensitive) or config.access == "read-write" then
+			exports[name] = function(args: Options?): any return call(name, endpoint, args) end
+		end
 	end
-end
-exports.help = function(): string
-	local names: {string} = {}
-	for name in exports do if name ~= "help" then table.insert(names, name) end end
-	table.sort(names)
-	local lines = {
-		"WooCommerce REST API v3 for " .. STORE .. ". Every function takes one named options object with WooCommerce's snake_case names; ? marks optional fields. Path IDs (id, order_id, product_id, ...) are numbers, or slugs/codes for settings, gateways, tax classes, tools and data. Other options are query parameters on list/get/delete calls (arrays send key[]=value; names are plain WooCommerce parameters or _fields) and the unchanged JSON body on create/update/batch calls. Results keep WooCommerce's native fields and nulls. Connector calls return completed values: use them directly, without await.",
-		"JSON array responses return {items, total?, total_pages?}, with totals from X-WP-Total/X-WP-TotalPages when WooCommerce sends them. Lists fetch one page: pass page (1-based) and per_page (1-100, default 10), and continue while page < total_pages. per_page=1 with total counts matches without fetching them. _fields='id,status,total' trims each item. Dates such as after, before and modified_after are ISO 8601 in the store's time zone.",
-		"Examples: listOrders({status={'processing','on-hold'}, after='2026-10-01T00:00:00', per_page=50}); getOrder({id=123}); listProducts({search='mug', stock_status='instock', _fields='id,name,price,stock_quantity'}); getSalesReport({period='month'}); updateOrder({id=123, status='completed'}); createOrderNote({order_id=123, note='Shipped', customer_note=true}); runSystemStatusTool({id='clear_transients', confirm=true}).",
-		"Read-only connections omit writes and the settings, payment gateway and webhook functions, whose responses can contain payment credentials and webhook secrets; treat those values as sensitive. The API key's own Read/Write permission and its WordPress user's role also apply. Orders, products and coupons move to the trash unless force=true; resources that cannot be trashed require force=true. Batch functions take create/update/delete arrays (100 objects in total by default; batchSettings accepts only update) and report failures per item: check each entry's error. Pass json.decode('[]') for empty arrays and json.decode('null') to clear nullable fields.",
-		"Side effects: createOrderRefund refunds through the payment gateway unless api_refund=false, so money moves; previewOrderRefund calculates one without creating it (WooCommerce 11.1+). sendOrderEmail, sendOrderDetails, order status changes and customer notes can email customers. runSystemStatusTool runs maintenance tools, such as clearing caches or regenerating data. Houston waits and retries HTTP 429 at most twice unless Retry-After asks for more than 5 seconds; nothing else is retried: after a timeout or 5xx, read the resource again before repeating a write. A remaining 429 usually comes from the store's host firewall rather than WooCommerce: space calls out and prefer fewer, larger ones, such as one updateProduct with every tag or a batch function, over one call per item. Errors report the HTTP status, WooCommerce code, message, invalid parameters, Retry-After, the Server header and the start of non-JSON bodies; a 401 usually means the key lacks permission or the web server drops the Authorization header.",
-		"Each function below names its route and its reference page, " .. DOCS .. "<page>/, which lists fields, filters and response shapes.",
-	}
-	for _, name in names do
-		local endpoint = endpoints[name]
-		table.insert(lines, name .. signature(endpoint) .. ": " .. endpoint.method .. " " .. endpoint.path .. " (" .. endpoint.doc .. ")")
+	exports.help = function(): string
+		local names: {string} = {}
+		for name in exports do if name ~= "help" then table.insert(names, name) end end
+		table.sort(names)
+		local lines = table.clone(intro)
+		table.insert(lines, "Each function below names its route and its reference page, " .. DOCS .. "<page>/, which lists fields, filters and response shapes.")
+		for _, name in names do
+			local endpoint = endpoints[name]
+			table.insert(lines, name .. signature(endpoint) .. ": " .. endpoint.method .. " " .. endpoint.path .. " (" .. endpoint.doc .. ")")
+		end
+		return table.concat(lines, "\n")
 	end
-	return table.concat(lines, "\n")
+	return exports
 end
-return exports
+-- End of the shared request layer.
+
+return operations(endpoints, request, {
+	"WooCommerce REST API v3 for " .. STORE .. ". Every function takes one named options object with WooCommerce's snake_case names; ? marks optional fields. Path IDs (id, order_id, product_id, ...) are numbers, or slugs/codes for settings, gateways, tax classes, tools and data. Other options are query parameters on list/get/delete calls (arrays send key[]=value and must not be empty; names are plain WooCommerce parameters or _fields) and the unchanged JSON body on create/update/batch calls. Results keep WooCommerce's native fields and nulls. Connector calls return completed values: use them directly, without await.",
+	"JSON array responses return {items, total?, total_pages?}, with totals from X-WP-Total/X-WP-TotalPages when WooCommerce sends them. Lists fetch one page: pass page (1-based) and per_page (1-100, default 10), and continue while page < total_pages. per_page=1 with total counts matches without fetching them. _fields='id,status,total' trims each item. Dates such as after, before and modified_after are ISO 8601 in the store's time zone.",
+	"Examples: listOrders({status={'processing','on-hold'}, after='2026-10-01T00:00:00', per_page=50}); getOrder({id=123}); listProducts({search='mug', stock_status='instock', _fields='id,name,price,stock_quantity'}); getSalesReport({period='month'}); updateOrder({id=123, status='completed'}); createOrderNote({order_id=123, note='Shipped', customer_note=true}); runSystemStatusTool({id='clear_transients', confirm=true}).",
+	"Read-only connections omit writes and the settings, payment gateway and webhook functions, whose responses can contain payment credentials and webhook secrets; treat those values as sensitive. The API key's own Read/Write permission and its WordPress user's role also apply. Orders, products and coupons move to the trash unless force=true; resources that cannot be trashed require force=true. Batch functions take create/update/delete arrays (100 objects in total by default; batchSettings accepts only update) and report failures per item: check each entry's error. Pass json.decode('[]') for empty arrays and json.decode('null') to clear nullable fields.",
+	"Side effects: createOrderRefund refunds through the payment gateway unless api_refund=false, so money moves; previewOrderRefund calculates one without creating it (WooCommerce 11.1+). sendOrderEmail, sendOrderDetails, order status changes and customer notes can email customers. runSystemStatusTool runs maintenance tools, such as clearing caches or regenerating data. Houston waits and retries HTTP 429 at most twice unless Retry-After asks for more than 5 seconds; nothing else is retried: after a timeout or 5xx, read the resource again before repeating a write. A remaining 429 usually comes from the store's host firewall rather than WooCommerce: space calls out and prefer fewer, larger ones, such as one updateProduct with every tag or a batch function, over one call per item. Errors report the HTTP status, WooCommerce code, message, invalid parameters, Retry-After, the Server header and the start of non-JSON bodies; a 401 usually means the key lacks permission or the web server drops the Authorization header.",
+})
