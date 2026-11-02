@@ -13,8 +13,8 @@ required.
    API access: ask your AssessFirst contact or write to
    [api@assessfirst.com](mailto:api@assessfirst.com).
 4. In Houston, add the AssessFirst connector, shared with your organization or
-   for yourself only. Paste the token into **API token** and keep **Access** set
-   to **Read-only**.
+   for yourself only. Paste the token into **API token**, keep **Access** set to
+   **Read-only** and **Environment** on **Production**.
 5. Save the connection. For a shared connection, grant only the organization
    members who may see candidates' results.
 
@@ -39,12 +39,23 @@ Adding a candidate without an invitation skips asking for their consent, so make
 sure you already have it. Voice assessments need AssessFirst's Voice option, and
 OnePager report links need AssessFirst to enable OnePager for your company.
 
+### Test environment
+
+To try Houston with fictional candidates before connecting your production
+account, ask [support@assessfirst.com](mailto:support@assessfirst.com) for a
+sandbox on AssessFirst's test environment,
+[simu.assessfirst.com](https://simu.assessfirst.com). Generate a token in its
+recruiter space the same way, and set **Environment** to **Test**. A test token
+only works with **Test**, and a production token only with **Production**.
+
 ### Token maintenance
 
 AssessFirst keeps one API token per company. Generating a new token may stop
 another integration that uses the current one, such as your applicant tracking
 system: check with your AssessFirst administrator before you generate one, or
 reuse the existing token. If requests start failing with "an error occured",
-the token was probably replaced or revoked; update the connection's token.
+first check that **Environment** matches where the token was generated.
+Otherwise the token was probably replaced or revoked; update the connection's
+token.
 
 AssessFirst allows about 100 API requests a minute.
