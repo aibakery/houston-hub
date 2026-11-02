@@ -2,6 +2,7 @@
 
 1. Choose the access level:
    - **Read-only** to let agents read without changing anything.
+   - **Read and draft** to also let agents prepare drafts for you to review and send from Gmail. Google's consent screen mentions sending email, but Houston refuses every send request on this level.
    - **Read and write** to also let agents send and reply, manage drafts, and organize mail with labels and trash.
 2. Select **Connect with Google**, choose your account, and approve the
    permissions Google lists. If Google shows a checkbox per permission, tick

@@ -101,35 +101,42 @@ func TestGmailScopesAndRoutes(t *testing.T) {
 	m := parseManifest(t, "../../connectors/gmail/houston.json")
 	const api = "https://gmail.googleapis.com/gmail/v1/users/me"
 	const upload = "https://gmail.googleapis.com/upload/gmail/v1/users/me"
-	for _, access := range []string{"read-only", "read-write"} {
-		scope := "gmail.readonly"
-		if access == "read-write" {
-			scope = "gmail.modify"
-		}
-		r := resolveGoogle(t, m, access, scope)
+	// Read and draft (custom) adds gmail.compose, which can also send, so only the proxy keeps it from sending.
+	for access, scopes := range map[string][]string{
+		"read-only":  {"gmail.readonly"},
+		"custom":     {"gmail.readonly", "gmail.compose"},
+		"read-write": {"gmail.modify"},
+	} {
+		r := resolveGoogle(t, m, access, scopes...)
 		reads := []string{"GET " + api + "/profile", "GET " + api + "/labels", "GET " + api + "/labels/Label_1",
 			"GET " + api + "/messages?q=is%3Aunread", "GET " + api + "/messages/m1?format=full", "GET " + api + "/messages/m1/attachments/a1",
 			"GET " + api + "/threads", "GET " + api + "/threads/t1", "GET " + api + "/drafts", "GET " + api + "/drafts/d1",
 			"GET " + api + "/history?startHistoryId=1", "GET " + api + "/settings/sendAs"}
 		assertRoutes(t, r, "fixture-token", true, reads...)
 		assertStripsMethodOverrides(t, r, reads...)
+		drafts := []string{"POST " + upload + "/drafts?uploadType=multipart", "PUT " + upload + "/drafts/d1?uploadType=multipart", "DELETE " + api + "/drafts/d1"}
+		assertRoutes(t, r, "fixture-token", access != "read-only", drafts...)
+		if access != "read-only" {
+			assertStripsMethodOverrides(t, r, drafts...)
+		}
 		writes := []string{"POST " + api + "/messages/batchModify", "POST " + api + "/messages/m1/modify", "POST " + api + "/messages/m1/trash",
 			"POST " + api + "/messages/m1/untrash", "POST " + api + "/threads/t1/modify", "POST " + api + "/threads/t1/trash",
 			"POST " + api + "/threads/t1/untrash", "POST " + api + "/labels", "PATCH " + api + "/labels/Label_1", "DELETE " + api + "/labels/Label_1",
-			"POST " + api + "/drafts/send", "DELETE " + api + "/drafts/d1", "POST " + upload + "/messages/send?uploadType=multipart",
-			"POST " + upload + "/drafts?uploadType=multipart", "PUT " + upload + "/drafts/d1?uploadType=multipart"}
+			"POST " + api + "/drafts/send", "POST " + upload + "/messages/send?uploadType=multipart"}
 		assertRoutes(t, r, "fixture-token", access == "read-write", writes...)
 		if access == "read-write" {
 			assertStripsMethodOverrides(t, r, writes...)
 		}
 		// The token stays off Google's OAuth endpoints, other Google APIs, lookalike hosts and Gmail
-		// routes the connector never calls: permanent deletes, imports, inserts, settings, watches and batches.
+		// routes the connector never calls: permanent deletes, imports, inserts, settings, watches, batches
+		// and the send routes it doesn't use.
 		assertRoutes(t, r, "fixture-token", false,
 			"POST https://oauth2.googleapis.com/token", "GET https://www.googleapis.com/drive/v3/files",
 			"GET https://gmail.googleapis.com.evil.test/gmail/v1/users/me/profile", "GET https://www.googleapis.com/gmail/v1/users/me/profile",
 			"GET https://gmail.googleapis.com/gmail/v1/users/other@example.com/profile", "POST https://gmail.googleapis.com/batch/gmail/v1",
 			"DELETE "+api+"/messages/m1", "POST "+api+"/messages/batchDelete", "DELETE "+api+"/threads/t1", "POST "+api+"/messages/import",
-			"POST "+api+"/messages", "POST "+api+"/messages/send", "POST "+upload+"/messages/import", "POST "+upload+"/messages",
+			"POST "+api+"/messages", "POST "+api+"/messages/send", "POST "+upload+"/drafts/send?uploadType=multipart",
+			"POST "+upload+"/drafts/d1?uploadType=multipart", "POST "+upload+"/messages/import", "POST "+upload+"/messages",
 			"PUT "+api+"/labels/Label_1", "PUT "+api+"/drafts/d1", "POST "+api+"/drafts", "POST "+api+"/watch", "POST "+api+"/stop",
 			"GET "+api+"/settings/forwardingAddresses", "POST "+api+"/settings/filters", "PUT "+api+"/settings/vacation",
 			"POST "+api+"/settings/sendAs", "GET "+api+"/messages/%2e%2e/profile", "GET "+api+"/messages/m1%2F..%2Fx")

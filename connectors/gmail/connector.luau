@@ -148,6 +148,8 @@ local function helpWith(overview: {string}): () -> string
 end
 -- End of the shared request layer.
 
+-- Read and draft (custom) connections save drafts for a writing caller; the proxy refuses every send.
+local DRAFTS = config.access == "custom" and houston.access == "read-write"
 local SEARCH = {"q", "labelIds", "maxResults", "pageToken", "includeSpamTrash"}
 local endpoints: {[string]: Endpoint} = {
 	getProfile = {method = "GET", path = "/profile", read = true,
@@ -188,7 +190,7 @@ local endpoints: {[string]: Endpoint} = {
 		help = "deleteLabel({id}) -> {success=true}. Removes the label from its messages; the messages remain."},
 	sendDraft = {method = "POST", path = "/drafts/send", read = false, body = true,
 		help = "sendDraft({id}) -> sent message {id, threadId, labelIds}."},
-	deleteDraft = {method = "DELETE", path = "/drafts/{id}", read = false,
+	deleteDraft = {method = "DELETE", path = "/drafts/{id}", read = DRAFTS,
 		help = "deleteDraft({id}) -> {success=true}. Permanently deletes the draft."},
 }
 
@@ -515,24 +517,30 @@ export("listMailFolders", true, function(...: any): {{id: string, name: string}}
 end, "listMailFolders() -> {{id, name}} sorted by ID. No arguments; every label of the mailbox.")
 
 local COMPOSE = "to, cc, bcc and replyTo take an address ('Ana <ana@example.com>') or an array of them; from must be one of listSendAs. text and/or html are required. attachments={'path' or {path, filename?, mimeType?}} reads session files; the message must stay under 8 MiB (about 5 MiB of attachments), so share larger files from Drive. inReplyTo=<Gmail message id> replies in that thread: to, subject (Re:) and threading headers default from the original; replyAll=true also copies its To and Cc (except you) into cc."
+local FIELDS = "to, subject?, text?, html?, cc?, bcc?, replyTo?, from?, attachments?, inReplyTo?, replyAll?"
 export("sendMessage", false, function(input: any): any
 	return submit("sendMessage", "POST", "/messages/send", options(input), false)
-end, "sendMessage({to, subject?, text?, html?, cc?, bcc?, replyTo?, from?, attachments?, inReplyTo?, replyAll?}) -> {id, threadId, labelIds}. " .. COMPOSE .. " A timeout may still have sent the mail: check the SENT label before retrying.")
-export("createDraft", false, function(input: any): any
+end, "sendMessage({" .. FIELDS .. "}) -> {id, threadId, labelIds}. " .. COMPOSE .. " A timeout may still have sent the mail: check the SENT label before retrying.")
+export("createDraft", DRAFTS, function(input: any): any
 	return submit("createDraft", "POST", "/drafts", options(input), true)
-end, "createDraft({...same options as sendMessage}) -> {id, message={id, threadId}}. Saves without sending; send later with sendDraft.")
-export("updateDraft", false, function(input: any): any
+end, "createDraft({" .. FIELDS .. "}) -> {id, message={id, threadId}}. Saves without sending; "
+	.. (if DRAFTS then "the person reviews and sends it from Gmail. " .. COMPOSE else "send later with sendDraft. Options as for sendMessage."))
+export("updateDraft", DRAFTS, function(input: any): any
 	local args = options(input)
 	local id = text(args.id, "id")
 	args.id = nil
 	return submit("updateDraft", "PUT", "/drafts/" .. url.segment(id, "id"), args, true)
-end, "updateDraft({id, ...same options as sendMessage}) -> draft. Replaces the draft's whole content.")
+end, "updateDraft({id, ...createDraft options}) -> draft. Replaces the draft's whole content.")
 
-exports.help = helpWith({
+local overview = {
 	"Gmail API v1 for the connected mailbox. Operations take one named options object with Google's camelCase fields. Lists and label operations return Google's JSON unchanged; deletes return {success=true}.",
-	"Message reads decode bodies and list attachment metadata; attachments download to session files. Sends build the MIME message from plain fields: never base64-encode anything yourself.",
+	"Message reads decode bodies and list attachment metadata; attachments download to session files. Composing builds the MIME message from plain fields: never base64-encode anything yourself.",
 	"Lists return one page: pass nextPageToken as pageToken until it is absent. List results carry IDs only; fetch details with getMessages or getThread.",
 	"No hidden paging or retries. Errors report the HTTP status, Google's message and reason. A failed or timed-out write may already have succeeded; check before repeating.",
 	"Example: local page = listMessages({q='is:unread in:inbox', maxResults=20}); local ids = {}; for _, m in page.messages do table.insert(ids, m.id) end; getMessages({ids=ids, format='metadata', metadataHeaders={'From','Subject'}}).",
-})
+}
+if DRAFTS then
+	table.insert(overview, 2, "Read and draft connection: Houston refuses every send. Save drafts for the person to review and send from Gmail.")
+end
+exports.help = helpWith(overview)
 return exports
