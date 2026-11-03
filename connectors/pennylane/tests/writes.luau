@@ -87,6 +87,9 @@ return {
 		body = json.decode(last().body)
 		assert(last().url == API .. "/supplier_invoices/import" and body.file_attachment_id == 77 and string.find(last().body, '"invoice_lines":[]', 1, true))
 
+		status, payload = 200, "true"
+		assert(pennylane.markAsPaidCustomerInvoice({id = 42}) == true, "a write returns any JSON unchanged")
+
 		status, payload = 201, '{"id":5,"callback_url":"https://hooks.example.com/pennylane","secret":"whsec_fixture"}'
 		local webhook = pennylane.postWebhookSubscriptions({callback_url = "https://hooks.example.com/pennylane", events = {"customer_invoice.created"}})
 		assert(last().url == API .. "/webhook_subscriptions" and webhook.secret == "whsec_fixture")

@@ -12,8 +12,15 @@ local PAGE = {"cursor", "limit"}
 local SORTED = {"cursor", "limit", "sort"}
 local LIST = {"cursor", "limit", "filter", "sort"}
 local CHANGES = {"cursor", "limit", "start_date"}
-local MANY = "customer_invoices, quotes or commercial_documents"
+local MANY = "customer_invoices|quotes|commercial_documents"
+local WEBHOOKS = "companies:webhook_subscriptions:all"
 local E_INVOICE = {"invoice_options", "override_invoice_lines"}
+
+local function join(first: {string}, second: {string}): {string}
+	local joined = table.clone(first)
+	table.move(second, 1, #second, #joined + 1, joined)
+	return joined
+end
 
 -- Every operation of Pennylane's Company API v2 OpenAPI (pennylane.readme.io/openapi/accounting.json),
 -- checked on 2026-11-03, except the deprecated postLedgerAttachments, whose ledger scope no longer
@@ -33,7 +40,7 @@ local endpoints: {[string]: Endpoint} = {
 	getPaRegistrations = {method = "GET", path = "/pa_registrations", query = {"filter", "sort"}, scope = "pa_registrations",
 		about = "The company's e-invoicing directory registrations, all at once. Filter: id, siret, status (activated is live)."},
 
-	getCustomerInvoices = {method = "GET", path = "/customer_invoices", query = {"cursor", "limit", "filter", "sort", "include"}, scope = "customer_invoices",
+	getCustomerInvoices = {method = "GET", path = "/customer_invoices", query = join(LIST, {"include"}), scope = "customer_invoices",
 		about = "Invoices and credit notes. Filter: id, date, customer_id, billing_subscription_id, quote_id, invoice_number, draft, credit_note, external_reference, flow_id, category_id (in). Sort: id, date. include='invoice_lines' (experimental)."},
 	getCustomerInvoice = {method = "GET", path = "/customer_invoices/{id}", scope = "customer_invoices"},
 	postCustomerInvoices = {method = "POST", path = "/customer_invoices", required = {"date", "deadline", "customer_id", "invoice_lines"}, scope = "customer_invoices",
@@ -41,7 +48,7 @@ local endpoints: {[string]: Endpoint} = {
 	createCustomerInvoiceFromQuote = {method = "POST", path = "/customer_invoices/create_from_quote", required = {"quote_id", "draft"}, scope = "customer_invoices"},
 	importCustomerInvoices = {method = "POST", path = "/customer_invoices/import", required = {"file_attachment_id", "date", "deadline", "customer_id", "currency_amount_before_tax", "currency_amount", "currency_tax", "invoice_lines"}, scope = "customer_invoices",
 		about = "Records an invoice issued elsewhere from an uploaded PDF; amounts must add up."},
-	createCustomerInvoiceEInvoiceImport = {method = "POST", path = "/customer_invoices/e_invoices/imports", body = "multipart", parts = {"send_to_pa", "invoice_options", "override_invoice_lines"}, scope = "customer_invoices",
+	createCustomerInvoiceEInvoiceImport = {method = "POST", path = "/customer_invoices/e_invoices/imports", body = "multipart", parts = join({"send_to_pa"}, E_INVOICE), scope = "customer_invoices",
 		about = "Imports a Factur-X PDF, UBL or CII file."},
 	updateCustomerInvoice = {method = "PUT", path = "/customer_invoices/{id}", scope = "customer_invoices"},
 	updateImportedCustomerInvoice = {method = "PUT", path = "/customer_invoices/{id}/update_imported", scope = "customer_invoices"},
@@ -234,12 +241,12 @@ local endpoints: {[string]: Endpoint} = {
 	postFileAttachments = {method = "POST", path = "/file_attachments", body = "multipart", scope = "file_attachments",
 		about = "Returns {id, url, filename}; pass id as file_attachment_id to the import functions or postLedgerEntries."},
 
-	getWebhookSubscriptions = {method = "GET", path = "/webhook_subscriptions", query = PAGE, about = "The token's webhooks, without their secrets."},
-	getWebhookSubscription = {method = "GET", path = "/webhook_subscriptions/{id}"},
-	postWebhookSubscriptions = {method = "POST", path = "/webhook_subscriptions", required = {"callback_url", "events"},
+	getWebhookSubscriptions = {method = "GET", path = "/webhook_subscriptions", query = PAGE, scope = WEBHOOKS, about = "The token's webhooks, without their secrets."},
+	getWebhookSubscription = {method = "GET", path = "/webhook_subscriptions/{id}", scope = WEBHOOKS},
+	postWebhookSubscriptions = {method = "POST", path = "/webhook_subscriptions", required = {"callback_url", "events"}, scope = WEBHOOKS,
 		about = "Pennylane then posts the events to callback_url, an HTTPS receiver you control. The result's secret signs deliveries and is shown only once."},
-	putWebhookSubscription = {method = "PUT", path = "/webhook_subscriptions/{id}", about = "Body {callback_url?, events?, enabled?}; enabled=true restarts a disabled webhook."},
-	deleteWebhookSubscription = {method = "DELETE", path = "/webhook_subscriptions/{id}", body = false},
+	putWebhookSubscription = {method = "PUT", path = "/webhook_subscriptions/{id}", scope = WEBHOOKS, about = "Body {callback_url?, events?, enabled?}; enabled=true restarts a disabled webhook."},
+	deleteWebhookSubscription = {method = "DELETE", path = "/webhook_subscriptions/{id}", body = false, scope = WEBHOOKS},
 }
 
 local NULL = json.decode("null")
@@ -300,6 +307,12 @@ local function queryValue(value: any, field: string): string
 	return url.encode(value)
 end
 
+-- At most limit bytes of text, without a trailing partial UTF-8 character.
+local function clip(text: string, limit: number): string
+	if #text <= limit then return text end
+	return (string.gsub(string.sub(text, 1, limit), "[\xC0-\xFF][\x80-\xBF]*$", ""))
+end
+
 local function fail(name: string, response: HttpResponse, message: string): never
 	return houston.fail({operation = name, layer = "upstream", upstream_status = response.statusCode,
 		retryable = response.statusCode == 429 or response.statusCode >= 500, message = message})
@@ -313,17 +326,19 @@ local function failStatus(name: string, endpoint: Endpoint, response: HttpRespon
 	local ok, value = pcall(json.decode, raw)
 	if ok and type(value) == "table" then
 		local text = if type(value.error) == "string" then value.error elseif type(value.message) == "string" then value.message else nil
-		if text then message ..= ": " .. string.sub(text, 1, 600) end
+		if text then message ..= ": " .. clip(text, 600) end
 		if type(value.code) == "string" then message ..= " (" .. value.code .. ")" end
-		if type(value.field) == "string" then message ..= " field " .. string.sub(value.field, 1, 200) end
-		if value.payload ~= nil then message ..= " " .. string.sub(json.encode(value.payload), 1, 600) end
+		if type(value.field) == "string" then message ..= " field " .. clip(value.field, 200) end
+		if value.payload ~= nil then message ..= " " .. clip(json.encode(value.payload), 600) end
 	elseif raw ~= "" and not string.match(raw, "^%s*<") then
-		message ..= ": " .. string.sub(raw, 1, 300)
+		message ..= ": " .. clip(raw, 300)
 	end
 	if response.statusCode == 403 and endpoint.scope then
-		local scope = endpoint.scope :: string
-		local level = if string.find(scope, ":", 1, true) then "" elseif writes(endpoint) then ":all" else ":readonly or :all"
-		message ..= ". The token needs the " .. scope .. level .. " scope"
+		local scopes: {string} = {}
+		for scope in string.gmatch(endpoint.scope :: string, "[^|]+") do
+			table.insert(scopes, if string.find(scope, ":", 1, true) then scope elseif writes(endpoint) then scope .. ":all" else scope .. ":readonly or " .. scope .. ":all")
+		end
+		message ..= ". The token needs the " .. table.concat(scopes, " or ") .. " scope"
 	end
 	local retry = response.headers["retry-after"]
 	if retry and retry[1] then message ..= "; Retry-After: " .. retry[1] end
@@ -402,10 +417,7 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 		args = {}
 	end
 	local unknown = next(args)
-	if unknown ~= nil then
-		if endpoint.body == "multipart" then pcall(function() body:close() end) end
-		error(name .. " has no option " .. tostring(unknown))
-	end
+	assert(unknown == nil, name .. " has no option " .. tostring(unknown))
 	if type(body) == "string" then headers["Content-Type"] = {"application/json"} end
 	local response = await(http.request({method = endpoint.method, url = API .. path, headers = headers, body = body}))
 	if response.statusCode < 200 or response.statusCode >= 300 then failStatus(name, endpoint, response) end
@@ -416,8 +428,11 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 		fail(name, response, "Pennylane returned an empty response")
 	end
 	local ok, value = pcall(json.decode, raw)
-	if not ok or type(value) ~= "table" then fail(name, response, "Pennylane returned invalid JSON") end
-	return value
+	if ok and (type(value) == "table" or endpoint.method ~= "GET") then return value end
+	if endpoint.method ~= "GET" then
+		fail(name, response, "Pennylane accepted the request with HTTP " .. tostring(response.statusCode) .. " but returned invalid JSON; the change may have been made, so read it back before repeating it")
+	end
+	return fail(name, response, "Pennylane returned invalid JSON")
 end
 
 local function signature(endpoint: Endpoint): string
@@ -468,7 +483,7 @@ exports.help = function(): string
 	}
 	if config.access == "read-write" then
 		table.insert(lines, "Files: postFileAttachments({file='invoice.pdf'}) uploads a session file (PDF, PNG, JPEG, TIFF, BMP or GIF up to 100 MB; filename? and content_type? override its name and type, which otherwise come from the path) and returns its id for file_attachment_id. Appendices and e-invoice imports take file the same way; invoice_options and override_invoice_lines are tables sent as JSON. put...Categories functions take categories={{id=7, weight='1'}} and replace the record's analytical categories.")
-		table.insert(lines, "Writes change the company's accounting: sendByEmail... and mandate requests email customers, sendToPaCustomerInvoice transmits an e-invoice, finalized invoices can no longer be deleted, and webhooks send company data to their callback_url. Pennylane has no idempotency keys and nothing is retried: after a timeout or 5xx, read or list the records before repeating a create.")
+		table.insert(lines, "Writes change the company's accounting: sendByEmail... and mandate requests email customers, sendToPaCustomerInvoice transmits an e-invoice, finalized invoices can no longer be deleted, and webhooks send company data to their callback_url. Pennylane has no idempotency keys, and only Houston retries rate-limited requests, at most twice with a short Retry-After: after a timeout, 5xx or invalid write response, read or list the records before repeating a create.")
 	else
 		table.insert(lines, "This connection is read-only: it lists no writes. The export functions only start report files.")
 	end

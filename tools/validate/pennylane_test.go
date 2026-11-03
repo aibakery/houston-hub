@@ -38,9 +38,9 @@ func TestPennylaneAccessRoutes(t *testing.T) {
 	}
 }
 
-// Rails turns a POST with X-HTTP-Method-Override into another method, so the read-only
-// export route drops the header.
-func TestPennylaneReadOnlyPostDropsMethodOverride(t *testing.T) {
+// Method-override headers can turn a POST into another method, so the read-only export
+// route drops them.
+func TestPennylaneReadOnlyPostDropsMethodOverrides(t *testing.T) {
 	r, err := parseManifest(t, "../../connectors/pennylane/houston.json").Resolve(nil, map[string]any{"access": "read-only"}, map[string]any{"token": "pennylane-fixture"}, "token")
 	if err != nil {
 		t.Fatal(err)
@@ -49,8 +49,15 @@ func TestPennylaneReadOnlyPostDropsMethodOverride(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	headers, err := recipe.Prepare(r.Context, http.Header{"X-Http-Method-Override": {"DELETE"}})
-	if err != nil || headers.Get("X-HTTP-Method-Override") != "" || headers.Get("Authorization") != "Bearer pennylane-fixture" {
+	headers, err := recipe.Prepare(r.Context, http.Header{
+		"X-Http-Method-Override": {"DELETE"}, "X-Http-Method": {"DELETE"}, "X-Method-Override": {"DELETE"},
+	})
+	if err != nil || headers.Get("Authorization") != "Bearer pennylane-fixture" {
 		t.Fatalf("export headers %v: %v", headers, err)
+	}
+	for _, name := range []string{"X-HTTP-Method-Override", "X-HTTP-Method", "X-Method-Override"} {
+		if headers.Get(name) != "" {
+			t.Fatalf("export kept %s", name)
+		}
 	}
 }
