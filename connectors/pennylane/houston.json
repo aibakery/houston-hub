@@ -1,0 +1,328 @@
+{
+  "schema_version": 1,
+  "name": "Pennylane",
+  "files": [
+    "connector.luau"
+  ],
+  "icon": "icon.svg",
+  "config": {
+    "access": {
+      "default": "read-only",
+      "label": "Access",
+      "options": [
+        {
+          "label": "Read-only",
+          "value": "read-only"
+        },
+        {
+          "label": "Read and write",
+          "value": "read-write"
+        }
+      ],
+      "type": "string"
+    }
+  },
+  "auth": {
+    "token": {
+      "type": "manual",
+      "label": "API token",
+      "config": {
+        "token": {
+          "label": "API token",
+          "required": true,
+          "type": "secret"
+        }
+      }
+    }
+  },
+  "proxy": [
+    {
+      "match": {
+        "protocol": "http",
+        "host": [
+          "app.pennylane.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/api/external/v2/bank_accounts",
+          "/api/external/v2/bank_accounts/{id}",
+          "/api/external/v2/bank_establishments",
+          "/api/external/v2/billing_email_templates",
+          "/api/external/v2/billing_subscriptions",
+          "/api/external/v2/billing_subscriptions/{billing_subscription_id}/invoice_line_sections",
+          "/api/external/v2/billing_subscriptions/{billing_subscription_id}/invoice_lines",
+          "/api/external/v2/billing_subscriptions/{id}",
+          "/api/external/v2/categories",
+          "/api/external/v2/categories/{id}",
+          "/api/external/v2/category_groups",
+          "/api/external/v2/category_groups/{category_group_id}/categories",
+          "/api/external/v2/category_groups/{id}",
+          "/api/external/v2/changelogs/customer_invoices",
+          "/api/external/v2/changelogs/customers",
+          "/api/external/v2/changelogs/ledger_entries",
+          "/api/external/v2/changelogs/ledger_entries_categories",
+          "/api/external/v2/changelogs/ledger_entry_lines",
+          "/api/external/v2/changelogs/ledger_entry_lines_categories",
+          "/api/external/v2/changelogs/products",
+          "/api/external/v2/changelogs/quotes",
+          "/api/external/v2/changelogs/supplier_invoices",
+          "/api/external/v2/changelogs/suppliers",
+          "/api/external/v2/changelogs/transactions",
+          "/api/external/v2/commercial_documents",
+          "/api/external/v2/commercial_documents/{commercial_document_id}/appendices",
+          "/api/external/v2/commercial_documents/{commercial_document_id}/invoice_line_sections",
+          "/api/external/v2/commercial_documents/{commercial_document_id}/invoice_lines",
+          "/api/external/v2/commercial_documents/{id}",
+          "/api/external/v2/company/features",
+          "/api/external/v2/company_customers/{id}",
+          "/api/external/v2/customer_invoice_templates",
+          "/api/external/v2/customer_invoices",
+          "/api/external/v2/customer_invoices/{customer_invoice_id}/appendices",
+          "/api/external/v2/customer_invoices/{customer_invoice_id}/categories",
+          "/api/external/v2/customer_invoices/{customer_invoice_id}/custom_header_fields",
+          "/api/external/v2/customer_invoices/{customer_invoice_id}/invoice_line_sections",
+          "/api/external/v2/customer_invoices/{customer_invoice_id}/invoice_lines",
+          "/api/external/v2/customer_invoices/{customer_invoice_id}/matched_transactions",
+          "/api/external/v2/customer_invoices/{customer_invoice_id}/payments",
+          "/api/external/v2/customer_invoices/{id}",
+          "/api/external/v2/customers",
+          "/api/external/v2/customers/{customer_id}/categories",
+          "/api/external/v2/customers/{customer_id}/contacts",
+          "/api/external/v2/customers/{customer_id}/contacts/{id}",
+          "/api/external/v2/customers/{customer_id}/electronic_billing_addresses",
+          "/api/external/v2/customers/{id}",
+          "/api/external/v2/exports/analytical_general_ledgers/{id}",
+          "/api/external/v2/exports/fecs/{id}",
+          "/api/external/v2/exports/general_ledgers/{id}",
+          "/api/external/v2/fiscal_years",
+          "/api/external/v2/gocardless_mandates",
+          "/api/external/v2/gocardless_mandates/{id}",
+          "/api/external/v2/individual_customers/{id}",
+          "/api/external/v2/journals",
+          "/api/external/v2/journals/{id}",
+          "/api/external/v2/ledger_accounts",
+          "/api/external/v2/ledger_accounts/{id}",
+          "/api/external/v2/ledger_entries",
+          "/api/external/v2/ledger_entries/{id}",
+          "/api/external/v2/ledger_entries/{ledger_entry_id}/dms_files",
+          "/api/external/v2/ledger_entries/{ledger_entry_id}/ledger_entry_lines",
+          "/api/external/v2/ledger_entry_lines",
+          "/api/external/v2/ledger_entry_lines/{id}",
+          "/api/external/v2/ledger_entry_lines/{ledger_entry_line_id}/categories",
+          "/api/external/v2/ledger_entry_lines/{ledger_entry_line_id}/lettered_ledger_entry_lines",
+          "/api/external/v2/me",
+          "/api/external/v2/numberings",
+          "/api/external/v2/pa_registrations",
+          "/api/external/v2/pro_account/mandate_migrations",
+          "/api/external/v2/pro_account/mandates",
+          "/api/external/v2/products",
+          "/api/external/v2/products/{id}",
+          "/api/external/v2/purchase_requests",
+          "/api/external/v2/purchase_requests/{id}",
+          "/api/external/v2/quotes",
+          "/api/external/v2/quotes/{id}",
+          "/api/external/v2/quotes/{quote_id}/appendices",
+          "/api/external/v2/quotes/{quote_id}/invoice_line_sections",
+          "/api/external/v2/quotes/{quote_id}/invoice_lines",
+          "/api/external/v2/sepa_mandates",
+          "/api/external/v2/sepa_mandates/{id}",
+          "/api/external/v2/supplier_invoices",
+          "/api/external/v2/supplier_invoices/{id}",
+          "/api/external/v2/supplier_invoices/{supplier_invoice_id}/categories",
+          "/api/external/v2/supplier_invoices/{supplier_invoice_id}/invoice_lines",
+          "/api/external/v2/supplier_invoices/{supplier_invoice_id}/matched_transactions",
+          "/api/external/v2/supplier_invoices/{supplier_invoice_id}/payments",
+          "/api/external/v2/suppliers",
+          "/api/external/v2/suppliers/{id}",
+          "/api/external/v2/suppliers/{supplier_id}/categories",
+          "/api/external/v2/transactions",
+          "/api/external/v2/transactions/{id}",
+          "/api/external/v2/transactions/{transaction_id}/categories",
+          "/api/external/v2/transactions/{transaction_id}/matched_invoices",
+          "/api/external/v2/trial_balance",
+          "/api/external/v2/webhook_subscriptions",
+          "/api/external/v2/webhook_subscriptions/{id}"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.token.token}}"
+          }
+        }
+      }
+    },
+    {
+      "match": {
+        "protocol": "http",
+        "host": [
+          "app.pennylane.com"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/api/external/v2/exports/analytical_general_ledgers",
+          "/api/external/v2/exports/fecs",
+          "/api/external/v2/exports/general_ledgers"
+        ]
+      },
+      "action": {
+        "headers": {
+          "remove": [
+            "X-HTTP-Method-Override"
+          ],
+          "set": {
+            "Authorization": "Bearer {{auth.token.token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "app.pennylane.com"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/api/external/v2/bank_accounts",
+          "/api/external/v2/billing_subscriptions",
+          "/api/external/v2/categories",
+          "/api/external/v2/category_groups",
+          "/api/external/v2/commercial_documents",
+          "/api/external/v2/commercial_documents/{commercial_document_id}/appendices",
+          "/api/external/v2/commercial_documents/{id}/send_by_email",
+          "/api/external/v2/company_customers",
+          "/api/external/v2/customer_invoices",
+          "/api/external/v2/customer_invoices/create_from_quote",
+          "/api/external/v2/customer_invoices/e_invoices/imports",
+          "/api/external/v2/customer_invoices/import",
+          "/api/external/v2/customer_invoices/{customer_invoice_id}/appendices",
+          "/api/external/v2/customer_invoices/{customer_invoice_id}/matched_transactions",
+          "/api/external/v2/customer_invoices/{id}/link_credit_note",
+          "/api/external/v2/customer_invoices/{id}/send_by_email",
+          "/api/external/v2/customer_invoices/{id}/send_to_pa",
+          "/api/external/v2/customers",
+          "/api/external/v2/customers/{customer_id}/contacts",
+          "/api/external/v2/file_attachments",
+          "/api/external/v2/gocardless_mandates/mail_requests",
+          "/api/external/v2/gocardless_mandates/{gocardless_mandate_id}/associations",
+          "/api/external/v2/gocardless_mandates/{gocardless_mandate_id}/cancellations",
+          "/api/external/v2/individual_customers",
+          "/api/external/v2/journals",
+          "/api/external/v2/ledger_accounts",
+          "/api/external/v2/ledger_entries",
+          "/api/external/v2/ledger_entry_lines/lettering",
+          "/api/external/v2/pro_account/mandate_migrations",
+          "/api/external/v2/pro_account/mandate_requests",
+          "/api/external/v2/products",
+          "/api/external/v2/purchase_requests/imports",
+          "/api/external/v2/quotes",
+          "/api/external/v2/quotes/{id}/send_by_email",
+          "/api/external/v2/quotes/{quote_id}/appendices",
+          "/api/external/v2/sepa_mandates",
+          "/api/external/v2/supplier_invoices/e_invoices/imports",
+          "/api/external/v2/supplier_invoices/import",
+          "/api/external/v2/supplier_invoices/{supplier_invoice_id}/linked_purchase_requests",
+          "/api/external/v2/supplier_invoices/{supplier_invoice_id}/matched_transactions",
+          "/api/external/v2/suppliers",
+          "/api/external/v2/transactions",
+          "/api/external/v2/webhook_subscriptions"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.token.token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "app.pennylane.com"
+        ],
+        "method": [
+          "PUT"
+        ],
+        "path": [
+          "/api/external/v2/billing_subscriptions/{id}",
+          "/api/external/v2/categories/{id}",
+          "/api/external/v2/category_groups/{id}",
+          "/api/external/v2/commercial_documents/{id}",
+          "/api/external/v2/company_customers/{id}",
+          "/api/external/v2/customer_invoices/{customer_invoice_id}/categories",
+          "/api/external/v2/customer_invoices/{id}",
+          "/api/external/v2/customer_invoices/{id}/finalize",
+          "/api/external/v2/customer_invoices/{id}/mark_as_paid",
+          "/api/external/v2/customer_invoices/{id}/update_imported",
+          "/api/external/v2/customers/{customer_id}/categories",
+          "/api/external/v2/customers/{customer_id}/contacts/{id}",
+          "/api/external/v2/customers/{id}",
+          "/api/external/v2/individual_customers/{id}",
+          "/api/external/v2/ledger_accounts/{id}",
+          "/api/external/v2/ledger_entries/{id}",
+          "/api/external/v2/ledger_entry_lines/{ledger_entry_line_id}/categories",
+          "/api/external/v2/products/{id}",
+          "/api/external/v2/quotes/{id}",
+          "/api/external/v2/quotes/{id}/update_status",
+          "/api/external/v2/sepa_mandates/{id}",
+          "/api/external/v2/supplier_invoices/{id}",
+          "/api/external/v2/supplier_invoices/{id}/validate_accounting",
+          "/api/external/v2/supplier_invoices/{supplier_invoice_id}/categories",
+          "/api/external/v2/supplier_invoices/{supplier_invoice_id}/e_invoice_status",
+          "/api/external/v2/supplier_invoices/{supplier_invoice_id}/payment_status",
+          "/api/external/v2/suppliers/{id}",
+          "/api/external/v2/suppliers/{supplier_id}/categories",
+          "/api/external/v2/transactions/{id}",
+          "/api/external/v2/transactions/{transaction_id}/categories",
+          "/api/external/v2/webhook_subscriptions/{id}"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.token.token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "app.pennylane.com"
+        ],
+        "method": [
+          "DELETE"
+        ],
+        "path": [
+          "/api/external/v2/customer_invoices/{customer_invoice_id}/matched_transactions/{id}",
+          "/api/external/v2/customer_invoices/{id}",
+          "/api/external/v2/customers/{customer_id}/contacts/{id}",
+          "/api/external/v2/ledger_entry_lines/lettering",
+          "/api/external/v2/sepa_mandates/{id}",
+          "/api/external/v2/supplier_invoices/{supplier_invoice_id}/matched_transactions/{id}",
+          "/api/external/v2/webhook_subscriptions/{id}"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.token.token}}"
+          }
+        }
+      }
+    }
+  ]
+}
