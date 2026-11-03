@@ -415,9 +415,10 @@
           "type": "string"
         },
         "format": {
-          "description": "Syntax highlighting only; the string value is preserved and connectors validate its meaning.",
+          "description": "json requires valid JSON and pem one or more PEM certificates; the string value is preserved and connectors validate its meaning.",
           "enum": [
-            "json"
+            "json",
+            "pem"
           ],
           "type": "string"
         },
@@ -1005,10 +1006,24 @@
     "TLS": {
       "additionalProperties": false,
       "properties": {
+        "ca": {
+          "description": "PEM certificates that replace the trusted authorities, or one reference to a pem-formatted config or publisher field.",
+          "type": "string"
+        },
         "mode": {
-          "enum": [
-            "verify-full"
+          "anyOf": [
+            {
+              "enum": [
+                "verify-full",
+                "verify-ca",
+                "require"
+              ]
+            },
+            {
+              "pattern": "^\\{\\{.+\\}\\}$"
+            }
           ],
+          "description": "A TLS mode, or one reference to a config or publisher field whose options are TLS modes.",
           "type": "string"
         }
       },

@@ -433,14 +433,24 @@ See the [Fastmail manifest](connectors/fastmail/houston.json) for separate
 authenticated API routes and credential-free download hosts.
 
 Database rules contain only the protocol in `match` and native settings in
-`action.connection`: host, integer port, database, user, password, and verified
-TLS. The protocols are `postgres`, `mysql`, `clickhouse` (its HTTPS interface)
+`action.connection`: host, integer port, database, user, password, and `tls`. The
+protocols are `postgres`, `mysql`, `clickhouse` (its HTTPS interface)
 and `redis`, whose database is a numeric index. The first
 enabled database rule wins. Credentials and targets cannot be overridden by Luau
 query arguments. Database URLs are not accepted. Publisher credentials may be
 sent only to literal or publisher-owned database targets. An `imap` rule has the
 same shape without a database: host, port (default 993), user, password and
-verified TLS. IMAP connects with implicit TLS; STARTTLS is not supported.
+`tls`. IMAP connects with implicit TLS; STARTTLS is not supported.
+
+Every database connection uses TLS. `tls.mode` defaults to `verify-full`, which
+checks the certificate chain and host name; `verify-ca` checks only the chain
+and needs `tls.ca`; `require` encrypts without checking the certificate. With an
+IP address as the host, `verify-full` matches only an IP subject alternative
+name. `tls.ca` holds PEM certificates that replace the public authorities. To
+let a connection choose, reference a string config field that is required or has
+a default, has no `if`, and offers only those modes, and an optional multiline
+field with `"format": "pem"`, which the form validates. A mode that can be
+`verify-ca` needs `tls.ca`; see the [PostgreSQL manifest](connectors/postgres/houston.json).
 
 `http.request({url, method, headers?, body?, timeoutMs?})` returns an operation
 whose result has `statusCode`, `headers`, and a body Reader. All headers use
@@ -472,7 +482,8 @@ UTF-8, as `\x`-prefixed hex; ClickHouse queries select `hex(column)` instead.
 Redis provides `db.command({args, readOnly?})` for one command, such as
 `{"HGET", key, field}`; a read-only command must carry Redis's `readonly` flag,
 and a missing value is nil. Database errors raise `database_error` with the
-server's message. These are protocol primitives, not a portable SQL interface.
+server's message, or the cause of a failed connection, such as an untrusted
+certificate or a refused TCP connection. These are protocol primitives, not a portable SQL interface.
 IMAP provides `imap.command({command, ...})`, an operation for one mail command
 on its own connection. Houston logs in, decodes MIME and owns the message IDs;
 the [IMAP connector](connectors/imap/connector.luau) documents each command and its
@@ -587,8 +598,11 @@ inputs, plus optional `granted_scopes`, OAuth `facts` and `caller_access`
 only for canonical read-write configuration;
 custom policy fixtures default to read-only. Explicit caller access is intersected
 with connection access before resolving conditional fields, preserving custom
-policy. Houston resolves settings through the production manifest contract before
-projecting only active nonsecret root values into the fixture VM. Include every
+policy. Houston resolves settings, including a database rule's connection, through
+the production manifest contract before
+projecting only active nonsecret root values into the fixture VM. A
+fixture whose settings must be rejected sets `scenario.settings_error` to part of
+the expected message and omits `run`. Include every
 declared auth method, enabled proxy rule, and intended enabled/disabled surface.
 Eligibility coverage does not establish which rule wins; matcher tests separately
 cover rule order, request filters, and action behavior.
@@ -824,7 +838,7 @@ cancel unfinished work but cannot undo completed provider changes.
 ### Native database queries
 
 A database connector uses its selected native protocol instead of HTTP. Bind its
-host, credentials and verified TLS in the manifest. Here is a Postgres example;
+host, credentials and TLS mode in the manifest. Here is a Postgres example;
 MySQL uses `?` and ClickHouse named placeholders such as `{id:String}`:
 
 ```lua

@@ -183,8 +183,12 @@ type DatabaseConnection struct {
 	Password string `json:"password"`
 	TLS      *TLS   `json:"tls,omitempty"`
 }
+
+// TLS names how a database connection checks its server; see TLSModes. CA, in
+// PEM, replaces the public certificate authorities that the verifying modes trust.
 type TLS struct {
 	Mode string `json:"mode"`
+	CA   string `json:"ca,omitempty"`
 }
 
 func decode(data []byte, v any) error {

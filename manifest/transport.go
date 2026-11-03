@@ -299,8 +299,10 @@ func (m *Manifest) validateProxy(p Proxy, used map[string]bool) error {
 		if c == nil || p.Match.Host != nil || p.Match.Method != nil || p.Match.Path != nil || p.Match.OpaquePathParameters != nil || p.Match.Header != nil || p.Action.Headers.Set != nil || p.Action.Headers.Remove != nil || p.Action.Query != nil || p.Action.BasicAuth != nil || p.Action.Rewrite != nil {
 			return fmt.Errorf("native protocol requires action.connection and forbids HTTP filters/actions")
 		}
-		if c.TLS != nil && c.TLS.Mode != "verify-full" {
-			return fmt.Errorf("TLS must verify-full")
+		if c.TLS != nil {
+			if err := m.validateTLS(*c.TLS, used); err != nil {
+				return err
+			}
 		}
 		if c.Host == "" || c.User == "" {
 			return fmt.Errorf("connection host/user required")
@@ -337,6 +339,9 @@ func (m *Manifest) validateProxy(p Proxy, used map[string]bool) error {
 		dest := []string{c.Host}
 		if s, ok := c.Port.(string); ok {
 			dest = append(dest, s)
+		}
+		if c.TLS != nil {
+			dest = append(dest, c.TLS.Mode, c.TLS.CA)
 		}
 		if err := m.publisherRecipient([]string{c.User, c.Password}, dest); err != nil {
 			return err
@@ -715,7 +720,7 @@ func (r HTTPRecipe) Prepare(c Context, caller http.Header) (http.Header, error) 
 type ResolvedDatabase struct {
 	Protocol, Host, Database, User, Password string
 	Port                                     int
-	TLSMode                                  string
+	TLSMode, TLSCA                           string
 }
 
 func (p Proxy) ResolveDatabase(c Context) (ResolvedDatabase, error) {
@@ -742,6 +747,11 @@ func (p Proxy) ResolveDatabase(c Context) (ResolvedDatabase, error) {
 	}
 	if out.Password, e = RenderString(v.Password, c); e != nil {
 		return out, e
+	}
+	if v.TLS != nil {
+		if out.TLSMode, out.TLSCA, e = v.TLS.resolve(c); e != nil {
+			return out, e
+		}
 	}
 	switch p.Match.Protocol {
 	case "postgres":

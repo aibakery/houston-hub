@@ -1,4 +1,4 @@
--- PostgreSQL over Houston's verified-TLS connection. Credentials stay on Houston.
+-- PostgreSQL over Houston's TLS connection in the configured TLS mode. Credentials stay on Houston.
 type Params = {string | number | boolean}
 type Result = {columns: {string}, rows: {{[string]: any}}, truncated: boolean, affectedRows: number?}
 
