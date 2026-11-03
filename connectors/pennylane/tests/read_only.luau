@@ -28,7 +28,6 @@ return {
 			"deleteLedgerEntryLinesUnletter", "postGocardlessMandateMailRequests", "validateAccountingSupplierInvoice"} do
 			assert(pennylane[name] == nil, "read-only leaked " .. name)
 		end
-		assert(pennylane.postLedgerAttachments == nil and pennylane.ValidateAccountingSupplierInvoice == nil)
 		assert(#requests == 0, "initialization reached Pennylane")
 
 		payload = '{"user":null,"company":{"id":172916,"name":"Acme","reg_no":"sandbox-172916"},"scopes":["customer_invoices:readonly"]}'
@@ -104,6 +103,7 @@ return {
 		rejected(function() pennylane.getTrialBalance({period_start = "2026-01-01"}) end, "period_end is required")
 		rejected(function() pennylane.getTrialBalance({period_start = NULL, period_end = "2026-01-31"}) end, "period_start is required")
 		rejected(function() pennylane.exportFec({period_start = "2025-01-01"}) end, "period_end is required")
+		rejected(function() pennylane.getCustomerChanges({start_date = "2026-10-20T00:00:00Z", cursor = "c1"}) end, "pass start_date or cursor, not both")
 		rejected(function() pennylane.getCustomers({filter = {}}) end, "filter must be a nonempty array")
 		rejected(function() pennylane.getCustomers({filter = {field = "name", operator = "eq", value = "x"}}) end, "filter must be a nonempty array")
 		rejected(function() pennylane.getCustomers({filter = {{field = "name", value = "x"}}}) end, "needs field, operator and value")

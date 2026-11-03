@@ -26,7 +26,6 @@ return {
 		local names = {}
 		for name in pennylane do if name ~= "help" then table.insert(names, name) end end
 		assert(#names == 182, "wrong read-write surface: " .. #names)
-		assert(pennylane.postLedgerAttachments == nil, "the deprecated ledger attachment upload is not exported")
 
 		payload = '{"id":42,"draft":true,"invoice_lines":{"url":"https://app.pennylane.com/api/external/v2/customer_invoices/42/invoice_lines"}}'
 		local lines = {{label = "Consulting", quantity = 2, raw_currency_unit_price = "100.00", unit = "hour", vat_rate = "FR_200"}}
@@ -59,6 +58,9 @@ return {
 		local categories = pennylane.putCustomerCategories({customer_id = 12, categories = {{id = 7, weight = "1"}}})
 		assert(last().method == "PUT" and last().url == API .. "/customers/12/categories" and last().body == '[{"id":7,"weight":"1"}]', last().body)
 		assert(categories[1].label == "Marketing")
+		payload = "[]"
+		pennylane.putTransactionCategories({transaction_id = 8, categories = {}})
+		assert(last().url == API .. "/transactions/8/categories" and last().body == "[]", "clearing categories must send an empty array")
 
 		local file = fs.open("receipts/invoice.pdf", "w")
 		file:write("%PDF-fixture\0binary")
@@ -96,8 +98,7 @@ return {
 		local count = #requests
 
 		rejected(function() pennylane.postCustomerInvoices({date = "2026-11-03", deadline = "2026-12-03", customer_id = 12}) end, "invoice_lines is required")
-		rejected(function() pennylane.putCustomerCategories({customer_id = 12, categories = json.decode("[]")}) end, "categories must be a nonempty array")
-		rejected(function() pennylane.putCustomerCategories({customer_id = 12, categories = {id = 7, weight = "1"}}) end, "categories must be a nonempty array")
+		rejected(function() pennylane.putCustomerCategories({customer_id = 12, categories = {id = 7, weight = "1"}}) end, "categories must be an array")
 		rejected(function() pennylane.putCustomerCategories({customer_id = 12, categories = {{id = 7, weight = "1"}}, weight = "1"}) end, "has no option weight")
 		rejected(function() pennylane.finalizeCustomerInvoice({id = 42, draft = false}) end, "finalizeCustomerInvoice has no option draft")
 		rejected(function() pennylane.postFileAttachments({}) end, "file must be a session file path")

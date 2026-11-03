@@ -47,7 +47,9 @@ return {
 		upstream(send, 422, '{"status":422,"error":"Entry lines are not balanced"}', {}, {"HTTP 422", "not balanced"})
 		upstream(read, 429, "Rate limit exceeded. Please retry in 3 seconds.", {["retry-after"] = {"3"}},
 			{"HTTP 429: Rate limit exceeded. Please retry in 3 seconds.", "Retry-After: 3", '"retryable":true'})
-		upstream(send, 500, "<html>Internal error</html>", {}, {"HTTP 500", '"retryable":true'})
+		upstream(send, 500, "<html>Internal error</html>", {}, {"HTTP 500", '"retryable":false'})
+		upstream(read, 502, "<html>Bad gateway</html>", {}, {"HTTP 502", '"retryable":true'})
+		upstream(export, 500, "", {}, {"HTTP 500", '"retryable":true'})
 		upstream(read, 503, '{"status":503,"error":"Service unavailable"}', {}, {"HTTP 503: Service unavailable", '"retryable":true'})
 		upstream(read, 200, "<html>Maintenance</html>", {}, {"invalid JSON"})
 		upstream(send, 200, "<html>Done</html>", {}, {"accepted the request with HTTP 200 but returned invalid JSON", "read it back before repeating", '"retryable":false'})

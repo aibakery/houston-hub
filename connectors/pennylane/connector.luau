@@ -313,9 +313,9 @@ local function clip(text: string, limit: number): string
 	return (string.gsub(string.sub(text, 1, limit), "[\xC0-\xFF][\x80-\xBF]*$", ""))
 end
 
-local function fail(name: string, response: HttpResponse, message: string): never
+local function fail(name: string, endpoint: Endpoint, response: HttpResponse, message: string): never
 	return houston.fail({operation = name, layer = "upstream", upstream_status = response.statusCode,
-		retryable = response.statusCode == 429 or response.statusCode >= 500, message = message})
+		retryable = response.statusCode == 429 or (response.statusCode >= 500 and not writes(endpoint)), message = message})
 end
 
 -- Pennylane errors are {status, error}, or {message, code?, field?, payload?} for invalid
@@ -342,7 +342,7 @@ local function failStatus(name: string, endpoint: Endpoint, response: HttpRespon
 	end
 	local retry = response.headers["retry-after"]
 	if retry and retry[1] then message ..= "; Retry-After: " .. retry[1] end
-	return fail(name, response, message)
+	return fail(name, endpoint, response, message)
 end
 
 -- A session file and the endpoint's other form fields as one multipart body. Everything is
@@ -395,6 +395,7 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 	for _, field in endpoint.required or NONE do
 		assert(args[field] ~= nil and args[field] ~= NULL, field .. " is required")
 	end
+	assert(args.start_date == nil or args.cursor == nil, "pass start_date or cursor, not both")
 	local query: {string} = {}
 	for _, field in endpoint.query or NONE do
 		if args[field] ~= nil then table.insert(query, field .. "=" .. queryValue(args[field], field)) end
@@ -409,8 +410,9 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 		headers["Content-Type"] = {contentType}
 	elseif type(endpoint.body) == "string" then
 		local field = endpoint.body :: string
-		assert(isArray(args[field]) and #args[field] > 0, field .. " must be a nonempty array")
-		body = json.encode(args[field])
+		assert(isArray(args[field]), field .. " must be an array")
+		-- An empty array, which clears the categories, must not encode as an object.
+		body = if #args[field] == 0 then "[]" else json.encode(args[field])
 		args[field] = nil
 	elseif hasBody(endpoint) then
 		body = json.encode(args)
@@ -425,14 +427,14 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 	-- Actions such as sendByEmailCustomerInvoice answer 204 without a body.
 	if string.match(raw, "^%s*$") then
 		if endpoint.method ~= "GET" then return {} end
-		fail(name, response, "Pennylane returned an empty response")
+		fail(name, endpoint, response, "Pennylane returned an empty response")
 	end
 	local ok, value = pcall(json.decode, raw)
 	if ok and (type(value) == "table" or endpoint.method ~= "GET") then return value end
 	if endpoint.method ~= "GET" then
-		fail(name, response, "Pennylane accepted the request with HTTP " .. tostring(response.statusCode) .. " but returned invalid JSON; the change may have been made, so read it back before repeating it")
+		fail(name, endpoint, response, "Pennylane accepted the request with HTTP " .. tostring(response.statusCode) .. " but returned invalid JSON; the change may have been made, so read it back before repeating it")
 	end
-	return fail(name, response, "Pennylane returned invalid JSON")
+	return fail(name, endpoint, response, "Pennylane returned invalid JSON")
 end
 
 local function signature(endpoint: Endpoint): string
@@ -477,13 +479,13 @@ exports.help = function(): string
 	local lines = {
 		"Pennylane Company API v2 for the company that owns the API token. Each function takes one options object with Pennylane's snake_case names: {id} path fields are integer IDs, ? marks optional fields, ...body the other JSON body fields and ...page cursor? and limit?. Results are Pennylane's JSON unchanged; an action Pennylane answers without content returns {}. Connector calls return completed values: use them directly, without await. Functions without a method read with GET. Names are Pennylane's operationIds; each one's reference page is " .. DOCS .. "<name in lowercase> unless another page is noted.",
 		"Paging: lists return {items, has_more, next_cursor}; pass cursor=next_cursor while has_more, re-sending the same filter and sort. limit is 1..100 (default 20), up to 1000 for getLedgerAccounts, getTrialBalance and the get...Changes functions. filter is an array of {field, operator, value} conditions combined with AND, using the fields each function lists; operators are eq, not_eq, lt, lteq, gt, gteq, in and not_in (with an array value) and start_with. sort is one field, '-' first for descending; most lists sort by id, newest first. get...Changes functions list {id, operation, processed_at} events of the last 4 weeks: pass start_date (RFC 3339) or cursor, not both.",
-		"Formats: IDs are integers, amounts strings such as '120.00' (send them as strings), dates 'YYYY-MM-DD'. Linked records come as {id, url} and nested lists such as invoice_lines as {url}; read them with the matching function. public_file_url, file url and export file_url values are signed links valid 30 minutes that need no credentials: anyone holding one can download the file, and this connector does not fetch them.",
+		"Formats: IDs are integers, amounts strings such as '120.00' (send them as strings), dates 'YYYY-MM-DD'. Pass json.decode('[]') for an empty array, because a plain {} is sent as an object. Linked records come as {id, url} and nested lists such as invoice_lines as {url}; read them with the matching function. public_file_url, file url and export file_url values are signed links valid 30 minutes that need no credentials: anyone holding one can download the file, and this connector does not fetch them.",
 		"Examples: pennylane.getCustomerInvoices({filter={{field='date', operator='gteq', value='2026-01-01'}, {field='customer_id', operator='in', value={12, 34}}}, sort='-date', limit=50}); pennylane.getCustomerInvoiceInvoiceLines({customer_invoice_id=42}); pennylane.getTrialBalance({period_start='2026-01-01', period_end='2026-03-31'}); local job = pennylane.exportFec({period_start='2025-01-01', period_end='2025-12-31'}), then pennylane.getFecExport({id=job.id}) until file_url is set.",
 		"Errors report the HTTP status with Pennylane's message, code and field. A 403 names the token scope the call needs; journal and ledger functions also answer 403 for an invalid token, which getMe tells apart. Pennylane allows 25 requests per 5 seconds per token; a 429 includes Retry-After.",
 	}
 	if config.access == "read-write" then
 		table.insert(lines, "Files: postFileAttachments({file='invoice.pdf'}) uploads a session file (PDF, PNG, JPEG, TIFF, BMP or GIF up to 100 MB; filename? and content_type? override its name and type, which otherwise come from the path) and returns its id for file_attachment_id. Appendices and e-invoice imports take file the same way; invoice_options and override_invoice_lines are tables sent as JSON. put...Categories functions take categories={{id=7, weight='1'}} and replace the record's analytical categories.")
-		table.insert(lines, "Writes change the company's accounting: sendByEmail... and mandate requests email customers, sendToPaCustomerInvoice transmits an e-invoice, finalized invoices can no longer be deleted, and webhooks send company data to their callback_url. Pennylane has no idempotency keys, and only Houston retries rate-limited requests, at most twice with a short Retry-After: after a timeout, 5xx or invalid write response, read or list the records before repeating a create.")
+		table.insert(lines, "Writes change the company's accounting: sendByEmail... and mandate requests email customers, sendToPaCustomerInvoice transmits an e-invoice, finalized invoices can no longer be deleted, and webhooks send company data to their callback_url. Pennylane has no idempotency keys, and only Houston retries rate-limited requests, at most twice with a short Retry-After. A 5xx on a write is not retryable: after a timeout, 5xx or invalid write response, read or list the records before repeating a create.")
 	else
 		table.insert(lines, "This connection is read-only: it lists no writes. The export functions only start report files.")
 	end
