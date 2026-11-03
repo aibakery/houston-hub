@@ -12,6 +12,9 @@ func TestDiscordBoundServerRoutes(t *testing.T) {
 	if !m.Auth["oauth"].PublisherClient() {
 		t.Fatal("Discord OAuth client must belong to the publication")
 	}
+	if a := m.Auth["oauth"]; !a.TokenResponse.ScopesUnreported || !a.RefreshResponse.ScopesUnreported {
+		t.Fatal(`Discord answers bot installs with an empty "scope"; the guild check proves the install`)
+	}
 	const api, guild, other = "https://discord.com/api/v10", "290926798626357999", "390926798626357000"
 	read := []string{
 		"GET " + api + "/guilds/" + guild, "GET " + api + "/guilds/" + guild + "?with_counts=true",

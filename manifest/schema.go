@@ -103,6 +103,7 @@ func Schema() ([]byte, error) {
 	props("TokenResponse")["facts"].(map[string]any)["maxProperties"] = MaxFacts
 	props("TokenResponse")["facts"].(map[string]any)["description"] = "Public string values from the initial token response, bound to the connection; method oauth exposes fact team_id as {{auth.oauth.team_id}}."
 	props("TokenResponse")["label"].(map[string]any)["description"] = "Account label from the initial token response, when no account request is declared."
+	props("TokenResponse")["scopes_unreported"].(map[string]any)["description"] = "The provider does not report granted scopes reliably; keep the requested scopes on exchange and the previous ones on refresh. Prove the grant with checks instead."
 
 	props("AuthMethod")["config"].(map[string]any)["minProperties"] = 1
 	// Conditional requirements mirror discriminated unions without adding aliases.

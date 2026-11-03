@@ -1073,6 +1073,10 @@
         },
         "scopes": {
           "type": "string"
+        },
+        "scopes_unreported": {
+          "description": "The provider does not report granted scopes reliably; keep the requested scopes on exchange and the previous ones on refresh. Prove the grant with checks instead.",
+          "type": "boolean"
         }
       },
       "required": [],
