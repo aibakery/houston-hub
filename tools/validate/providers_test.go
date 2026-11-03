@@ -56,6 +56,7 @@ func TestEveryProviderAuthenticationAndTransport(t *testing.T) {
 		"incidentio":  {"GET", "https://api.incident.io/v1/identity"},
 		"cloudflare":  {"GET", "https://api.cloudflare.com/client/v4/accounts"},
 		"revenuecat":  {"GET", "https://api.revenuecat.com/v2/projects"},
+		"pennylane":   {"GET", "https://app.pennylane.com/api/external/v2/me"},
 	}
 	for _, path := range paths {
 		provider := filepath.Base(filepath.Dir(path))

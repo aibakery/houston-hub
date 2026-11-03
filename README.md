@@ -1,6 +1,6 @@
 # Houston Hub
 
-This repository contains fifty-four connector bundles, the authoritative manifest v1
+This repository contains fifty-six connector bundles, the authoritative manifest v1
 contract and configured Luau operations. Registrations in Houston define the live
 catalog; repository files are not published automatically.
 
