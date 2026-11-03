@@ -10,10 +10,15 @@
       "type": "string",
       "label": "Access",
       "default": "read-only",
+      "description": "Read and draft lets agents create, update and delete drafts for you to review and send from Gmail; Houston refuses every send request on that level.",
       "options": [
         {
           "label": "Read-only",
           "value": "read-only"
+        },
+        {
+          "label": "Read and draft",
+          "value": "custom"
         },
         {
           "label": "Read and write",
@@ -49,6 +54,13 @@
           "if": "{{ is config.access \"read-only\" }}",
           "values": [
             "https://www.googleapis.com/auth/gmail.readonly"
+          ]
+        },
+        {
+          "if": "{{ is config.access \"custom\" }}",
+          "values": [
+            "https://www.googleapis.com/auth/gmail.readonly",
+            "https://www.googleapis.com/auth/gmail.compose"
           ]
         },
         {
@@ -216,6 +228,87 @@
     },
     {
       "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "gmail.googleapis.com"
+        ],
+        "method": [
+          "PUT"
+        ],
+        "path": [
+          "/upload/gmail/v1/users/me/drafts/{id}"
+        ]
+      },
+      "action": {
+        "headers": {
+          "remove": [
+            "X-HTTP-Method-Override",
+            "X-HTTP-Method",
+            "X-Method-Override"
+          ],
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"custom\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "gmail.googleapis.com"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/upload/gmail/v1/users/me/drafts"
+        ]
+      },
+      "action": {
+        "headers": {
+          "remove": [
+            "X-HTTP-Method-Override",
+            "X-HTTP-Method",
+            "X-Method-Override"
+          ],
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"custom\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "gmail.googleapis.com"
+        ],
+        "method": [
+          "DELETE"
+        ],
+        "path": [
+          "/gmail/v1/users/me/drafts/{id}"
+        ]
+      },
+      "action": {
+        "headers": {
+          "remove": [
+            "X-HTTP-Method-Override",
+            "X-HTTP-Method",
+            "X-Method-Override"
+          ],
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"custom\" }}",
       "match": {
         "protocol": "http",
         "host": [
