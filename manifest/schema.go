@@ -147,5 +147,7 @@ func Schema() ([]byte, error) {
 		map[string]any{"if": map[string]any{"required": []string{"format"}}, "then": map[string]any{"required": []string{"multiline"}, "properties": map[string]any{"multiline": map[string]any{"const": true}}}},
 	}
 	props("Field")["format"].(map[string]any)["description"] = "json requires valid JSON and pem one or more PEM certificates; the string value is preserved and connectors validate its meaning."
+	props("TLS")["mode"] = map[string]any{"type": "string", "anyOf": []any{map[string]any{"enum": TLSModes}, map[string]any{"pattern": `^\{\{.+\}\}$`}}, "description": "A TLS mode, or one reference to a config or publisher field whose options are TLS modes."}
+	props("TLS")["ca"].(map[string]any)["description"] = "PEM certificates that replace the trusted authorities, or one reference to a pem-formatted config or publisher field."
 	return json.MarshalIndent(map[string]any{"$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "https://ok-houston.com/schemas/connector-manifest-v1.json", "title": "Houston connector manifest v1", "$ref": "#/$defs/Manifest", "$defs": defs}, "", "  ")
 }

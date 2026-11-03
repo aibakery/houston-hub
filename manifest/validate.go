@@ -42,16 +42,16 @@ func ValidateValue(f Field, v any) error {
 		if f.Format == "json" && !json.Valid([]byte(s)) {
 			return fmt.Errorf("must contain valid JSON")
 		}
-		if f.Format == "pem" && s != "" {
-			if _, err := ParseCertificates(s); err != nil {
-				return err
-			}
-		}
 		if f.MinLength != nil && n < *f.MinLength {
 			return fmt.Errorf("value shorter than min_length")
 		}
 		if f.MaxLength != nil && n > *f.MaxLength {
 			return fmt.Errorf("value longer than max_length")
+		}
+		if f.Format == "pem" && s != "" {
+			if _, err := ParseCertificates(s); err != nil {
+				return err
+			}
 		}
 		if len(f.Options) > 0 {
 			found := false

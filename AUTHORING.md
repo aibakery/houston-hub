@@ -447,9 +447,10 @@ checks the certificate chain and host name; `verify-ca` checks only the chain
 and needs `tls.ca`; `require` encrypts without checking the certificate. With an
 IP address as the host, `verify-full` matches only an IP subject alternative
 name. `tls.ca` holds PEM certificates that replace the public authorities. To
-let a connection choose, reference a string config field whose options are those
-modes, and an optional multiline field with `"format": "pem"`, which the form
-validates; see the [PostgreSQL manifest](connectors/postgres/houston.json).
+let a connection choose, reference a string config field that is required or has
+a default, has no `if`, and offers only those modes, and an optional multiline
+field with `"format": "pem"`, which the form validates. A mode that can be
+`verify-ca` needs `tls.ca`; see the [PostgreSQL manifest](connectors/postgres/houston.json).
 
 `http.request({url, method, headers?, body?, timeoutMs?})` returns an operation
 whose result has `statusCode`, `headers`, and a body Reader. All headers use

@@ -1007,9 +1007,23 @@
       "additionalProperties": false,
       "properties": {
         "ca": {
+          "description": "PEM certificates that replace the trusted authorities, or one reference to a pem-formatted config or publisher field.",
           "type": "string"
         },
         "mode": {
+          "anyOf": [
+            {
+              "enum": [
+                "verify-full",
+                "verify-ca",
+                "require"
+              ]
+            },
+            {
+              "pattern": "^\\{\\{.+\\}\\}$"
+            }
+          ],
+          "description": "A TLS mode, or one reference to a config or publisher field whose options are TLS modes.",
           "type": "string"
         }
       },

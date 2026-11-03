@@ -77,6 +77,11 @@ func TestDatabaseTLSSettingsValidate(t *testing.T) {
 	if _, err := Parse(tlsManifest(`{"mode":"verify-ca","ca":`+string(ca)+`}`, "")); err != nil {
 		t.Fatalf("literal CA rejected: %v", err)
 	}
+	publisher := `{"schema_version":1,"name":"Postgres","files":["connector.luau"],"publisher":{"password":{"type":"secret","label":"Password","required":true}},"config":{"tls_mode":{"type":"string","label":"TLS mode","default":"verify-full","options":[{"value":"verify-full","label":"Full"},{"value":"require","label":"Require"}]}},
+		"proxy":[{"match":{"protocol":"postgres"},"action":{"connection":{"host":"db.vendor.example.com","database":"app","user":"reader","password":"{{publisher.password}}","tls":{"mode":"{{config.tls_mode}}"}}}}]}`
+	if _, err := Parse([]byte(publisher)); err == nil || !strings.Contains(err.Error(), "publisher-controlled recipient") {
+		t.Fatalf("a connection chose how to check the server receiving a publisher password: %v", err)
+	}
 	for _, c := range [][2]string{
 		{`{"mode":"disable"}`, ""},
 		{`{"mode":"verify-full","ca":"-----BEGIN CERTIFICATE-----"}`, ""},
@@ -85,6 +90,10 @@ func TestDatabaseTLSSettingsValidate(t *testing.T) {
 		{`{"mode":"verify-{{config.mode}}"}`, `,"mode":{"type":"string","label":"Mode","options":[{"value":"full","label":"Full"}]}`},
 		{`{"mode":"verify-full","ca":"{{config.ca}}"}`, `,"ca":{"type":"string","label":"CA","multiline":true}`},
 		{`{"mode":"verify-full","ca":"{{config.ca}}"}`, `,"ca":{"type":"secret","label":"CA"}`},
+		{`{"mode":"verify-ca"}`, ""},
+		{`{"mode":"{{config.tls_mode}}"}`, tlsFields},
+		{`{"mode":"{{config.mode}}"}`, `,"mode":{"type":"string","label":"Mode","options":[{"value":"require","label":"Require"}]}`},
+		{`{"mode":"{{config.mode}}"}`, `,"mode":{"type":"string","label":"Mode","default":"require","if":"{{ isDefined config.host }}","options":[{"value":"require","label":"Require"}]}`},
 	} {
 		if _, err := Parse(tlsManifest(c[0], c[1])); err == nil {
 			t.Fatalf("accepted TLS %s with fields %s", c[0], c[1])
@@ -104,7 +113,8 @@ func TestParseCertificates(t *testing.T) {
 		ca[:len(ca)-30]:        "must be PEM certificates", // Truncated before its END line.
 		ca + "garbage":         "must be PEM certificates",
 		ca + key:               "contains a PRIVATE KEY",
-		"-----BEGIN CERTIFICATE-----\nAAAA\n-----END CERTIFICATE-----\n": "certificate 1 is not a valid X.509 certificate",
+		strings.Replace(key, "-----END PRIVATE KEY-----", "-----END RSA PRIVATE KEY-----", 1) + ca: "must be PEM certificates",
+		"-----BEGIN CERTIFICATE-----\nAAAA\n-----END CERTIFICATE-----\n":                           "certificate 1 is not a valid X.509 certificate",
 	} {
 		if _, err := ParseCertificates(input); err == nil || !strings.Contains(err.Error(), want) {
 			t.Fatalf("%q: want %q, got %v", input, want, err)

@@ -54,9 +54,12 @@ without sensitive data.
 
 - **"The server's TLS certificate is not trusted".** The certificate comes from an
   authority Houston doesn't trust, or not from the one in **CA certificate**.
-  Paste the right certificate into **CA certificate**.
+  Paste the right certificate into **CA certificate**. If the server uses a public
+  authority, configure it to send its intermediate certificates too.
 - **"The server's TLS certificate is not valid for" your host.** Enter a host name
-  the error lists, or choose **Verify certificate only**.
+  the error lists. Otherwise choose **Verify certificate only** and paste the
+  certificate of the authority that issued the server's certificate into **CA
+  certificate**.
 - **"Does not accept TLS connections".** Turn on TLS on the server (`ssl = on` in
   `postgresql.conf`), and check that the port is PostgreSQL's.
 - **"Could not connect".** Check the host and port, and that the server and its

@@ -340,6 +340,9 @@ func (m *Manifest) validateProxy(p Proxy, used map[string]bool) error {
 		if s, ok := c.Port.(string); ok {
 			dest = append(dest, s)
 		}
+		if c.TLS != nil {
+			dest = append(dest, c.TLS.Mode, c.TLS.CA)
+		}
 		if err := m.publisherRecipient([]string{c.User, c.Password}, dest); err != nil {
 			return err
 		}

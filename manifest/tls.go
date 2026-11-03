@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 )
 
 // TLSModes are the database TLS modes, strictest first. verify-full checks the
@@ -15,7 +16,8 @@ import (
 var TLSModes = []string{"verify-full", "verify-ca", "require"}
 
 // ParseCertificates reads one or more PEM certificates and nothing else, so a
-// pasted private key or a truncated certificate is rejected.
+// pasted private key, malformed block or truncated certificate is rejected.
+// Plain text outside blocks, such as openssl's subject lines, is ignored.
 func ParseCertificates(text string) ([]*x509.Certificate, error) {
 	var certificates []*x509.Certificate
 	rest := []byte(text)
@@ -34,25 +36,35 @@ func ParseCertificates(text string) ([]*x509.Certificate, error) {
 		certificates = append(certificates, certificate)
 		rest = next
 	}
-	if len(certificates) == 0 || len(bytes.TrimSpace(rest)) != 0 {
+	if len(certificates) == 0 || len(bytes.TrimSpace(rest)) != 0 || strings.Count(text, "-----BEGIN") != len(certificates) {
 		return nil, fmt.Errorf("must be PEM certificates, each from -----BEGIN CERTIFICATE----- to -----END CERTIFICATE-----")
 	}
 	return certificates, nil
 }
 
 // validateTLS accepts literals, or one whole reference to a nonsecret setting
-// the form validates: a choice among TLSModes and a pem-formatted CA.
+// the form validates: an always-set choice among TLSModes and a pem-formatted
+// CA. A mode that can be verify-ca must come with a CA.
 func (m *Manifest) validateTLS(t TLS, used map[string]bool) error {
+	modes := []string{t.Mode}
 	if templated(t.Mode) {
 		f, err := m.tlsSetting(t.Mode, used)
 		if err != nil {
 			return err
 		}
-		if f.Type != "string" || len(f.Options) == 0 || slices.ContainsFunc(f.Options, func(o Option) bool { return !slices.Contains(TLSModes, o.Value) }) {
-			return fmt.Errorf("a TLS mode reference requires a string field whose options are TLS modes")
+		if f.Type != "string" || f.If != "" || !f.Required && f.Default == nil || len(f.Options) == 0 {
+			return fmt.Errorf("a TLS mode reference requires an unconditional string field with options and a value")
 		}
-	} else if !slices.Contains(TLSModes, t.Mode) {
+		modes = modes[:0]
+		for _, o := range f.Options {
+			modes = append(modes, o.Value)
+		}
+	}
+	if slices.ContainsFunc(modes, func(mode string) bool { return !slices.Contains(TLSModes, mode) }) {
 		return fmt.Errorf("TLS mode must be verify-full, verify-ca or require")
+	}
+	if slices.Contains(modes, "verify-ca") && t.CA == "" {
+		return fmt.Errorf("TLS mode verify-ca requires a TLS CA")
 	}
 	if templated(t.CA) {
 		f, err := m.tlsSetting(t.CA, used)
@@ -75,8 +87,8 @@ func (m *Manifest) tlsSetting(value string, used map[string]bool) (Field, error)
 	if err != nil {
 		return Field{}, err
 	}
-	if len(parts) != 1 || len(parts[0].refs) != 1 {
-		return Field{}, fmt.Errorf("a TLS setting must be a literal or one whole-value reference")
+	if len(parts) != 1 || len(parts[0].refs) != 1 || strings.HasPrefix(parts[0].refs[0], "auth.") {
+		return Field{}, fmt.Errorf("a TLS setting must be a literal or one whole reference to a config or publisher field")
 	}
 	if err := m.template(value, "destination", used); err != nil {
 		return Field{}, err
