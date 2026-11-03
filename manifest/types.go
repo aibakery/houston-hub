@@ -353,7 +353,7 @@ func ResponseDefaults(r TokenResponse) TokenResponse {
 	if r.ExpiresIn == "" {
 		r.ExpiresIn = "/expires_in"
 	}
-	if r.Scopes == "" {
+	if r.Scopes == "" && !r.ScopesUnreported {
 		r.Scopes = "/scope"
 	}
 	return r

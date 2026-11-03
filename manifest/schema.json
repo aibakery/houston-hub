@@ -1075,7 +1075,7 @@
           "type": "string"
         },
         "scopes_unreported": {
-          "description": "The provider does not report granted scopes reliably; keep the requested scopes on exchange and the previous ones on refresh. Prove the grant with checks instead.",
+          "description": "token_response only: the provider reports granted scopes unreliably, so Houston keeps the requested scopes on the exchange and the previous ones on refresh. Requires checks that prove the grant; forbids scopes.",
           "type": "boolean"
         }
       },

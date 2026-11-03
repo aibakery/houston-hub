@@ -40,8 +40,8 @@ func TestOAuthFactsValidation(t *testing.T) {
 		{`"team_id":"/team/id"`, `"team_id":"/access_token"`, "pointers outside credentials"},
 		{`"label":"/team/name"`, `"label":"/refresh_token/x"`, "pointers outside credentials"},
 		{`"label":"/team/name"`, `"label":""`, "empty token selector"},
-		{`"pkce":"none",`, `"pkce":"none","refresh_response":{"facts":{"team_id":"/team/id"}},`, "refresh_response forbids facts and label"},
-		{`"pkce":"none",`, `"pkce":"none","refresh_response":{"label":"/team/name"},`, "refresh_response forbids facts and label"},
+		{`"pkce":"none",`, `"pkce":"none","refresh_response":{"facts":{"team_id":"/team/id"}},`, "refresh_response forbids facts, label"},
+		{`"pkce":"none",`, `"pkce":"none","refresh_response":{"label":"/team/name"},`, "refresh_response forbids facts, label"},
 		{`"pkce":"none",`, `"pkce":"none","account":{"url":"https://example.com/me","label":"/name"},`, "token_response.label conflicts with account"},
 		{`"pkce":"none",`, `"pkce":"none","authorize_params":{"team":"{{auth.oauth.team_id}}"},`, "browser parameters require public publisher/config values"},
 		{`"host":["api.example.com"],"method":["GET"]`, `"host":["{{auth.oauth.team_id}}"],"method":["GET"]`, "host requires a required, unconditional string setting"},
@@ -51,6 +51,9 @@ func TestOAuthFactsValidation(t *testing.T) {
 		{`"/channels/{channel}"`, `"/channels/{{auth.oauth.access_token}}"`, "exactly one declared OAuth fact reference"},
 		{`"/channels/{channel}"`, `"/channels/{{auth.oauth.other}}"`, "exactly one declared OAuth fact reference"},
 		{`"/channels/{channel}"`, `"/channels/{{auth.oauth.team_id || auth.oauth.team_name}}"`, "exactly one declared OAuth fact reference"},
+		{`"pkce":"none",`, `"pkce":"none","refresh_response":{"scopes_unreported":true},`, "refresh_response forbids facts, label and scopes_unreported"},
+		{`"token_response":{"checks":[{"op":"exists","path":"/team/id"}],`, `"token_response":{"scopes_unreported":true,`, "scopes_unreported requires checks"},
+		{`"label":"/team/name"}`, `"label":"/team/name","scopes":"/scope","scopes_unreported":true}`, "token scopes conflict with scopes_unreported"},
 	} {
 		raw := strings.Replace(factsManifest, tc.old, tc.new, 1)
 		if raw == factsManifest {
@@ -63,6 +66,10 @@ func TestOAuthFactsValidation(t *testing.T) {
 	facts := strings.Replace(factsManifest, `"facts":{"team_id":"/team/id","team_name":"/team/name"}`, `"facts":`+string(tooMany), 1)
 	if _, err := Parse([]byte(facts)); err == nil || !strings.Contains(err.Error(), "at most 16 facts") {
 		t.Errorf("accepted more than %d facts: %v", MaxFacts, err)
+	}
+	unreported := strings.Replace(factsManifest, `"label":"/team/name"}`, `"label":"/team/name","scopes_unreported":true}`, 1)
+	if m, err := Parse([]byte(unreported)); err != nil || !m.Auth["oauth"].TokenResponse.ScopesUnreported || m.Auth["oauth"].TokenResponse.Scopes != "" {
+		t.Errorf("checked install with unreported scopes: %v", err)
 	}
 	templatedHost := strings.Replace(factsManifest, `"host":["api.example.com"],"method":["GET"]`, `"host":["{{config.host}}"],"method":["GET"]`, 1)
 	templatedHost = strings.Replace(templatedHost, `"Authorization":"Bot {{publisher.bot}}","X-Team"`, `"X-Team"`, 1)

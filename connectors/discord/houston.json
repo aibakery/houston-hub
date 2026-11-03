@@ -60,9 +60,6 @@
         },
         "label": "/guild/name",
         "scopes_unreported": true
-      },
-      "refresh_response": {
-        "scopes_unreported": true
       }
     }
   },

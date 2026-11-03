@@ -252,10 +252,10 @@ identifiers only and keep display names in `label`. Fixtures set
 Houston rejects a token whose response reports granted scopes that lack a
 requested one. A provider that reports scopes unreliably, such as Discord, which
 answers a `bot` install with an empty `scope`, sets `"scopes_unreported": true`
-in `token_response`, and in `refresh_response` if its refreshes do the same.
-Houston then keeps the requested scopes on the exchange and the previous ones on
-refresh. Use it only when `checks` prove the grant some other way, for Discord
-`{"op": "exists", "path": "/guild/id"}`.
+in `token_response`. Houston then keeps the requested scopes on the exchange and
+the previous ones on every refresh. The flag requires `checks` that prove the
+grant another way (for Discord, `{"op": "exists", "path": "/guild/id"}`), and it
+cannot be combined with `scopes` or set in `refresh_response`.
 
 Houston restricts effective config using current caller grants; Luau selects the
 exports from that config. Discovery is recomputed from the
