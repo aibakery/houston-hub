@@ -61,7 +61,7 @@ func Schema() ([]byte, error) {
 	enum := func(n, k string, values ...string) { p := props(n)[k].(map[string]any); p["enum"] = values }
 	enum("Field", "type", "string", "boolean", "integer", "number", "secret")
 	enum("Field", "display", "plain", "masked")
-	enum("Field", "format", "json")
+	enum("Field", "format", formats...)
 	enum("AuthMethod", "type", "manual", "oauth2")
 	enum("AuthMethod", "client_auth", "basic", "body", "none")
 	enum("AuthMethod", "token_encoding", "form", "json")
@@ -71,7 +71,6 @@ func Schema() ([]byte, error) {
 	enum("OAuthShared", "method", "GET", "POST")
 	enum("ResponseCheck", "op", "exists", "equals")
 	enum("ProxyMatch", "protocol", "http", "postgres", "mysql", "clickhouse", "redis", "imap")
-	enum("TLS", "mode", "verify-full")
 	enum("Manifest", "icon", "icon.svg", "icon.png")
 	props("ProxyMatch")["opaque_path_parameters"].(map[string]any)["minItems"] = 1
 	props("ProxyMatch")["opaque_path_parameters"].(map[string]any)["uniqueItems"] = true
@@ -147,6 +146,6 @@ func Schema() ([]byte, error) {
 		map[string]any{"if": map[string]any{"required": []string{"multiline"}}, "then": map[string]any{"properties": map[string]any{"type": map[string]any{"const": "string"}, "options": false, "display": map[string]any{"const": "plain"}}}},
 		map[string]any{"if": map[string]any{"required": []string{"format"}}, "then": map[string]any{"required": []string{"multiline"}, "properties": map[string]any{"multiline": map[string]any{"const": true}}}},
 	}
-	props("Field")["format"].(map[string]any)["description"] = "Syntax highlighting only; the string value is preserved and connectors validate its meaning."
+	props("Field")["format"].(map[string]any)["description"] = "json requires valid JSON and pem one or more PEM certificates; the string value is preserved and connectors validate its meaning."
 	return json.MarshalIndent(map[string]any{"$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "https://ok-houston.com/schemas/connector-manifest-v1.json", "title": "Houston connector manifest v1", "$ref": "#/$defs/Manifest", "$defs": defs}, "", "  ")
 }

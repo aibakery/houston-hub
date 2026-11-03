@@ -53,6 +53,37 @@
       "order": 6,
       "required": true,
       "type": "secret"
+    },
+    "tls_mode": {
+      "default": "verify-full",
+      "description": "How Houston checks who the server is. Every mode encrypts the connection. Use the recommended mode for production data.",
+      "label": "TLS mode",
+      "options": [
+        {
+          "label": "Verify certificate and host name (recommended)",
+          "value": "verify-full"
+        },
+        {
+          "label": "Verify certificate only: doesn't check the host name",
+          "value": "verify-ca"
+        },
+        {
+          "label": "Encrypted, but doesn't check who the server is",
+          "value": "require"
+        }
+      ],
+      "order": 7,
+      "type": "string"
+    },
+    "ca_certificate": {
+      "description": "The PEM certificate of the authority that signed your server's certificate, or the server's own self-signed certificate. Required with “Verify certificate only”. With the recommended mode, Houston then trusts only this authority instead of public ones.",
+      "format": "pem",
+      "label": "CA certificate",
+      "max_length": 65536,
+      "multiline": true,
+      "order": 8,
+      "placeholder": "-----BEGIN CERTIFICATE-----",
+      "type": "string"
     }
   },
   "proxy": [
@@ -68,7 +99,8 @@
           "user": "{{config.username}}",
           "password": "{{config.password}}",
           "tls": {
-            "mode": "verify-full"
+            "mode": "{{config.tls_mode}}",
+            "ca": "{{config.ca_certificate}}"
           }
         }
       }

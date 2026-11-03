@@ -2,6 +2,7 @@ package manifest
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"math/big"
@@ -13,6 +14,7 @@ import (
 var nameRE = regexp.MustCompile(`^[a-z][a-z0-9_]{0,63}$`)
 var scalarRefRE = regexp.MustCompile(`^(config|publisher)\.[a-z][a-z0-9_]{0,63}$|^auth\.[a-z][a-z0-9_]{0,63}\.[a-z][a-z0-9_]{0,63}$`)
 var methodRefRE = regexp.MustCompile(`^auth\.[a-z][a-z0-9_]{0,63}$`)
+var errUnresolved = errors.New("unresolved template reference")
 
 // Context is a private server-only reference snapshot. Auth leaves resolve only
 // for SelectedAuth even when other stored method inputs are present in Auth.
@@ -112,7 +114,7 @@ func renderPart(p segment, c Context) (any, error) {
 			return v, nil
 		}
 	}
-	return nil, fmt.Errorf("unresolved template reference")
+	return nil, errUnresolved
 }
 
 // Render preserves the native scalar type for a single whole-value expression.

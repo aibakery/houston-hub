@@ -206,3 +206,23 @@ func TestConfiguredLuaHelpIsOfflineAndMatchesExports(t *testing.T) {
 		t.Fatal("network help accepted")
 	}
 }
+
+func TestFixturesResolveDatabaseConnectionsAndExpectedSettingsErrors(t *testing.T) {
+	m, err := manifest.Parse([]byte(`{"schema_version":1,"name":"Database","files":["main.lua"],"config":{"port":{"type":"integer","label":"Port","default":5432},"password":{"type":"secret","label":"Password","required":true}},"proxy":[{"match":{"protocol":"postgres"},"action":{"connection":{"host":"db.example.com","port":"{{config.port}}","database":"app","user":"reader","password":"{{config.password}}"}}}]}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	modules := map[string]string{"main.lua": `return {help=function() return "ping() returns pong" end,ping=function() return "pong" end}`}
+	binary := fixtureHost(t)
+	valid := `return {scenario={config={password="synthetic"}},run=function(c) assert(c.ping()=="pong") end}`
+	for fixture, want := range map[string]string{
+		`return {scenario={config={password="synthetic",port=70000},settings_error="invalid resolved port"}}`: "",
+		`return {scenario={config={password="synthetic",port=70000},settings_error="another error"}}`:         `want an error containing "another error"`,
+		`return {scenario={config={password="synthetic"},settings_error="invalid resolved port"}}`:            "got <nil>",
+	} {
+		err := Check(context.Background(), binary, *m, modules, map[string]string{"valid.lua": valid, "settings.lua": fixture})
+		if want == "" && err != nil || want != "" && (err == nil || !strings.Contains(err.Error(), want)) {
+			t.Fatalf("%s: want %q, got %v", fixture, want, err)
+		}
+	}
+}

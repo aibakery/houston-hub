@@ -19,6 +19,9 @@ const MaxInteger = 9007199254740991
 // Brands are the providers whose official branding an OAuth connect button can show.
 var Brands = []string{"google", "microsoft", "dropbox", "slack", "notion", "github", "linear", "figma", "discord"}
 
+// formats are the string field formats whose values the server validates.
+var formats = []string{"json", "pem"}
+
 func ValidateValue(f Field, v any) error {
 	if v == nil {
 		if f.Required {
@@ -38,6 +41,11 @@ func ValidateValue(f Field, v any) error {
 		}
 		if f.Format == "json" && !json.Valid([]byte(s)) {
 			return fmt.Errorf("must contain valid JSON")
+		}
+		if f.Format == "pem" && s != "" {
+			if _, err := ParseCertificates(s); err != nil {
+				return err
+			}
 		}
 		if f.MinLength != nil && n < *f.MinLength {
 			return fmt.Errorf("value shorter than min_length")
@@ -100,8 +108,8 @@ func validateField(f Field) error {
 	if f.Multiline && (f.Type != "string" || f.Display == "masked" || len(f.Options) > 0) {
 		return fmt.Errorf("multiline requires an unmasked string without options")
 	}
-	if f.Format != "" && (f.Format != "json" || !f.Multiline) {
-		return fmt.Errorf("format must be json and requires multiline")
+	if f.Format != "" && (!slices.Contains(formats, f.Format) || !f.Multiline) {
+		return fmt.Errorf("format must be json or pem and requires multiline")
 	}
 	if f.Options != nil {
 		if f.Type != "string" || len(f.Options) == 0 {
@@ -678,8 +686,8 @@ func checkPresence(data []byte) error {
 					return fmt.Errorf("multiline forbidden with options")
 				}
 			}
-			if value, ok := f["format"]; ok && (value != "json" || f["multiline"] != true) {
-				return fmt.Errorf("format must be json and requires multiline")
+			if value, ok := f["format"]; ok && (!slices.Contains(formats, fmt.Sprint(value)) || f["multiline"] != true) {
+				return fmt.Errorf("format must be json or pem and requires multiline")
 			}
 			for _, k := range []string{"placeholder", "min_length", "max_length"} {
 				if _, ok := f[k]; ok && t != "string" && t != "secret" {

@@ -25,6 +25,7 @@ type Scenario struct {
 	GrantedScopes []string          `json:"granted_scopes"`
 	Facts         map[string]string `json:"facts"`
 	CallerAccess  string            `json:"caller_access"`
+	SettingsError string            `json:"settings_error"`
 }
 type metadata struct {
 	Scenario Scenario       `json:"scenario"`
@@ -114,6 +115,15 @@ func Check(ctx context.Context, binary string, m manifest.Manifest, modules, fix
 			}
 		}
 		resolved, err := m.Resolve(scenario.Publisher, scenario.Config, scenario.AuthConfig, scenario.AuthMethod)
+		if err == nil && m.Proxy[resolved.ProxyIndices[0]].Action.Connection != nil {
+			_, err = m.Proxy[resolved.ProxyIndices[0]].ResolveDatabase(resolved.Context)
+		}
+		if scenario.SettingsError != "" {
+			if err == nil || !strings.Contains(err.Error(), scenario.SettingsError) {
+				return fmt.Errorf("fixture %s settings: want an error containing %q, got %v", name, scenario.SettingsError, err)
+			}
+			continue
+		}
 		if err != nil {
 			return fmt.Errorf("fixture %s settings: %w", name, err)
 		}
