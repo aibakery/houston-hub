@@ -302,7 +302,7 @@ exports.help = function(): string
 		"Wise Platform API (legacy v1-v4 paths) on " .. config.api_host .. ". Call functions directly, e.g. wise.listProfiles(); do not await connector calls. Each takes one options object with Wise's native names: {placeholders} in the route are required, query options are listed per function, and remaining options of POST/PATCH calls form the JSON body unchanged. Results are Wise's JSON unchanged (some are arrays). Reference: https://docs.wise.com/api-reference .",
 		"Start with listProfiles() and pick the PERSONAL or BUSINESS profile id. Ids for profiles, balances, transfers and recipients are integers; quote and batch group ids are UUID strings. Amounts are decimal major units (12.5 = 12.50), not cents. Dates are ISO-8601, e.g. '2026-10-01T00:00:00Z'.",
 		"Paging: listActivities returns cursor, passed back as nextCursor until null (size 1..100); listTransfers uses limit and offset; listRecipients uses size 1..20 and seekPositionForNext -> seekPosition. Other lists are unpaginated. No automatic paging or retries.",
-		"Downloads stream to a session file and return {path,url,size}; url is Houston's signed link. A download that fails while streaming can leave a partial file.",
+		"Downloads stream to a session file and return {path,url,size}; url is Houston's signed link. A download that fails while streaming leaves the path as it was.",
 		"Personal API tokens: Wise documents them for business accounts, and a token created as read only rejects writes. Balance statements (and, with write access, funding): " .. SCA .. " Card details, webhooks, profile/KYC changes and recipient deletion are not available here.",
 	}
 	if config.access == "read-write" then

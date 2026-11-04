@@ -598,7 +598,7 @@ Preprints whose journal article was recorded from from to to: `{collection, tota
 
 ## downloadPdf({server, doi, version, session_path})
 
-Saves the PDF of one version (an integer, or listPreprints' version string) to the session file session_path and returns `{session_path, url, size, pdf_url}`: url is a signed link to the saved file, pdf_url the PDF's address on the server's website. The website is behind Cloudflare, which limits and blocks automated downloads: HTTP 429 fails as retryable with the wait it asks (often one or two minutes), and HTTP 403, which medRxiv answers to automated PDF downloads, fails as not retryable. Either way, give people pdf_url to open in a browser. A refused download leaves session_path unchanged; one that breaks while the PDF streams can leave a partial file there.
+Saves the PDF of one version (an integer, or listPreprints' version string) to the session file session_path and returns `{session_path, url, size, pdf_url}`: url is a signed link to the saved file, pdf_url the PDF's address on the server's website. The website is behind Cloudflare, which limits and blocks automated downloads: HTTP 429 fails as retryable with the wait it asks (often one or two minutes), and HTTP 403, which medRxiv answers to automated PDF downloads, fails as not retryable. Either way, give people pdf_url to open in a browser. A refused download, or one that breaks while the PDF streams, leaves session_path unchanged.
 
 ## Errors and limits
 

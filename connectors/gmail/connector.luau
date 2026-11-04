@@ -355,10 +355,12 @@ local function getAttachment(input: any): Options
 		end
 	end
 	response.body:close()
-	await(output:close())
 	if not finished then
+		output:cancel()
+		pcall(function() await(output:close()) end)
 		houston.fail({operation = "getAttachment", layer = "upstream", upstream_status = response.statusCode, retryable = false, message = "Google returned no attachment data"})
 	end
+	await(output:close())
 	return {path = path, url = await(fs.signedGetUrl(path)), size = await(fs.stat(path)).size}
 end
 

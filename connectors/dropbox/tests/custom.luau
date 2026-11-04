@@ -155,7 +155,7 @@ return {
 		assert(c.export({path = "/Reports/report.txt", session_path = "report.md"}).size == 4)
 		responses = {{headers = {["dropbox-api-result"] = {'{".tag":"file","path_lower":"/outside/secret.txt","name":"secret.txt"}'}}, body = "MUST NOT ESCAPE"}}
 		reject(c.download, {path = "/Reports/report.txt", session_path = "refused.txt"})
-		assert(await(fs.stat("refused.txt")).size == 0, "Unauthorized bytes escaped to the session filesystem")
+		assert(not await(fs.exists("refused.txt")), "Unauthorized bytes escaped to the session filesystem")
 		assert(#responses == 0)
 	end,
 }

@@ -330,7 +330,7 @@ local function save(name: string, rendered: any, folder: string, format: string)
 	if not written then
 		for _, close in closes do pcall(function() await(close, CLEANUP_WAIT) end) end
 		closeAll(downloads)
-		return failRender(name, 0, true, "Saving the renders in " .. string.sub(folder, 1, 200) .. " failed; some files there may be partial")
+		return failRender(name, 0, true, "Saving the renders in " .. string.sub(folder, 1, 200) .. " failed; some renders were not saved")
 	end
 	local stats, links = {}, {}
 	for index in ids do

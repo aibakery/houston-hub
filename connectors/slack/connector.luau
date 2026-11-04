@@ -344,7 +344,7 @@ A message's Slack URL.]],
 	getFile = [[getFile(id) -> file
 File metadata (files.info): name, mimetype, size, url_private...]],
 	downloadFile = [[downloadFile(id, path) -> {path, url, bytes}
-Streams a Slack file into a session path; url is a Houston signed download URL. Never inline file contents. A download that fails while streaming can leave a partial file at path. External files (is_external) are not stored in Slack and cannot be downloaded.]],
+Streams a Slack file into a session path; url is a Houston signed download URL. Never inline file contents. A download that fails while streaming leaves path as it was. External files (is_external) are not stored in Slack and cannot be downloaded.]],
 	postMessage = [[postMessage(channel, text, opts?) -> {channel, ts, message}
 Posts as you; channel is a channel or DM ID. opts: thread_ts, blocks, attachments, unfurl_links, unfurl_media, reply_broadcast, mrkdwn, parse, link_names, metadata, client_msg_id. Never retry automatically: after an error the message may already be posted, so check with listMessages first.]],
 	reply = [[reply(channel, ts, text, opts?) -> {channel, ts, message}
