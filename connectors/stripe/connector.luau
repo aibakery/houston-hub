@@ -242,7 +242,7 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 	end)
 	if not ok then
 		if endpoint.kind == "upload" then pcall(function() body:close() end) end
-		if output then pcall(function() await(output:close()) end) end
+		if output then output:cancel(); pcall(function() await(output:close()) end) end
 		error(result)
 	end
 	return result
@@ -261,7 +261,7 @@ exports.help = function(): string
 		"Nested values use Stripe form encoding: {created={gte=1700000000},expand={'data.customer'}}. Empty string clears supported fields; empty tables encode as empty values. JSON null is rejected in requests. Stripe validates resource-specific parameter types and constraints. Amounts use the currency's smallest unit (usually cents); zero-decimal currencies differ.",
 		"Writes appear only with read-write access. Read-only results remove fields named client_secret, confirmation_secret, client_token and secret at every depth, including events, expansions and metadata, because these can authorize payment or setup. Other fields and all read-write results retain native values. Hosted payment links and personal financial data remain sensitive. A restricted API key must also grant the relevant resource permission. Keys select sandbox/test versus live mode. This connector acts on the key's own account; no per-request Stripe-Account override or Connect account administration.",
 		"For POSTs, supply idempotency_key (at most 255 characters) and keep it with the intended request. Reuse only for an identical retry; Stripe can prune keys after 24 hours. Payments, refunds, payouts, subscription changes and invoice actions can move money or send email. After timeouts or ambiguous writes inspect Stripe before retrying; errors report HTTP status, request-id, retry-after and Stripe retry hints when supplied.",
-		"uploadFile({path='evidence.pdf',purpose='dispute_evidence',content_type='application/pdf'}) streams a session file as multipart. Stripe applies purpose-specific size and file-type limits. downloadFile({file_id='file_...',path='download.pdf'}) streams available contents and returns {path,url,size}, with a signed Houston URL; failures may leave partial files. getFile exposes availability. Invoice PDF links are returned unchanged, not fetched through arbitrary hosts.",
+		"uploadFile({path='evidence.pdf',purpose='dispute_evidence',content_type='application/pdf'}) streams a session file as multipart. Stripe applies purpose-specific size and file-type limits. downloadFile({file_id='file_...',path='download.pdf'}) streams available contents and returns {path,url,size}, with a signed Houston URL; a failed download leaves the path as it was. getFile exposes availability. Invoice PDF links are returned unchanged, not fetched through arbitrary hosts.",
 		"Atlas incorporation, equity, tax and company documents are not in this public Stripe API connector. No supported public Atlas API was found; partner-only integrations need separate access and documentation. Use the Atlas dashboard for these workflows.",
 	}
 	local names: {string} = {}

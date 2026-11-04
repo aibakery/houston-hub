@@ -160,7 +160,8 @@ apply. Paging and smaller requested fields/body values avoid exhausting these
 budgets; batching alone does not bound a result that accumulates every page.
 These are execution limits, not limits on total process memory or attachment
 file size. Upload with `body = fs.open(path, "r")`; download by writing the
-response Reader to `fs.open(path, "w")` and awaiting the file's final close.
+response Reader to `fs.open(path, "w")` and awaiting the file's final close,
+which is what publishes the file.
 Reader pipelines use bounded native buffers. `readAll(maxBytes?)` explicitly
 allocates a string, defaults to 8 MiB, and fails and closes its source on overflow.
 HTTP, multipart and compression Readers also offer `readPrefix(maxBytes)`: it returns
@@ -194,16 +195,22 @@ as upstream metadata; do not decode again or use that length as a decoded size.
 File media types and filenames never trigger decoding.
 
 Files open asynchronously: `local fd = fs.open(path, "w")` returns a File that
-accepts ordered work before opening finishes, and `await(fd) == fd`. Queue writes
-and seek operations, then `await(fd:close())` to finish work and release the file.
-Repeated close returns the same operation. Wrong-mode, closed-handle, argument,
-and admission errors raise at the call; later I/O errors raise at await or final
-close. Catch the completion boundary, not only the scheduling call. Files remain
-open at EOF and support `seek(offset, "start" | "current" | "end")`.
+accepts ordered work before opening finishes, and `await(fd) == fd`. Opening in
+mode `"w"` does not touch the path: queue writes, then `await(fd:close())`. Only a
+successful close replaces the file, whole, with exactly the bytes written; any
+other ending (a failed write or source, `fd:cancel()`, a timeout, teardown)
+leaves the previous file, or none. `fd:cancel()` discards a File, and a later
+close raises `cancelled`. Returning without closing a write handle fails the
+invocation with `unfinished_operation`. Repeated close returns the same
+operation. Wrong-mode, closed-handle, argument, and admission errors raise at
+the call; later I/O errors raise at await or final close. Catch the completion
+boundary, not only the scheduling call. Read handles remain open at EOF and
+support `seek(offset, "start" | "current" | "end")`; write handles write
+sequentially, and `seek` on them raises `invalid_mode`.
 
 An unfinished file operation's cancellation stops its queue. Close still releases
-the handle and reports its first failure; writes may have partially changed the
-destination. Discarding a method operation does not discard accepted queue work.
+the handle and reports its first failure; a failed write handle publishes
+nothing. Discarding a method operation does not discard accepted queue work.
 Keep the File alive until closing or transferring it to a consumer. GC cleanup
 is abortive; explicit close is graceful. Invocation exit releases all resources
 and rejects unobserved asynchronous failures or unfinished accepted work.
@@ -764,16 +771,27 @@ local function download(url: string, path: string)
         error("Download failed: HTTP " .. tostring(response.statusCode))
     end
     local output = fs.open(path, "w")
-    output:write(response.body)
-    await(output:close())
+    local ok, err = pcall(function()
+        output:write(response.body)
+        await(output:close())
+    end)
+    if not ok then
+        output:cancel() -- the previous file, if any, is untouched
+        pcall(function() await(output:close()) end) -- raises cancelled once the path is free
+        error(err, 0)
+    end
     return {path = path, size = await(fs.stat(path)).size,
         url = await(fs.signedGetUrl(path))}
 end
 ```
 
 Use separate credential-free manifest routes for signed storage URLs. Do not copy
-API bearer headers to an unrelated download origin. A failed transfer can leave a
-partial destination; neither a timeout nor cancellation rolls back written bytes.
+API bearer headers to an unrelated download origin. A failed transfer never
+leaves a partial destination: the path changes only when close succeeds. On a
+failure path, cancel the destination rather than closing it, since closing would
+publish whatever was written. `cancel` returns at once, while the path stays
+reserved for writing until the discarded File is released; awaiting its close
+(which then raises `cancelled`) waits for that, so a retry can reopen the path.
 `readAll()` is appropriate for bounded JSON, not for transferring large files.
 
 ### Raw and multipart uploads

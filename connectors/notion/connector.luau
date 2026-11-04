@@ -131,7 +131,7 @@ exports.downloadFile = function(input: Options): Options
 	-- The manifest restricts this to Notion's download hosts and strips credentials.
 	return saveResponse("downloadFile", await(http.request({method = "GET", url = link})), path)
 end
-help.downloadFile = "downloadFile({url, path}) -> {path, url, size}. Stream a fresh Notion signed file/plugin/export URL into a session file. The returned URL is Houston's signed download URL. Only documented Notion storage origins are allowed; external file URLs use caller HTTP instead. Redirects are not followed. A failed transfer can leave a partial destination."
+help.downloadFile = "downloadFile({url, path}) -> {path, url, size}. Stream a fresh Notion signed file/plugin/export URL into a session file. The returned URL is Houston's signed download URL. Only documented Notion storage origins are allowed; external file URLs use caller HTTP instead. Redirects are not followed. A failed transfer leaves the destination as it was."
 
 if not ADMIN and config.access == "read-write" then
 	exports.sendFileUpload = function(input: Options): any
@@ -169,7 +169,7 @@ if not ADMIN and config.access == "read-write" then
 		end
 		return saveResponse("streamSession", response, path)
 	end
-	help.streamSession = "streamSession({path, ...Notion session body}) -> {path, url, size}. Sends POST /v1/sessions with Accept:text/event-stream, saves raw SSE to a session file and returns after the stream ends. Supports session_id + continue_from (committed event ID), message/agent_id, or actions. A timeout may leave a partial file and a running remote session: inspect getSession/querySessionEvents before retrying; replay with continue_from."
+	help.streamSession = "streamSession({path, ...Notion session body}) -> {path, url, size}. Sends POST /v1/sessions with Accept:text/event-stream, saves raw SSE to a session file and returns after the stream ends. Supports session_id + continue_from (committed event ID), message/agent_id, or actions. A timeout leaves path as it was but may leave a running remote session: inspect getSession/querySessionEvents before retrying; replay with continue_from."
 end
 
 local EMPTY_SEARCH = if auth.method == "oauth" then " An empty search usually means no pages are shared: ask the user to edit the connection and authorize it again to pick pages."
