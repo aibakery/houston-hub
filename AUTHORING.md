@@ -249,6 +249,14 @@ a bound fact is rejected and the user must add a new connection, so bind stable
 identifiers only and keep display names in `label`. Fixtures set
 `scenario.facts = {guild_id = "1"}`; undeclared names are rejected.
 
+Houston rejects a token whose response reports granted scopes that lack a
+requested one. A provider that reports scopes unreliably, such as Discord, which
+answers a `bot` install with an empty `scope`, sets `"scopes_unreported": true`
+in `token_response`. Houston then keeps the requested scopes on the exchange and
+the previous ones on every refresh. The flag requires `checks` that prove the
+grant another way (for Discord, `{"op": "exists", "path": "/guild/id"}`), and it
+cannot be combined with `scopes` or set in `refresh_response`.
+
 Houston restricts effective config using current caller grants; Luau selects the
 exports from that config. Discovery is recomputed from the
 current connection release, settings and authentication facts on each request;

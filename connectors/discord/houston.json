@@ -58,7 +58,8 @@
         "facts": {
           "guild_id": "/guild/id"
         },
-        "label": "/guild/name"
+        "label": "/guild/name",
+        "scopes_unreported": true
       }
     }
   },

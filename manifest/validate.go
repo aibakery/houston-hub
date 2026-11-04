@@ -401,7 +401,12 @@ func validateChecks(checks []ResponseCheck) error {
 }
 func validateResponse(r TokenResponse) error {
 	r = ResponseDefaults(r)
-	paths := []string{r.AccessToken, r.RefreshToken, r.ExpiresIn, r.Scopes}
+	paths := []string{r.AccessToken, r.RefreshToken, r.ExpiresIn}
+	if !r.ScopesUnreported {
+		paths = append(paths, r.Scopes)
+	} else if r.Scopes != "" {
+		return fmt.Errorf("token scopes conflict with scopes_unreported")
+	}
 	for _, p := range paths {
 		if !validPointer(p) {
 			return fmt.Errorf("invalid token pointer")
@@ -420,12 +425,16 @@ func validateResponse(r TokenResponse) error {
 // MaxFacts bounds the public values one OAuth authorization can bind to a connection.
 const MaxFacts = 16
 
-// validateFacts keeps bound facts and the token-response account label public:
-// they come only from the initial exchange and never select its credentials.
-func validateFacts(a AuthMethod) error {
+// validateInitialResponse keeps bound facts and the token-response account label public:
+// they come only from the initial exchange and never select its credentials. Declaring
+// scopes unreported there, proven by checks, covers refreshes too.
+func validateInitialResponse(a AuthMethod) error {
 	r := ResponseDefaults(a.TokenResponse)
-	if len(a.RefreshResponse.Facts) > 0 || a.RefreshResponse.Label != "" {
-		return fmt.Errorf("refresh_response forbids facts and label")
+	if len(a.RefreshResponse.Facts) > 0 || a.RefreshResponse.Label != "" || a.RefreshResponse.ScopesUnreported {
+		return fmt.Errorf("refresh_response forbids facts, label and scopes_unreported")
+	}
+	if r.ScopesUnreported && len(r.Checks) == 0 {
+		return fmt.Errorf("token_response.scopes_unreported requires checks that prove the grant")
 	}
 	if len(r.Facts) > MaxFacts {
 		return fmt.Errorf("token_response allows at most %d facts", MaxFacts)
@@ -533,7 +542,7 @@ func (m *Manifest) validateOAuth(key string, a AuthMethod, used map[string]bool)
 	if e := validateResponse(a.RefreshResponse); e != nil {
 		return e
 	}
-	if e := validateFacts(a); e != nil {
+	if e := validateInitialResponse(a); e != nil {
 		return e
 	}
 	if a.Account != nil {

@@ -3,6 +3,8 @@ package main
 import (
 	"slices"
 	"testing"
+
+	"github.com/aibakery/houston-hub/manifest"
 )
 
 // Houston's one Discord bot serves every connection, so each connection's routes are pinned
@@ -73,5 +75,14 @@ func TestDiscordBoundServerRoutes(t *testing.T) {
 		assertAuthorizedRoutes(t, r, "Bot fixture-bot-token", true, read...)
 		assertAuthorizedRoutes(t, r, "Bot fixture-bot-token", access == "read-write", writes...)
 		assertAuthorizedRoutes(t, r, "Bot fixture-bot-token", false, denied...)
+	}
+}
+
+// Discord answers bot installs with an empty "scope" (discord/discord-api-docs#8704),
+// so the install is proven by the guild in the token response instead.
+func TestDiscordScopesProvenByGuild(t *testing.T) {
+	r := parseManifest(t, "../../connectors/discord/houston.json").Auth["oauth"].TokenResponse
+	if !r.ScopesUnreported || !slices.ContainsFunc(r.Checks, func(c manifest.ResponseCheck) bool { return c.Op == "exists" && c.Path == "/guild/id" }) {
+		t.Fatalf("Discord scopes must be unreported and proven by /guild/id: %+v", r)
 	}
 }
