@@ -13,8 +13,8 @@
    password.
 5. Keep **TLS mode** on **Verify certificate and host name (recommended)** for a
    mail provider's server. For a server with a self-signed or private
-   certificate, such as a company mail server, see
-   [Self-signed and private certificates](#self-signed-and-private-certificates).
+   certificate, such as a company mail server, see **Self-signed and private
+   certificates** under **Advanced** below.
 6. Select **Add connector**.
 
 Your password stays on the Houston server.
@@ -36,8 +36,8 @@ The recommended mode trusts public certificate authorities. To keep full checkin
 with a self-signed certificate or your own authority, paste its certificate, from
 `-----BEGIN CERTIFICATE-----` to `-----END CERTIFICATE-----`, into **CA
 certificate**. Houston then trusts only that authority for this connection. For a
-self-signed certificate, paste the server's own certificate, such as the file
-that Dovecot's `ssl_cert` setting names. Never paste a private key.
+self-signed certificate, paste the certificate file your mail server presents.
+Never paste a private key.
 
 When the server is an IP address, the recommended mode requires the certificate
 to list that address as an IP address in its subject alternative names. A

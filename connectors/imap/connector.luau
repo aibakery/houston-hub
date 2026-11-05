@@ -1,6 +1,6 @@
--- Any mailbox reachable over IMAP, through Houston's verified-TLS connection; credentials
--- stay on Houston. The native imap.command validates options, encodes message IDs and
--- decodes MIME, so each operation here forwards one command and documents it.
+-- Any mailbox reachable over IMAP, through Houston's TLS connection in the configured TLS
+-- mode; credentials stay on Houston. The native imap.command validates options, encodes
+-- message IDs and decodes MIME, so each operation here forwards one command and documents it.
 type Options = {[string]: any}
 
 local function options(value: any): Options
