@@ -13,8 +13,8 @@
    password.
 5. Keep **TLS mode** on **Verify certificate and host name (recommended)** for a
    mail provider's server. For a server with a self-signed or private
-   certificate, such as a company mail server, see **Self-signed and private
-   certificates** under **Advanced** below.
+   certificate, such as a company mail server, see
+   [Self-signed and private certificates](#self-signed-and-private-certificates).
 6. Select **Add connector**.
 
 Your password stays on the Houston server.
