@@ -9,6 +9,7 @@ import (
 // AssessFirst reads the bare token from AF-Token. Only API v2 is routed: v1 reaches
 // consents and campaigns, and the candidate iframe takes assessments as the candidate.
 // Each connection reaches either production or the Simu test environment, never both.
+// Completion status only ("custom") keeps the reads that return no assessment results.
 func TestAssessFirstAccessRoutes(t *testing.T) {
 	m := parseManifest(t, "../../connectors/assessfirst/houston.json")
 	const token = "fixture-af-token"
@@ -22,7 +23,7 @@ func TestAssessFirstAccessRoutes(t *testing.T) {
 	for _, hosts := range [][2]string{{"app.assessfirst.com", "simu.assessfirst.com"}, {"simu.assessfirst.com", "app.assessfirst.com"}} {
 		host, other := hosts[0], hosts[1]
 		api := "https://" + host + "/betty-V2"
-		for _, access := range []string{"read-only", "read-write"} {
+		for _, access := range []string{"custom", "read-only", "read-write"} {
 			r, err := m.Resolve(nil, map[string]any{"access": access, "api_host": host}, map[string]any{"token": token}, "token")
 			if err != nil {
 				t.Fatal(err)
@@ -47,9 +48,12 @@ func TestAssessFirstAccessRoutes(t *testing.T) {
 					}
 				}
 			}
-			assert(true, "GET "+api+"/locales", "GET "+api+"/candidates?email=a%40example.com&page=2", "GET "+api+"/candidate"+c,
-				"GET "+api+"/candidate"+c+"/report/20?pm_uuid=x", "GET "+api+"/candidate"+c+"/adequacies"+pm, "GET "+api+"/candidate"+c+"/init-voice"+pm,
-				"GET "+api+"/onepager/candidate"+c+"/results", "GET "+api+"/predictive-models", "GET "+api+"/webhooks", "GET "+api+"/groups"+g+"/users")
+			assert(true, "GET "+api+"/candidates?email=a%40example.com&page=2", "GET "+api+"/candidate"+c+"/completion?pm_uuid=x",
+				"GET "+api+"/predictive-models", "GET "+api+"/groups", "GET "+api+"/groups"+g+"/users")
+			assert(access != "custom", "GET "+api+"/locales", "GET "+api+"/candidate"+c, "GET "+api+"/candidate"+c+"/scores",
+				"GET "+api+"/candidate"+c+"/synthesis", "GET "+api+"/candidate"+c+"/reports", "GET "+api+"/candidate"+c+"/report/20?pm_uuid=x",
+				"GET "+api+"/candidate"+c+"/adequacies"+pm, "GET "+api+"/candidate"+c+"/career/top", "GET "+api+"/candidate"+c+"/init-voice"+pm,
+				"GET "+api+"/onepager/candidate"+c+"/results", "GET "+api+"/benchmarks", "GET "+api+"/recruiters", "GET "+api+"/webhooks")
 			assert(access == "read-write", "POST "+api+"/candidate/send-invitation", "POST "+api+"/candidate", "POST "+api+"/candidate"+c+"/init-voice"+pm,
 				"POST "+api+"/webhooks", "DELETE "+api+"/webhooks"+g, "POST "+api+"/groups", "DELETE "+api+"/groups"+g,
 				"POST "+api+"/groups"+g+"/user"+c, "DELETE "+api+"/groups"+g+"/user"+c)

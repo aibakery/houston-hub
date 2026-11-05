@@ -8,9 +8,13 @@
   "config": {
     "access": {
       "default": "read-only",
-      "description": "Houston sends no changes on a Read-only connection. The AssessFirst API token itself has full access to your company's AssessFirst data.",
+      "description": "Completion status only shows agents which assessments each candidate has finished, with names and emails; Houston refuses every request for scores, reports and other results on that level, and every change. Houston sends no changes on a Read-only connection. The AssessFirst API token itself has full access to your company's AssessFirst data.",
       "label": "Access",
       "options": [
+        {
+          "label": "Completion status only",
+          "value": "custom"
+        },
         {
           "label": "Read-only",
           "value": "read-only"
@@ -75,22 +79,83 @@
           "GET"
         ],
         "path": [
+          "/betty-V2/candidate/{candidate_uuid}/completion",
+          "/betty-V2/candidates",
+          "/betty-V2/groups",
+          "/betty-V2/groups/{group_uuid}/users",
+          "/betty-V2/predictive-models"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "remove": [
+            "X-HTTP-Method-Override"
+          ],
+          "set": {
+            "AF-Token": "{{auth.token.token}}"
+          }
+        }
+      },
+      "if": "{{ is config.access \"read-only\" }}",
+      "match": {
+        "host": [
+          "{{config.api_host}}"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
           "/betty-V2/benchmarks",
           "/betty-V2/candidate/{candidate_uuid}",
           "/betty-V2/candidate/{candidate_uuid}/adequacies/{pm_uuid}",
           "/betty-V2/candidate/{candidate_uuid}/career/top",
-          "/betty-V2/candidate/{candidate_uuid}/completion",
           "/betty-V2/candidate/{candidate_uuid}/init-voice/{pm_uuid}",
           "/betty-V2/candidate/{candidate_uuid}/report/{report_id}",
           "/betty-V2/candidate/{candidate_uuid}/reports",
           "/betty-V2/candidate/{candidate_uuid}/scores",
           "/betty-V2/candidate/{candidate_uuid}/synthesis",
-          "/betty-V2/candidates",
-          "/betty-V2/groups",
-          "/betty-V2/groups/{group_uuid}/users",
           "/betty-V2/locales",
           "/betty-V2/onepager/candidate/{candidate_uuid}/results",
-          "/betty-V2/predictive-models",
+          "/betty-V2/recruiters",
+          "/betty-V2/webhooks"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "remove": [
+            "X-HTTP-Method-Override"
+          ],
+          "set": {
+            "AF-Token": "{{auth.token.token}}"
+          }
+        }
+      },
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "host": [
+          "{{config.api_host}}"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/betty-V2/benchmarks",
+          "/betty-V2/candidate/{candidate_uuid}",
+          "/betty-V2/candidate/{candidate_uuid}/adequacies/{pm_uuid}",
+          "/betty-V2/candidate/{candidate_uuid}/career/top",
+          "/betty-V2/candidate/{candidate_uuid}/init-voice/{pm_uuid}",
+          "/betty-V2/candidate/{candidate_uuid}/report/{report_id}",
+          "/betty-V2/candidate/{candidate_uuid}/reports",
+          "/betty-V2/candidate/{candidate_uuid}/scores",
+          "/betty-V2/candidate/{candidate_uuid}/synthesis",
+          "/betty-V2/locales",
+          "/betty-V2/onepager/candidate/{candidate_uuid}/results",
           "/betty-V2/recruiters",
           "/betty-V2/webhooks"
         ],

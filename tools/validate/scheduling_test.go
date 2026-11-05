@@ -126,10 +126,11 @@ func TestCalendlyScopesAndAccessRoutes(t *testing.T) {
 
 type endpointEntry struct {
 	method, path, rest string
-	write              bool
+	write, custom      bool
 }
 
 // endpointTable reads a connector's endpoint table. Only GET reads unless an entry sets write or read.
+// An entry sets custom when the connector's custom access level keeps it.
 func endpointTable(t *testing.T, name string) (string, []endpointEntry) {
 	t.Helper()
 	raw, err := os.ReadFile("../../connectors/" + name + "/connector.luau")
@@ -149,19 +150,20 @@ func endpointTable(t *testing.T, name string) (string, []endpointEntry) {
 		if flag := override.FindStringSubmatch(match[3]); flag != nil {
 			write = (flag[2] == "true") != (flag[1] == "read")
 		}
-		entries = append(entries, endpointEntry{method: match[1], path: match[2], rest: match[3], write: write})
+		entries = append(entries, endpointEntry{method: match[1], path: match[2], rest: match[3], write: write, custom: strings.Contains(match[3], "custom = true")})
 	}
 	return lua, entries
 }
 
 // The proxy must allow exactly the routes in each connector's endpoint table, and the
-// writes only on read-write connections. Paths are relative to the connector's API base URL,
+// writes only on read-write connections. When a table marks custom entries, its custom access level keeps
+// only those reads, so every other read is routed once for read-only and once for read-write. Paths are relative to the connector's API base URL,
 // such as Calendar's /calendar/v3. Its host may be a config setting, such as AssessFirst's api_host.
 // Credential-free rules, such as Resend's signed attachment links, are not API routes.
 // A {format} placeholder expands to the connector's FORMATS list (Wise statements). A custom
 // method such as Carta's {capitalCallId}:adjust is routed by its whole-segment placeholder.
 func TestProxyMatchesEndpointTables(t *testing.T) {
-	const readWrite = `{{ is config.access "read-write" }}`
+	const readOnly, readWrite = `{{ is config.access "read-only" }}`, `{{ is config.access "read-write" }}`
 	base := regexp.MustCompile(`(?m)^local API = "https://(?:[^/"]+|" \.\. config\.\w+ \.\. ")([^"]*)"`)
 	formats := regexp.MustCompile(`local FORMATS = table\.freeze\(\{([^}]*)\}\)`)
 	customMethod := regexp.MustCompile(`\}:\w+$`)
@@ -171,11 +173,14 @@ func TestProxyMatchesEndpointTables(t *testing.T) {
 		if api := base.FindStringSubmatch(lua); api != nil {
 			prefix = api[1]
 		}
+		narrows := slices.ContainsFunc(entries, func(entry endpointEntry) bool { return entry.custom })
 		var want, got []string
 		for _, entry := range entries {
-			gate := ""
+			gates := []string{""}
 			if entry.write {
-				gate = readWrite
+				gates = []string{readWrite}
+			} else if narrows && !entry.custom {
+				gates = []string{readOnly, readWrite}
 			}
 			paths := []string{prefix + customMethod.ReplaceAllString(entry.path, "}")}
 			if strings.Contains(entry.path, "{format}") {
@@ -189,7 +194,9 @@ func TestProxyMatchesEndpointTables(t *testing.T) {
 				}
 			}
 			for _, path := range paths {
-				want = append(want, entry.method+" "+path+" "+gate)
+				for _, gate := range gates {
+					want = append(want, entry.method+" "+path+" "+gate)
+				}
 			}
 		}
 		for _, rule := range parseManifest(t, "../../connectors/"+name+"/houston.json").Proxy {
