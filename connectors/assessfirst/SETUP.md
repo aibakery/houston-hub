@@ -13,8 +13,10 @@ required.
    API access: ask your AssessFirst contact or write to
    [api@assessfirst.com](mailto:api@assessfirst.com).
 4. In Houston, add the AssessFirst connector, shared with your organization or
-   for yourself only. Paste the token into **API token**, keep **Access** set to
-   **Read-only** and **Environment** on **Production**.
+   for yourself only. Paste the token into **API token** and keep **Environment**
+   on **Production**. Keep **Access** set to **Read-only**, or choose
+   [**Completion status only**](#completion-status-only) if agents should only
+   see who has finished their assessments.
 5. Save the connection. For a shared connection, grant only the organization
    members who may see candidates' results.
 
@@ -27,12 +29,28 @@ and [API documentation](https://documenter.getpostman.com/view/12154847/2sB2qWGj
 
 ## Advanced
 
+### Completion status only
+
+If agents only need to know who has finished their assessments, for example to
+prepare reminders, set **Access** to **Completion status only**. Agents can then
+list candidates, groups and predictive models, and see which assessments each
+candidate has finished. Houston refuses every request for scores, written
+syntheses, reports and fit with a job, and every change. Agents still see
+candidates' names and email addresses.
+
+AssessFirst's API has no campaigns: agents follow completion by candidate group
+or against a predictive model, so put the candidates to follow in a group in
+AssessFirst. Checking completion takes one request per candidate.
+
+The token itself still has full access to your company's AssessFirst data: this
+level limits what Houston requests with it.
+
 ### Inviting candidates and other changes
 
 Choose **Read and write** in Houston to let agents invite candidates, add
 candidates, start voice assessments, manage groups and set up webhooks. The same
-token works for both access levels: AssessFirst tokens have no separate
-permissions, so **Read-only** is enforced by Houston.
+token works at every access level: AssessFirst tokens have no separate
+permissions, so the access level is enforced by Houston.
 
 Invitations are emailed by AssessFirst, at most once a day for the same address.
 Adding a candidate without an invitation skips asking for their consent, so make
