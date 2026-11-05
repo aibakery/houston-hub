@@ -25,14 +25,15 @@ local function export(name: string, isRead: boolean, fn: (any) -> any, doc: stri
 	end
 end
 
-export("listMailFolders", true, function(input: any): any
-	assert(next(options(input)) == nil, "listMailFolders takes no options")
+export("listMailFolders", true, function(...: any): any
+	local input = ...
+	assert(select("#", ...) <= 1 and (input == nil or type(input) == "table" and next(input) == nil), "listMailFolders takes no options")
 	return command("list", {})
 end, "listMailFolders() -> {{id, name, parentId?, role?, totalEmails?, unreadEmails?}} sorted by id. id is the full folder name, such as 'INBOX' or 'Archive/2026'; role is inbox, sent, drafts, trash, junk, archive or all. Some servers list containers that hold no messages: use them as parents, not to search. Counts appear when the server reports them in its folder list.")
 
 export("listMessages", true, function(input: any): any
 	return command("search", options(input))
-end, "listMessages({folder?, from?, to?, cc?, subject?, text?, since?, before?, unread?, flagged?, maxResults?, pageToken?}) -> {messages={{id}}, nextPageToken?}. Searches one folder (default INBOX), most recently added first. Text filters match substrings, case-insensitively; text searches headers and body. since and before take YYYY-MM-DD and compare the day the server received the message: since includes that day, before excludes it. unread and flagged filter by state when true or false. maxResults is 1 to 500 (default 100). Pass nextPageToken as pageToken until it is absent. IDs only: read them with getMessages.")
+end, "listMessages({folder?, from?, to?, cc?, subject?, text?, since?, before?, unread?, flagged?, maxResults?, pageToken?}) -> {messages={{id}}, nextPageToken?}. Searches one folder (default INBOX), most recently added first. Text filters match substrings, case-insensitively; text searches headers and body. since and before take YYYY-MM-DD and compare the day the server received the message: since includes that day, before excludes it. unread and flagged filter by state when true or false. maxResults is 1 to 500 (default 100). Pass nextPageToken as pageToken, repeating the same folder and filters, until it is absent. IDs only: read them with getMessages.")
 
 export("getMessages", true, function(input: any): any
 	return command("fetch", options(input))

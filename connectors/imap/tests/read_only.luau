@@ -18,6 +18,8 @@ return {
 
 		assert(not pcall(c.listMailFolders, "unexpected"))
 		assert(not pcall(c.listMailFolders, {folder = "INBOX"}), "list takes no options")
+		assert(not pcall(c.listMailFolders, {}, "Archive"), "list takes one argument at most")
+		assert(#requests == 0, "rejected calls never reach the server")
 		replies = {json.decode("[]")}
 		assert(json.encode(c.listMailFolders()) == "[]", "empty folders must remain a JSON array")
 		local fields = 0
@@ -34,9 +36,9 @@ return {
 		local search = requests[3]
 		assert(search.command == "search" and search.folder == "Archive/2026" and search.unread == true and search.maxResults == 20)
 		assert(opts.command == nil, "the caller's options must not change")
-		local page = c.listMessages({pageToken = "7:44:INBOX", maxResults = 2})
+		local page = c.listMessages({unread = true, maxResults = 2, pageToken = "7:44:INBOX"})
 		assert(#page.messages == 2 and page.messages[1].id == "7:43:INBOX" and page.nextPageToken == "7:42:INBOX", json.encode(page))
-		assert(requests[4].command == "search" and requests[4].pageToken == "7:44:INBOX" and requests[4].folder == nil)
+		assert(requests[4].command == "search" and requests[4].pageToken == "7:44:INBOX" and requests[4].unread == true)
 
 		replies = {{{id = "7:42:INBOX", subject = "Hello"}}}
 		assert(c.getMessage({id = "7:42:INBOX", maxBodyBytes = 0}).subject == "Hello")
@@ -45,7 +47,7 @@ return {
 		assert(not pcall(c.getMessage, {}), "id is required")
 		assert(not pcall(c.getMessage, {id = "7:42:INBOX", ids = {"7:43:INBOX"}}), "getMessage takes one id")
 		assert(not pcall(c.listMessages, "INBOX"), "options must be a table")
-		assert(#requests == 5)
+		assert(#requests == 5, "rejected calls never reach the server")
 
 		replies = {{path = "files/report.pdf", size = 3, mimeType = "application/pdf", filename = "report.pdf"}}
 		local saved = c.getAttachment({messageId = "7:42:INBOX", attachmentId = "2", path = "files/report.pdf"})
