@@ -15,7 +15,7 @@ required.
 4. In Houston, add the AssessFirst connector, shared with your organization or
    for yourself only. Paste the token into **API token** and keep **Environment**
    on **Production**. Keep **Access** set to **Read-only**, or choose
-   [**Completion status only**](#completion-tracking-only) if agents should only
+   [**Completion status only**](#completion-status-only) if agents should only
    see who has finished their assessments.
 5. Save the connection. For a shared connection, grant only the organization
    members who may see candidates' results.
@@ -29,7 +29,7 @@ and [API documentation](https://documenter.getpostman.com/view/12154847/2sB2qWGj
 
 ## Advanced
 
-### Completion tracking only
+### Completion status only
 
 If agents only need to know who has finished their assessments, for example to
 prepare reminders, set **Access** to **Completion status only**. Agents can then

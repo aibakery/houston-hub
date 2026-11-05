@@ -37,12 +37,16 @@ return {
 		local model = get("listPredictiveModels", {name = "Sales"}, API .. "/predictive-models?name=Sales",
 			'{"data":[{"uuid":"' .. PM .. '","name":"Sales","assessments":{"swipe":true,"drive":true,"brain":false,"voice":true}}],' .. META).data[1]
 		local completion = get("getCandidateCompletion", {candidate_uuid = member.uuid, pm_uuid = model.uuid}, API .. "/candidate/" .. C .. "/completion?pm_uuid=" .. PM,
-			'{"assessments":{"swipe":"finish","drive":"finish","voice":"todo"},"is_completed":true}')
+			'{"assessments":{"swipe":"finish","drive":"finish","voice":"todo"},"is_completed":true,"scores":[{"label":"lead","score":3}]}')
 		assert(member.email == "ana@example.com" and completion.is_completed and completion.assessments.voice == "todo")
+		assert(completion.scores == nil, "completion kept a field outside its list")
 
 		local page = get("listCandidates", {email = "ana@example.com"}, API .. "/candidates?email=ana%40example.com",
-			'{"data":[{"uuid":"' .. C .. '","first_name":"Ana","email":"ana@example.com","iframe_candidate_token":"secret-iframe-token"}],' .. META)
-		assert(page.data[1].uuid == C and page.data[1].iframe_candidate_token == nil, "listed candidate iframe token exposed")
-		assert(calls == 5)
+			'{"data":[{"uuid":"' .. C .. '","first_name":"Ana","email":"ana@example.com","aplayer_score":16,"iframe_candidate_token":"secret-iframe-token"}],"scores":[],' .. META)
+		-- Only the listed fields of each record come back, so a result AssessFirst adds later stays out.
+		assert(page.data[1].uuid == C and page.data[1].email == "ana@example.com" and page.meta.last_page == 1)
+		assert(page.data[1].aplayer_score == nil and page.data[1].iframe_candidate_token == nil and page.scores == nil, "candidate list kept a field outside its list")
+		assert(json.encode(get("listCandidates", nil, API .. "/candidates", '{"data":[],' .. META).data) == "[]", "empty candidate array lost")
+		assert(calls == 6)
 	end,
 }

@@ -130,7 +130,7 @@ type endpointEntry struct {
 }
 
 // endpointTable reads a connector's endpoint table. Only GET reads unless an entry sets write or read.
-// An entry sets custom when the connector's custom access level keeps it.
+// An entry lists custom fields when the connector's custom access level keeps it.
 func endpointTable(t *testing.T, name string) (string, []endpointEntry) {
 	t.Helper()
 	raw, err := os.ReadFile("../../connectors/" + name + "/connector.luau")
@@ -140,6 +140,7 @@ func endpointTable(t *testing.T, name string) (string, []endpointEntry) {
 	lua := string(raw)
 	endpoint := regexp.MustCompile(`(?m)^\t\w+ = \{method = "([A-Z]+)", path = "([^"]+)"(.*)$`)
 	override := regexp.MustCompile(`\b(write|read) = (true|false)\b`)
+	custom := regexp.MustCompile(`\bcustom = \{`)
 	matches := endpoint.FindAllStringSubmatch(lua, -1)
 	if entries := strings.Count(lua, "= {method = "); len(matches) != entries || entries == 0 {
 		t.Fatalf("%s: matched %d of %d endpoint entries", name, len(matches), entries)
@@ -150,7 +151,7 @@ func endpointTable(t *testing.T, name string) (string, []endpointEntry) {
 		if flag := override.FindStringSubmatch(match[3]); flag != nil {
 			write = (flag[2] == "true") != (flag[1] == "read")
 		}
-		entries = append(entries, endpointEntry{method: match[1], path: match[2], rest: match[3], write: write, custom: strings.Contains(match[3], "custom = true")})
+		entries = append(entries, endpointEntry{method: match[1], path: match[2], rest: match[3], write: write, custom: custom.MatchString(match[3])})
 	}
 	return lua, entries
 }
