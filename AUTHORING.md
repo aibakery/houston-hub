@@ -264,9 +264,9 @@ the previous ones on every refresh. The flag requires `checks` that prove the
 grant another way (for Discord, `{"op": "exists", "path": "/guild/id"}`), and it
 cannot be combined with `scopes` or set in `refresh_response`.
 
-Houston restricts effective config using current caller grants; Luau selects the
-exports from that config. Discovery is recomputed from the
-current connection release, settings and authentication facts on each request;
+Luau selects the exports from the connection's public config. Discovery is
+recomputed from the current connection release, settings and authentication
+facts on each request;
 existing client instances must be rediscovered to refresh their function list.
 Invocation still checks current configuration and grants before dispatch.
 Document signatures, defaults, results and mutation behavior in the connector's
@@ -521,18 +521,17 @@ return exports
 ```
 
 Export selection must be deterministic. Routes do not infer write permissions,
-and arbitrary SQL text is not a domain interface. Existing caller access controls
-and provider/database grants remain part of authorization.
+and arbitrary SQL text is not a domain interface. Connection grants, which decide
+who may use a connection, and provider/database grants remain part of authorization.
 
 ## Configured exports, help, and provider validation
 
 The connector Luau is the sole authority for configured functions and their help.
-Return only functions enabled by the effective public configuration. Houston
-clamps canonical `config.access` modes to `read-only` for callers without a current
-write grant. A `custom` mode retains its active policy settings and must intersect
-each operation's policy with immutable `houston.access` (`read-only` or `read-write`).
+Return only functions enabled by the public configuration: every caller granted
+a connection gets exactly what it is configured for. A `custom` mode enforces its
+active policy settings on each operation.
 The same configured Luau serves discovery and execution. Native dispatch
-rechecks current connection access and the effective configuration before each
+rechecks current connection access and the configuration before each
 transport request. Do not infer permission from function names or HTTP verbs.
 Provider and database grants remain authoritative.
 
@@ -608,12 +607,8 @@ Set `HOUSTON_RUNTIME` to a newly built Houston service runtime and put the pinne
 `luau-analyze` on `PATH`. A fixture returns a table with `scenario`, optional
 public `config` overrides, optional `configure`, and `run`. The scenario contains
 synthetic `publisher`, root `config`, `auth_method`, and selected `auth_config`
-inputs, plus optional `granted_scopes`, OAuth `facts` and `caller_access`
-(`read-only` or `read-write`). Without it, caller access defaults to read-write
-only for canonical read-write configuration;
-custom policy fixtures default to read-only. Explicit caller access is intersected
-with connection access before resolving conditional fields, preserving custom
-policy. Houston resolves settings, including a database rule's connection, through
+inputs, plus optional `granted_scopes` and OAuth `facts`.
+Houston resolves settings, including a database rule's connection, through
 the production manifest contract before
 projecting only active nonsecret root values into the fixture VM. A
 fixture whose settings must be rejected sets `scenario.settings_error` to part of
@@ -668,10 +663,10 @@ invalid. When undeclared, Houston supplies `read-only`.
 The publication type checker exposes this reserved field even if the manifest
 does not declare a configurable Access setting.
 
-Only connector VMs receive immutable `houston.access`, the effective caller grant.
-For `custom`, retain and enforce the configured policy even for read-only callers;
-never substitute unrestricted account-wide reads. Custom write exports require
-both `houston.access == "read-write"` and a policy permitting the write.
+`config.access` is the only access setting: a grant decides who may use a
+connection, never how much of it. For `custom`, enforce the configured policy on
+every operation; never substitute unrestricted account-wide reads. Custom write
+exports require a policy permitting the write.
 
 `houston.seal(value)` returns an opaque encrypted token, and `houston.unseal(token)`
 returns the original plain JSON value. These synchronous connector-only helpers
@@ -681,7 +676,7 @@ folder or operation between calls. They are forbidden during initialization and
 JSON values are limited to 64 KiB encoded, tokens to 96 KiB. Tokens are bound to
 the connection, release, and settings/authentication generations; changed access
 configuration or account authorization invalidates them. Opening a token does not
-authorize its operation: validate its purpose and current caller/folder permissions
+authorize its operation: validate its purpose and the configured policy
 again before using its provider handle. Keep tokens outside errors and logs.
 
 ## Runtime examples

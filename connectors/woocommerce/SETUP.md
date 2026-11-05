@@ -33,7 +33,8 @@ and order status changes, order emails and customer notes can email your custome
 
 Store settings, payment methods and webhooks are also available only on read and
 write connections, because WooCommerce includes payment credentials and webhook
-secrets in them. Grant write access only to people who may see those values.
+secrets in them. Grant access to a read and write connection only to people who
+may see those values.
 
 ### Troubleshooting
 
