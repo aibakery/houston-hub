@@ -150,7 +150,7 @@ Read/unread/starred/answered/custom keyword mutation already exists via setFlags
 | Optional ACL, QUOTA, METADATA, SORT, THREAD, CONDSTORE/QRESYNC, NOTIFY and provider extensions | Not exposed; support depends on each server's advertised capabilities, so there is no universal finite provider feature list. |
 | SMTP sending | Not an IMAP capability; requires a separate submission transport/connector. |
 
-Source: [IMAP4rev2 standard](https://www.rfc-editor.org/rfc/rfc9051.html). Generic connector uses verified TLS plus LOGIN/app password, not XOAUTH2. Opaque IDs encode folder/UID validity, and move may produce new IDs. Search returns bounded newest-added paging; fetch and store have explicit batch limits. Server-specific extension/role permissions and mailbox rights determine availability.
+Source: [IMAP4rev2 standard](https://www.rfc-editor.org/rfc/rfc9051.html). Generic connector uses TLS (verified by default; a connection may trust a private CA or choose a weaker TLS mode) plus LOGIN/app password, not XOAUTH2. Opaque IDs encode folder/UID validity, and move may produce new IDs. Search returns bounded newest-added paging; fetch and store have explicit batch limits. Server-specific extension/role permissions and mailbox rights determine availability.
 
 ## Resend review
 
