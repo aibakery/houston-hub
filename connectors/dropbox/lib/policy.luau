@@ -91,7 +91,7 @@ return function(raw: string, metadata: (string) -> Object?): any
 	end
 	local function authorize(path: string, write: boolean, subtree: boolean?)
 		local access = permission(path)
-		if access == nil or (write and (access ~= "read-write" or houston.access ~= "read-write")) then denied() end
+		if access == nil or (write and access ~= "read-write") then denied() end
 		if write and subtree then
 			for _, grant in rules() do
 				assert(not (grant.access == "read-only" and within(grant.path, path)), "This operation would change a read-only folder subtree")
@@ -134,7 +134,7 @@ return function(raw: string, metadata: (string) -> Object?): any
 	local function parent(path: string): string
 		return string.match(path, "^(.*)/[^/]+$") or ""
 	end
-	local policy: any = {writable = writable and houston.access == "read-write", supports = function(name: string): boolean return specs[name] ~= nil end}
+	local policy: any = {writable = writable, supports = function(name: string): boolean return specs[name] ~= nil end}
 	local function prepare(name: string, value: any): (Object, Object)
 		local spec = specs[name]
 		assert(spec, "Operation is unavailable with custom folder access")
@@ -216,10 +216,9 @@ return function(raw: string, metadata: (string) -> Object?): any
 		return result
 	end
 	policy.help = function(): string
-		local lines = {"Custom folder access: unlisted paths are denied; the most specific configured folder wins. Effective caller access: " .. houston.access .. "."}
+		local lines = {"Custom folder access: unlisted paths are denied; the most specific configured folder wins."}
 		for _, grant in configured do
-			local access = if houston.access == "read-only" then "read-only" else grant.access
-			table.insert(lines, (if grant.path == "" then "/" else grant.path) .. ": " .. access)
+			table.insert(lines, (if grant.path == "" then "/" else grant.path) .. ": " .. grant.access)
 		end
 		table.insert(lines, "Folder rules must name existing folders in this account's member root. Paths are checked using Dropbox's canonical metadata, including Unicode names. Use ordinary absolute paths, not IDs, namespace aliases or revision paths. Parent folders must exist before creating a child. Search requires options.path. Pagination cursors are Houston tokens, tied to this connection and its current settings; keep them intact. Moves and deletes cannot change a read-only subtree. Autorename, revision downloads, batch/jobs, sharing, file requests and account-wide operations are unavailable in this mode.")
 		return table.concat(lines, "\n")

@@ -24,7 +24,6 @@ type Scenario struct {
 	AuthConfig    map[string]any    `json:"auth_config"`
 	GrantedScopes []string          `json:"granted_scopes"`
 	Facts         map[string]string `json:"facts"`
-	CallerAccess  string            `json:"caller_access"`
 	SettingsError string            `json:"settings_error"`
 }
 type metadata struct {
@@ -97,23 +96,6 @@ func Check(ctx context.Context, binary string, m manifest.Manifest, modules, fix
 		for key, value := range meta.Config {
 			scenario.Config[key] = value
 		}
-		callerAccess := scenario.CallerAccess
-		if callerAccess != "" {
-			if callerAccess != "read-only" && callerAccess != "read-write" {
-				return fmt.Errorf("fixture %s caller_access must be read-only or read-write", name)
-			}
-			field, declared := m.Config["access"]
-			configured, present := scenario.Config["access"]
-			if !present {
-				configured = field.Default
-			}
-			if configured != "read-write" && configured != "custom" {
-				callerAccess = "read-only"
-			}
-			if declared && configured != "custom" {
-				scenario.Config["access"] = callerAccess
-			}
-		}
 		resolved, err := m.Resolve(scenario.Publisher, scenario.Config, scenario.AuthConfig, scenario.AuthMethod)
 		if err == nil && m.Proxy[resolved.ProxyIndices[0]].Action.Connection != nil {
 			_, err = m.Proxy[resolved.ProxyIndices[0]].ResolveDatabase(resolved.Context)
@@ -147,9 +129,6 @@ func Check(ctx context.Context, binary string, m manifest.Manifest, modules, fix
 			}
 		}
 		input["auth"] = m.DiscoveryAuth(scenario.AuthMethod, scenario.GrantedScopes, scenario.Facts)
-		if callerAccess != "" {
-			input["access"] = callerAccess
-		}
 		var output struct {
 			Type    string   `json:"type"`
 			Exports []string `json:"exports"`
