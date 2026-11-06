@@ -27,4 +27,5 @@ With **Read and draft** or **Read and write** access, agents can write drafts,
 including replies and attachments, and save them in your drafts folder for you
 to review and send. **Read and draft** lets them change only drafts, so they
 can read your mail and prepare answers without moving, flagging or trashing
-anything else. This connector never sends email.
+anything else. Updating a draft replaces it and deletes its earlier version.
+This connector never sends email.
