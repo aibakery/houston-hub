@@ -419,6 +419,9 @@ func validateResponse(r TokenResponse) error {
 			}
 		}
 	}
+	if e := validateChecks(r.Revoked); e != nil {
+		return e
+	}
 	return validateChecks(r.Checks)
 }
 
@@ -432,6 +435,9 @@ func validateInitialResponse(a AuthMethod) error {
 	r := ResponseDefaults(a.TokenResponse)
 	if len(a.RefreshResponse.Facts) > 0 || a.RefreshResponse.Label != "" || a.RefreshResponse.ScopesUnreported {
 		return fmt.Errorf("refresh_response forbids facts, label and scopes_unreported")
+	}
+	if len(r.Revoked) > 0 {
+		return fmt.Errorf("token_response forbids revoked; declare it on refresh_response or account")
 	}
 	if r.ScopesUnreported && len(r.Checks) == 0 {
 		return fmt.Errorf("token_response.scopes_unreported requires checks that prove the grant")
@@ -557,6 +563,9 @@ func (m *Manifest) validateOAuth(key string, a AuthMethod, used map[string]bool)
 			return fmt.Errorf("invalid account label pointer")
 		}
 		if e := validateChecks(c.Checks); e != nil {
+			return e
+		}
+		if e := validateChecks(c.Revoked); e != nil {
 			return e
 		}
 		if e := m.validateHeaders(c.Headers, used); e != nil {

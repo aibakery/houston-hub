@@ -67,6 +67,12 @@ metadata to show a **Houston billing — Coming soon** banner during
 connection setup. It does not supply credentials, change authentication, or charge
 credits. Do not mark mailboxes, private workspaces, or databases as stateless.
 
+Set the optional root `personal` boolean to `true` when a provider forbids sharing
+one person's authorization with other users, as Slack does for its user tokens.
+Houston then accepts only personal connections: workspace admins cannot add the
+connector as a shared connection, and existing shared connections stop working
+until someone adds them again as personal connections.
+
 ```json
 {
   "schema_version": 1,
@@ -263,6 +269,17 @@ in `token_response`. Houston then keeps the requested scopes on the exchange and
 the previous ones on every refresh. The flag requires `checks` that prove the
 grant another way (for Discord, `{"op": "exists", "path": "/guild/id"}`), and it
 cannot be combined with `scopes` or set in `refresh_response`.
+
+When a provider can revoke Houston's access outside Houston, for example when a
+user removes the app in the provider's settings, declare `revoked` checks so Houston
+can delete the stored credential. They use the same shape as `checks`, but a single
+passing check is enough. Put them on `refresh_response`, for refresh errors that
+prove revocation, and on `account`, which Houston then requests about once a day
+for each connection. When one passes, Houston removes the connection and its
+credential. Match only error codes that prove revocation, never configuration or
+rate-limit errors. Slack, for example, declares
+`{"op": "equals", "path": "/error", "value": "token_revoked"}`
+(see the [Slack manifest](connectors/slack/houston.json)).
 
 Luau selects the exports from the connection's public config. Discovery is
 recomputed from the current connection release, settings and authentication
