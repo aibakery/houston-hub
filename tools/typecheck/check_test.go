@@ -51,7 +51,7 @@ func TestRuntimeIOContracts(t *testing.T) {
 		{"prefix of a file", `return fs.open("x","r"):readPrefix(10)`, true},
 		{"packed nil", `local fd=fs.open("out","w"); local results:PackedResults<nil> = awaitAll({fd:close()},100); local count:number=results.n; return count`, false},
 		{"mixed packed results", `local fd=fs.open("out","w"); local results=awaitAll({fd:write("x"),fd:close(),fs.exists("out")}); local count:number=results.n; return count`, false},
-		{"file helpers", `local exists:boolean=await(fs.exists("x")); local children:{string}=await(fs.list()); local result:GrepResult=await(fs.grep("text")); return exists`, false},
+		{"file helpers", `local exists:boolean=await(fs.exists("x")); local children:{string}=await(fs.list()); local result:GrepResult=await(fs.grep("text")); local reason:string=result.skipped[1].reason; return exists`, false},
 		{"header string shorthand", `return http.request({method="GET",url="https://example.com",headers={accept="application/json"}})`, true},
 		{"buffered body assumption", `local res=await(http.request({method="GET",url="https://example.com"})); return json.decode(res.body)`, true},
 		{"old status", `local res=await(http.request({method="GET",url="https://example.com"})); return res.status`, true},
