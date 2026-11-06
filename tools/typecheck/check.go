@@ -39,7 +39,7 @@ type HttpRequest = {url:string,method:string,headers:HttpHeaders?,body:ByteSourc
 type HttpResponse = {statusCode:number,headers:HttpHeaders,body:StreamReader}
 type MultipartPart = {name:string,body:ByteSource,filename:string?,contentType:string?}
 type FileStat = {size:number,isFile:boolean}
-type GrepResult = {matches:{{path:string,line:number,text:string}},truncated:boolean}
+type GrepResult = {matches:{{path:string,line:number,text:string}},skipped:{{path:string,reason:string}},truncated:boolean}
 type PackedResults<T> = {[number]: T, n: number}
 local await: <T>(Operation<T>, number?) -> T = nil :: any
 -- Groups may mix result types; every input must still be an Operation.
