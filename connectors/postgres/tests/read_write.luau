@@ -10,8 +10,11 @@ return {
 		end}
 	end,
 	run = function(exports)
-		local result = exports.execute("UPDATE tasks SET done = true WHERE id = $1 RETURNING id", {42})
+		local result = fixture.example("execute")
 		assert(result.affectedRows == 1 and result.rows[1].id == 42)
 		assert(requests[1].readOnly == false and requests[1].params[1] == 42)
+		local read = fixture.example("query")
+		assert(read.rows[1].id == 42 and read.truncated == false)
+		assert(#requests == 2 and requests[2].readOnly == true and requests[2].params[1] == "core")
 	end,
 }

@@ -5,7 +5,10 @@ folders contain bundles and account-user documentation. Publishing follows the
 settings declared in `houston.json`; see
 [Publish a Connector on Houston Hub](#publish-a-connector-on-houston-hub).
 For a shorter overview, see [Build a connector](https://ok-houston.com/docs/connectors).
-To build with an agent, install the
+When working in this repository, use the
+[connector-creation skill](.agents/skills/houston-connector/SKILL.md) for the workflow
+and shared coding recommendations. For the standalone runtime authoring skill,
+install the
 [houston-connector skill](https://ok-houston.com/docs/connectors/SKILL.md) as
 `.claude/skills/houston-connector/SKILL.md`.
 
