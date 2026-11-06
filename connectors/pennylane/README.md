@@ -18,6 +18,6 @@ entries. Sending a document emails your customer, and a finalized invoice can no
 longer be deleted.
 
 The connection uses an API token for one Pennylane company, limited to the
-permissions you choose when you create it. Your token stays on Houston's server.
+permissions you choose when you create it.
 
 [Connect your Pennylane company](SETUP.md).

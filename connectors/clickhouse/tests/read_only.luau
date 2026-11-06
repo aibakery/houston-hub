@@ -11,7 +11,7 @@ return {
 	end,
 	run = function(exports)
 		assert(exports.execute == nil, "read-only access must not expose execute")
-		local result = exports.query("SELECT count() AS n FROM events WHERE day = {day:Date}", {day = "2026-01-31"})
+		local result = fixture.example("query")
 		assert(result.rows[1].n == 7 and result.truncated == false)
 		local request = requests[1]
 		assert(request.params.day == "2026-01-31")

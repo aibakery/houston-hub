@@ -17,6 +17,6 @@ subscribers or commenters when content or comments change.
 The connection uses an application password from your own WordPress user, so that
 user's role still applies: an Author can publish only their own posts, while an
 Editor can manage all content and comments. Houston never manages plugins, themes,
-users or application passwords. Your password stays on Houston's server.
+users or application passwords.
 
 [Connect your WordPress site](SETUP.md).

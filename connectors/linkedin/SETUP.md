@@ -5,9 +5,6 @@
    - **Read and write** to also let agents publish and delete posts as you.
 2. Select **Authorize connector**, sign in to LinkedIn and allow access.
 
-Houston keeps your LinkedIn authorization on its server; agent scripts never see
-it.
-
 ## Advanced: access, expiry and troubleshooting
 
 ### Reconnect every 60 days

@@ -1,45 +1,9 @@
 # Connect Calendly
 
-Choose one way to connect:
-
-- **Personal access token** is the quickest way to connect your own account. No
-  developer app is required.
-- **Connect with Calendly** signs in through your own Calendly OAuth app. Use it
-  when you prefer authorizing in the browser to copying a token.
-
-Choose the access level in Houston first: **Read-only** to review meetings and
-availability, or **Read and write** to also book, cancel and change things.
-
-## Personal access token
-
-1. Sign in to Calendly and open
-   [Integrations → API & Webhooks](https://calendly.com/integrations/api_webhooks).
-2. Under **Personal access tokens**, select **Get a token now** or
-   **Generate new token**, and name it, for example, `Houston`.
-3. Select the scopes for your access level, listed under
-   [Scopes](#scopes), then select **Create token** and **Copy token**. Calendly
-   shows the token only once.
-4. In your Houston organization, add the Calendly connector, choose **Personal
-   access token** and paste the token.
-5. Save the connection and grant the appropriate organization members access.
-
-## Connect with Calendly
-
-You need a free Calendly developer account, separate from your Calendly login;
-sign up at [developer.calendly.com](https://developer.calendly.com) with GitHub
-or Google. Create an app for this connection: a Calendly app has one redirect URI,
-and each Houston connection has its own callback URL.
-
-1. In Houston, add the Calendly connector, choose **Connect with Calendly** under
-   **Connect using** and copy the **OAuth callback URL** shown.
-2. In the Calendly developer portal, create an OAuth application. Choose **Web**
-   as its kind and **Production** as its environment, and paste the callback URL as
-   its **Redirect URI**.
-3. Select every scope listed under [Scopes](#scopes) for both access levels, so
-   you can change the access level later without editing the app.
-4. Copy the **Client ID** and **Client Secret** into Houston's **OAuth client ID**
-   and **OAuth client secret**. Calendly shows the secret only once.
-5. Select **Authorize connector**, sign in to Calendly and allow access.
+1. Open [API & Webhooks](https://calendly.com/integrations/api_webhooks) and generate
+   a personal access token with the scopes below. Copy it when shown.
+2. In Houston, choose **Personal access token**, paste it and select **Read-only**
+   or **Read and write** to match the intended access. Save the connection.
 
 ## Scopes
 
@@ -58,32 +22,20 @@ and [OAuth app guide](https://developer.calendly.com/docs/authentication/creatin
 
 ## Advanced
 
+### Your own OAuth app
+
+1. In Houston, choose **Connect with Calendly** and copy **OAuth callback URL**.
+2. At [developer.calendly.com](https://developer.calendly.com), create a **Web**,
+   **Production** OAuth app with that exact **Redirect URI**. A developer account
+   is separate from your Calendly login. Create one app per Houston connection.
+3. Enable both scope lists above. Paste **OAuth client ID** and **OAuth client
+   secret** into Houston, select **Authorize connector** and allow every permission.
+
+Reauthorize when changing access. A token needs replacement to add scopes.
+Calendly can revoke tokens when your sign-in details change.
+
 ### Plans and roles
 
-Calendly still applies your plan and role. Booking meetings for invitees, webhooks
-and meeting recaps need a paid plan. Organization-wide meetings, members and
-webhooks need an organization admin or owner, and the activity log and sent
-messages need an Enterprise admin.
-
-### Changing the access level
-
-With **Connect with Calendly**, switching access levels asks Calendly for
-different scopes, so authorize the connection again afterwards. A personal access
-token keeps the scopes chosen when it was created: create a new token with the
-extra scopes when moving to **Read and write**.
-
-### Troubleshooting
-
-- **Requests fail with "Insufficient scope".** The token or app lacks a scope
-  listed above. Create a new token with it, or create a new app with every scope
-  listed above and update the connection's client ID and secret.
-- **Authorization fails because scopes were not granted.** Allow every requested
-  permission on Calendly's consent screen, and check that the app has every scope
-  listed above.
-- **Authorization fails with a redirect error.** The app's Redirect URI must match
-  the callback URL Houston shows exactly. Each Houston connection has its own
-  callback URL.
-- **Requests fail with HTTP 401.** Calendly revokes tokens when your email,
-  password or sign-in method changes. Create a new token or authorize again.
-- **You need to stop access.** Revoke the token on the API & Webhooks page, delete
-  the app in the developer portal, or remove the connection in Houston.
+Booking for invitees, webhooks and meeting recaps need a paid plan. Organization
+meetings, members and webhooks need an admin/owner; activity logs and sent messages
+need an Enterprise admin. Check scopes and callback matching if authorization fails.

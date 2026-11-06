@@ -1,59 +1,28 @@
-# Connect your Mercury account
+# Connect Mercury
 
-1. In Mercury, open **Settings → Tokens** at
-   [API Tokens](https://app.mercury.com/settings/tokens) and create an API token.
-   Use **Read Only** to check balances, transactions and SAFEs. If Tokens is
-   unavailable, ask your Mercury organization admin for access.
-2. In your Houston organization, add the Mercury connector and enter the complete
-   token in its private **API token** field, including the `secret-token:` prefix.
-   Keep **Access** set to **Read-only** for viewing data. Never paste the token
-   into a chat or saved action.
-3. Save the connection and grant the appropriate organization members access.
-   Connect ChatGPT to that Houston organization workspace to use the account.
+1. Create a **Read Only** token under [Settings → Tokens](https://app.mercury.com/settings/tokens).
+   Ask your organization admin if this page is unavailable.
+2. Paste the complete token, including `secret-token:`, into Houston's **API token**.
+3. Choose **Read-only** and save, or configure writes as described below.
 
-You can then ask for your available balances, recent transactions, SAFE signing
-and payment progress, or statement PDFs. Mercury's token scopes and your account's
-product eligibility determine which information is available.
+[Token guide](https://docs.mercury.com/docs/getting-started).
 
 ## Advanced
 
-### Payments and other changes
+### Payments and changes
 
-Choose **Read and write** in Houston and create a Mercury token with the scopes
-needed for the actions you want. Mercury's **Read and Write** tokens require an IP
-allowlist: add the Houston server's outbound IP addresses or ranges, obtained from
-your Houston operator. Your own device's IP does not identify Houston's requests.
+Choose **Read and write** and grant only the needed Mercury scopes. Mercury write
+tokens require an IP allowlist containing Houston's server egress addresses,
+obtained from your Houston operator. A **Custom** token with `RequestSendMoney`
+can queue payments for approval without an IP allowlist. Approvals happen in Mercury.
 
-If you only want to queue payments for approval, Mercury supports a **Custom**
-token with `RequestSendMoney` without an IP allowlist. Houston still requires
-write access to create these requests. Approvals follow your Mercury policies and
-are completed in Mercury; the connector does not expose an approval bypass.
+> Enable **Allow revealing agent card numbers and CVCs** only when agents need
+> those sensitive agent-card details; ordinary cards are not supported.
 
-Payment and transfer calls require an idempotency key. Reuse a key only for the
-same intended payment, and check the outcome after a timeout before trying again.
+### Token maintenance
 
-### Agent card details
+This connector supports production Mercury, not sandbox or OAuth connections.
+Mercury may remove inactive tokens or downgrade unused write permissions after
+45 days. Check scopes and IP restrictions if access stops.
 
-**Allow revealing agent card numbers and CVCs** defaults to off. Enable it only if
-you need the documented Vault API for agent cards. Mercury does not allow this
-endpoint to reveal ordinary card details. Treat its output as sensitive.
-
-### Availability and token maintenance
-
-This connector connects to production Mercury using an API token. Mercury's
-separate OAuth integration program requires prior approval and is not needed to
-connect your own account. Sandbox accounts use different tokens and hosts and
-are not supported by this bundle.
-
-Mercury may downgrade unused write permissions or delete inactive tokens after
-45 days. If access stops, check token validity, scopes and IP allowlists in Mercury,
-then update the connection's token as needed.
-
-Statements, invoices and SAFE PDFs download directly through the API. Attachment
-metadata may contain expiring signed download links; retrieve fresh metadata when
-a link expires. Only virtual cards can be issued through the API, and cardholders
-must already exist in Mercury.
-
-See Mercury's [getting started guide](https://docs.mercury.com/docs/getting-started),
-[token policies](https://docs.mercury.com/docs/api-token-security-policies), and
-[API reference](https://docs.mercury.com/reference).
+[Token policies](https://docs.mercury.com/docs/api-token-security-policies).

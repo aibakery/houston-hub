@@ -9,8 +9,7 @@
    permissions Google lists. If Google shows a checkbox per permission, tick
    them all: Houston refuses a partial grant.
 
-Houston keeps your Google authorization on its server; agent scripts never see
-it. The connection can open every form your Google account can edit, but nothing
+The connection can open every form your Google account can edit, but nothing
 else in your Drive; connecting Google Forms does not grant access to your other
 Google services.
 

@@ -10,7 +10,7 @@ return {
 		end}
 	end,
 	run = function(exports)
-		local result = exports.execute("INSERT INTO events (day, event) VALUES ({day:Date}, {event:String})", {day = "2026-01-31", event = "signup"})
+		local result = fixture.example("execute")
 		assert(#result.rows == 0 and result.affectedRows == nil)
 		assert(requests[1].readOnly == false and requests[1].params.event == "signup")
 	end,

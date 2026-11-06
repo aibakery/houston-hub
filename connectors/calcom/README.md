@@ -17,6 +17,6 @@ changes email the people involved and update connected calendars. Webhooks are
 visible only with read and write access, because they include signing secrets.
 
 The connection uses a Cal.com API key from your own account, so it can reach
-everything your account can. Your key stays on Houston's server.
+everything your account can.
 
 [Connect your Cal.com account](SETUP.md).

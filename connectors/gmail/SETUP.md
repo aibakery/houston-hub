@@ -8,8 +8,7 @@
    permissions Google lists. If Google shows a checkbox per permission, tick
    them all: Houston refuses a partial grant.
 
-Houston keeps your Google authorization on its server; agent scripts never see
-it. Each Gmail connection asks only for its own permissions, so connecting
+Each Gmail connection asks only for its own permissions, so connecting
 Gmail does not grant access to your other Google services.
 
 ## Advanced: changing access and troubleshooting

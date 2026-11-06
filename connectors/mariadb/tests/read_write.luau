@@ -10,7 +10,7 @@ return {
 		end}
 	end,
 	run = function(exports)
-		local result = exports.execute("INSERT INTO tasks (title) VALUES (?)", {"Ship it"})
+		local result = fixture.example("execute")
 		assert(result.affectedRows == 1 and result.lastInsertId == 12)
 		assert(requests[1].readOnly == false and requests[1].params[1] == "Ship it")
 	end,

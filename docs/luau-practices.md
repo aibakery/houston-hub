@@ -1,10 +1,10 @@
 # Writing clear Luau connectors
 
-These are optional recommendations, illustrated by the
+These review guidelines are illustrated by the
 [Fastmail](../connectors/fastmail/connector.luau) and
-[PostgreSQL](../connectors/postgres/connector.luau) connectors. They are not additional
-publication rules or a style checklist enforced by CI. Contributors may choose a
-different structure when it makes their connector easier to understand. The
+[PostgreSQL](../connectors/postgres/connector.luau) connectors. Behavior and type checks enforce the runtime contract; source layout
+is reviewed
+for clarity rather than matched against a style checklist. The
 [authoring guide](../AUTHORING.md) describes the actual runtime and bundle contract.
 
 ## Start with the interface
@@ -28,8 +28,9 @@ local message = mail.getMessage({
 })
 ```
 
-Keep established positional forms working when introducing named forms. Normalize
-both forms once near the operation boundary, then use one implementation. Do not
+Prefer preserving a clear existing public API when practical. Avoid compatibility
+wrappers and duplicate calling conventions solely to preserve old implementation
+details; breaking changes are acceptable during early development. Do not
 add an options table to every tiny helper simply to reduce its parameter count;
 two clear scalar arguments are often simpler.
 
@@ -58,6 +59,10 @@ descriptions or examples that a later loop or registration helper assembles into
 exports. A few more lines are worthwhile when they reduce the number of places a
 reader must look to understand one operation. Reuse common schemas and helpers
 for repeated behavior; DRY does not require a framework for registering functions.
+For mechanically identical endpoints in a broad API, a single declarative table
+can be clearer than hundreds of copied request functions. Keep route, validation,
+access and help together in that record, with a simple sequential request path.
+Use direct definitions for custom behavior; do not stack registration abstractions.
 Choose another structure when it is clearer for the connector, rather than
 treating the example as a mandatory template.
 
@@ -141,11 +146,11 @@ ordering, missing scopes, malformed responses, partial mutations and attachment
 streaming. For memory improvements, check that unnecessary fields or repeated
 requests disappear; avoid asserting exact source text or incidental helper names.
 
-Run the existing Go validator with the runtime and Luau analyzer described in the
+Run Houston's validator with the runtime and Luau analyzer described in the
 [authoring guide](../AUTHORING.md#tests-and-publication):
 
 ```sh
-go run ./tools/validate connectors/fastmail
+go -C tools/runtime run . test-connectors connectors/fastmail
 ```
 
 This runs the existing manifest, type and behavior checks. It adds no style gates.

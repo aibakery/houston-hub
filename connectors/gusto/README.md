@@ -4,21 +4,14 @@ description: Read Gusto payroll, people and benefits, and keep employee records 
 
 # Gusto
 
-Connect Gusto so your agents can answer payroll and HR questions from the source.
-They can read the company, its locations and departments, employees and contractors
-with their jobs and pay rates, pay schedules and pay periods, payrolls with gross and
-net pay, taxes and deductions, contractor payments, time off policies and balances,
-company benefits and enrollments, garnishments, recurring reimbursements, time sheets
-and general ledger reports.
+Let agents read payroll, employees, contractors, benefits, time off and accounting
+reports. **Read and write** also permits employee and benefit changes, time sheets
+and draft payroll edits.
 
-With read and write access, agents can also add and update employees, contractors,
-addresses, compensations, departments, benefits and enrollments, terminate or rehire
-employees, record time sheets and edit draft payrolls. Agents never submit a payroll
-or pay anyone themselves, but changes to pay, reimbursements and draft payrolls are paid
-by the next payroll, including one Gusto runs automatically with Payroll on AutoPilot.
+> Agents cannot submit payroll or pay people directly. Changes to pay and draft
+> payrolls affect the next payroll, including Payroll on AutoPilot.
 
-Each connection reaches one company, and only a primary or full-access Gusto admin can
-connect it. Gusto's permissions for Houston's app decide which data agents can see. Your
-credentials stay on Houston's server.
+Each connection serves one company. A primary or full-access admin must connect
+it; Gusto's app permissions still apply.
 
 [Connect Gusto](SETUP.md).

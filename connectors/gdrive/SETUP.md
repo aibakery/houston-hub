@@ -7,8 +7,7 @@
    permissions Google lists. If Google shows a checkbox per permission, tick
    them all: Houston refuses a partial grant.
 
-Houston keeps your Google authorization on its server; agent scripts never see
-it. Each Google Drive connection asks only for its own permissions, so connecting
+Each Google Drive connection asks only for its own permissions, so connecting
 Google Drive does not grant access to your other Google services.
 
 ## Advanced: changing access and troubleshooting

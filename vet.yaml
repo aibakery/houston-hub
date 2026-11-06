@@ -1,0 +1,19 @@
+# Hub code is Luau. Data, documentation, images and CI configuration are allowed.
+version: 1
+rules:
+  forbidden-files:
+    enabled: true
+    reason: "Write connector code and test helpers in Luau; Go tooling lives in Houston"
+    patterns:
+      - "**/*"
+    exclude:
+      - "**/*.luau"
+      - "**/*.lua"
+      - "**/*.md"
+      - "**/*.json"
+      - "**/*.svg"
+      - "**/*.png"
+      - ".github/workflows/*.yml"
+      - "vet.yaml"
+      - ".gitignore"
+      - "LICENSE"

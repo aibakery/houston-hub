@@ -10,9 +10,9 @@ apply when this skill is installed separately.
 
 Read `AUTHORING.md` for the bundle contract, native runtime examples, validation,
 and publication workflow. Read `docs/luau-practices.md` for the shared coding
-recommendations. Aim for a consistent style across connectors; these preferences
-are not additional publication requirements or CI style gates. A different
-structure is reasonable when it makes the implementation easier to understand.
+guidelines. Implement sequentially, keep operations and help together, reuse small
+helpers and avoid registration indirection. The Hub accepts only Luau source and
+fixtures; shared Go tooling belongs to the Houston repository.
 
 ## Establish the operation contract
 
@@ -23,7 +23,10 @@ provider or transport behavior, checking assumptions against the provider docs.
 Keep changes scoped to the requested connector and behavior.
 
 Create or update the bundle's `houston.json`, Luau entrypoints, provider icon,
-account-user README and SETUP, and behavioral fixtures. Keep credentials in
+short user-facing README and SETUP, and Luau behavioral fixtures. README explains
+capabilities and access; SETUP contains only account connection steps, with rare
+options under Advanced. Use headings, quotes and setup code blocks where useful.
+Agents learn signatures and examples through `help()`, never these user documents. Keep credentials in
 manifest injection rules and initialization and help free of network calls.
 Expose only operations available under the configured access and permissions.
 
@@ -56,14 +59,14 @@ empty or null responses, pagination, provider errors, and confirmed or partial
 writes. Prefer executing documented examples, as the PostgreSQL fixtures do.
 Test observable behavior rather than source layout or helper names.
 
-Run the existing validator from the Hub root, replacing the path with the bundle:
+Run the validator from a Houston checkout with this Hub revision in `hub/`:
 
 ```sh
-go run ./tools/validate connectors/postgres
+go -C tools/runtime run . test-connectors connectors/postgres
 ```
 
 Follow `AUTHORING.md` under “Tests and publication” for the current Houston runtime
 and Luau analyzer prerequisites. Report which checks ran and any blockers; do not
-add new tooling or style gates just to enforce these recommendations. Repository
+add source-spelling tests just to enforce these guidelines. Repository
 changes do not publish a connector: use the separate publication workflow when
 publication is requested.
