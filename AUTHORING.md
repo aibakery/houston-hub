@@ -503,8 +503,8 @@ IMAP provides `imap.command({command, ...})`, an operation for one mail command
 on its own connection. Houston logs in, decodes MIME and owns the message IDs;
 the [IMAP connector](connectors/imap/connector.luau) documents each command and its
 options. Fields are strings, numbers, booleans or arrays of them, and unknown
-options are rejected. `store`, `move` and `create` change the mailbox and need
-write access. IMAP errors raise `imap_error` with the reason or server's message.
+options are rejected. `store`, `move`, `create`, `draft` and `discard` change the
+mailbox and need write access. IMAP errors raise `imap_error` with the reason or server's message.
 
 Initialize JSON arrays with `json.decode("[]")`, including arrays that may be
 empty. A plain empty Luau table encodes as a JSON object. For example,
