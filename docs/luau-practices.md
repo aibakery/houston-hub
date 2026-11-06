@@ -1,7 +1,8 @@
 # Writing clear Luau connectors
 
 These are optional recommendations, illustrated by the
-[Fastmail connector](../connectors/fastmail/connector.luau). They are not additional
+[Fastmail](../connectors/fastmail/connector.luau) and
+[PostgreSQL](../connectors/postgres/connector.luau) connectors. They are not additional
 publication rules or a style checklist enforced by CI. Contributors may choose a
 different structure when it makes their connector easier to understand. The
 [authoring guide](../AUTHORING.md) describes the actual runtime and bundle contract.
@@ -42,6 +43,23 @@ The connector's pure `help()` is its callable documentation. Keep signatures,
 defaults, pagination, result shapes and mutation behavior accurate, and derive
 the listed operations from the configured exports. Keep the bundle README focused
 on what people can do with the connector.
+
+## Write operations in review order
+
+Prefer documenting each operation immediately before defining it. The
+[PostgreSQL connector](../connectors/postgres/connector.luau) places each structured
+`help.functions` record, including its description and examples, directly before
+the corresponding `function exports.name(...)`. An access-dependent operation
+and its help share the same condition, so reviewers can see their availability
+together.
+
+Prefer explicit, sequential definitions over separate maps of implementations,
+descriptions or examples that a later loop or registration helper assembles into
+exports. A few more lines are worthwhile when they reduce the number of places a
+reader must look to understand one operation. Reuse common schemas and helpers
+for repeated behavior; DRY does not require a framework for registering functions.
+Choose another structure when it is clearer for the connector, rather than
+treating the example as a mandatory template.
 
 ## Keep state small and its lifetime explicit
 
