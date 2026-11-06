@@ -3,7 +3,7 @@
 1. Choose the access level:
    - **Read-only** to let agents read your basic profile.
    - **Read and write** to also let agents publish and delete posts as you.
-2. Select **Connect with LinkedIn**, sign in to LinkedIn and allow access.
+2. Select **Authorize connector**, sign in to LinkedIn and allow access.
 
 Houston keeps your LinkedIn authorization on its server; agent scripts never see
 it.

@@ -8,11 +8,16 @@
   "config": {
     "access": {
       "default": "read-only",
+      "description": "Read and draft lets agents create, update and delete drafts for you to review and send, without changing any other mail. This connector never sends email.",
       "label": "Access",
       "options": [
         {
           "label": "Read-only",
           "value": "read-only"
+        },
+        {
+          "label": "Read and draft",
+          "value": "custom"
         },
         {
           "label": "Read and write",

@@ -137,8 +137,8 @@ end
 
 -- End of the shared request layer.
 
--- Read and draft (custom) connections save drafts for a writing caller; the proxy refuses every send.
-local DRAFTS = config.access == "custom" and houston.access == "read-write"
+-- Read and draft (custom) connections save drafts; the proxy refuses every send.
+local DRAFTS = config.access == "custom"
 local SEARCH = {"q", "labelIds", "maxResults", "pageToken", "includeSpamTrash"}
 local endpoints: {[string]: Endpoint} = {
 	getProfile = {method = "GET", path = "/profile", read = true,
@@ -469,7 +469,7 @@ local function submit(name: string, method: string, path: string, args: Options,
 end
 
 exportEndpoints(endpoints)
--- Read and draft also lets writing callers delete drafts; the endpoint itself stays a write.
+-- Read and draft also deletes drafts; the endpoint itself stays a write.
 if DRAFTS then
 	export("deleteDraft", true, function(args: Options?): any return invoke("deleteDraft", endpoints.deleteDraft, args) end, endpoints.deleteDraft.help)
 end

@@ -18,7 +18,7 @@ return {
 		end}
 	end,
 	run = function(c)
-		for _, name in {"setFlags", "moveMessages", "trashMessages", "createFolder"} do
+		for _, name in {"setFlags", "moveMessages", "trashMessages", "createFolder", "createDraft", "updateDraft", "deleteDraft"} do
 			assert(c[name] == nil, "read-only leaked " .. name)
 		end
 

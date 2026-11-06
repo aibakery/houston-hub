@@ -4,7 +4,7 @@ You don't need to create a Notion integration: Houston provides one.
 
 1. Choose **Read-only** to let agents search and read, or **Read and write** to
    also let them create and change content.
-2. Choose **Authorize connector** and sign in.
+2. Select **Continue with Notion** and sign in to Notion if asked.
 3. Pick the workspace and the pages to share, then allow access.
 
 Agents only see the pages you pick, including their subpages. To share more pages

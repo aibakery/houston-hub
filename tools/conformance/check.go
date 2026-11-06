@@ -24,7 +24,6 @@ type Scenario struct {
 	AuthConfig    map[string]any    `json:"auth_config"`
 	GrantedScopes []string          `json:"granted_scopes"`
 	Facts         map[string]string `json:"facts"`
-	CallerAccess  string            `json:"caller_access"`
 	SettingsError string            `json:"settings_error"`
 }
 type metadata struct {
@@ -46,7 +45,6 @@ type Coverage struct {
 	Fixture          string         `json:"fixture"`
 	AuthMethod       string         `json:"auth_method"`
 	Config           map[string]any `json:"config,omitempty"`
-	CallerAccess     string         `json:"caller_access,omitempty"`
 	GrantedScopes    []string       `json:"granted_scopes"`
 	Exports          []string       `json:"exports,omitempty"`
 	SettingsRejected bool           `json:"settings_rejected,omitempty"`
@@ -129,23 +127,6 @@ func check(ctx context.Context, binary string, m manifest.Manifest, modules, fix
 		for key, value := range meta.Config {
 			scenario.Config[key] = value
 		}
-		callerAccess := scenario.CallerAccess
-		if callerAccess != "" {
-			if callerAccess != "read-only" && callerAccess != "read-write" {
-				return fmt.Errorf("fixture %s caller_access must be read-only or read-write", name)
-			}
-			field, declared := m.Config["access"]
-			configured, present := scenario.Config["access"]
-			if !present {
-				configured = field.Default
-			}
-			if configured != "read-write" && configured != "custom" {
-				callerAccess = "read-only"
-			}
-			if declared && configured != "custom" {
-				scenario.Config["access"] = callerAccess
-			}
-		}
 		resolved, err := m.Resolve(scenario.Publisher, scenario.Config, scenario.AuthConfig, scenario.AuthMethod)
 		if err == nil && m.Proxy[resolved.ProxyIndices[0]].Action.Connection != nil {
 			_, err = m.Proxy[resolved.ProxyIndices[0]].ResolveDatabase(resolved.Context)
@@ -155,7 +136,7 @@ func check(ctx context.Context, binary string, m manifest.Manifest, modules, fix
 				return fmt.Errorf("fixture %s settings: want an error containing %q, got %v", name, scenario.SettingsError, err)
 			}
 			if coverage != nil {
-				*coverage = append(*coverage, Coverage{Fixture: name, AuthMethod: scenario.AuthMethod, CallerAccess: callerAccess, SettingsRejected: true})
+				*coverage = append(*coverage, Coverage{Fixture: name, AuthMethod: scenario.AuthMethod, SettingsRejected: true})
 			}
 			continue
 		}
@@ -182,9 +163,6 @@ func check(ctx context.Context, binary string, m manifest.Manifest, modules, fix
 			}
 		}
 		input["auth"] = m.DiscoveryAuth(scenario.AuthMethod, scenario.GrantedScopes, scenario.Facts)
-		if callerAccess != "" {
-			input["access"] = callerAccess
-		}
 		var output, discovery hostResult
 		if err := call(ctx, binary, "connector-host", input, &discovery); err != nil {
 			return fmt.Errorf("fixture %s initialization failed: %w", name, err)
@@ -214,7 +192,7 @@ func check(ctx context.Context, binary string, m manifest.Manifest, modules, fix
 			if err := json.Unmarshal(discovery.Help, &doc); err != nil || doc.Functions == nil {
 				return fmt.Errorf("fixture %s: maintained Hub connectors require structured help.functions", name)
 			}
-			*coverage = append(*coverage, Coverage{Fixture: name, AuthMethod: scenario.AuthMethod, Config: resolved.PublicConfig, CallerAccess: callerAccess, GrantedScopes: scenario.GrantedScopes, Exports: discovery.Exports})
+			*coverage = append(*coverage, Coverage{Fixture: name, AuthMethod: scenario.AuthMethod, Config: resolved.PublicConfig, GrantedScopes: scenario.GrantedScopes, Exports: discovery.Exports})
 		}
 		methods[scenario.AuthMethod] = true
 		for _, index := range resolved.ProxyIndices {

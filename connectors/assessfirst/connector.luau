@@ -3,7 +3,7 @@ type Options = {[string]: any}
 type Endpoint = {method: string, path: string, query: {string}?, body: {string}?, required: {string}?, array: boolean?, pdf: boolean?, custom: {string}?, about: string, examples: {Options}}
 
 local API = "https://" .. config.api_host .. "/betty-V2"
--- Completion status only has no writes, so it behaves the same whatever the caller's grant.
+-- Completion status only has no writes.
 local COMPLETION_ONLY = config.access == "custom"
 local DOCS = "https://documenter.getpostman.com/view/12154847/2sB2qWGjNX"
 local NULL = json.decode("null")

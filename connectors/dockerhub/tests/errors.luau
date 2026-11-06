@@ -108,10 +108,9 @@ return {
 
 		requestError = {code = "timeout", message = "request deadline"}
 		upstream(200, "", {}, {"Docker Hub did not answer within 15 s; retry", '"retryable":true'})
-		-- Other request failures pass through unchanged: the stand-in table loses its message across the export boundary, so
-		-- only the absence of an upstream failure (no retryable flag) is checked.
+		-- Other request failures pass through unchanged, message included, and never become an upstream failure.
 		requestError = {code = "access_denied", message = "origin not allowed"}
-		upstream(200, "", {}, {"error"}, "retryable")
+		upstream(200, "", {}, {"origin not allowed"}, "retryable")
 		requestError = nil
 		-- An error body that stalls or breaks still gives the structured failure, with Retry-After on a 503.
 		readError = {code = "timeout", message = "await timed out"}

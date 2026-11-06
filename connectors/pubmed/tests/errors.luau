@@ -158,9 +158,9 @@ return {
 
 		requestError = {code = "timeout", message = "request deadline"}
 		upstream(200, "", {}, find, {"NCBI did not answer within 8 s; retry", '"retryable":true'})
-		-- Other request failures pass through unchanged; the stand-in table loses its message across the export boundary.
+		-- Other request failures pass through unchanged, message included, and never become an upstream failure.
 		requestError = {code = "access_denied", message = "origin not allowed"}
-		upstream(200, "", {}, fullText, {"error"}, "retryable")
+		upstream(200, "", {}, fullText, {"origin not allowed"}, "retryable")
 		requestError = nil
 		readError = {code = "timeout", message = "await timed out"}
 		upstream(200, "", {}, summaries, {"NCBI did not finish sending its answer within 19 s; retry", '"retryable":true'})

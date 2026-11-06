@@ -15,7 +15,39 @@ local empty: {string} = json.decode("[]")
 local changeIds = {"7:42:INBOX", "7:43:INBOX"}
 local flagAlternatives: {any} = {{required = {"add"}, properties = {add = {minItems = 1}}}, {required = {"remove"}, properties = {remove = {minItems = 1}}}}
 local flagExamples: {any} = {{ids = changeIds, add = {"\\Seen"}}, {ids = {"7:42:INBOX"}, remove = {"\\Seen"}}}
+local addresses = {anyOf = {text, {type = "array", items = text}}, description = "An RFC mailbox address (optionally with a display name), or a list of addresses."}
+local draftFields: {[string]: any} = {
+	to = addresses, cc = addresses, bcc = addresses, replyTo = addresses,
+	from = {type = "string", description = "One mailbox address; defaults to the account address when available."},
+	subject = {type = "string", pattern = "^[^\\r\\n]*$"}, text = text, html = text,
+	inReplyTo = {type = "string", minLength = 1, description = "Opaque IMAP message ID of the original, not its RFC Message-ID header."},
+	replyAll = {type = "boolean", default = false},
+	attachments = {type = "array", maxItems = 20, description = "Session files, at most 6 MiB total; composing the draft must finish within 20 seconds.", items = {anyOf = {
+		nonempty :: any,
+		{type = "object", properties = {path = nonempty, filename = text, mimeType = {type = "string", description = "Valid MIME media type; omitted or empty selects the detected type."}}, required = {"path"}, additionalProperties = false},
+	}}},
+}
+local function draftInput(replacing: boolean): any
+	local properties = table.clone(draftFields)
+	if replacing then properties.id = messageId end
+	local schema = input(properties, if replacing then {"id"} else empty, {})
+	schema.allOf = {{["if"] = {properties = {replyAll = {const = true}}, required = {"replyAll"}}, ["then"] = {required = {"inReplyTo"}}}}
+	if replacing then
+		schema.examples = {{id = "3:1:Drafts", subject = "Hello again", to = "grace@example.com"}}
+	else
+		schema.examples = {
+			{to = "Grace <grace@example.com>", cc = {"a@example.com", "b@example.com"}, subject = "Hello", text = "Hi", html = "<p>Hi</p>", attachments = {"files/report.pdf" :: any, {path = "files/notes", filename = "notes.txt", mimeType = "text/plain"}}} :: any,
+			{inReplyTo = "7:42:INBOX", replyAll = true, text = "Thanks", attachments = json.decode("[]")},
+			json.decode("{}"),
+		}
+	end
+	return schema
+end
+local draftResult = {type = "object", properties = {id = messageId, folder = text, messageId = nonempty}, required = {"folder", "messageId"}, additionalProperties = false}
 return {
+	createDraft = {inputSchema = draftInput(false), outputSchema = draftResult},
+	updateDraft = {inputSchema = draftInput(true), outputSchema = draftResult},
+	deleteDraft = {inputSchema = input({id = messageId}, {"id"}, {id = "3:4:Drafts"}), outputSchema = moved},
 	listMailFolders = {args = {}, inputSchema = {type = "object", additionalProperties = false, examples = {{}}}},
 	listMessages = {
 		inputSchema = input({

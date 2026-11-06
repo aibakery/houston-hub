@@ -31,8 +31,8 @@ If you cannot create an API key, a workspace admin can allow it under
 Each Houston connection has its own callback URL, so create an app for this
 connection.
 
-1. In Houston, add the Linear connector, choose **Connect with Linear** and copy
-   the **OAuth callback URL** shown.
+1. In Houston, add the Linear connector, choose **Connect with Linear** under
+   **Connect using** and copy the **OAuth callback URL** shown.
 2. In Linear, open
    [Settings → Administration → API → OAuth applications](https://linear.app/settings/api/applications/new)
    and create a new application. Give it a name, such as `Houston`, and a
@@ -42,7 +42,7 @@ connection.
    **Public**.
 5. Create the application and copy its **Client ID** and **Client secret** into
    Houston's **OAuth client ID** and **OAuth client secret**.
-6. Select **Authorize account**, sign in to Linear, choose the workspace and allow
+6. Select **Continue with Linear**, sign in to Linear, choose the workspace and allow
    access.
 
 **Read-only** asks Linear for the `read` permission, and **Read and write** for
