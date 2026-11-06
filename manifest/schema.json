@@ -718,6 +718,7 @@
               },
               "match": {
                 "properties": {
+                  "colon_path_parameters": false,
                   "header": false,
                   "host": false,
                   "method": false,
@@ -845,6 +846,16 @@
     "ProxyMatch": {
       "additionalProperties": false,
       "properties": {
+        "colon_path_parameters": {
+          "description": "Placeholder names whose values may contain a colon before a {name}:verb suffix, such as A1:B2 in values/{range}:clear.",
+          "items": {
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+            "type": "string"
+          },
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
+        },
         "header": {
           "additionalProperties": {
             "oneOf": [
@@ -894,7 +905,7 @@
           "uniqueItems": true
         },
         "path": {
-          "description": "Path patterns. A whole segment such as {{auth.oauth.team_id}} names one declared OAuth fact, rendered per connection.",
+          "description": "Path patterns. A whole segment such as {{auth.oauth.team_id}} names one declared OAuth fact, rendered per connection. {name}:verb matches a custom method, such as /items/{id}:archive.",
           "items": {
             "type": "string"
           },

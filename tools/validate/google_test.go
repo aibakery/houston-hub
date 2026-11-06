@@ -54,9 +54,9 @@ func TestGoogleSheetsScopesAndRoutes(t *testing.T) {
 			"POST "+api+"/s1/values:batchUpdateByDataFilter", "GET "+api+"/s1/values/%2e%2e/x",
 			// Ranges may carry encoded separators, but never traversal or an encoded spreadsheet ID.
 			"GET "+api+"/s1/values/%2e%2e%2F%2e%2e%2Fdrive", "GET "+api+"/s1/values/%252e%252e%252Fx", "GET "+api+"/s1%2F..%2Fx/values/A1")
-		assertStripsMethodOverrides(t, r, "GET "+api+"/s1", "GET "+api+"/s1/values/A1")
+		assertRejectsMethodOverrides(t, r, "GET "+api+"/s1", "GET "+api+"/s1/values/A1")
 		if access == "read-write" {
-			assertStripsMethodOverrides(t, r, writes...)
+			assertRejectsMethodOverrides(t, r, writes...)
 		}
 	}
 }
@@ -75,12 +75,12 @@ func TestGoogleCalendarScopesAndRoutes(t *testing.T) {
 			"GET " + api + "/calendars/en.usa%23holiday%40group.v.calendar.google.com/events?singleEvents=true",
 			"GET " + team + "/events/e1", "GET " + team + "/events/e1/instances", "POST " + api + "/freeBusy"}
 		assertRoutes(t, r, "fixture-token", true, reads...)
-		assertStripsMethodOverrides(t, r, reads...)
+		assertRejectsMethodOverrides(t, r, reads...)
 		writes := []string{"POST " + team + "/events?sendUpdates=all", "POST " + api + "/calendars/primary/events/quickAdd?text=Lunch",
 			"POST " + team + "/events/e1/move?destination=primary", "PATCH " + team + "/events/e1", "DELETE " + team + "/events/e1"}
 		assertRoutes(t, r, "fixture-token", access == "read-write", writes...)
 		if access == "read-write" {
-			assertStripsMethodOverrides(t, r, writes...)
+			assertRejectsMethodOverrides(t, r, writes...)
 		}
 		// The token stays off Google's OAuth endpoints, other Google APIs, lookalike hosts and
 		// Calendar routes the connector never calls: calendar and ACL changes, imports,
@@ -114,11 +114,11 @@ func TestGmailScopesAndRoutes(t *testing.T) {
 				"GET " + api + "/threads", "GET " + api + "/threads/t1", "GET " + api + "/drafts", "GET " + api + "/drafts/d1",
 				"GET " + api + "/history?startHistoryId=1", "GET " + api + "/settings/sendAs"}
 			assertRoutes(t, r, "fixture-token", true, reads...)
-			assertStripsMethodOverrides(t, r, reads...)
+			assertRejectsMethodOverrides(t, r, reads...)
 			drafts := []string{"POST " + upload + "/drafts?uploadType=multipart", "PUT " + upload + "/drafts/d1?uploadType=multipart", "DELETE " + api + "/drafts/d1"}
 			assertRoutes(t, r, "fixture-token", access != "read-only", drafts...)
 			if access != "read-only" {
-				assertStripsMethodOverrides(t, r, drafts...)
+				assertRejectsMethodOverrides(t, r, drafts...)
 			}
 			writes := []string{"POST " + api + "/messages/batchModify", "POST " + api + "/messages/m1/modify", "POST " + api + "/messages/m1/trash",
 				"POST " + api + "/messages/m1/untrash", "POST " + api + "/threads/t1/modify", "POST " + api + "/threads/t1/trash",
@@ -126,7 +126,7 @@ func TestGmailScopesAndRoutes(t *testing.T) {
 				"POST " + api + "/drafts/send", "POST " + upload + "/messages/send?uploadType=multipart"}
 			assertRoutes(t, r, "fixture-token", access == "read-write", writes...)
 			if access == "read-write" {
-				assertStripsMethodOverrides(t, r, writes...)
+				assertRejectsMethodOverrides(t, r, writes...)
 			}
 			// The token stays off Google's OAuth endpoints, other Google APIs, lookalike hosts and Gmail
 			// routes the connector never calls: permanent deletes, imports, inserts, settings, watches, batches
@@ -159,7 +159,7 @@ func TestGoogleDriveScopesAndRoutes(t *testing.T) {
 			"GET " + api + "/files/f1?alt=media", "GET " + api + "/files/f1/export?mimeType=text%2Fplain", "GET " + api + "/files/f1/permissions",
 			"GET " + api + "/drives"}
 		assertRoutes(t, r, "fixture-token", true, reads...)
-		assertStripsMethodOverrides(t, r, reads...)
+		assertRejectsMethodOverrides(t, r, reads...)
 		writes := []string{"POST " + api + "/files", "PATCH " + api + "/files/f1", "POST " + api + "/files/f1/copy", "DELETE " + api + "/files/f1",
 			"POST " + api + "/files/f1/permissions", "DELETE " + api + "/files/f1/permissions/p1",
 			"POST " + upload + "/files?uploadType=resumable", "PATCH " + upload + "/files/f1?uploadType=resumable",
@@ -168,7 +168,7 @@ func TestGoogleDriveScopesAndRoutes(t *testing.T) {
 		// emptyTrash shares the {fileId} route, so only the connector's deleteFile check refuses it.
 		assertRoutes(t, r, "fixture-token", access == "read-write", "DELETE "+api+"/files/trash")
 		if access == "read-write" {
-			assertStripsMethodOverrides(t, r, writes...)
+			assertRejectsMethodOverrides(t, r, writes...)
 		}
 		// The token stays off Google's OAuth endpoints, other Google APIs, lookalike hosts and Drive
 		// routes the connector never calls: emptying the trash, shared-drive and permission changes,
@@ -196,11 +196,11 @@ func TestGoogleFormsScopesAndRoutes(t *testing.T) {
 		reads := []string{"GET " + api + "/f1", "GET " + api + "/f1/responses?filter=timestamp%20%3E%202026-10-01T00%3A00%3A00Z",
 			"GET " + api + "/f1/responses/ACYD"}
 		assertRoutes(t, r, "fixture-token", true, reads...)
-		assertStripsMethodOverrides(t, r, reads...)
+		assertRejectsMethodOverrides(t, r, reads...)
 		writes := []string{"POST " + api + "?unpublished=true", "POST " + api + "/f1:batchUpdate", "POST " + api + "/f1:setPublishSettings"}
 		assertRoutes(t, r, "fixture-token", access == "read-write", writes...)
 		if access == "read-write" {
-			assertStripsMethodOverrides(t, r, writes...)
+			assertRejectsMethodOverrides(t, r, writes...)
 		}
 		// The token stays off Google's OAuth endpoints, other Google APIs, lookalike hosts and Forms
 		// routes the connector never calls: Pub/Sub watches and unused methods.
@@ -225,11 +225,11 @@ func TestGoogleDocsScopesAndRoutes(t *testing.T) {
 		r := resolveGoogle(t, m, access, scope)
 		reads := []string{"GET " + api + "/d1?includeTabsContent=true", "GET " + api + "/1DoC_x-9?fields=documentId%2Ctitle%2CrevisionId%2Ctabs"}
 		assertRoutes(t, r, "fixture-token", true, reads...)
-		assertStripsMethodOverrides(t, r, reads...)
+		assertRejectsMethodOverrides(t, r, reads...)
 		writes := []string{"POST " + api, "POST " + api + "/d1:batchUpdate"}
 		assertRoutes(t, r, "fixture-token", access == "read-write", writes...)
 		if access == "read-write" {
-			assertStripsMethodOverrides(t, r, writes...)
+			assertRejectsMethodOverrides(t, r, writes...)
 		}
 		// The token stays off Google's OAuth endpoints, other Google APIs, lookalike hosts and
 		// methods the API does not have.
@@ -257,11 +257,11 @@ func TestGoogleSlidesScopesAndRoutes(t *testing.T) {
 			"GET " + api + "/p1/pages/q3%3Asummary", "GET " + api + "/p1/pages/g1/thumbnail",
 			"GET " + api + "/p1/pages/SLIDES_API1_0/thumbnail?thumbnailProperties.thumbnailSize=SMALL"}
 		assertRoutes(t, r, "fixture-token", true, reads...)
-		assertStripsMethodOverrides(t, r, reads...)
+		assertRejectsMethodOverrides(t, r, reads...)
 		writes := []string{"POST " + api, "POST " + api + "/p1:batchUpdate"}
 		assertRoutes(t, r, "fixture-token", access == "read-write", writes...)
 		if access == "read-write" {
-			assertStripsMethodOverrides(t, r, writes...)
+			assertRejectsMethodOverrides(t, r, writes...)
 		}
 		// The token stays off Google's OAuth endpoints, other Google APIs, lookalike hosts,
 		// methods the API does not have and encoded traversal in either ID.
@@ -276,4 +276,28 @@ func TestGoogleSlidesScopesAndRoutes(t *testing.T) {
 			"GET "+api+"/p1/pages/g1%2Fthumbnail", "GET "+api+"/p1/pages/%252e%252e",
 			"POST https://slides.googleapis.com/batch", "POST https://slides.googleapis.com/batch/slides/v1")
 	}
+}
+
+// Google runs the method named by a $httpMethod query parameter, so a read rule must not
+// carry a write: Houston refuses the parameter, plain or percent-encoded, on every route.
+func TestGoogleRefusesMethodOverrideQueries(t *testing.T) {
+	gmail := resolveGoogle(t, parseManifest(t, "../../connectors/gmail/houston.json"), "custom", "gmail.readonly", "gmail.compose")
+	const api = "https://gmail.googleapis.com/gmail/v1/users/me"
+	const upload = "https://gmail.googleapis.com/upload/gmail/v1/users/me"
+	assertRoutes(t, gmail, "fixture-token", true, "GET "+api+"/drafts/abc", "PUT "+upload+"/drafts/abc?uploadType=multipart")
+	for _, name := range []string{"$httpMethod", "%24httpMethod"} {
+		assertRefusedRoutes(t, gmail, "GET "+api+"/drafts/send?"+name+"=POST", "GET "+api+"/messages/send?"+name+"=POST",
+			"PUT "+upload+"/drafts/send?"+name+"=POST")
+	}
+	// Read and draft never sends, so the send routes themselves stay refused.
+	assertRefusedRoutes(t, gmail, "POST "+api+"/drafts/send", "POST "+api+"/messages/send", "POST "+upload+"/messages/send?uploadType=multipart")
+
+	drive := resolveGoogle(t, parseManifest(t, "../../connectors/gdrive/houston.json"), "read-only", "drive.readonly")
+	assertRoutes(t, drive, "fixture-token", true, "GET https://www.googleapis.com/drive/v3/files/x")
+	assertRefusedRoutes(t, drive, "GET https://www.googleapis.com/drive/v3/files/x?$httpMethod=PATCH")
+
+	sheets := resolveGoogle(t, parseManifest(t, "../../connectors/gsheets/houston.json"), "read-only", "spreadsheets.readonly")
+	const spreadsheet = "https://sheets.googleapis.com/v4/spreadsheets/x"
+	assertRoutes(t, sheets, "fixture-token", true, "GET "+spreadsheet)
+	assertRefusedRoutes(t, sheets, "POST "+spreadsheet+":batchUpdate", "GET "+spreadsheet+":batchUpdate?$httpMethod=POST")
 }

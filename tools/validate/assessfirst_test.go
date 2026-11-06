@@ -42,8 +42,9 @@ func TestAssessFirstAccessRoutes(t *testing.T) {
 					if err != nil {
 						continue
 					}
-					headers, err := recipe.Prepare(r.Context, http.Header{"Af-Token": {"forged"}, "X-Http-Method-Override": {"DELETE"}})
-					if err != nil || headers.Get("AF-Token") != token || headers.Get("X-HTTP-Method-Override") != "" {
+					assertPrepareRejectsMethodOverrides(t, recipe, r.Context, access+" "+route)
+					headers, err := recipe.Prepare(r.Context, http.Header{"Af-Token": {"forged"}})
+					if err != nil || headers.Get("AF-Token") != token {
 						t.Fatalf("credential injection for %s: %v %v", route, headers, err)
 					}
 				}

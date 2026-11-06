@@ -42,9 +42,9 @@ func TestBioRxivPublicReadRoutes(t *testing.T) {
 		"GET https://connect.biorxiv.org/content/10.1101/339747v4.full.pdf")
 }
 
-func TestBioRxivDropsCallerOverridesAndCredentials(t *testing.T) {
+func TestBioRxivRejectsMethodOverridesAndDropsCredentials(t *testing.T) {
 	r := resolveBioRxiv(t)
-	dropped := []string{"X-HTTP-Method-Override", "X-HTTP-Method", "X-Method-Override", "Authorization", "Cookie"}
+	dropped := []string{"Authorization", "Cookie"}
 	for _, target := range []string{
 		"https://api.biorxiv.org/details/biorxiv/10.1101/339747/na/json",
 		"https://www.ebi.ac.uk/europepmc/webservices/rest/search",
@@ -54,6 +54,7 @@ func TestBioRxivDropsCallerOverridesAndCredentials(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		assertPrepareRejectsMethodOverrides(t, recipe, r.Context, "GET "+target)
 		caller := http.Header{"Accept": {"application/json"}}
 		for _, name := range dropped {
 			caller.Set(name, "caller-value")

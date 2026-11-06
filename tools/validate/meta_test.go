@@ -19,10 +19,10 @@ func TestMetaAccessRoutes(t *testing.T) {
 		assertRoutes(t, r, "EAAPAGE", true,
 			"GET "+api+"/me?fields=id%2Cname", "GET "+api+"/me/conversations?platform=instagram",
 			"GET "+api+"/ig_hashtag_search?user_id=1&q=bread", "GET "+api+"/t_1/messages?after=QUZU")
-		// Graph ignores method-override headers today; every credentialed route drops them anyway.
-		assertStripsMethodOverrides(t, r, "GET "+api+"/me/feed", "GET "+api+"/1/content_publishing_limit")
+		// Graph ignores method-override headers today; every credentialed route refuses them anyway.
+		assertRejectsMethodOverrides(t, r, "GET "+api+"/me/feed", "GET "+api+"/1/content_publishing_limit")
 		if access == "read-write" {
-			assertStripsMethodOverrides(t, r, "POST "+api+"/me/feed", "DELETE "+api+"/101_1", "POST https://graph-video.facebook.com/v26.0/me/videos")
+			assertRejectsMethodOverrides(t, r, "POST "+api+"/me/feed", "DELETE "+api+"/101_1", "POST https://graph-video.facebook.com/v26.0/me/videos")
 		}
 		// Token, permission and account endpoints, ads, batch on the root, other versions and
 		// hosts, and unlisted edges get no credential. Expanded fields can still reach other

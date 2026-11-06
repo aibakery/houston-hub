@@ -8,26 +8,44 @@ import (
 )
 
 func (p Proxy) validateOpaquePathParameters() error {
-	names := p.Match.OpaquePathParameters
-	if names == nil {
+	if p.Match.OpaquePathParameters == nil {
 		return nil
 	}
-	if len(names) == 0 || len(p.Match.Path) == 0 || p.Action.Rewrite != nil {
-		return fmt.Errorf("opaque_path_parameters requires nonempty names and explicit paths without rewrite")
+	if p.Action.Rewrite != nil {
+		return fmt.Errorf("opaque_path_parameters requires explicit paths without rewrite")
+	}
+	return p.Match.validatePathParameters("opaque_path_parameters", p.Match.OpaquePathParameters, true)
+}
+
+func (p Proxy) validateColonPathParameters() error {
+	if p.Match.ColonPathParameters == nil {
+		return nil
+	}
+	return p.Match.validatePathParameters("colon_path_parameters", p.Match.ColonPathParameters, false)
+}
+
+// validatePathParameters requires nonempty unique names, each naming a
+// placeholder in every explicit path; only opaque parameters may name the
+// terminal * wildcard.
+func (m ProxyMatch) validatePathParameters(field string, names []string, wildcard bool) error {
+	if len(names) == 0 || len(m.Path) == 0 {
+		return fmt.Errorf("%s requires nonempty names and explicit paths", field)
 	}
 	seen := map[string]bool{}
 	for _, name := range names {
-		if name == "" || seen[name] {
-			return fmt.Errorf("invalid or duplicate opaque path parameter")
+		if name == "" || seen[name] || (name == "*" && !wildcard) {
+			return fmt.Errorf("invalid or duplicate %s entry", field)
 		}
 		seen[name] = true
-		for _, pattern := range p.Match.Path {
-			want := "{" + name + "}"
-			if name == "*" {
-				want = "*"
-			}
-			if !slices.Contains(strings.Split(pattern, "/"), want) {
-				return fmt.Errorf("opaque path parameters must name placeholders in every explicit path")
+		for _, pattern := range m.Path {
+			if !slices.ContainsFunc(strings.Split(pattern, "/"), func(part string) bool {
+				if name == "*" {
+					return part == "*"
+				}
+				parameter, _, ok := pathParameter(part)
+				return ok && parameter == name
+			}) {
+				return fmt.Errorf("%s must name placeholders in every explicit path", field)
 			}
 		}
 	}
@@ -58,15 +76,23 @@ func (m ProxyMatch) matchesOpaquePath(raw string) bool {
 				}
 				break
 			}
-			if placeholder(part) && slices.Contains(m.OpaquePathParameters, part[1:len(part)-1]) {
-				if !safeOpaqueSegment(segments[i]) {
+			name, verb, parameter := pathParameter(part)
+			if parameter && slices.Contains(m.OpaquePathParameters, name) {
+				if value, ok := m.parameterValue(name, verb, segments[i]); !ok || !safeOpaqueSegment(value) {
 					matched = false
 					break
 				}
 				continue
 			}
 			segment, err := requestPath("/" + segments[i])
-			if err != nil || (part != strings.TrimPrefix(segment, "/") && (!placeholder(part) || segment == "/")) {
+			if err != nil {
+				matched = false
+				break
+			}
+			if literalMatches(part, strings.TrimPrefix(segment, "/"), segments[i]) {
+				continue
+			}
+			if _, ok := m.parameterValue(name, verb, segments[i]); !parameter || !ok {
 				matched = false
 				break
 			}
@@ -79,18 +105,26 @@ func (m ProxyMatch) matchesOpaquePath(raw string) bool {
 }
 
 func safeOpaqueSegment(raw string) bool {
+	_, ok := decodeOpaque(raw)
+	return ok
+}
+
+// decodeOpaque decodes valid percent triples repeatedly and returns the final
+// value. It fails for an empty value, or for control bytes or dot segments at
+// any of up to 16 decoding depths.
+func decodeOpaque(raw string) (string, bool) {
 	if raw == "" {
-		return false
+		return "", false
 	}
 	for depth := 0; depth < 16; depth++ {
 		for _, b := range []byte(raw) {
 			if b < 32 || b == 127 {
-				return false
+				return "", false
 			}
 		}
 		for _, part := range strings.FieldsFunc(raw, func(r rune) bool { return r == '/' || r == '\\' }) {
 			if part == "." || part == ".." {
-				return false
+				return "", false
 			}
 		}
 		// Decode only valid percent triples. A literal percent is valid opaque
@@ -109,9 +143,9 @@ func safeOpaqueSegment(raw string) bool {
 			decoded.WriteByte(raw[i])
 		}
 		if !changed {
-			return true
+			return raw, true
 		}
 		raw = decoded.String()
 	}
-	return false
+	return "", false
 }

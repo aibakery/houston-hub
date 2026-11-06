@@ -45,7 +45,7 @@ func TestPubMedPublicReadRoutes(t *testing.T) {
 }
 
 func TestPubMedSendsTheKeyOnlyToEUtilities(t *testing.T) {
-	dropped := []string{"X-HTTP-Method-Override", "X-HTTP-Method", "X-Method-Override", "Authorization", "Cookie"}
+	dropped := []string{"Authorization", "Cookie"}
 	for _, key := range []string{"", "synthetic-ncbi-key"} {
 		r := resolvePubMed(t, key)
 		search := pubmedEUtilities + "/esearch.fcgi"
@@ -63,6 +63,7 @@ func TestPubMedSendsTheKeyOnlyToEUtilities(t *testing.T) {
 			if prepared, err := recipe.PrepareURL(r.Context); err != nil || prepared != route.want {
 				t.Fatalf("key %q: %s prepared as %s: %v", key, route.url, prepared, err)
 			}
+			assertPrepareRejectsMethodOverrides(t, recipe, r.Context, route.method+" "+route.url)
 			caller := http.Header{"Content-Type": {"application/x-www-form-urlencoded"}}
 			for _, name := range dropped {
 				caller.Set(name, "caller-value")

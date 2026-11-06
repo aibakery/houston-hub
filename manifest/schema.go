@@ -75,6 +75,10 @@ func Schema() ([]byte, error) {
 	props("ProxyMatch")["opaque_path_parameters"].(map[string]any)["minItems"] = 1
 	props("ProxyMatch")["opaque_path_parameters"].(map[string]any)["uniqueItems"] = true
 	props("ProxyMatch")["opaque_path_parameters"].(map[string]any)["items"] = map[string]any{"type": "string", "pattern": `^(\*|[A-Za-z_][A-Za-z0-9_]*)$`}
+	props("ProxyMatch")["colon_path_parameters"].(map[string]any)["minItems"] = 1
+	props("ProxyMatch")["colon_path_parameters"].(map[string]any)["uniqueItems"] = true
+	props("ProxyMatch")["colon_path_parameters"].(map[string]any)["items"] = map[string]any{"type": "string", "pattern": `^[A-Za-z_][A-Za-z0-9_]*$`}
+	props("ProxyMatch")["colon_path_parameters"].(map[string]any)["description"] = "Placeholder names whose values may contain a colon before a {name}:verb suffix, such as A1:B2 in values/{range}:clear."
 	props("Manifest")["schema_version"] = map[string]any{"const": 1}
 	for _, nk := range [][2]string{{"Manifest", "files"}, {"Manifest", "proxy"}, {"Field", "options"}, {"ScopeGroup", "values"}, {"ProxyMatch", "host"}, {"ProxyMatch", "method"}, {"ProxyMatch", "path"}} {
 		props(nk[0])[nk[1]].(map[string]any)["minItems"] = 1
@@ -98,7 +102,7 @@ func Schema() ([]byte, error) {
 	props("ProxyMatch")["header"].(map[string]any)["additionalProperties"] = map[string]any{"oneOf": []any{map[string]any{"type": "string"}, map[string]any{"const": true}}}
 	props("ProxyMatch")["host"].(map[string]any)["description"] = "Hostnames with optional ports; HTTPS only. Leading *. matches subdomains, not the base host. A template such as {{config.host}} renders one exact origin per connection."
 
-	props("ProxyMatch")["path"].(map[string]any)["description"] = "Path patterns. A whole segment such as {{auth.oauth.team_id}} names one declared OAuth fact, rendered per connection."
+	props("ProxyMatch")["path"].(map[string]any)["description"] = "Path patterns. A whole segment such as {{auth.oauth.team_id}} names one declared OAuth fact, rendered per connection. {name}:verb matches a custom method, such as /items/{id}:archive."
 	props("TokenResponse")["facts"].(map[string]any)["propertyNames"] = map[string]any{"pattern": nameRE.String(), "not": map[string]any{"enum": []string{"access_token", "refresh_token"}}}
 	props("TokenResponse")["facts"].(map[string]any)["maxProperties"] = MaxFacts
 	props("TokenResponse")["facts"].(map[string]any)["description"] = "Public string values from the initial token response, bound to the connection; method oauth exposes fact team_id as {{auth.oauth.team_id}}."
@@ -121,7 +125,7 @@ func Schema() ([]byte, error) {
 		map[string]any{
 			"if":   map[string]any{"properties": map[string]any{"match": condition("protocol", "http")}},
 			"then": map[string]any{"properties": map[string]any{"match": map[string]any{"required": []string{"host"}}, "action": forbid("connection")}},
-			"else": map[string]any{"properties": map[string]any{"match": forbid("host", "method", "path", "opaque_path_parameters", "header"), "action": map[string]any{"required": []string{"connection"}, "properties": map[string]any{"headers": false, "query": false, "rewrite": false, "basic_auth": false}}}},
+			"else": map[string]any{"properties": map[string]any{"match": forbid("host", "method", "path", "opaque_path_parameters", "colon_path_parameters", "header"), "action": map[string]any{"required": []string{"connection"}, "properties": map[string]any{"headers": false, "query": false, "rewrite": false, "basic_auth": false}}}},
 		},
 		map[string]any{
 			"if":   map[string]any{"properties": map[string]any{"match": condition("protocol", "imap")}},
