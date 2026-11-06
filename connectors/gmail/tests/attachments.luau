@@ -33,7 +33,7 @@ return {
 		for _, size in {1, 3, 7, 64, 100000} do
 			local reader = chunked(payload, size)
 			responses = {{statusCode = 200, headers = {}, body = reader}}
-			local saved = c.getAttachment({messageId = "m:1", attachmentId = "att-1", path = "files/blob.bin"})
+			local saved = fixture.example("getAttachment")
 			assert(requests[#requests].url == "https://gmail.googleapis.com/gmail/v1/users/me/messages/m%3A1/attachments/att-1", requests[#requests].url)
 			assert(saved.path == "files/blob.bin" and saved.url == "https://houston.test/files/blob.bin" and saved.size == #binary, "chunk size " .. size)
 			local file = fs.open("files/blob.bin", "r")

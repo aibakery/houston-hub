@@ -88,7 +88,7 @@ return {
 		-- A single DOI: every version, each with its PDF address.
 		respond('{"messages":[{"status":"ok","category":"all"}], "collection":[{"doi":"10.1101\\/339747","version":"1","server":"bioRxiv",'
 			.. '"date":"2018-06-05","published":"10.1038\\/s41592-019-0476-5"},{"doi":"10.1101\\/339747","version":"4","date":"2019-05-10"}]}')
-		local preprint = rxiv.getPreprint({server = "biorxiv", doi = "10.1101/339747"})
+		local preprint = fixture.example("getPreprint")
 		assert(req(#requests).url == API .. "/details/biorxiv/10.1101/339747/na/json" and req(#requests).timeoutMs == 8000, req(#requests).url)
 		assert(#preprint.collection == 2 and preprint.collection[1].published == "10.1038/s41592-019-0476-5")
 		assert(preprint.collection[1].pdf_url == "https://www.biorxiv.org/content/10.1101/339747v1.full.pdf")
@@ -102,7 +102,7 @@ return {
 		-- Journal links by preprint or article DOI; an unpublished preprint and an article without a preprint have none.
 		respond('{"messages":[{"status":"ok"}], "collection":[{"preprint_doi":"10.1101\\/2021.04.29.21256344",'
 			.. '"published_doi":"10.1371\\/journal.pone.0256482","published_journal":"PLOS ONE"}]}')
-		local link = rxiv.getPublication({server = "medrxiv", doi = "10.1371/journal.pone.0256482"})
+		local link = fixture.example("getPublication")
 		assert(req(#requests).url == API .. "/pubs/medrxiv/10.1371/journal.pone.0256482/na/json", req(#requests).url)
 		assert(link.collection[1].published_journal == "PLOS ONE")
 		-- A suffix with punctuation, as in Lancet DOIs, is URL-encoded; the API decodes it.
@@ -122,7 +122,7 @@ return {
 		-- A range of one page: the whole call time, the API's string totals as numbers and the PDF addresses.
 		local before = #requests
 		respond(details(2, 0, 2))
-		local page = rxiv.listPreprints({server = "biorxiv", from = "2025-03-01", to = "2025-03-07"})
+		local page = fixture.example("listPreprints")
 		assert(req(before + 1).url == API .. "/details/biorxiv/2025-03-01/2025-03-07/0/json", req(before + 1).url)
 		assert(req(before + 1).timeoutMs == 8000)
 		assert(page.total == 2 and page.count_new_papers == 250 and #page.collection == 2 and page.next_cursor == nil)
@@ -237,6 +237,13 @@ return {
 		respond('{"messages":[{"status":"ok","cursor":0,"count":0,"total":"0"}], "collection":[]}')
 		page = rxiv.listPublications({server = "medrxiv", from = "2025-04-01", to = "2025-04-01"})
 		assert(json.encode(page.collection) == "[]" and page.next_cursor == nil)
+		respond('{"messages":[{"status":"ok","total":"0"}],"collection":[]}')
+		assert(#fixture.example("listPublications").collection == 0)
+		assert(req(#requests).url == API .. "/pubs/medrxiv/2025-03-01/2025-03-07/0")
+		respond('{"hitCount":0,"resultList":{"result":[]}}')
+		assert(fixture.example("searchPreprints").hitCount == 0)
+		assert(req(#requests).url == EPMC .. url.encode('(TITLE:"base editing") AND SRC:PPR AND PUBLISHER:"bioRxiv"')
+			.. "&resultType=core&pageSize=10&format=json&cursorMark=%2A&sort=FIRST_PDATE_D%20desc")
 		assert(#responses == 0, "a queued response was not requested")
 	end,
 }

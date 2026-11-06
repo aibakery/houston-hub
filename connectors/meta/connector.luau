@@ -397,32 +397,12 @@ for name, endpoint in endpoints do
 	end
 end
 
--- name({path fields, query fields?, next?, ...body}) built from the endpoint itself.
-local function signature(endpoint: Endpoint): string
-	local fields: {string} = {}
-	for field in string.gmatch(endpoint.path, "{([%w_]+)}") do table.insert(fields, field) end
-	if endpoint.method == "GET" then table.insert(fields, "fields?") end
-	for _, group in {endpoint.query or NONE, endpoint.paging or NONE} do
-		for _, field in group do
-			table.insert(fields, if table.find(endpoint.required or NONE, field) then field else field .. "?")
-		end
-	end
-	if endpoint.paging then table.insert(fields, "next?") end
-	if endpoint.method == "POST" then
-		for _, field in endpoint.required or NONE do
-			if not table.find(fields, field) then table.insert(fields, field) end
-		end
-		table.insert(fields, "...body")
-	end
-	return "({" .. table.concat(fields, ", ") .. "})"
-end
-
-exports.help = function(): string
+exports.help = function(): any
 	local lines = {
-		"Meta Graph API " .. VERSION .. " for one Facebook Page and the Instagram professional account linked to it. Each function takes one options object with Meta's snake_case names (? marks optional; ...body are the body fields after Body). Results are Meta's JSON, except that keys naming a token are dropped, Meta's links lose their access token (or become null when it cannot be removed) and the paging.next of list functions (those taking next?) is an opaque value; links inside expanded fields stay Meta's URLs. Connector calls return completed values: use them directly, without await.",
+		"Meta Graph API " .. VERSION .. " for one Facebook Page and the Instagram professional account linked to it. Each function takes one options object with Meta's snake_case names; function help gives its fields and runnable examples. Results are Meta's JSON, except that keys naming a token are dropped, Meta's links lose their access token (or become null when it cannot be removed) and the paging.next of paginated functions is an opaque value; links inside expanded fields stay Meta's URLs. Connector calls return completed values: use them directly, without await.",
 		"Start with local page = meta.getPage(): page.id is the Page. For Instagram, local ig = meta.getPage({fields='id,instagram_business_account'}).instagram_business_account gives the linked account, whose ig.id is the ig_user of Instagram functions; it is nil when none is linked, and the call needs the instagram_basic permission. Page functions act on the connected Page itself. IDs are strings: posts look like '<page-id>_<post-id>', conversations 't_...', Messenger messages 'm_...'; Instagram media, comments and accounts are numeric strings, Instagram threads and messages opaque ones.",
 		"fields chooses what Meta returns and accepts field expansion, such as fields='id,message,comments.limit(5){message,from}' or, to get insights with each post, fields='id,message,insights.metric(post_media_view,post_clicks)'. Functions list their default fields; getObject without fields returns only Meta's minimal defaults. Access tokens cannot be requested. Media links (full_picture, picture, media_url, attachments) are signed CDN URLs that expire within days; read the object again for fresh ones.",
-		"Paging: lists return one page, {data, paging}. limit sets its size (default 25) and paging.cursors.after is the next call's after. While paging.next is present, call the same function with {next = result.paging.next} alone for the next page; stop when it is absent, as a page can be empty yet have next. To page backward, functions listing before? take before=result.paging.cursors.before; time-paged lists such as listFeed and getInsights take an earlier since/until. Expanded edges, such as business_discovery media, are paged with their own .after(cursor) modifier instead. until is a Luau keyword: write it [\"until\"] = value.",
+		"Paging: lists return one page, {data, paging}. limit sets its size (default 25) and paging.cursors.after is the next call's after. While paging.next is present, call the same function with {next = result.paging.next} alone for the next page; stop when it is absent, as a page can be empty yet have next. To page backward, functions accepting before take before=result.paging.cursors.before; time-paged lists such as listFeed and getInsights take an earlier since/until. Expanded edges, such as business_discovery media, are paged with their own .after(cursor) modifier instead. until is a Luau keyword: write it [\"until\"] = value.",
 		"Insights: getInsights({object, metric, period?, since?, until?, ...}); since and until take Unix times or dates, at most 90 days apart for the Page, and paging.next moves to the following window; insights links continue past today, so stop once a window ends after the range you need. Page (object='me'): page_media_view, page_total_media_view_unique, page_daily_follows_unique, page_daily_unfollows_unique, page_post_engagements, page_total_actions, page_views_total, page_video_views, with period day, week or days_28, and page_follows with period day; needs 100 or more followers. Posts: post_media_view, post_total_media_view_unique, post_clicks, post_reactions_by_type_total, post_video_views (period lifetime). Instagram account: reach, views, accounts_engaged, total_interactions, likes, comments, shares, saves, replies, follows_and_unfollows, profile_links_taps, with period='day' and metric_type='total_value' (breakdown='media_product_type' splits most), covering the last 24 hours unless since/until are given; follower_demographics and engaged_audience_demographics need period='lifetime', timeframe='this_month' and breakdown age, city, country or gender. Instagram media: views, reach, likes, comments, shares, saved, total_interactions; reels add ig_reels_avg_watch_time, stories navigation (24 hours only). impressions, plays and page_fans no longer exist.",
 		"Inbox: listConversations({platform='messenger' or 'instagram'}), then listMessages({conversation=thread.id}). Meta returns conversations with your customers only once the app has Advanced Access for messaging.",
 		"Read-only connections omit writes. Meta also applies the token's permissions and the system user's tasks on the Page; a missing one fails with code 10 or 200 naming it. Errors give the HTTP status, Meta's code/subcode, message and fbtrace_id; retryable says whether repeating the call is safe: rate limits (codes 4, 17, 32, 341, 613, 80000-80014, which may say when calls succeed again) unless a write got a 5xx, and for reads also temporary errors (codes 1, 2) and a 5xx without another Meta code; a write that may already have been applied never is.",
@@ -434,15 +414,12 @@ exports.help = function(): string
 		"Moderation: updateComment({comment, is_hidden=true}) hides a Facebook comment and updateComment({comment, hide=true}) an Instagram one; deleteObject({id}) deletes either. Instagram comments can be deleted only on the account's own media.",
 		"Writes return {id} or {success=true}. There are no automatic retries: after a timeout or 5xx, read the Page again before repeating a write, since a post or message may already be live.",
 	}
-	if config.access == "read-write" then table.move(writing, 1, #writing, #lines + 1, lines) end
-	local names: {string} = {}
-	for name in exports do if name ~= "help" then table.insert(names, name) end end
-	table.sort(names)
-	for _, name in names do
-		local endpoint = endpoints[name]
-		local defaults = if endpoint.fields then " Default fields: " .. endpoint.fields .. "." else ""
-		table.insert(lines, name .. signature(endpoint) .. ": " .. endpoint.about .. defaults .. " " .. endpoint.method .. " " .. endpoint.path)
-	end
-	return table.concat(lines, "\n")
+
+	local all = require("lib/help.luau")(endpoints, RESERVED)
+	local functions = {}
+	for name in exports do if name ~= "help" then functions[name] = all[name] end end
+	local sections = {fields=lines[3],paging=lines[4],insights=lines[5],inbox=lines[6],access=lines[7]}
+	if config.access == "read-write" then sections.replying=writing[1];sections.facebook=writing[2];sections.instagram=writing[3];sections.moderation=writing[4];sections.writes=writing[5] end
+	return {text=lines[1] .. "\n\n" .. lines[2],functions=functions,sections=sections}
 end
 return exports

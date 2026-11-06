@@ -57,7 +57,8 @@ Name Luau sources `.luau`; Houston also accepts `.lua` for modules and tests.
 `files` is a required nonempty array of entrypoints. Private imports use exact
 canonical paths relative to the manifest, such as `require("lib/pagination.luau")`.
 Every imported file belongs to the pinned release; imports cannot cross bundles.
-Entrypoints return function maps, without metadata or implicit context arguments.
+Entrypoints return public function maps plus the special plain-data `help` metadata
+export described below, without implicit context arguments.
 Duplicate export names fail publication. Initialization cannot make network calls.
 
 Set the optional root `stateless` boolean to `true` for service credentials that
@@ -536,13 +537,201 @@ rechecks current connection access and the effective configuration before each
 transport request. Do not infer permission from function names or HTTP verbs.
 Provider and database grants remain authoritative.
 
-Export a pure `help()` function returning a nonempty string for precisely those
-configured functions. Build the text from the same export table, including their
-arguments, return shapes, pagination, and meaningful provider caveats. Houston
-evaluates help with native transports disabled and excludes it from the callable
-operation list. Help must be deterministic and must never probe credentials or
-call a provider. Keep README documentation for humans; agent help comes from Luau.
-There is no operation classification sidecar or exported metadata registry.
+### Structured connector help
+
+Export one `help` metadata value across the public entrypoints. New or
+substantively rewritten connectors and every maintained Hub bundle must provide
+structured function records. Register each record under the same effective
+access/configuration conditions as its implementation, preferably from one
+endpoint definition. Placing documentation immediately above the implementation
+is recommended; generated registration is equally valid.
+
+```luau
+local help = {text = "Read notes. Calls return completed values directly.", functions = {}, sections = {formatting = "Bodies are plain text."}}
+local exports = {help = help}
+help.functions.getNote = {
+    description = "Read one note. Returns its id and plain-text body; inaccessible IDs fail.",
+    args = {"id"},
+    inputSchema = {
+        type = "object", properties = {id = {type = "string", minLength = 1}},
+        required = {"id"}, additionalProperties = false, examples = {{id = "note-example"}},
+    },
+    outputSchema = {
+        type = "object", properties = {id = {type = "string"}, body = {type = "string"}},
+        required = {"id", "body"}, additionalProperties = true,
+    },
+    annotations = {readOnlyHint = true, idempotentHint = true},
+}
+exports.getNote = function(id: string)
+    -- Real implementations validate arguments and call the provider here.
+    assert(id ~= "", "id must be nonempty")
+    return {id = id, body = "Example"}
+end
+return exports
+```
+
+The root requires nonempty `text`. Optional `functions` maps exact configured
+public names to records; optional `sections` maps topic names to nonempty prose.
+Topics start with a letter and contain letters, digits, underscores or hyphens;
+they cannot collide with exported functions or reserved `help`. Unknown record
+keys, missing/orphaned records, invalid schemas/examples and collisions fail
+publication with documentation paths. An explicit empty `functions` map still
+requires complete coverage.
+
+Each function record requires nonempty `description` and object-root
+`inputSchema`, using JSON Schema Draft 2020-12. Begin with a short summary, then
+explain results, paging, async behavior, caveats and recovery. Describe the actual
+required, optional and nested payloads, including discriminators and every
+supported branch. Use property descriptions, bounds, defaults, enum/const,
+oneOf/anyOf, if/then/else, dependentRequired, `$defs` and local `$ref` where useful.
+Only this dialect is supported; external schema retrieval is disabled. Bundle
+provider schemas locally. Standard schema extensions remain valid. Defaults are
+annotations: help does not fill defaults, coerce values or enforce a new calling API.
+
+`inputSchema.examples` must contain at least one complete valid input object.
+Houston validates it with a standard schema validator and generates runnable
+Luau calls from it. Use these calls in offline fixtures with
+`fixture.example("getNote", 1)` (one-based index, default 1); it runs the real
+operation against the fixture's provider mocks. Fixture results are checked
+against `outputSchema` when supplied. Never run documentation examples against
+production writes. Other workflow snippets belong in descriptions or sections.
+
+Notion keeps its provider request schemas in generated `lib/*-schemas.luau`
+modules. To update them, download the official `openapi.json` and
+`openapi-adminApi.json` snapshots from `developers.notion.com`, review
+`tools/notion-help/examples.json`, then run
+`go run ./tools/notion-help -public /path/openapi.json -admin /path/openapi-adminApi.json`
+from the Hub root. The generated headers record source URLs and snapshot hashes.
+The generator preserves nested schemas, keeps shared definitions once in the
+bundle, and attaches only reachable definitions to each standalone input schema.
+The connector's configured exports select the matching records. Run the normal
+Notion fixtures after regeneration; they execute the documented examples offline.
+
+Google connectors bundle the official REST discovery schemas with
+`go run ./tools/google-help -api gdocs -discovery /path/to/discovery.json` (replace
+`gdocs` with the connector name). The generated header identifies the discovery
+URL and snapshot hash. Fetching the snapshot is an authoring step; help and
+validation remain offline. The generator converts Discovery's older schema
+dialect, preserves nested definitions, and supplements documented request unions
+and presence rules in `tools/google-help/constraints.go`. The shared help builder
+selects parameters from the actual endpoint declarations, applies connector
+defaults and required fields, and includes only reachable definitions. Keep its
+`lib/help.luau` copies identical. Connector records describe URL aliases and custom
+operations and provide the examples executed by their existing provider fixtures.
+
+Linear's recursive filters and mutation inputs are generated from the provider's
+`packages/sdk/src/schema.graphql`. Save that public schema locally and run
+`go run ./tools/linear-help -schema /path/to/schema.graphql` from the Hub root.
+The generated module records the snapshot hash, retains nullable fields, enum
+values, list coercion and recursive relations, and bundles only reachable input
+types. Connector argument declarations remain authoritative for its public
+surface and local bounds. Run the Linear fixtures and generator tests after
+regeneration; neither generation nor discovery fetches the provider.
+
+Other native schema generators live under `tools/*-help`; their `-help` flags
+describe the required local snapshots. Generated headers record provenance and
+hashes, and identify the authored examples. Stripe requires a
+snapshot matching the connector's pinned API version. PrestaShop derives field
+metadata and association shapes from the official resource Markdown references,
+then applies the connector's allowed options and field restrictions in Luau.
+Carta and Carta CRM can refresh their public documentation snapshots with
+`go run ./tools/carta-help -connector carta -snapshots /path/to/snapshots -fetch`
+(use `carta-crm` for CRM). Omit `-fetch` for offline regeneration. The fetch step
+reads public documentation assets only; help and fixtures remain offline.
+Gusto's `-fetch` similarly downloads public reference Markdown and verifies its
+embedded OpenAPI version against the connector. Cal.com's generator checks each
+controller's version header. The Dolibarr and Tipeee helpers only regenerate
+fixture route metadata; their native schemas and examples are authored in each
+bundle's `lib` directory and cite the provider source used.
+Meta's generator reads the official Business SDK 26.0.2 sources as data:
+`go run ./tools/meta-help -sdk /path/to/facebook_business/adobjects`.
+It checks the pinned version and records input hashes. Its authored help module
+adds nested Messenger and Instagram shapes where SDK parameters use generic
+objects; its fixtures exercise native JSON, CSV queries and streamed uploads.
+Pennylane derives native Company API v2 bodies and typed filter conditions from
+its published accounting OpenAPI. GitHub applies the snapshot's version patches
+for the connector's pinned REST version before composing schemas. Both generators
+require reviewed examples for every exposed operation.
+
+Optional `outputSchema` describes stable single-object results. Preserve scalar,
+array and multiple-return APIs and explain their results in `description` instead
+of wrapping them. Optional `annotations` uses MCP names: `readOnlyHint`,
+`destructiveHint`, `idempotentHint`, `openWorldHint` and `title`; optional record
+`title` is a display title. These hints never authorize calls. The function-map
+key is the canonical name; do not duplicate name, custom type or returns fields.
+
+Omit `args` for `fn(options)`. For existing positional APIs, use `args={"id"}`
+or `args={"id","options"}`. Bind every top-level schema property exactly once;
+optionality comes from `required`. A zero-argument operation uses `args={}` and
+an object schema with `additionalProperties=false`. A final rest binding such as
+`args={"command","...values"}` names an array property and spreads its elements.
+The renderer preserves argument order, omitted positions, JSON null and empty
+containers. Use `json.decode('[]')` and `json.decode('{}')` when table shape would
+be ambiguous. Only known list fields such as `args` normalize an empty table to
+an array. Generated examples quote Luau keyword keys and multiline strings safely.
+
+All four runtime forms are supported through one normalization and validation path:
+
+```luau
+exports.help = "Full legacy reference."
+exports.help = {text = "Full legacy reference."}
+exports.help = function() return "Full legacy reference." end
+exports.help = function() return {text = "Full legacy reference."} end
+```
+
+A producer can return the complete structured table above, including functions
+and sections. Houston calls it with **zero arguments once during each discovery
+evaluation**, with native I/O disabled. It is a documentation producer, not a
+section router. Use immutable effective public configuration and pure helpers;
+never credentials, customer data, network/files, time, randomness or mutable
+cross-invocation state. Static and dynamic metadata receive identical checks,
+including every applicable auth/access scenario. Producer errors and invalid
+returned values are authoring failures, not caller warnings.
+
+Omitting `functions` retains legacy/text-only compatibility for external and
+already-published connectors. Publication, refresh and discovery preserve the
+complete text and derive callable names from actual exports without inventing
+schemas or parsing prose. Named-function lookup then returns
+`No dedicated help for getNote.` followed by the overview/full text. Sections
+still work and collision checks still apply. This allowance does not exempt
+maintained Hub bundles. Normalization does not rewrite stored release hashes,
+require republishing or require users to connect again.
+
+Callers obtain documentation only from a configured instance:
+
+```luau
+local notes = houston.connection(connectionId)
+notes.help()                         -- full overview, function index and topic names
+notes.help("getNote")                -- full function reference, schemas and examples
+notes.help("formatting")             -- full topic
+notes.help({section = "getNote"})    -- equivalent exact, case-sensitive selection
+```
+
+No argument, `nil`, `{}` or an empty section selects the overview. `section` is
+the sole connector-help option: no search aliases, cursor, offset, limit or
+pagination. Unsupported options produce short warnings above useful help, such
+as `banana parameter not supported.`; extra positional arguments are ignored
+with a warning. Valid selectors still work alongside unsupported options.
+Unknown sections warn and show the overview without revealing unconfigured
+operations. Global help can discover connections but does not serve connector
+references. Documentation-only global manuals also return complete text;
+connection/script/memory catalog paging and provider paging remain separate.
+
+Houston centrally adds the failing operation's documentation hint to argument,
+validation and provider failures, preserving structured error information and
+failure status: `See houston.connection("connection-id").help("getNote").`
+Do not duplicate this boilerplate in connectors. Access/configuration recovery
+remains authoritative; help cannot bypass it.
+
+There is no help-specific size cap. Normal execution output may be truncated;
+the initial successful persistence response includes `file.download_url` and
+expiry. Downloading it recovers the complete execution JSON (`returns[0]` for
+one returned help string). Signing/storage failures carry explicit diagnostics.
+A help-only script may set module-level `truncate=false` for expanded inline
+output up to the existing hard envelope cap; larger results still persist.
+Never put `truncate` in help options or replay a mixed script/write to recover
+output: download its already-saved result. Saved-script help is a separate contract.
+
 
 Provider functions validate their arguments and upstream responses. Keep plain-data
 boundaries, nonempty IDs, finite safe integer sizes, explicit empty arrays, unique
@@ -603,6 +792,15 @@ go run ./tools/validate connectors/fastmail
 
 Replace `connectors/fastmail` with the bundle you are authoring. Without an argument, the
 validator checks every bundle in `connectors/`.
+
+The full catalog command and `go test ./...` require structured function help for
+every maintained bundle and exercised configuration. They enumerate all manifests,
+including nested bundles. Standalone publication validation remains compatible
+with legacy string help. To apply the catalog policy to one bundle and save its
+public configuration/export coverage, use
+`go run ./tools/validate -help-report /tmp/help-coverage.json connectors/fastmail`.
+Omit the bundle argument to record the complete catalog. Reports contain fixture
+names, auth methods, public configuration and exports, never fixture credentials.
 
 Set `HOUSTON_RUNTIME` to a newly built Houston service runtime and put the pinned
 `luau-analyze` on `PATH`. A fixture returns a table with `scenario`, optional

@@ -134,17 +134,6 @@ local function exportEndpoints(endpoints: {[string]: Endpoint})
 	end
 end
 
--- help() introduces the API, then documents exactly the configured operations.
-local function helpWith(overview: {string}): () -> string
-	return function(): string
-		local names: {string} = {}
-		for name in help do table.insert(names, name) end
-		table.sort(names)
-		local lines = table.clone(overview)
-		for _, name in names do table.insert(lines, help[name]) end
-		return table.concat(lines, "\n")
-	end
-end
 -- End of the shared request layer.
 
 local FILE_FIELDS = "id,name,mimeType,size,createdTime,modifiedTime,parents,webViewLink,trashed,description,owners(displayName,emailAddress)"
@@ -249,11 +238,48 @@ end, "statFile(fileId) -> {id, name, isFolder, size?}. One positional file ID; s
 
 export("uploadFile", false, upload, "uploadFile({path, name?, parents?, mimeType?, contentType?, fileId?, ...metadata}) -> file. Streams a session file to Drive. name defaults to the path's basename; contentType describes the bytes (default application/octet-stream). Setting mimeType to a Google type converts, e.g. a .docx with mimeType='application/vnd.google-apps.document'. With fileId, replaces that file's content (and applies any metadata). A failed upload may leave nothing or a complete file: check with listFiles before retrying.")
 
-exports.help = helpWith({
+local overview = {
 	"Google Drive API v3. Operations take one named options object with Google's camelCase fields and return Google's JSON unchanged; deletes return {success=true}. Shared drives are included by default.",
 	"File metadata defaults to " .. FILE_FIELDS .. "; pass fields to choose others ('*' for all). Lists return one page: pass nextPageToken as pageToken until it is absent.",
 	"Files move through session paths: downloads save to a path and return a signed URL, uploads read from a path. Never inline file bytes.",
 	"No hidden paging or retries. Errors report the HTTP status, Google's message and reason. A failed or timed-out write may already have succeeded; check before repeating.",
 	"Example: listFiles({q=\"mimeType = 'application/pdf' and trashed = false\", orderBy='modifiedTime desc', pageSize=20}); exportFile({fileId='...', mimeType='text/markdown', path='notes.md'}).",
-})
+}
+local bundle = require("lib/discovery-schemas.luau")
+local str, nonempty = {type = "string"}, {type = "string", minLength = 1}
+local fileOutput = {type = "object", properties = {id = str, name = str, mimeType = str, size = {type = "string", pattern = "^[0-9]+$"},
+	parents = {type = "array", items = str}, webViewLink = str}, additionalProperties = true}
+local success = {type = "object", properties = {success = {const = true}}, required = {"success"}, additionalProperties = false}
+local savedFile = {type = "object", properties = {path = str, url = str, size = {type = "integer", minimum = 0}}, required = {"path", "url", "size"}, additionalProperties = false}
+local uploadInput = table.clone(bundle.methods.createFile.body)
+uploadInput.properties = table.clone(uploadInput.properties)
+uploadInput.properties.path, uploadInput.properties.fileId = nonempty, nonempty
+uploadInput.properties.contentType = {type = "string", minLength = 1, default = "application/octet-stream", description = "MIME type of the uploaded bytes; mimeType instead chooses the resulting Drive file type."}
+uploadInput.required = {"path"}
+local records: {[string]: any} = {
+	getAbout = {examples = {{}}},
+	listFiles = {examples = {{q = "name contains 'a b'", pageToken = "start+1"}}},
+	getFile = {examples = {{fileId = "f1"}}, outputSchema = fileOutput},
+	listDrives = {examples = {{pageSize = 10}}},
+	listPermissions = {examples = {{fileId = "f1", pageSize = 20}}},
+	createFile = {examples = {{name = "Reports", mimeType = FOLDER}}, outputSchema = fileOutput},
+	updateFile = {examples = {{fileId = "f1", addParents = "dir", name = "Renamed"}}, outputSchema = fileOutput},
+	copyFile = {examples = {{fileId = "f1", name = "Report copy", parents = {"dir"}}}, outputSchema = fileOutput},
+	deleteFile = {properties = {fileId = {type = "string", minLength = 1, ["not"] = {const = "trash"}}}, examples = {{fileId = "f1"}}, outputSchema = success},
+	createPermission = {examples = {{fileId = "f1", type = "user", role = "reader", emailAddress = "ana@example.com", sendNotificationEmail = false}}},
+	deletePermission = {examples = {{fileId = "f1", permissionId = "p1"}}, outputSchema = success},
+	downloadFile = {properties = {path = nonempty}, required = {"path"}, examples = {{fileId = "f:1", path = "downloads/report.bin"}}, outputSchema = savedFile,
+		annotations = {readOnlyHint = false, destructiveHint = true, idempotentHint = true}},
+	exportFile = {properties = {path = nonempty}, required = {"path"}, examples = {{fileId = "doc", mimeType = "text/markdown", path = "notes.md"}}, outputSchema = savedFile,
+		annotations = {readOnlyHint = false, destructiveHint = true, idempotentHint = true}},
+	statFile = {args = {"fileId"}, inputSchema = {type = "object", properties = {fileId = nonempty}, required = {"fileId"}, additionalProperties = false},
+		examples = {{fileId = "f1"}}, annotations = {readOnlyHint = true, destructiveHint = false, idempotentHint = true},
+		outputSchema = {type = "object", properties = {id = str, name = str, isFolder = {type = "boolean"}, size = {type = "integer", minimum = 0, maximum = 9007199254740991}},
+			required = {"id", "name", "isFolder"}, additionalProperties = false}},
+	uploadFile = {inputSchema = uploadInput, examples = {{path = "uploads/report.pdf", parents = {"dir"}, contentType = "application/pdf"}}, outputSchema = fileOutput,
+		annotations = {readOnlyHint = false, destructiveHint = true, idempotentHint = false}},
+}
+local documentedEndpoints = table.clone(endpoints)
+for name, endpoint in downloads do documentedEndpoints[name] = endpoint end
+exports.help = require("lib/help.luau").build(bundle, documentedEndpoints, help, records, overview)
 return exports

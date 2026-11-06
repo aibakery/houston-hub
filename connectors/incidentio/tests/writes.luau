@@ -35,7 +35,7 @@ return {
 		local declared = {idempotency_key = "houston-checkout-2026-10-30", visibility = "public", name = "Checkout down", severity_id = "01HZSEV",
 			incident_role_assignments = {{incident_role_id = "01HZLEAD", assignee = {email = "ada@example.com"}}},
 			custom_field_entries = {{custom_field_id = "01HZCF", values = {{value_option_id = "01HZOPT"}}}}}
-		local incident = incidentio.createIncident(declared).incident
+		local incident = fixture.example("createIncident").incident
 		sent("/v2/incidents", declared)
 		assert(incident.reference == "INC-43" and incident.summary == NULL)
 		local retro = {idempotency_key = "import-7", visibility = "private", name = "Old outage", mode = "retrospective",
@@ -47,7 +47,7 @@ return {
 		local edit = {incident = {incident_status_id = "01HZRES", summary = "Rolled back the deploy"}, notify_incident_channel = false}
 		assert(incidentio.editIncident({id = "01HZINC", incident = edit.incident, notify_incident_channel = false}).incident.incident_status.category == "learning")
 		sent("/v2/incidents/01HZINC/actions/edit", edit)
-		incidentio.editIncident({id = "01HZINC2", incident = {severity_id = "01HZSEV2"}, notify_incident_channel = true})
+		fixture.example("editIncident")
 		sent("/v2/incidents/01HZINC2/actions/edit", {incident = {severity_id = "01HZSEV2"}, notify_incident_channel = true})
 		-- An explicit null is sent as JSON null.
 		incidentio.editIncident({id = "01HZINC", incident = {call_url = NULL}, notify_incident_channel = false})
@@ -55,12 +55,12 @@ return {
 
 		status, payload = 201, '{"incident_update":{"id":"01HZUP","incident_id":"01HZINC","message":"Monitoring","new_severity":null}}'
 		local update = {incident_id = "01HZINC", idempotency_key = "houston-update-1", message = "Monitoring the fix", to_incident_status_id = "01HZMON"}
-		assert(incidentio.createIncidentUpdate(update).incident_update.new_severity == NULL)
+		assert(fixture.example("createIncidentUpdate").incident_update.new_severity == NULL)
 		sent("/v2/incident_updates", update)
 
 		status, payload = 201, '{"follow_up":{"id":"01HZFU","title":"Add a canary","status":"outstanding","assignee":null}}'
 		local follow = {incident_id = "01HZINC", title = "Add a canary", description = "Gate deploys on **error rate**.", assignee_id = "01HZU", labels = {"deploys"}}
-		assert(incidentio.createFollowUp(follow).follow_up.status == "outstanding")
+		assert(fixture.example("createFollowUp").follow_up.status == "outstanding")
 		sent("/v3/follow_ups", follow)
 		assert(#requests == 7)
 

@@ -27,7 +27,7 @@ return {
 		assert(#requests == 0, "initialization reached Vercel")
 
 		payload = '{"user":{"id":"u1","email":"ada@example.com","avatar":null}}'
-		local user = vercel.getUser().user
+		local user = fixture.example("getUser").user
 		assert(last().method == "GET" and last().url == API .. "/v2/user" and last().body == nil)
 		assert(last().headers.Accept[1] == "application/json" and last().headers.Authorization == nil)
 		assert(user.email == "ada@example.com" and user.avatar == NULL)
@@ -37,7 +37,7 @@ return {
 			.. '"link":{"type":"github","org":"acme","repo":"web","productionBranch":"main","deployHooks":[{"name":"main","url":"https://api.vercel.com/v1/integrations/deploy/prj_1/hook-secret"}],"gitCredentialId":"cred"},'
 			.. '"latestDeployments":[{"id":"dpl_1","readyState":"READY","meta":{"deployHookId":"hook-secret"}}],"targets":{"production":{"id":"dpl_1","meta":{"deployHookId":"hook-secret","branch":"main"}}},"crons":null,"passwordProtection":{"deploymentType":"all"}}'
 		payload = secret
-		local found = vercel.getProject({idOrName = "web"})
+		local found = fixture.example("getProject")
 		assert(last().url == API .. "/v9/projects/web")
 		assert(found.id == "prj_1" and found.framework == "nextjs" and found.latestDeployments[1].id == "dpl_1" and found.crons == NULL)
 		assert(found.link.repo == "web" and found.link.productionBranch == "main")
@@ -48,7 +48,7 @@ return {
 		end
 
 		payload = '{"projects":[' .. secret .. '],"pagination":{"count":1,"next":"MZXW6","prev":null}}'
-		local projects = vercel.listProjects({search = "web", limit = 10, from = "NBSWY"})
+		local projects = fixture.example("listProjects")
 		assert(last().url == API .. "/v10/projects?search=web&limit=10&from=NBSWY", last().url)
 		assert(projects.pagination.next == "MZXW6" and projects.projects[1].name == "web")
 		assert(not string.find(json.encode(projects), "secret", 1, true), "project list leaked a secret")
@@ -67,25 +67,25 @@ return {
 
 		-- Deploy hook ids complete unauthenticated trigger URLs, so deployments drop them.
 		payload = '{"deployments":[{"uid":"dpl_1","meta":{"deployHookId":"hook-secret","deployHookName":"main","ciAccessToken":"tok-secret","vercelApiKey":"key-secret","githubCommitRef":"main"}}],"pagination":{"count":1,"next":null,"prev":null}}'
-		local hooked = vercel.listDeployments({projectIds = {"prj_1", "prj_2"}})
+		local hooked = fixture.example("listDeployments")
 		assert(last().url == API .. "/v7/deployments?projectIds=prj_1&projectIds=prj_2", last().url)
 		assert(hooked.deployments[1].meta.githubCommitRef == "main" and not string.find(json.encode(hooked), "secret", 1, true), json.encode(hooked))
 		payload = '{"deployments":[],"pagination":{"count":0,"next":null,"prev":null}}'
 		assert(json.encode(vercel.listDeployments().deployments) == "[]")
 		payload = '{"id":"dpl_1","readyState":"READY","meta":{"deployHookId":"hook-secret"}}'
-		vercel.getDeployment({idOrUrl = "web-abc123.vercel.app", withGitRepoInfo = "true"})
+		fixture.example("getDeployment")
 		assert(last().url == API .. "/v13/deployments/web-abc123.vercel.app?withGitRepoInfo=true")
 		assert(not string.find(json.encode(vercel.getDeployment({idOrUrl = "dpl_1"})), "hook", 1, true))
 
 		payload = '[{"type":"stdout","created":1,"text":"Building"},{"type":"stderr","created":2,"text":"Warn","level":"warning"}]'
-		local events = vercel.listBuildLogs({idOrUrl = "dpl_1", limit = -1, direction = "backward"})
+		local events = fixture.example("listBuildLogs")
 		assert(last().url == API .. "/v3/deployments/dpl_1/events?limit=-1&direction=backward&follow=0", last().url)
 		assert(#events == 2 and events[2].level == "warning")
 		payload = "[]"
 		assert(json.encode(vercel.listBuildLogs({idOrUrl = "dpl_1"})) == "[]")
 
 		payload = '{"level":"info","message":"GET /","timestampInMs":1}\n\n{"level":"error","message":"boom","timestampInMs":2}\n{"level":"info","message":"last"}'
-		local logs = vercel.listRuntimeLogs({projectId = "prj_1", deploymentId = "dpl_1"})
+		local logs = fixture.example("listRuntimeLogs")
 		assert(last().url == API .. "/v1/projects/prj_1/deployments/dpl_1/runtime-logs", last().url)
 		assert(last().headers.Accept[1] == "application/stream+json")
 		-- The stream ended, so its unterminated last line counts too.
@@ -106,18 +106,18 @@ return {
 		assert(not ok and string.find(tostring(err), "invalid log line", 1, true), tostring(err))
 
 		payload = '{"domains":[],"pagination":{"count":0,"next":null,"prev":null}}'
-		assert(json.encode(vercel.listDomains({limit = 50}).domains) == "[]" and last().url == API .. "/v5/domains?limit=50")
-		vercel.getDomain({domain = "example.com"})
+		assert(json.encode(fixture.example("listDomains").domains) == "[]" and last().url == API .. "/v5/domains?limit=50")
+		fixture.example("getDomain")
 		assert(last().url == API .. "/v5/domains/example.com")
-		vercel.getDomainConfig({domain = "www.example.com", projectIdOrName = "web"})
+		fixture.example("getDomainConfig")
 		assert(last().url == API .. "/v6/domains/www.example.com/config?projectIdOrName=web")
-		vercel.listProjectDomains({idOrName = "web", production = "true", verified = false})
+		fixture.example("listProjectDomains")
 		assert(last().url == API .. "/v9/projects/web/domains?production=true&verified=false")
-		vercel.getProjectDomain({idOrName = "web", domain = "www.example.com"})
+		fixture.example("getProjectDomain")
 		assert(last().url == API .. "/v9/projects/web/domains/www.example.com")
-		vercel.listPromoteAliases({projectId = "prj_1", failedOnly = true})
+		fixture.example("listPromoteAliases")
 		assert(last().url == API .. "/v1/projects/prj_1/promote/aliases?failedOnly=true")
-		vercel.listTeams({limit = 5})
+		fixture.example("listTeams")
 		assert(last().url == API .. "/v2/teams?limit=5")
 		assert(#requests == 25)
 

@@ -31,6 +31,26 @@ type metadata struct {
 	Scenario Scenario       `json:"scenario"`
 	Config   map[string]any `json:"config"`
 }
+type hostResult struct {
+	Type      string          `json:"type"`
+	Exports   []string        `json:"exports"`
+	Help      json.RawMessage `json:"help"`
+	Returns   []any           `json:"returns"`
+	Error     string          `json:"error"`
+	ErrorID   *uint64         `json:"error_id"`
+	ErrorKind *string         `json:"error_kind"`
+}
+
+// Coverage records only public effective configuration, never fixture credentials.
+type Coverage struct {
+	Fixture          string         `json:"fixture"`
+	AuthMethod       string         `json:"auth_method"`
+	Config           map[string]any `json:"config,omitempty"`
+	CallerAccess     string         `json:"caller_access,omitempty"`
+	GrantedScopes    []string       `json:"granted_scopes"`
+	Exports          []string       `json:"exports,omitempty"`
+	SettingsRejected bool           `json:"settings_rejected,omitempty"`
+}
 type boundedOutput struct{ bytes.Buffer }
 
 func (b *boundedOutput) Write(p []byte) (int, error) {
@@ -68,6 +88,18 @@ func call(ctx context.Context, binary, mode string, input any, output any) error
 
 // Check requires runnable behavioral evidence for each method and variant, with configured Lua help.
 func Check(ctx context.Context, binary string, m manifest.Manifest, modules, fixtures map[string]string) error {
+	return check(ctx, binary, m, modules, fixtures, nil)
+}
+
+// CheckCatalog enforces maintained-source coverage separately from publication's
+// compatibility policy. Both paths execute the same discovery and provider fixtures.
+func CheckCatalog(ctx context.Context, binary string, m manifest.Manifest, modules, fixtures map[string]string) ([]Coverage, error) {
+	coverage := []Coverage{}
+	err := check(ctx, binary, m, modules, fixtures, &coverage)
+	return coverage, err
+}
+
+func check(ctx context.Context, binary string, m manifest.Manifest, modules, fixtures map[string]string, coverage *[]Coverage) error {
 	if binary == "" {
 		binary = os.Getenv("HOUSTON_RUNTIME")
 	}
@@ -122,6 +154,9 @@ func Check(ctx context.Context, binary string, m manifest.Manifest, modules, fix
 			if err == nil || !strings.Contains(err.Error(), scenario.SettingsError) {
 				return fmt.Errorf("fixture %s settings: want an error containing %q, got %v", name, scenario.SettingsError, err)
 			}
+			if coverage != nil {
+				*coverage = append(*coverage, Coverage{Fixture: name, AuthMethod: scenario.AuthMethod, CallerAccess: callerAccess, SettingsRejected: true})
+			}
 			continue
 		}
 		if err != nil {
@@ -150,20 +185,12 @@ func Check(ctx context.Context, binary string, m manifest.Manifest, modules, fix
 		if callerAccess != "" {
 			input["access"] = callerAccess
 		}
-		var output struct {
-			Type    string   `json:"type"`
-			Exports []string `json:"exports"`
-			Help    string   `json:"help"`
-			Returns []any    `json:"returns"`
+		var output, discovery hostResult
+		if err := call(ctx, binary, "connector-host", input, &discovery); err != nil {
+			return fmt.Errorf("fixture %s initialization failed: %w", name, err)
 		}
-		var discovery struct {
-			Type    string   `json:"type"`
-			Exports []string `json:"exports"`
-			Help    string   `json:"help"`
-			Returns []any    `json:"returns"`
-		}
-		if err := call(ctx, binary, "connector-host", input, &discovery); err != nil || discovery.Type != "result" {
-			return fmt.Errorf("fixture %s initialization failed", name)
+		if discovery.Type != "result" {
+			return fmt.Errorf("fixture %s initialization failed: %s", name, discovery.Error)
 		}
 		if err := call(ctx, binary, "connector-fixture", map[string]any{"action": "run", "source": source, "input": input}, &output); err != nil {
 			return fmt.Errorf("fixture %s behavior: %w", name, err)
@@ -174,11 +201,20 @@ func Check(ctx context.Context, binary string, m manifest.Manifest, modules, fix
 		if !reflect.DeepEqual(discovery.Exports, output.Exports) {
 			return fmt.Errorf("fixture %s changed configured exports", name)
 		}
-		if strings.TrimSpace(discovery.Help) == "" {
+		if len(discovery.Help) == 0 || string(discovery.Help) == "null" {
 			return fmt.Errorf("fixture %s requires connector Lua help", name)
 		}
-		if discovery.Help != output.Help {
+		if !bytes.Equal(discovery.Help, output.Help) {
 			return fmt.Errorf("fixture %s changed configured help", name)
+		}
+		if coverage != nil {
+			var doc struct {
+				Functions map[string]json.RawMessage `json:"functions"`
+			}
+			if err := json.Unmarshal(discovery.Help, &doc); err != nil || doc.Functions == nil {
+				return fmt.Errorf("fixture %s: maintained Hub connectors require structured help.functions", name)
+			}
+			*coverage = append(*coverage, Coverage{Fixture: name, AuthMethod: scenario.AuthMethod, Config: resolved.PublicConfig, CallerAccess: callerAccess, GrantedScopes: scenario.GrantedScopes, Exports: discovery.Exports})
 		}
 		methods[scenario.AuthMethod] = true
 		for _, index := range resolved.ProxyIndices {

@@ -1,0 +1,696 @@
+{
+	"adjustCapitalCall": [
+		{
+			"amount": {
+				"value": "900.00"
+			},
+			"capitalCallId": "101",
+			"externalReferenceId": "capital-call-adjust-demo-1",
+			"firmId": "101",
+			"fundId": "101",
+			"sourceSystem": "houston"
+		}
+	],
+	"createCapitalCall": [
+		{
+			"amount": {
+				"value": "1000.00"
+			},
+			"dueDate": {
+				"value": "2026-11-30"
+			},
+			"externalReferenceId": "capital-call-demo-1",
+			"firmId": "101",
+			"fundId": "101",
+			"interestIds": [],
+			"postAsDraft": true,
+			"sourceSystem": "houston"
+		}
+	],
+	"createCarriedInterestAllocation": [
+		{
+			"deltas": [
+				{
+					"amount": {
+						"value": "-5.00"
+					},
+					"interestId": "00000000-0000-4000-8000-000000000001"
+				},
+				{
+					"amount": {
+						"value": "5.00"
+					},
+					"interestId": "00000000-0000-4000-8000-000000000002"
+				}
+			],
+			"effectiveDate": {
+				"value": "2026-09-30"
+			},
+			"externalReferenceId": "carry-demo-1",
+			"firmId": "101",
+			"fundId": "101",
+			"sourceSystem": "houston"
+		}
+	],
+	"createDraftIssuer": [
+		{
+			"draftIssuer": {
+				"clientSource": "houston-demo",
+				"details": {
+					"address": {
+						"city": "Wilmington",
+						"country": {
+							"value": "US"
+						},
+						"countrySubdivision": {
+							"value": "US-DE"
+						},
+						"line1": "123 Example Street",
+						"postalCode": "19801"
+					},
+					"countryOfIncorporation": {
+						"value": "US"
+					},
+					"currency": {
+						"value": "USD"
+					},
+					"dateOfIncorporation": {
+						"value": "2026-10-01"
+					},
+					"llc": false,
+					"name": "Example Studio Inc",
+					"primaryContact": {
+						"email": "ana@example.com",
+						"name": "Ana Example",
+						"title": "CEO"
+					},
+					"stateOfIncorporation": {
+						"value": "US-DE"
+					}
+				},
+				"shareClass": {
+					"authorizedShares": 10000000,
+					"certificates": [],
+					"name": "Common",
+					"prefix": "CS",
+					"seniority": 1,
+					"type": "COMMON"
+				}
+			}
+		}
+	],
+	"createDraftOptionGrant": [
+		{
+			"draftOptionGrant": {
+				"exercisePrice": {
+					"amount": {
+						"value": "1.00"
+					},
+					"currencyCode": {
+						"value": "USD"
+					}
+				},
+				"quantity": {
+					"value": "1000"
+				},
+				"stakeholder": {
+					"email": "ana@example.com",
+					"name": "Ana Example",
+					"relationship": "STAKEHOLDER_RELATIONSHIP_EMPLOYEE",
+					"type": "STAKEHOLDER_TYPE_INDIVIDUAL"
+				},
+				"stockOptionType": "STOCK_OPTION_TYPE_ISO",
+				"vesting": {
+					"startDate": {
+						"day": 1,
+						"month": 10,
+						"year": 2026
+					},
+					"templateId": "00000000-0000-4000-8000-000000000001"
+				}
+			},
+			"draftOptionGrantSetId": "LATEST",
+			"issuerId": "101"
+		}
+	],
+	"createManagementFee": [
+		{
+			"amount": {
+				"amount": {
+					"value": "100.00"
+				},
+				"currencyCode": {
+					"value": "USD"
+				}
+			},
+			"effectiveDate": {
+				"value": "2026-09-30"
+			},
+			"externalReferenceId": "fee-demo-1",
+			"firmId": "101",
+			"fundId": "101",
+			"interestAmounts": [
+				{
+					"amount": {
+						"value": "100.00"
+					},
+					"interestId": "00000000-0000-4000-8000-000000000001"
+				}
+			],
+			"periodEnd": {
+				"value": "2026-09-30"
+			},
+			"periodStart": {
+				"value": "2026-07-01"
+			},
+			"sourceSystem": "houston"
+		}
+	],
+	"finalizeSecondarySettlement": [
+		{
+			"issuerId": "101",
+			"secondaryTransactionId": "00000000-0000-4000-8000-000000000001"
+		}
+	],
+	"getCapitalCall": [
+		{
+			"capitalCallId": "101",
+			"firmId": "101",
+			"fundId": "101"
+		}
+	],
+	"getCertificate": [
+		{
+			"id": "101",
+			"issuerId": "101"
+		}
+	],
+	"getCompensationBenchmarkAttributes": [
+		{
+			"corporationId": "101"
+		}
+	],
+	"getCompensationBenchmarks": [
+		{
+			"corporationId": "101",
+			"geoAdjustmentLocation": "US-San Francisco",
+			"jobArea": "engineering",
+			"pageSize": 20,
+			"postMoneyValuationBucket": "0M_1M"
+		}
+	],
+	"getConvertibleNote": [
+		{
+			"id": "101",
+			"issuerId": "101"
+		}
+	],
+	"getCurrentUser": [
+		{}
+	],
+	"getDraftIssuer": [
+		{
+			"id": "101"
+		}
+	],
+	"getDraftOptionGrant": [
+		{
+			"draftOptionGrantId": "101",
+			"draftOptionGrantSetId": "101",
+			"issuerId": "101"
+		}
+	],
+	"getFundInvestmentDocumentUrl": [
+		{
+			"documentId": "101",
+			"portfolioId": "101"
+		}
+	],
+	"getInvestmentCapitalizationTable": [
+		{
+			"capitalizationTableId": "101",
+			"companyId": "101",
+			"firmId": "101",
+			"fundId": "101"
+		}
+	],
+	"getInvestmentStakeholderCapitalizationTable": [
+		{
+			"capitalizationTableId": "101",
+			"companyId": "101",
+			"firmId": "101",
+			"fundId": "101",
+			"pageSize": 20
+		}
+	],
+	"getIssuer": [
+		{
+			"id": "101"
+		}
+	],
+	"getIssuerCapitalizationTable": [
+		{
+			"issuerId": "101"
+		}
+	],
+	"getIssuerStakeholderCapitalizationTable": [
+		{
+			"issuerId": "101",
+			"pageSize": 20
+		}
+	],
+	"getManagementFee": [
+		{
+			"firmId": "101",
+			"fundId": "101",
+			"managementFeeId": "101"
+		}
+	],
+	"getOpenCapTable": [
+		{
+			"id": "101"
+		}
+	],
+	"getOptionGrant": [
+		{
+			"id": "101",
+			"issuerId": "101"
+		}
+	],
+	"getPortfolio": [
+		{
+			"portfolioId": "101"
+		}
+	],
+	"getPortfolioCertificate": [
+		{
+			"certificateId": "101",
+			"issuerId": "101",
+			"portfolioId": "101"
+		}
+	],
+	"getPortfolioConvertibleNote": [
+		{
+			"id": "101",
+			"issuerId": "101",
+			"portfolioId": "101"
+		}
+	],
+	"getPortfolioFairMarketValue": [
+		{
+			"issuerId": "101",
+			"portfolioId": "101"
+		}
+	],
+	"getPortfolioOptionGrant": [
+		{
+			"issuerId": "101",
+			"optionGrantId": "101",
+			"portfolioId": "101"
+		}
+	],
+	"getPortfolioRestrictedStockAward": [
+		{
+			"issuerId": "101",
+			"portfolioId": "101",
+			"restrictedStockAwardId": "101"
+		}
+	],
+	"getPortfolioRestrictedStockUnit": [
+		{
+			"issuerId": "101",
+			"portfolioId": "101",
+			"restrictedStockUnitId": "101"
+		}
+	],
+	"getRestrictedStockAward": [
+		{
+			"id": "101",
+			"issuerId": "101"
+		}
+	],
+	"getRestrictedStockUnit": [
+		{
+			"id": "101",
+			"issuerId": "101"
+		}
+	],
+	"getSecondaryTransaction": [
+		{
+			"issuerId": "101",
+			"secondaryTransactionId": "101"
+		}
+	],
+	"getStakeholder": [
+		{
+			"id": "101",
+			"issuerId": "101"
+		}
+	],
+	"getStakeholderEquitySummary": [
+		{
+			"issuerId": "101",
+			"stakeholderId": "101"
+		}
+	],
+	"getStockSplitChanges": [
+		{
+			"issuerId": "101",
+			"securities": [
+				{
+					"securityId": "101",
+					"securityType": "option_grant"
+				}
+			],
+			"since": {
+				"value": "2026-10-01T00:00:00Z"
+			}
+		}
+	],
+	"initiateSecondarySettlement": [
+		{
+			"buyerInformation": {
+				"email": "buyer@example.com",
+				"entityName": "Example Buyer LLC"
+			},
+			"externalReferenceId": "trade-demo-1",
+			"issuerId": "101",
+			"pricePerShare": {
+				"amount": {
+					"value": "4.20"
+				},
+				"currencyCode": {
+					"value": "USD"
+				}
+			},
+			"rightOfFirstRefusal": {
+				"decidedAt": "2026-10-20T15:00:00Z",
+				"decidedByName": "Issuer General Counsel",
+				"outcome": "WAIVED"
+			},
+			"securities": [
+				{
+					"quantity": {
+						"value": "10"
+					},
+					"securityId": "101",
+					"securityType": "option_grant",
+					"stockOptionType": "ISO"
+				}
+			]
+		}
+	],
+	"listCashBalances": [
+		{
+			"firmId": "101",
+			"fundId": "101",
+			"pageSize": 20
+		}
+	],
+	"listCertificates": [
+		{
+			"issuerId": "101",
+			"pageSize": 20
+		}
+	],
+	"listConvertibleNotes": [
+		{
+			"issuerId": "101",
+			"pageSize": 20
+		}
+	],
+	"listCorporations": [
+		{
+			"pageSize": 20
+		}
+	],
+	"listFairMarketValues": [
+		{
+			"issuerId": "101",
+			"pageSize": 20
+		}
+	],
+	"listFirmPerformanceMetrics": [
+		{
+			"firmId": "101",
+			"pageSize": 20
+		}
+	],
+	"listFirms": [
+		{
+			"pageSize": 20
+		}
+	],
+	"listFundInterests": [
+		{
+			"firmId": "101",
+			"fundId": "101",
+			"pageSize": 20
+		}
+	],
+	"listFundInvestmentDocuments": [
+		{
+			"pageSize": 20,
+			"portfolioId": "101"
+		}
+	],
+	"listFundPerformanceMetrics": [
+		{
+			"firmId": "101",
+			"fundId": "101",
+			"pageSize": 20
+		}
+	],
+	"listFunds": [
+		{
+			"firmId": "101",
+			"pageSize": 20
+		}
+	],
+	"listInterests": [
+		{
+			"issuerId": "101",
+			"pageSize": 20
+		}
+	],
+	"listInvestmentCapitalizationTables": [
+		{
+			"companyId": "101",
+			"firmId": "101",
+			"fundId": "101",
+			"pageSize": 20
+		}
+	],
+	"listInvestmentCertificates": [
+		{
+			"firmId": "101",
+			"fundId": "101",
+			"investmentId": "101",
+			"pageSize": 20
+		}
+	],
+	"listInvestmentConvertibleNotes": [
+		{
+			"firmId": "101",
+			"fundId": "101",
+			"investmentId": "101",
+			"pageSize": 20
+		}
+	],
+	"listInvestmentWarrants": [
+		{
+			"firmId": "101",
+			"fundId": "101",
+			"investmentId": "101",
+			"pageSize": 20
+		}
+	],
+	"listInvestments": [
+		{
+			"firmId": "101",
+			"fundId": "101",
+			"pageSize": 20
+		}
+	],
+	"listIssuers": [
+		{
+			"pageSize": 20
+		}
+	],
+	"listOptionExercises": [
+		{
+			"issuerId": "101",
+			"pageSize": 20
+		}
+	],
+	"listOptionGrants": [
+		{
+			"issuerId": "101",
+			"pageSize": 20
+		}
+	],
+	"listPartnerContacts": [
+		{
+			"firmId": "101",
+			"pageSize": 20
+		}
+	],
+	"listPartners": [
+		{
+			"firmId": "101",
+			"pageSize": 20
+		}
+	],
+	"listPointsOfContact": [
+		{
+			"issuerId": "101"
+		}
+	],
+	"listPortfolioCertificates": [
+		{
+			"issuerId": "101",
+			"pageSize": 20,
+			"portfolioId": "101"
+		}
+	],
+	"listPortfolioConvertibleNotes": [
+		{
+			"issuerId": "101",
+			"pageSize": 20,
+			"portfolioId": "101"
+		}
+	],
+	"listPortfolioIssuers": [
+		{
+			"pageSize": 20,
+			"portfolioId": "101"
+		}
+	],
+	"listPortfolioOptionGrants": [
+		{
+			"issuerId": "101",
+			"pageSize": 20,
+			"portfolioId": "101"
+		}
+	],
+	"listPortfolioRestrictedStockAwards": [
+		{
+			"issuerId": "101",
+			"pageSize": 20,
+			"portfolioId": "101"
+		}
+	],
+	"listPortfolioRestrictedStockUnits": [
+		{
+			"issuerId": "101",
+			"pageSize": 20,
+			"portfolioId": "101"
+		}
+	],
+	"listPortfolioSecurityTransactions": [
+		{
+			"issuerId": "101",
+			"pageSize": 20,
+			"portfolioId": "101"
+		}
+	],
+	"listPortfolios": [
+		{
+			"pageSize": 20
+		}
+	],
+	"listRestrictedStockAwards": [
+		{
+			"issuerId": "101",
+			"pageSize": 20
+		}
+	],
+	"listRestrictedStockUnits": [
+		{
+			"issuerId": "101",
+			"pageSize": 20
+		}
+	],
+	"listShareClasses": [
+		{
+			"issuerId": "101",
+			"pageSize": 20
+		}
+	],
+	"listStakeholders": [
+		{
+			"issuerId": "101",
+			"pageSize": 20
+		}
+	],
+	"listTransactions": [
+		{
+			"issuerId": "101",
+			"pageSize": 20,
+			"type": "option"
+		}
+	],
+	"listVestingScheduleTemplates": [
+		{
+			"issuerId": "101",
+			"pageSize": 20
+		}
+	],
+	"updateExerciseMoneyMovement": [
+		{
+			"exerciseId": "101",
+			"issuerId": "101",
+			"moneyMovement": {
+				"completionDate": {
+					"value": "2026-10-19T12:00:00Z"
+				}
+			}
+		}
+	],
+	"updateExerciseTaxWithholding": [
+		{
+			"exerciseId": "101",
+			"issuerId": "101",
+			"taxWithholdings": [
+				{
+					"jurisdiction": {
+						"country": {
+							"value": "USA"
+						}
+					},
+					"name": "Federal withholding",
+					"rate": {
+						"value": "22"
+					},
+					"taxes": {
+						"amount": {
+							"value": "100.00"
+						},
+						"currencyCode": {
+							"value": "USD"
+						}
+					}
+				}
+			]
+		}
+	],
+	"uploadFile": [
+		{
+			"file": {
+				"filePayload": "SGVsbG8=",
+				"uploadDetails": {
+					"description": "Example document",
+					"name": "hello.txt",
+					"tags": [
+						"demo"
+					]
+				}
+			}
+		}
+	],
+	"uploadOpenCapTable": [
+		{
+			"path": "captable.zip"
+		}
+	]
+}

@@ -29,24 +29,27 @@ return {
 		end
 
 		responses = {{body = '{"id":"new"}'}}
-		local event = c.insertEvent({summary = "Planning", start = {dateTime = "2026-10-13T09:00:00Z"}, ["end"] = {dateTime = "2026-10-13T10:00:00Z"}, attendees = {{email = "ana@example.com"}}, sendUpdates = "all", conferenceDataVersion = 1})
+		local event = fixture.example("insertEvent")
 		assert(event.id == "new")
 		sent("POST", API .. "primary/events?sendUpdates=all&conferenceDataVersion=1",
 			'{"attendees":[{"email":"ana@example.com"}],"end":{"dateTime":"2026-10-13T10:00:00Z"},"start":{"dateTime":"2026-10-13T09:00:00Z"},"summary":"Planning"}')
 
 		-- A caller-chosen id makes a repeated insert fail with 409 rather than duplicate the event.
 		responses = {{body = '{"id":"planning20261013"}'}}
-		c.insertEvent({calendarId = "team@group.calendar.google.com", id = "planning20261013", summary = "Planning", start = {date = "2026-10-13"}, ["end"] = {date = "2026-10-14"}})
+		fixture.example("insertEvent", 2)
 		sent("POST", API .. "team%40group.calendar.google.com/events", '{"end":{"date":"2026-10-14"},"id":"planning20261013","start":{"date":"2026-10-13"},"summary":"Planning"}')
+		responses = {{body = '{"id":"localtime"}'}}
+		assert(fixture.example("insertEvent", 3).id == "localtime")
+		sent("POST", API .. "primary/events", '{"end":{"dateTime":"2026-10-13T10:00:00","timeZone":"Europe/Paris"},"start":{"dateTime":"2026-10-13T09:00:00","timeZone":"Europe/Paris"},"summary":"Local time"}')
 
 		responses = {{body = '{"id":"new","summary":"Moved"}'}, {body = '{"id":"new"}'}, {body = '{"id":"q1"}'}, {status = 204}}
-		assert(c.patchEvent({eventId = "new", summary = "Moved", sendUpdates = "none"}).summary == "Moved")
+		assert(fixture.example("patchEvent").summary == "Moved")
 		sent("PATCH", API .. "primary/events/new?sendUpdates=none", '{"summary":"Moved"}')
-		c.moveEvent({eventId = "new", destination = "team@group.calendar.google.com"})
+		fixture.example("moveEvent")
 		sent("POST", API .. "primary/events/new/move?destination=team%40group.calendar.google.com")
-		c.quickAddEvent({text = "Lunch with Ana tomorrow 12pm", sendUpdates = "all"})
+		fixture.example("quickAddEvent")
 		sent("POST", API .. "primary/events/quickAdd?text=Lunch%20with%20Ana%20tomorrow%2012pm&sendUpdates=all")
-		assert(c.deleteEvent({calendarId = "team@group.calendar.google.com", eventId = "new", sendUpdates = "all"}).success == true)
+		assert(fixture.example("deleteEvent").success == true)
 		sent("DELETE", API .. "team%40group.calendar.google.com/events/new?sendUpdates=all")
 
 		local count = #requests

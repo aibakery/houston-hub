@@ -2,6 +2,19 @@
 -- Arguments and results keep Discord's native field names. Credentials are injected only by Houston's proxy.
 type Options = {[string]: any}
 type Check = (any, string) -> any
+local schemas: {[Check]: any} = {}
+local function described(check: Check, schema: any): Check
+	schemas[check] = schema
+	return check
+end
+local function optionSchema(checks: {[string]: Check}): any
+	local properties: Options = {}
+	for name, check in checks do
+		assert(schemas[check], "missing option schema for " .. name)
+		properties[name] = schemas[check]
+	end
+	return {type = "object", properties = properties, additionalProperties = false}
+end
 
 local API = "https://discord.com/api/v10/"
 -- Discord requires this User-Agent format for bots.
@@ -9,6 +22,7 @@ local AGENT = "DiscordBot (https://ok-houston.com, 1.0)"
 local LIMIT = 25
 local MAX_BODY = 4 * 1024 * 1024
 local MAX_ID = "18446744073709551615"
+local MAX_CONTENT, MAX_SEARCH, MAX_NAME = 2000, 1024, 100
 -- Captured by Houston from the install's token exchange. The proxy pins every guild route to
 -- it; channel routes carry no guild, so inGuild below checks each channel against it first.
 local GUILD: string? = if auth.facts then auth.facts.guild_id else nil
@@ -27,11 +41,11 @@ local function text(value: any, field: string, max: number): string
 end
 
 local function integer(min: number, max: number): Check
-	return function(value: any, field: string): any
+	return described(function(value: any, field: string): any
 		assert(type(value) == "number" and value == math.floor(value) and value >= min and value <= max,
 			"discord: " .. field .. " must be an integer from " .. min .. " to " .. max)
 		return value
-	end
+	end, {type = "integer", minimum = min, maximum = max})
 end
 
 local function boolean(value: any, field: string): any
@@ -40,15 +54,16 @@ local function boolean(value: any, field: string): any
 end
 
 local function oneOf(values: {any}): Check
-	return function(value: any, field: string): any
+	return described(function(value: any, field: string): any
 		assert(table.find(values, value) ~= nil, "discord: " .. field .. " must be one of " .. table.concat(values, ", "))
 		return value
-	end
+	end, {enum = values})
 end
 
 -- A dense array of 1 to max items; a single string counts as a one-item array.
 local function array(max: number, each: Check): Check
-	return function(value: any, field: string): any
+	assert(schemas[each], "missing array item schema")
+	return described(function(value: any, field: string): any
 		if type(value) == "string" then value = {value} end
 		assert(type(value) == "table", "discord: " .. field .. " must be an array")
 		local count = 0
@@ -57,7 +72,8 @@ local function array(max: number, each: Check): Check
 		local out = table.create(count)
 		for index = 1, count do out[index] = each(value[index], field) end
 		return out
-	end
+	end, {anyOf = {{type = "array", minItems = 1, maxItems = max, items = schemas[each]} :: any,
+		{allOf = {{type = "string"}, schemas[each]}}}})
 end
 
 local function object(value: any, field: string): any
@@ -66,12 +82,13 @@ local function object(value: any, field: string): any
 end
 
 -- Messages notify nobody unless the caller names the users or roles to mention.
+local mentionIDs: Check
 local function mentions(value: any, field: string): any
 	assert(type(value) == "table", "discord: " .. field .. " must be a table")
 	local out: Options = {parse = json.decode("[]")}
 	for key, item in value do
 		if key == "users" or key == "roles" then
-			out[key] = array(100, snowflake)(item, field .. "." .. key)
+			out[key] = mentionIDs(item, field .. "." .. key)
 		elseif key == "replied_user" then
 			out[key] = boolean(item, field .. ".replied_user")
 		else
@@ -82,11 +99,20 @@ local function mentions(value: any, field: string): any
 end
 
 local function flags(allowed: number): Check
-	return function(value: any, field: string): any
-		integer(0, allowed)(value, field)
+	local range = integer(0, allowed)
+	local values: {number} = {0}
+	local bit = 1
+	while bit <= allowed do
+		if bit32.band(allowed, bit) ~= 0 then
+			for index = 1, #values do table.insert(values, values[index] + bit) end
+		end
+		bit *= 2
+	end
+	return described(function(value: any, field: string): any
+		range(value, field)
 		assert(bit32.band(value, bit32.bnot(allowed)) == 0, "discord: " .. field .. " only accepts the documented flags")
 		return value
-	end
+	end, {type = "integer", enum = values})
 end
 
 local function nonce(value: any, field: string): any
@@ -112,6 +138,28 @@ local function options(value: any, allowed: {[string]: Check}): Options
 	end
 	return copy
 end
+
+schemas[snowflake] = {type = "string", pattern = "^[1-9][0-9]*$", maxLength = #MAX_ID,
+	description = "Discord snowflake ID as a decimal string from 1 to " .. MAX_ID .. "; never a Lua number."}
+schemas[boolean] = {type = "boolean"}
+schemas[nonce] = {type = "string", pattern = "^[A-Za-z0-9_-]+$", maxLength = 25}
+schemas[timestamp] = {type = "string", maxLength = 40, pattern = "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+[0-9Z:+-]*$",
+	description = "Discord ISO 8601 timestamp, such as the thread's archive_timestamp."}
+-- Rich embeds pass through to Discord; its nested fields and aggregate text limit
+-- are documented here without changing the connector's provider-extension support.
+local function embedText(maximum: number): any return {type = "string", maxLength = maximum} end
+local media = {type = "object", properties = {url = {type = "string"}}, additionalProperties = true}
+schemas[object] = {type = "object", properties = {
+	title = embedText(256), description = embedText(4096), url = {type = "string"}, type = {type = "string"},
+	timestamp = {type = "string", format = "date-time"}, color = {type = "integer", minimum = 0, maximum = 16777215},
+	footer = {type = "object", properties = {text = embedText(2048), icon_url = {type = "string"}}, required = {"text"}},
+	image = media, thumbnail = media, video = media,
+	provider = {type = "object", properties = {name = {type = "string"}, url = {type = "string"}}},
+	author = {type = "object", properties = {name = embedText(256), url = {type = "string"}, icon_url = {type = "string"}}, required = {"name"}},
+	fields = {type = "array", maxItems = 25, items = {type = "object", properties = {name = embedText(256), value = embedText(1024), inline = schemas[boolean]}, required = {"name", "value"}}},
+	}, additionalProperties = true, description = "Rich embed. Discord limits combined title, description, field, footer and author text across all embeds in one message to 6000 characters."}
+mentionIDs = array(100, snowflake)
+schemas[mentions] = optionSchema({users = mentionIDs, roles = mentionIDs, replied_user = boolean})
 
 local SERVER = table.freeze({with_counts = boolean})
 local MESSAGES = table.freeze({before = snowflake, after = snowflake, around = snowflake, limit = integer(1, 100)})
@@ -308,13 +356,13 @@ end
 
 local function searchMessages(content: string?, opts: Options?): Options
 	local params = options(opts, SEARCH)
-	if content ~= nil and content ~= "" then params.content = text(content, "query", 1024) end
+	if content ~= nil and content ~= "" then params.content = text(content, "query", MAX_SEARCH) end
 	return call("searchMessages", "GET", guild("searchMessages", "/messages/search"), params)
 end
 
 local function searchMembers(prefix: string, opts: Options?): Options
 	local params = options(opts, MEMBERS)
-	params.query = text(prefix, "query", 100)
+	params.query = text(prefix, "query", MAX_NAME)
 	params.limit = params.limit or LIMIT
 	return call("searchMembers", "GET", guild("searchMembers", "/members/search"), params)
 end
@@ -329,7 +377,7 @@ end
 
 local function messageBody(content: string, opts: Options?, allowed: {[string]: Check}): Options
 	local body = options(opts, allowed)
-	body.content = text(content, "content", 2000)
+	body.content = text(content, "content", MAX_CONTENT)
 	body.allowed_mentions = body.allowed_mentions or {parse = json.decode("[]")}
 	return body
 end
@@ -361,7 +409,7 @@ end
 
 local function createThread(channel: string, name: string, opts: Options?): Options
 	local body = options(opts, THREAD)
-	body.name = text(name, "name", 100)
+	body.name = text(name, "name", MAX_NAME)
 	local start = body.message
 	body.message = nil
 	local parent = inGuild("createThread", channel)
@@ -392,60 +440,86 @@ if config.access == "read-write" then
 	exports.createThread = createThread
 end
 
-local operationHelp: {[string]: string} = {
-	getServer = [[getServer(opts?) -> guild
-The connected server: id, name, description, owner_id, roles, emojis, features... opts: with_counts (true adds approximate_member_count and approximate_presence_count).]],
-	listChannels = [[listChannels() -> {channel}
-The server's channels and categories (not threads): id, type (0 text, 2 voice, 4 category, 5 announcement, 15 forum), name, parent_id, position, topic. Channels Houston's bot cannot view may be missing.]],
-	getChannel = [[getChannel(channel) -> channel
-One channel or thread of this server.]],
-	listMessages = [[listMessages(channel, opts?) -> {message}
-Newest first. opts: limit (1-100, default 25) and at most one of before, after or around (message IDs). For older messages pass before = the last message's id. Returns [] when the bot lacks Read Message History in that channel.]],
-	getMessage = [[getMessage(channel, message) -> message
-One message: id, channel_id, author, content, timestamp, edited_timestamp, attachments, embeds, mentions, reactions, message_reference, referenced_message, thread...]],
-	listThreads = [[listThreads() -> {threads, members}
-Active threads in the whole server, newest first; members lists the threads the bot has joined.]],
-	listArchivedThreads = [[listArchivedThreads(channel, opts?) -> {threads, members, has_more}
-Public archived threads of a text or announcement channel, most recently archived first. opts: limit (2-100, default 25), before (ISO 8601 timestamp; pass the last thread's thread_metadata.archive_timestamp for the next page).]],
-	searchMessages = [[searchMessages(query, opts?) -> {total_results, messages, threads?, members?}
-Searches the whole server; query is the text to match, or "" to search by filters only. Each item of messages is a one-element array holding the matching message. opts (Discord's names): channel_id, author_id, mentions (ID or array of IDs), author_type ("user", "bot", "webhook", "-bot"...), has ("link", "file", "image", "embed", "-link"...), min_id, max_id, pinned, include_nsfw, sort_by ("timestamp" default or "relevance"), sort_order ("desc" default or "asc"), limit (1-25, default 25), offset (0-9975). Discord can return fewer than limit even when more match, so get the next page with offset = offset + limit; total_results is approximate. While Discord indexes a server for the first time this fails as retryable with the wait.]],
-	searchMembers = [[searchMembers(query, opts?) -> {member}
-Members whose username or nickname starts with query (1-100 characters). opts: limit (1-1000, default 25). Each member: user {id, username, global_name, bot?}, nick, roles (role IDs), joined_at.]],
-	getMember = [[getMember(user) -> member
-One member of this server by user ID.]],
-	listRoles = [[listRoles() -> {role}
-The server's roles: id, name, color, position, permissions, mentionable. The @everyone role's id is the server id.]],
-	postMessage = [[postMessage(channel, content, opts?) -> message
-Posts as Houston's bot in a channel or thread; content is 1-2000 characters of Discord markdown. Mention people as <@userId> and roles as <@&roleId>; mentions notify nobody unless opts.allowed_mentions names them: {users = {userId}, roles = {roleId}, replied_user = true}. opts: embeds (up to 10 embed objects), allowed_mentions, flags (4 suppresses link previews, 4096 sends silently), nonce plus enforce_nonce = true (Discord then ignores a repeat with the same nonce for a few minutes). After an error the message may already be posted: check listMessages, or resend with the same nonce and enforce_nonce, rather than retrying blindly.]],
-	reply = [[reply(channel, message, content, opts?) -> message
-Replies to a message in the same channel. Same opts as postMessage; the replied-to author is notified only with allowed_mentions.replied_user = true.]],
-	editMessage = [[editMessage(channel, message, content, opts?) -> message
-Replaces the content of a message Houston's bot posted. opts: embeds, allowed_mentions, flags (4 suppresses link previews).]],
-	deleteMessage = [[deleteMessage(channel, message) -> true
-Deletes a message Houston's bot posted; other people's messages cannot be deleted.]],
-	addReaction = [[addReaction(channel, message, emoji) -> true
-Reacts as Houston's bot. emoji is the Unicode character, such as "👍", or a server emoji as "name:id"; Slack-style names such as "thumbsup" are rejected.]],
-	removeReaction = [[removeReaction(channel, message, emoji) -> true
-Removes Houston's bot's reaction. Same emoji format as addReaction.]],
-	createThread = [[createThread(channel, name, opts?) -> channel
-Starts a public thread named name (1-100 characters) and returns it; post into it with postMessage(thread.id, ...). opts: message (start the thread from this message; one thread per message), auto_archive_duration (60, 1440, 4320 or 10080 minutes), rate_limit_per_user (0-21600 seconds). Without message the channel must be a text or announcement channel; forum posts are not supported.]],
+local id = schemas[snowflake]
+local function boundedText(maximum: number): any return {type = "string", minLength = 1, maxLength = maximum} end
+local function record(properties: Options): any return {type = "object", properties = properties, additionalProperties = true} end
+local function items(item: any): any return {type = "array", items = item} end
+local userSchema = record({id = id, username = {type = "string"}, global_name = {type = {"string", "null"}}, bot = schemas[boolean]})
+local channelSchema = record({id = id, guild_id = id, parent_id = {type = {"string", "null"}}, type = {type = "integer"}, name = {type = "string"},
+	thread_metadata = record({archived = schemas[boolean], archive_timestamp = {type = "string"}, auto_archive_duration = {type = "integer"}})})
+local messageSchema = record({id = id, channel_id = id, author = userSchema, content = {type = "string"}, timestamp = {type = "string"},
+	edited_timestamp = {type = {"string", "null"}}, attachments = items(record({id = id, filename = {type = "string"}, url = {type = "string"}, size = {type = "integer"}})),
+	embeds = items(record({})), mentions = items(userSchema), reactions = items(record({count = {type = "integer"}, me = schemas[boolean]}))})
+local memberSchema = record({user = userSchema, nick = {type = {"string", "null"}}, roles = items(id), joined_at = {type = {"string", "null"}}})
+local threadsSchema = record({threads = items(channelSchema), members = items(record({id = id, user_id = id, join_timestamp = {type = "string"}})), has_more = schemas[boolean]})
+local searchSchema = record({total_results = {type = "integer"}, messages = items(items(messageSchema)), threads = items(channelSchema), members = items(memberSchema)})
+local serverSchema = record({id = id, name = {type = "string"}, description = {type = {"string", "null"}}, owner_id = id,
+	roles = items(record({id = id, name = {type = "string"}, permissions = {type = "string"}})), emojis = items(record({id = id, name = {type = "string"}})),
+	features = items({type = "string"}), approximate_member_count = {type = "integer"}, approximate_presence_count = {type = "integer"}})
+local emojiSchema = {type = "string", minLength = 1, description = "Unicode emoji or custom name:id, <:name:id>, <a:name:id>. At most 200 UTF-8 bytes; custom IDs follow the Discord snowflake range.",
+	anyOf = {{pattern = "^([A-Za-z0-9_]+:[1-9][0-9]{0,19}|<a?:[A-Za-z0-9_]+:[1-9][0-9]{0,19}>)$"},
+		{pattern = "[^\\x00-\\x7f]", ["not"] = {pattern = "[\\x00-\\x20\\x7f\\s/\\\\%:<>]"}}}}
+local messageOptions = optionSchema(MESSAGES)
+messageOptions.allOf = {{["not"] = {required = {"before", "after"}}}, {["not"] = {required = {"before", "around"}}}, {["not"] = {required = {"after", "around"}}}}
+local function document(description: string, args: {string}, properties: Options, required: {string}, example: Options, output: any, write: boolean): any
+	return {description = description, args = args,
+		inputSchema = {type = "object", properties = properties, required = if #required > 0 then required else nil,
+			additionalProperties = false, examples = {example}}, outputSchema = output,
+		annotations = {readOnlyHint = not write, destructiveHint = write, idempotentHint = not write}}
+end
+local operationHelp: Options = {
+	getServer = document([[The connected server: id, name, description, owner_id, roles, emojis, features... opts: with_counts (true adds approximate_member_count and approximate_presence_count).]],
+		{"opts"}, {opts=optionSchema(SERVER)}, {}, {}, serverSchema, false),
+	listChannels = document([[The server's channels and categories (not threads): id, type (0 text, 2 voice, 4 category, 5 announcement, 15 forum), name, parent_id, position, topic. Channels Houston's bot cannot view may be missing.]],
+		{}, {}, {}, {}, nil, false),
+	getChannel = document([[One channel or thread of this server.]],
+		{"channel"}, {channel=id}, {"channel"}, {channel="1300000000000000001"}, channelSchema, false),
+	listMessages = document([[Newest first. opts: limit (1-100, default 25) and at most one of before, after or around (message IDs). For older messages pass before = the last message's id. Returns [] when the bot lacks Read Message History in that channel.]],
+		{"channel","opts"}, {channel=id,opts=messageOptions}, {"channel"}, {channel="1300000000000000001"}, nil, false),
+	getMessage = document([[One message: id, channel_id, author, content, timestamp, edited_timestamp, attachments, embeds, mentions, reactions, message_reference, referenced_message, thread...]],
+		{"channel","message"}, {channel=id,message=id}, {"channel","message"}, {channel="1300000000000000001",message="1400000000000000001"}, messageSchema, false),
+	listThreads = document([[Active threads in the whole server, newest first; members lists the threads the bot has joined.]],
+		{}, {}, {}, {}, threadsSchema, false),
+	listArchivedThreads = document([[Public archived threads of a text or announcement channel, most recently archived first. opts: limit (2-100, default 25), before (ISO 8601 timestamp; pass the last thread's thread_metadata.archive_timestamp for the next page).]],
+		{"channel","opts"}, {channel=id,opts=optionSchema(ARCHIVED)}, {"channel"}, {channel="1300000000000000001"}, threadsSchema, false),
+	searchMessages = document([[Searches the whole server; query is the text to match, or "" to search by filters only. Each item of messages is a one-element array holding the matching message. opts (Discord's names): channel_id, author_id, mentions (ID or array of IDs), author_type ("user", "bot", "webhook", "-bot"...), has ("link", "file", "image", "embed", "-link"...), min_id, max_id, pinned, include_nsfw, sort_by ("timestamp" default or "relevance"), sort_order ("desc" default or "asc"), limit (1-25, default 25), offset (0-9975). Discord can return fewer than limit even when more match, so get the next page with offset = offset + limit; total_results is approximate. While Discord indexes a server for the first time this fails as retryable with the wait.]],
+		{"query","opts"}, {query={type="string",maxLength=MAX_SEARCH},opts=optionSchema(SEARCH)}, {}, {query="deploy"}, searchSchema, false),
+	searchMembers = document([[Members whose username or nickname starts with query (1-100 characters). opts: limit (1-1000, default 25). Each member: user {id, username, global_name, bot?}, nick, roles (role IDs), joined_at.]],
+		{"query","opts"}, {query=boundedText(MAX_NAME),opts=optionSchema(MEMBERS)}, {"query"}, {query="zz"}, nil, false),
+	getMember = document([[One member of this server by user ID.]],
+		{"user"}, {user=id}, {"user"}, {user="80351110224678912"}, memberSchema, false),
+	listRoles = document([[The server's roles: id, name, color, position, permissions, mentionable. The @everyone role's id is the server id.]],
+		{}, {}, {}, {}, nil, false),
+	postMessage = document([[Posts as Houston's bot in a channel or thread; content is 1-2000 characters of Discord markdown. Mention people as <@userId> and roles as <@&roleId>; mentions notify nobody unless opts.allowed_mentions names them: {users = {userId}, roles = {roleId}, replied_user = true}. opts: embeds (up to 10 embed objects), allowed_mentions, flags (4 suppresses link previews, 4096 sends silently), nonce plus enforce_nonce = true (Discord then ignores a repeat with the same nonce for a few minutes). After an error the message may already be posted: check listMessages, or resend with the same nonce and enforce_nonce, rather than retrying blindly.]],
+		{"channel","content","opts"}, {channel=id,content=boundedText(MAX_CONTENT),opts=optionSchema(POST)}, {"channel","content"}, {channel="1300000000000000001",content="Hi @everyone"}, messageSchema, true),
+	reply = document([[Replies to a message in the same channel. Same opts as postMessage; the replied-to author is notified only with allowed_mentions.replied_user = true.]],
+		{"channel","message","content","opts"}, {channel=id,message=id,content=boundedText(MAX_CONTENT),opts=optionSchema(POST)}, {"channel","message","content"}, {channel="1300000000000000001",message="1400000000000000001",content="<@80351110224678912> done",opts={allowed_mentions={users={"80351110224678912"},roles="1500000000000000001",replied_user=true},embeds={{title="Q3",url="https://example.com"}},flags=4096,nonce="run-42",enforce_nonce=true}}, messageSchema, true),
+	editMessage = document([[Replaces the content of a message Houston's bot posted. opts: embeds, allowed_mentions, flags (4 suppresses link previews).]],
+		{"channel","message","content","opts"}, {channel=id,message=id,content=boundedText(MAX_CONTENT),opts=optionSchema(EDIT)}, {"channel","message","content"}, {channel="1300000000000000001",message="1400000000000000001",content="Edited",opts={flags=4}}, messageSchema, true),
+	deleteMessage = document([[Deletes a message Houston's bot posted; other people's messages cannot be deleted.]],
+		{"channel","message"}, {channel=id,message=id}, {"channel","message"}, {channel="1300000000000000001",message="1400000000000000001"}, nil, true),
+	addReaction = document([[Reacts as Houston's bot. emoji is the Unicode character, such as "👍", or a server emoji as "name:id"; Slack-style names such as "thumbsup" are rejected.]],
+		{"channel","message","emoji"}, {channel=id,message=id,emoji=emojiSchema}, {"channel","message","emoji"}, {channel="1300000000000000001",message="1400000000000000001",emoji="👍"}, nil, true),
+	removeReaction = document([[Removes Houston's bot's reaction. Same emoji format as addReaction.]],
+		{"channel","message","emoji"}, {channel=id,message=id,emoji=emojiSchema}, {"channel","message","emoji"}, {channel="1300000000000000001",message="1400000000000000001",emoji="houston:1600000000000000002"}, nil, true),
+	createThread = document([[Starts a public thread named name (1-100 characters) and returns it; post into it with postMessage(thread.id, ...). opts: message (start the thread from this message; one thread per message), auto_archive_duration (60, 1440, 4320 or 10080 minutes), rate_limit_per_user (0-21600 seconds). Without message the channel must be a text or announcement channel; forum posts are not supported.]],
+		{"channel","name","opts"}, {channel=id,name=boundedText(MAX_NAME),opts=optionSchema(THREAD)}, {"channel","name"}, {channel="1300000000000000001",name="Plan"}, channelSchema, true),
 }
 
-exports.help = function(): string
-	local names: {string} = {}
-	for name in exports do
-		if name ~= "help" then table.insert(names, name) end
-	end
-	table.sort(names)
-	local sections = {[[Discord: Houston's bot in one Discord server, the one this connection added it to. Credentials stay on Houston. Calls return completed values; do not wrap them in await(). Pass every ID (server, channel, thread, message, user, role) as a string, never a number. Results keep Discord's field names. Unknown options are rejected.
-Scope: guild routes always address the connected server, and channel, thread and message calls first check that the channel belongs to it; any other channel, including DMs, fails with "is not in this server". Threads are channels: pass a thread's id wherever a channel is expected. The bot sees only channels its role can view. Without Discord's Message Content access, messages from other people can have empty content, embeds and attachments (the bot's own messages and messages mentioning it stay complete).
-Each call returns one page and never paginates on its own. Discord rate-limits the bot across every Houston server, so prefer searchMessages over scanning channels page by page, keep limits small, and do not loop over many channels. Rate-limited calls fail as retryable with the wait; permission errors (403) never succeed on retry. Writes act as Houston's bot, need Read and write access and never retry automatically.]]}
-	for _, name in names do
-		local section = operationHelp[name]
-		assert(section, "missing help for configured function " .. name)
-		table.insert(sections, "## " .. section)
-	end
-	return table.concat(sections, "\n\n")
+table.insert(operationHelp.searchMessages.inputSchema.examples, {opts = {channel_id = {"1300000000000000001", "1300000000000000002"},
+	author_id = "80351110224678912", author_type = {"-bot"}, has = {"link"}, sort_by = "relevance", limit = 5, offset = 5, pinned = false}})
+table.insert(operationHelp.createThread.inputSchema.examples, {channel = "1300000000000000001", name = "Follow-up",
+	opts = {message = "1400000000000000001", rate_limit_per_user = 30}})
+local docs: Options = {}
+for name in exports do
+	assert(operationHelp[name], "missing help for configured function " .. name)
+	docs[name] = operationHelp[name]
 end
-
+exports.help = {text = "Discord: Houston's bot in the server this connection added it to. Calls return completed values; use them directly without await. Pass every ID as a string, never a number. Results keep Discord's field names. Unknown options are rejected. Configured access: " .. config.access .. ".",
+	functions = docs, sections = {
+		scope = "Guild routes always address the connected server. Channel, thread and message calls first check that the channel belongs to it; other channels, including DMs, fail with 'is not in this server'. Threads are channels: pass a thread ID wherever a channel is expected. The bot sees only channels its role can view. Without Discord's Message Content access, messages from other people can have empty content, embeds and attachments; the bot's own messages and messages mentioning it stay complete.",
+		paging = "Each call returns one page. Use before with the last message ID for older messages; use the last thread's archive_timestamp for archived threads. Message search advances offset by limit even when a page is shorter than limit, because total_results is approximate. Discord rate-limits the bot across every Houston server: prefer searchMessages to scanning many channels, and keep limits small.",
+		errors = "Rate-limited calls fail as retryable with the wait; permission errors (403) never succeed on retry. Writes act as Houston's bot, require Read and write access and never retry automatically. After a failed write, check current state before repeating it. A bot-credential error is a Houston configuration problem; reconnecting does not fix it. If Houston was removed from the server, open connection settings and add it again.",
+		formatting = "Message content uses Discord markdown. User mentions use <@userId>, roles <@&roleId>, and channel links <#channelId>. Messages notify nobody unless allowed_mentions explicitly names users or roles, or enables replied_user. Embeds are limited to 10 and 6000 combined text characters per message; inspect postMessage or reply for the nested embed schema. Custom emoji accept name:id, <:name:id>, or <a:name:id>.",
+	}}
 return exports

@@ -2,6 +2,7 @@
 type Object = {[string]: any}
 type Grant = {path: string, access: "read-only" | "read-write"}
 local DENIED = "Dropbox path is outside the permitted folder access"
+local SEARCH_FIELDS = "path max_results order_by file_status filename_only file_extensions file_categories"
 local specs: {[string]: {fields: string, kind: string}} = {
 	getMetadata = {fields = "path include_media_info include_deleted", kind = "read"},
 	listFolder = {fields = "path recursive limit include_deleted include_media_info include_mounted_folders include_non_downloadable_files", kind = "list"},
@@ -151,7 +152,7 @@ return function(raw: string, metadata: (string) -> Object?): any
 		end
 		assert(args.autorename == nil or args.autorename == false, "Autorename is unavailable with custom folder access; choose an explicit destination")
 		if spec.kind == "search" then
-			fields(args.options, "path max_results order_by file_status filename_only file_extensions file_categories")
+			fields(args.options, SEARCH_FIELDS)
 			args.options = table.clone(args.options)
 			context.root = canonical(args.options.path)
 			authorize(context.root, false)
@@ -224,15 +225,44 @@ return function(raw: string, metadata: (string) -> Object?): any
 		table.insert(lines, "Folder rules must name existing folders in this account's member root. Paths are checked using Dropbox's canonical metadata, including Unicode names. Use ordinary absolute paths, not IDs, namespace aliases or revision paths. Parent folders must exist before creating a child. Search requires options.path. Pagination cursors are Houston tokens, tied to this connection and its current settings; keep them intact. Moves and deletes cannot change a read-only subtree. Autorename, revision downloads, batch/jobs, sharing, file requests and account-wide operations are unavailable in this mode.")
 		return table.concat(lines, "\n")
 	end
-	policy.documentation = function(name: string, doc: string): string
-		doc = string.gsub(doc, "rev%?, ", "")
-		doc = string.gsub(doc, "autorename%?, ", "")
-		doc = string.gsub(doc, ", autorename%?", "")
-		if name == "search" then
-			doc = string.gsub(doc, "options%?=", "options=")
-			doc = string.gsub(doc, "path%?", "path")
+	policy.schema = function(name: string, source: Object): Object
+		local schema = table.clone(source)
+		local properties: Object = {}
+		for field in string.gmatch(specs[name].fields, "%S+") do properties[field] = assert(source.properties[field], "missing custom option " .. field) end
+		schema.properties, schema.additionalProperties = properties, false
+		local path: any = {type = "string", pattern = "^(?:/[^/\\\\\\u0000-\\u001f\\u007f]+)+$", ["not"] = {pattern = "(?:^|/)\\.{1,2}(?:/|$)| (?:/|$)"}, description = "Ordinary absolute path under a granted folder. No IDs, namespaces, revisions, backslashes, empty/dot components or trailing spaces. See help('access') for effective grants."}
+		if configured[1].path == "" then path = {anyOf = {path, {const = ""}}, description = "An ordinary absolute path, or '' for the granted account root."} end
+		for _, field in {"path", "from_path", "to_path"} do if properties[field] then properties[field] = path end end
+		if properties.autorename then properties.autorename = {const = false, description = "Custom access requires an explicit destination; omit or use false."} end
+		local readRoot, writeRoot = configured[1].path, configured[1].path
+		for _, grant in configured do if grant.access == "read-write" then writeRoot = grant.path; break end end
+		local function file(root: string): string return root .. "/report.pdf" end
+		local examples: {any} = {}
+		for _, original in source.examples do
+			local example: Object = {}
+			for field, value in original do if properties[field] then example[field] = value end end
+			if example.path ~= nil then
+				local folder = name == "listFolder" or name == "listFolderGetLatestCursor" or name == "downloadZip"
+				example.path = if folder then readRoot elseif name == "createFolder" then writeRoot .. "/New folder" elseif specs[name].kind == "read" then file(readRoot) else file(writeRoot)
+			end
+			if example.from_path then example.from_path = file(if name == "move" then writeRoot else readRoot); example.to_path = writeRoot .. "/report-copy.pdf" end
+			if example.autorename ~= nil then example.autorename = false end
+			table.insert(examples, example)
 		end
-		return doc
+		schema.examples = examples
+		if name == "search" then
+			local native = source["$defs"]["files.SearchOptions"]
+			local search: Object = {}
+			for field in string.gmatch(SEARCH_FIELDS, "%S+") do search[field] = assert(native.properties[field], "missing search option " .. field) end
+			search.path = path
+			properties.options = {type = "object", properties = search, required = {"path"}, additionalProperties = false}
+			schema.required = {}
+			for _, field in source.required or {} do table.insert(schema.required, field) end
+			table.insert(schema.required, "options")
+			for _, example in examples do example.options = table.clone(example.options or {}); example.options.path = readRoot end
+		end
+		if properties.cursor then properties.cursor = {type = "string", minLength = 1, description = "Houston continuation token from the matching list/search call on this connection and settings. Copy it intact; raw Dropbox cursors are not accepted."} end
+		return schema
 	end
 	return policy
 end

@@ -521,50 +521,27 @@ exports.downloadGistFile = function(input: Options?): any
 	end)
 end
 
-local REPO = "/repos/{owner}/{repo}"
-
--- name({path fields, query fields?}) built from the endpoint itself. Repository routes leave
--- owner and repo implicit, page? stands for per_page and page, and Body {...} lists body fields.
-local function signature(endpoint: Endpoint): string
-	local fields: {string} = {}
-	local inRepo = string.sub(endpoint.path, 1, #REPO) == REPO
-	for field in string.gmatch(endpoint.path, "{([%w_]+)}") do
-		if not inRepo or (field ~= "owner" and field ~= "repo") then table.insert(fields, field) end
-	end
-	local required = endpoint.required or NONE
-	for _, field in endpoint.query or NONE do
-		if field ~= "per_page" then table.insert(fields, if table.find(required, field) then field else field .. "?") end
-	end
-	if endpoint.save then table.insert(fields, if table.find(required, "save_as") then "save_as" else "save_as?") end
-	if endpoint.diff then table.insert(fields, "format?") end
-	return "({" .. table.concat(fields, ", ") .. "})"
-end
-
-exports.help = function(): string
+exports.help = function(): any
 	local lines = {
-		"GitHub REST API " .. VERSION .. ". Each function takes one options object with GitHub's snake_case names (? marks optional); writes also take the JSON body fields listed after Body. Results are GitHub's JSON unchanged; write replies without a body return {success=true}. Connector calls return completed values: use them directly, without await. In bodies, json.decode('[]') is an empty array and json.decode('null') clears a field.",
+		"GitHub REST API " .. VERSION .. ". Each function takes one options object with GitHub's snake_case names; function help describes native fields and runnable examples. Results are GitHub's JSON unchanged; write replies without a body return {success=true}. Connector calls return completed values: use them directly, without await. In bodies, json.decode('[]') is an empty array and json.decode('null') clears a field.",
 		"Start with github.getAuthenticatedUser().login, github.listMyRepos({sort='pushed', per_page=20}) or github.searchIssues({q='is:pr is:open author:@me'}); github.listUserEvents({username=login}) gives recent activity. branch, ref, path, tag, tree_sha, basehead and label name may contain slashes and percent signs (ref='heads/feature/x', path='src/100%.md'), but not backslashes or escapes of separators and dots such as %2F.",
-		"Lists return one page: page? means per_page (1..100, default 30) and page (from 1); a shorter page is the last. JSON and text results over 8 MiB fail; use save_as or smaller pages. Search returns {total_count, incomplete_results, items}: at most 1,000 results and 30 requests per minute (searchCode 10).",
+		"Lists return one page: per_page sets its size (1..100, default 30), and page starts from 1; a shorter page is the last. JSON and text results over 8 MiB fail; use save_as or smaller pages. Search returns {total_count, incomplete_results, items}: at most 1,000 results and 30 requests per minute (searchCode 10).",
 		"Files: getContent returns base64 content; save_as='name' saves raw bytes as a session file instead. download_url links lose their private-repository token (fetch private files with save_as), and temp_clone_token is removed. save_as functions return {path, size, url} and replace that session file only when the download succeeds; a failed download leaves it as it was; search large logs with fs.grep. getCommit, compareCommits and getPull take format='diff' or 'patch' and return that text, without paging. To commit several files, chain createBlob, createTree, createGitCommit and updateRef.",
 		"Access: GitHub enforces the token's permissions and repository selection; Connect with GitHub reaches public data and repositories where Houston's GitHub App is installed. A 403 or 404 may mean missing access; errors give GitHub's message, needed permissions and rate-limit resets. Read-only connections omit writes. Notifications need a classic token and installation lists Connect with GitHub; check runs and suites need a classic token or Connect with GitHub.",
 		"Writes can notify people and trigger workflows. No automatic retries: after a timeout or 5xx, read the resource again before repeating a write. Repository deletion, settings administration, secrets, webhooks, deploy keys and GraphQL are not exposed.",
 	}
-	local names: {string} = {}
-	for name in exports do if name ~= "help" then table.insert(names, name) end end
-	table.sort(names)
-	local repository: {string} = {"Repository functions also take owner and repo, such as owner='octocat', repo='Hello-World'; ... stands for " .. REPO .. ":"}
-	for _, name in names do
-		local endpoint = endpoints[name]
-		if endpoint == nil then
-			table.insert(lines, name .. "({gist_id, filename, save_as}): Saves one gist file whole (up to 10 MB) as a session file. GET raw_url")
-			continue
+	local native = require("lib/help.luau")
+	local functions = {}
+	for name in exports do
+		if name ~= "help" then
+			assert(native[name], "missing help " .. name)
+			local record: any = table.clone(native[name])
+			local endpoint = endpoints[name]
+			if endpoint then record.description ..= ". " .. endpoint.about .. " " .. endpoint.method .. " " .. endpoint.path end
+			record.annotations = {readOnlyHint = endpoint == nil or endpoint.method == "GET"}
+			functions[name] = record
 		end
-		local inRepo = string.sub(endpoint.path, 1, #REPO) == REPO
-		local route = if inRepo then "..." .. string.sub(endpoint.path, #REPO + 1) else endpoint.path
-		local about = if endpoint.about == "" then "" else endpoint.about .. " "
-		table.insert(if inRepo then repository else lines, name .. signature(endpoint) .. ": " .. about .. endpoint.method .. " " .. route)
 	end
-	table.move(repository, 1, #repository, #lines + 1, lines)
-	return table.concat(lines, "\n")
+	return {text=lines[1] .. "\n\n" .. lines[2],functions=functions,sections={paging=lines[3],files=lines[4],access=lines[5],writes=lines[6]}}
 end
 return exports

@@ -21,7 +21,7 @@ return {
 		assert(count == 1 and c.getProfile and #requests == 0, "read-only exposes only getProfile; help is offline")
 
 		respond(200, '{"sub":"782bbtaQ","name":"John Doe","given_name":"John","family_name":"Doe","locale":"en-US","email":"doe@example.com","email_verified":true}')
-		local me = c.getProfile()
+		local me = fixture.example("getProfile")
 		assert(me.urn == "urn:li:person:782bbtaQ" and me.name == "John Doe" and me.email == "doe@example.com")
 		assert(requests[1].method == "GET" and requests[1].url == "https://api.linkedin.com/v2/userinfo")
 		assert(requests[1].headers == nil, "credentials stay in the proxy")

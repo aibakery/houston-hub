@@ -16,12 +16,16 @@ local function command(name: string, args: Options): any
 end
 
 local exports: {[string]: any} = {}
-local help: {[string]: string} = {}
+local help: {[string]: any} = {}
+local records = require("lib/help.luau")
 
 -- Exposes an operation when it only reads or the connection allows changes.
 local function export(name: string, isRead: boolean, fn: (any) -> any, doc: string)
 	if isRead or config.access == "read-write" then
-		exports[name], help[name] = fn, doc
+		local record = records[name]
+		record.description = doc
+		record.annotations = {readOnlyHint = isRead, openWorldHint = true}
+		exports[name], help[name] = fn, record
 	end
 end
 
@@ -75,19 +79,13 @@ export("createFolder", false, function(input: any): any
 	return command("create", options(input))
 end, "createFolder({name, parent?}) -> {id, name}. Creates name at the top level or inside parent (a folder id or role); name cannot contain the folder separator. Some servers keep every folder inside INBOX: pass parent='INBOX' there.")
 
-function exports.help(): string
-	local names: {string} = {}
-	for name in help do table.insert(names, name) end
-	table.sort(names)
-	local lines = {
+local overview = {
 		"IMAP mailbox of the connected account. Operations take one named options object and return plain data; read-only connections expose only the reads.",
 		"Message IDs are opaque strings tied to their folder: keep them as returned. They change when a message moves, and IDs from before a server reset fail clearly instead of matching another message.",
 		"Folders are folder ids from listMailFolders or roles (inbox, sent, drafts, trash, junk, archive, all); an exact folder name wins over a role.",
 		"Each call opens one connection to the mail server: call sequentially rather than in parallel. Errors carry the server's message. No sending: draft replies elsewhere.",
 		"Example: local page = listMessages({unread=true, maxResults=20}); local ids = {}; for _, m in page.messages do table.insert(ids, m.id) end; getMessages({ids=ids, maxBodyBytes=0}).",
 	}
-	for _, name in names do table.insert(lines, help[name]) end
-	return table.concat(lines, "\n")
-end
+exports.help = {text = table.concat(overview, "\n"), functions = help}
 
 return exports

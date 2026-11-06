@@ -10,7 +10,7 @@ return {
 		end}
 	end,
 	run = function(exports)
-		assert(exports.execute("SET", "greeting", "hello", "EX", 3600) == "OK")
+		assert(fixture.example("execute") == "OK")
 		local args = requests[1].args
 		assert(requests[1].readOnly == false and #args == 5 and args[5] == 3600)
 	end,

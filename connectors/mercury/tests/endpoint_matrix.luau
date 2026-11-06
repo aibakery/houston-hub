@@ -93,6 +93,8 @@ return {
   local count = 0
   for name in c do if name ~= "help" then count += 1 end end
   assert(count == #cases and count == 73, "documented API surface missing")
+  local schemas = require("lib/schemas.luau")
+  local endpoints = require("lib/endpoints.luau")
   for _, case in cases do
    status = tonumber(case.status)
    media = if case.kind == "download" then "application/pdf" else "application/json"
@@ -130,6 +132,31 @@ return {
     assert(string.find(req.uploaded, "receipt" .. string.char(0, 255), 1, true))
    else
     assert(req.body == nil, "unexpected body")
+   end
+   -- Execute the rendered documentation against the same independent route,
+   -- response and streaming expectations, with complete provider-valid inputs.
+   for index, example in schemas[case.name].examples do
+    local previous = #requests
+    local generated = fixture.example(case.name, index)
+    local request = requests[#requests]
+    assert(#requests == previous + 1 and request.method == case.method and request.url == case.url, case.name)
+    if case.body then
+     local expected = json.decode(json.encode(example))
+     for field in string.gmatch(endpoints[case.name].path, "{([%w_]+)}") do expected[field] = nil end
+     assert(json.encode(json.decode(request.body)) == json.encode(expected), "generated body differs: " .. case.name)
+    elseif case.kind == "upload" then
+     assert(string.find(request.uploaded, "receipt" .. string.char(0, 255), 1, true))
+    else
+     assert(request.body == nil)
+    end
+    if case.kind == "download" then
+     assert(generated.path == example.path and generated.size == #payload and generated.url ~= nil)
+     local file = fs.open(generated.path, "r"); assert(await(file:readAll()) == payload); file:close()
+    elseif status == 204 or case.response == json.decode("null") then
+     assert(generated.success == true)
+    else
+     assert(json.encode(generated) == json.encode(case.response))
+    end
    end
   end
  end,

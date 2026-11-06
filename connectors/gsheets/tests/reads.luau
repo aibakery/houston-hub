@@ -20,7 +20,7 @@ return {
 		assert(table.concat(names, ",") == "batchGetValues,getSpreadsheet,getValues", table.concat(names, ","))
 
 		responses = {'{"range":"\'Q1 Sales\'!B2","majorDimension":"ROWS","values":[["42"]]}', '{"range":"Sheet1!Z9","majorDimension":"ROWS"}', '{"range":"Sheet1!A1:B2","values":[[1,2],[3]]}'}
-		local cell = c.getValues({spreadsheetId = "https://docs.google.com/spreadsheets/d/1AbC_d-9/edit?gid=0#gid=0", range = "'Q1 Sales'!B2"})
+		local cell = fixture.example("getValues")
 		assert(cell.values[1][1] == "42")
 		assert(requests[1].method == "GET" and requests[1].url == API .. "1AbC_d-9/values/%27Q1%20Sales%27%21B2", requests[1].url)
 		local empty = c.getValues({spreadsheetId = "https://docs.google.com/spreadsheets/u/1/d/s1/edit", range = "Sheet1!Z9"})
@@ -29,7 +29,7 @@ return {
 		assert(raw.values[2][1] == 3 and requests[3].url == API .. "s1/values/Sheet1%21A1%3AB2?majorDimension=ROWS&valueRenderOption=UNFORMATTED_VALUE", requests[3].url)
 
 		responses = {'{"spreadsheetId":"s1","valueRanges":[{"range":"Sheet1!A1:B2","values":[["a"]]},{"range":"Totals!C3"}]}', '{"spreadsheetId":"s1"}'}
-		local batch = c.batchGetValues({spreadsheetId = "s1", ranges = {"Sheet1!A1:B2", "Totals!C3"}, valueRenderOption = "FORMULA"})
+		local batch = fixture.example("batchGetValues")
 		assert(batch.valueRanges[1].values[1][1] == "a" and json.encode(batch.valueRanges[2].values) == "[]")
 		assert(requests[4].url == API .. "s1/values:batchGet?ranges=Sheet1%21A1%3AB2&ranges=Totals%21C3&valueRenderOption=FORMULA", requests[4].url)
 		local none = c.batchGetValues({spreadsheetId = "s1", ranges = {"Q2/Q3!A1"}})
@@ -45,7 +45,7 @@ return {
 
 		local fields = "spreadsheetId,spreadsheetUrl,properties(title,locale,timeZone),sheets.properties,namedRanges"
 		responses = {'{"spreadsheetId":"s1","sheets":[{"properties":{"sheetId":0,"title":"Sheet1"}}]}', '{"spreadsheetId":"s1","namedRanges":[{"name":"Totals"}]}'}
-		local info = c.getSpreadsheet({spreadsheetId = "s1"})
+		local info = fixture.example("getSpreadsheet")
 		assert(info.sheets[1].properties.title == "Sheet1" and json.encode(info.namedRanges) == "[]")
 		assert(requests[9].url == API .. "s1?fields=" .. url.encode(fields), requests[9].url)
 		assert(c.getSpreadsheet({spreadsheetId = "s1", fields = "sheets(data(rowData(values(note))))", ranges = {"A1:B2"}}).namedRanges[1].name == "Totals")

@@ -21,9 +21,7 @@ return {
 		assert(count == 63, "wrong read-write surface: " .. count)
 
 		payload = '{"resource":{"uri":"https://api.calendly.com/scheduled_events/E9/invitees/I9","cancel_url":"https://calendly.com/cancellations/I9"}}'
-		local booked = calendly.createInvitee({event_type = "https://api.calendly.com/event_types/T1", start_time = "2026-10-20T15:00:00Z",
-			invitee = {email = "ana@example.com", timezone = "Europe/Paris", name = "Ana"}, event_guests = json.decode("[]"),
-			location = {kind = "zoom_conference"}})
+		local booked = fixture.example("createInvitee")
 		assert(last().method == "POST" and last().url == API .. "/invitees")
 		assert(last().headers["Content-Type"][1] == "application/json")
 		local body = sent()
@@ -40,13 +38,12 @@ return {
 		assert(last().body == "{}", "an empty body must still be a JSON object")
 
 		payload = '{"resource":{"booking_url":"https://calendly.com/d/abc","owner":"https://api.calendly.com/event_types/T1","owner_type":"EventType"}}'
-		local link = calendly.createSchedulingLink({owner = "https://api.calendly.com/event_types/T1", owner_type = "EventType", max_event_count = 1})
+		local link = fixture.example("createSchedulingLink")
 		assert(last().url == API .. "/scheduling_links" and sent().max_event_count == 1 and link.resource.booking_url == "https://calendly.com/d/abc")
 
 		status = 200
 		payload = '{"resource":{"rules":[]}}'
-		calendly.updateEventTypeAvailability({event_type = "https://api.calendly.com/event_types/T1",
-			availability_rule = {timezone = "Europe/Paris", rules = {{type = "wday", wday = "monday", intervals = {{from = "09:00", to = "17:00"}}}}}})
+		fixture.example("updateEventTypeAvailability")
 		assert(last().method == "PATCH" and last().url == API .. "/event_type_availability_schedules?event_type=https%3A%2F%2Fapi.calendly.com%2Fevent_types%2FT1")
 		body = sent()
 		assert(body.event_type == nil and body.availability_rule.rules[1].intervals[1].from == "09:00")

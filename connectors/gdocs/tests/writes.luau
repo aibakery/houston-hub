@@ -29,7 +29,7 @@ return {
 		end
 
 		responses = {'{"documentId":"new","title":"Minutes","revisionId":"r1"}', '{"documentId":"untitled"}'}
-		assert(c.createDocument({title = "Minutes"}).documentId == "new")
+		assert(fixture.example("createDocument").documentId == "new")
 		sent(API, {title = "Minutes"})
 		assert(c.createDocument().documentId == "untitled")
 		assert(requests[#requests].body == "{}", requests[#requests].body)
@@ -39,13 +39,13 @@ return {
 			{replaceAllText = {containsText = {text = "{{client}}", matchCase = true}, replaceText = "Acme"}},
 			{insertText = {endOfSegmentLocation = {tabId = "t.1"}, text = "\nNext steps"}},
 		}
-		local reply = c.batchUpdate({documentId = "https://docs.google.com/document/d/d1/edit?tab=t.1", requests = edits, writeControl = {requiredRevisionId = "r1"}})
+		local reply = fixture.example("batchUpdate")
 		assert(reply.replies[1].replaceAllText.occurrencesChanged == 2 and reply.writeControl.requiredRevisionId == "r2")
 		sent(API .. "/d1:batchUpdate", {requests = edits, writeControl = {requiredRevisionId = "r1"}})
 
 		responses = {'{"documentId":"d1","replies":[{"insertComment":{"commentThread":{"commentId":"c1","anchorId":"a1"}}}],"suggestionResponses":[{}],"commentUpdateState":"ALL_SAVED"}'}
 		local comment = {{insertComment = {content = "Check this figure", range = {startIndex = 5, endIndex = 9}}}}
-		assert(c.batchUpdate({documentId = "d1", requests = comment, writeControl = {writeMode = "SUGGEST"}}).commentUpdateState == "ALL_SAVED")
+		assert(fixture.example("batchUpdate", 2).commentUpdateState == "ALL_SAVED")
 		sent(API .. "/d1:batchUpdate", {requests = comment, writeControl = {writeMode = "SUGGEST"}})
 
 		-- Google's system parameters stay out of the URL; Google rejects them as unknown body fields.

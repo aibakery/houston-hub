@@ -44,7 +44,7 @@ return {
 		-- Article post: LinkedIn does not scrape links, so title is sent explicitly.
 		respond(200, PROFILE)
 		created("urn:li:ugcPost:42")
-		assert(c.createPost({text = "Read this", article = {url = "https://example.com/post", title = "Our launch"}}).id == "urn:li:ugcPost:42")
+		assert(fixture.example("createPost", 2).id == "urn:li:ugcPost:42")
 		body = json.decode(requests[4].body)
 		assert(body.visibility == "PUBLIC")
 		assert(body.content.article.source == "https://example.com/post" and body.content.article.title == "Our launch")
@@ -60,7 +60,7 @@ return {
 		respond(200, json.encode({value = {uploadUrlExpiresAt = 1650567510704, uploadUrl = uploadUrl, image = "urn:li:image:C4E10AQ"}}))
 		respond(201, "")
 		created("urn:li:share:7")
-		c.createPost({text = "Team", image = {path = "photos/team.png", altText = "Our team"}})
+		fixture.example("createPost", 3)
 		local init = requests[6]
 		assert(init.method == "POST" and init.url == "https://api.linkedin.com/rest/images?action=initializeUpload")
 		assert(json.decode(init.body).initializeUploadRequest.owner == "urn:li:person:abc123")
@@ -78,7 +78,7 @@ return {
 
 		-- Delete encodes the URN as one path segment.
 		respond(204, "")
-		assert(c.deletePost("urn:li:share:7").id == "urn:li:share:7")
+		assert(fixture.example("deletePost").id == "urn:li:share:7")
 		assert(requests[12].method == "DELETE" and requests[12].url == "https://api.linkedin.com/rest/posts/urn%3Ali%3Ashare%3A7")
 		assert(requests[12].body == nil)
 
@@ -113,5 +113,11 @@ return {
 		ok, err = pcall(c.createPost, {text = "x"})
 		assert(not ok and string.find(tostring(err), "LinkedIn HTTP 403 (ACCESS_DENIED): Not enough permissions", 1, true))
 		assert(#requests == before + 4 and #responses == 0)
+		respond(200, PROFILE)
+		created("urn:li:share:8")
+		assert(fixture.example("createPost").id == "urn:li:share:8")
+		local example = json.decode(requests[#requests].body)
+		assert(example.commentary == "We're hiring engineers! #hiring" and example.visibility == "PUBLIC")
+		assert(example.content == nil and #responses == 0)
 	end,
 }

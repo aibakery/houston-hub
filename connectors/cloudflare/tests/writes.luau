@@ -38,13 +38,13 @@ return {
 			"wrong read-write surface: " .. table.concat(names, ","))
 
 		payload = '{"success":true,"errors":[],"messages":[],"result":{"id":"' .. RECORD .. '","type":"A","name":"api.example.com","content":"198.51.100.4","proxied":true,"ttl":1,"comment":null}}'
-		local record = cloudflare.createDnsRecord({zone_id = "023e105f4ecef8ad9ca31a8372d0c353", type = "A", name = "api.example.com", content = "198.51.100.4", proxied = true, ttl = 1})
+		local record = fixture.example("createDnsRecord")
 		sent("POST", ZONE .. "/dns_records", {type = "A", name = "api.example.com", content = "198.51.100.4", proxied = true, ttl = 1})
 		assert(record.result.id == RECORD)
-		cloudflare.createDnsRecord({zone_id = "023e105f4ecef8ad9ca31a8372d0c353", type = "MX", name = "example.com", content = "mx.example.net", priority = 10, tags = {"owner:mail"}})
+		fixture.example("createDnsRecord", 2)
 		sent("POST", ZONE .. "/dns_records", {type = "MX", name = "example.com", content = "mx.example.net", priority = 10, tags = {"owner:mail"}})
 
-		cloudflare.updateDnsRecord({zone_id = "023e105f4ecef8ad9ca31a8372d0c353", dns_record_id = RECORD, content = "198.51.100.5", comment = "moved"})
+		fixture.example("updateDnsRecord")
 		sent("PATCH", ZONE .. "/dns_records/" .. RECORD, {content = "198.51.100.5", comment = "moved"})
 		-- An explicit JSON null clears a field.
 		local NULL = json.decode("null")
@@ -52,30 +52,35 @@ return {
 		assert(last().body == '{"comment":null}', last().body)
 
 		payload = '{"success":true,"errors":[],"messages":[],"result":{"id":"' .. RECORD .. '"}}'
-		assert(cloudflare.deleteDnsRecord({zone_id = "023e105f4ecef8ad9ca31a8372d0c353", dns_record_id = RECORD}).result.id == RECORD)
+		assert(fixture.example("deleteDnsRecord").result.id == RECORD)
 		sent("DELETE", ZONE .. "/dns_records/" .. RECORD)
 
 		payload = '{"success":true,"errors":[],"messages":[],"result":{"id":"023e105f4ecef8ad9ca31a8372d0c353"}}'
-		cloudflare.purgeCache({zone_id = "023e105f4ecef8ad9ca31a8372d0c353", files = {"https://www.example.com/app.css"}})
+		fixture.example("purgeCache")
 		sent("POST", ZONE .. "/purge_cache", {files = {"https://www.example.com/app.css"}})
-		cloudflare.purgeCache({zone_id = "023e105f4ecef8ad9ca31a8372d0c353", purge_everything = true})
+		fixture.example("purgeCache", 2)
 		sent("POST", ZONE .. "/purge_cache", {purge_everything = true})
 
 		local versions = {{version_id = "bcf48806-b317-4351-9ee7-36e7d557d4de", percentage = 100}}
 		payload = '{"success":true,"errors":[],"messages":[],"result":{"id":"6d4b3a52-0000-4b6c-9c1a-1d2e3f4a5b6c","strategy":"percentage","versions":[{"version_id":"bcf48806-b317-4351-9ee7-36e7d557d4de","percentage":100}]}}'
-		local deployment = cloudflare.createWorkerDeployment({account_id = ACCOUNT, script_name = "api", strategy = "percentage", versions = versions,
-			annotations = {["workers/message"] = "Roll back to 41"}})
+		local deployment = fixture.example("createWorkerDeployment")
 		sent("POST", API .. "/accounts/" .. ACCOUNT .. "/workers/scripts/api/deployments",
 			{strategy = "percentage", versions = versions, annotations = {["workers/message"] = "Roll back to 41"}})
 		assert(deployment.result.versions[1].percentage == 100)
 
-		cloudflare.rollbackPagesDeployment({account_id = ACCOUNT, project_name = "site", deployment_id = "4f0b3a52-3c5d-4b6c-9c1a-1d2e3f4a5b6c"})
+		fixture.example("rollbackPagesDeployment")
 		sent("POST", API .. "/accounts/" .. ACCOUNT .. "/pages/projects/site/deployments/4f0b3a52-3c5d-4b6c-9c1a-1d2e3f4a5b6c/rollback")
 
 		-- A write answering without a body returns nil.
 		payload = ""
 		assert(cloudflare.deleteDnsRecord({zone_id = "023e105f4ecef8ad9ca31a8372d0c353", dns_record_id = RECORD}) == nil)
 		assert(#requests == 10)
+		payload = '{"success":true,"errors":[],"messages":[],"result":{}}'
+		fixture.example("createDnsRecord", 3)
+		sent("POST", ZONE .. "/dns_records", {type = "SRV", name = "_sip._tcp.example.com",
+			data = {priority = 10, weight = 5, port = 5060, target = "sip.example.com"}})
+		fixture.example("purgeCache", 3)
+		sent("POST", ZONE .. "/purge_cache", {files = {{url = "https://www.example.com/app.css", headers = {["CF-Device-Type"] = "desktop"}}}})
 
 		rejected(function() cloudflare.createDnsRecord({zone_id = "023e105f4ecef8ad9ca31a8372d0c353", type = "A", content = "198.51.100.4"}) end, "name is required")
 		rejected(function() cloudflare.createDnsRecord({zone_id = "023e105f4ecef8ad9ca31a8372d0c353", type = "A", name = "x", id = RECORD}) end, "createDnsRecord has no option id")

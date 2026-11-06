@@ -15,21 +15,21 @@ return {
 	end,
 	run = function(c)
 		local ids = {"7:42:INBOX", "7:43:INBOX"}
-		local flagged = c.setFlags({ids = ids, add = {"\\Seen"}})
+		local flagged = fixture.example("setFlags")
 		assert(requests[1].command == "store" and requests[1].add[1] == "\\Seen" and #requests[1].ids == 2 and requests[1].ids[2] == "7:43:INBOX")
 		assert(#flagged.ids == 2 and flagged.ids[2] == "7:43:INBOX", json.encode(flagged))
 
-		local moved = c.moveMessages({ids = ids, folder = "archive"})
+		local moved = fixture.example("moveMessages")
 		assert(requests[2].command == "move" and requests[2].folder == "archive")
 		assert(moved.folder == "archive" and #moved.ids == 2 and moved.ids[1] == "9:101:archive", json.encode(moved))
 
-		local trashed = c.trashMessages({ids = {"7:42:INBOX"}})
+		local trashed = fixture.example("trashMessages")
 		assert(requests[3].command == "move" and requests[3].folder == "trash")
 		assert(trashed.folder == "trash" and #trashed.ids == 1 and trashed.ids[1] == "9:101:trash", json.encode(trashed))
 		assert(not pcall(c.trashMessages, {ids = {"7:42:INBOX"}, folder = "Archive"}), "trash cannot target another folder")
 		assert(#requests == 3, "rejected calls never reach the server")
 
-		local folder = c.createFolder({name = "Receipts", parent = "INBOX"})
+		local folder = fixture.example("createFolder")
 		assert(requests[4].command == "create" and requests[4].parent == "INBOX" and requests[4].name == "Receipts")
 		assert(folder.id == "INBOX/Receipts" and folder.name == "Receipts", json.encode(folder))
 

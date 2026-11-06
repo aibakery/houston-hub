@@ -42,7 +42,7 @@ return {
 		end
 
 		responses = {CHANNEL, POSTED}
-		assert(discord.postMessage(C, "Hi @everyone").id == "1400000000000000009")
+		assert(fixture.example("postMessage").id == "1400000000000000009")
 		local body = sent(2, "POST", "channels/" .. C .. "/messages")
 		assert(body.content == "Hi @everyone" and body.message_reference == nil and body.users == nil)
 		silent(body)
@@ -60,28 +60,28 @@ return {
 		assert(opts.content == nil and opts.message_reference == nil and opts.allowed_mentions.parse == nil, "options are not mutated")
 
 		responses = {CHANNEL, POSTED}
-		discord.editMessage(C, M, "Edited", {flags = 4})
+		fixture.example("editMessage")
 		body = sent(6, "PATCH", "channels/" .. C .. "/messages/" .. M)
 		assert(body.content == "Edited" and body.flags == 4)
 		silent(body)
 
 		responses = {CHANNEL, {status = 204}}
-		assert(discord.deleteMessage(C, M) == true)
+		assert(fixture.example("deleteMessage") == true)
 		assert(sent(8, "DELETE", "channels/" .. C .. "/messages/" .. M) == nil)
 
 		responses = {CHANNEL, {status = 204}, CHANNEL, {status = 204}, CHANNEL, {status = 204}, CHANNEL, {status = 204}}
-		assert(discord.addReaction(C, M, "👍") == true)
+		assert(fixture.example("addReaction") == true)
 		sent(10, "PUT", "channels/" .. C .. "/messages/" .. M .. "/reactions/%F0%9F%91%8D/@me")
 		discord.addReaction(C, M, "<a:party_blob:1600000000000000001>")
 		sent(12, "PUT", "channels/" .. C .. "/messages/" .. M .. "/reactions/party_blob%3A1600000000000000001/@me")
-		discord.removeReaction(C, M, "houston:1600000000000000002")
+		fixture.example("removeReaction")
 		sent(14, "DELETE", "channels/" .. C .. "/messages/" .. M .. "/reactions/houston%3A1600000000000000002/@me")
 		discord.removeReaction(C, M, "1️⃣")
 		sent(16, "DELETE", "channels/" .. C .. "/messages/" .. M .. "/reactions/1%EF%B8%8F%E2%83%A3/@me")
 
 		local thread = '{"id":"1300000000000000007","type":11,"guild_id":"' .. G .. '","parent_id":"' .. C .. '","name":"Plan"}'
 		responses = {CHANNEL, {status = 201, body = thread}}
-		assert(discord.createThread(C, "Plan").id == "1300000000000000007")
+		assert(fixture.example("createThread").id == "1300000000000000007")
 		body = sent(18, "POST", "channels/" .. C .. "/threads")
 		assert(body.name == "Plan" and body.type == 11, "a thread without a message is public")
 		responses = {'{"id":"' .. A .. '","type":5,"guild_id":"' .. G .. '"}', {status = 201, body = thread}}
@@ -89,7 +89,7 @@ return {
 		body = sent(20, "POST", "channels/" .. A .. "/threads")
 		assert(body.type == 10 and body.auto_archive_duration == 1440, "announcement channels get announcement threads")
 		responses = {CHANNEL, {status = 201, body = thread}}
-		discord.createThread(C, "Follow-up", {message = M, rate_limit_per_user = 30})
+		fixture.example("createThread", 2)
 		body = sent(22, "POST", "channels/" .. C .. "/messages/" .. M .. "/threads")
 		assert(body.name == "Follow-up" and body.rate_limit_per_user == 30 and body.type == nil and body.message == nil)
 
@@ -126,5 +126,15 @@ return {
 		rejected(discord.createThread, C, "Plan", {auto_archive_duration = 30})
 		rejected(discord.createThread, C, "Plan", {type = 12})
 		rejected(discord.createThread, C, "Plan", {message = "x"})
+
+		-- The documented reply maps positional arguments and nested mention options
+		-- to the same payload as the independently checked caller-owned options above.
+		responses = {CHANNEL, POSTED}
+		fixture.example("reply")
+		body = sent(#requests, "POST", "channels/" .. C .. "/messages")
+		assert(body.content == "<@" .. U .. "> done" and body.message_reference.message_id == M)
+		silent(body)
+		assert(body.allowed_mentions.users[1] == U and body.allowed_mentions.roles[1] == R and body.allowed_mentions.replied_user == true)
+		assert(body.embeds[1].title == "Q3" and body.flags == 4096 and body.nonce == "run-42" and body.enforce_nonce == true)
 	end,
 }

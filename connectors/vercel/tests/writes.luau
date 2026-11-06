@@ -38,7 +38,7 @@ return {
 		assert(last().url == API .. "/v3/deployments/dpl_1/events?follow=0&" .. TEAM, last().url)
 
 		payload = '{"id":"dpl_2","readyState":"QUEUED","target":"production"}'
-		local deployment = vercel.redeploy({name = "web", deploymentId = "dpl_1", target = "production", forceNew = 1})
+		local deployment = fixture.example("redeploy")
 		assert(last().method == "POST" and last().url == API .. "/v13/deployments?forceNew=1&" .. TEAM, last().url)
 		assert(last().headers["Content-Type"][1] == "application/json" and last().headers.Authorization == nil)
 		local body = sent()
@@ -47,37 +47,37 @@ return {
 
 		payload = ""
 		status = 201
-		assert(vercel.promoteDeployment({projectId = "prj_1", deploymentId = "dpl_2"}).success == true)
+		assert(fixture.example("promoteDeployment").success == true)
 		assert(last().method == "POST" and last().url == API .. "/v10/projects/prj_1/promote/dpl_2?" .. TEAM and last().body == nil)
-		vercel.rollbackDeployment({projectId = "prj_1", deploymentId = "dpl_1", description = "Bad release"})
+		fixture.example("rollbackDeployment")
 		assert(last().url == API .. "/v1/projects/prj_1/rollback/dpl_1?description=Bad%20release&" .. TEAM and last().body == nil, last().url)
 		status = 200
 		payload = '{"id":"dpl_3","readyState":"CANCELED"}'
-		assert(vercel.cancelDeployment({id = "dpl_3"}).readyState == "CANCELED")
+		assert(fixture.example("cancelDeployment").readyState == "CANCELED")
 		payload = ""
 		assert(vercel.cancelDeployment({id = "dpl_3"}).success == true, "an empty cancellation answer still succeeds")
 		assert(last().method == "PATCH" and last().url == API .. "/v12/deployments/dpl_3/cancel?" .. TEAM and last().body == nil)
 
 		payload = '{"envs":[{"id":"e1","key":"API_URL","type":"plain","value":"https://example.com","target":["production"]}]}'
-		local envs = vercel.listEnvVars({idOrName = "web", decrypt = "true"})
+		local envs = fixture.example("listEnvVars")
 		assert(last().method == "GET" and last().url == API .. "/v10/projects/web/env?decrypt=true&" .. TEAM, last().url)
 		assert(envs.envs[1].value == "https://example.com")
 		payload = '{"envs":[]}'
 		assert(json.encode(vercel.listEnvVars({idOrName = "web"}).envs) == "[]")
 		payload = '{"id":"e1","key":"API_URL","value":"https://example.com","decrypted":true}'
-		assert(vercel.getEnvVar({idOrName = "web", id = "e1"}).decrypted == true)
+		assert(fixture.example("getEnvVar").decrypted == true)
 		assert(last().url == API .. "/v1/projects/web/env/e1?" .. TEAM)
 
 		payload = '{"created":{"id":"e2","key":"FLAG"},"failed":[]}'
-		local created = vercel.createEnvVar({idOrName = "web", upsert = "true", key = "FLAG", value = "on", type = "plain", target = {"production", "preview"}})
+		local created = fixture.example("createEnvVar")
 		assert(last().method == "POST" and last().url == API .. "/v10/projects/web/env?upsert=true&" .. TEAM)
 		body = sent()
 		assert(body.key == "FLAG" and body.value == "on" and json.encode(body.target) == '["production","preview"]' and body.upsert == nil)
 		assert(created.created.id == "e2" and json.encode(created.failed) == "[]")
-		vercel.updateEnvVar({idOrName = "web", id = "e2", value = "off"})
+		fixture.example("updateEnvVar")
 		assert(last().method == "PATCH" and last().url == API .. "/v9/projects/web/env/e2?" .. TEAM and last().body == '{"value":"off"}')
 		payload = ""
-		assert(vercel.deleteEnvVar({idOrName = "web", id = "e2"}).success == true)
+		assert(fixture.example("deleteEnvVar").success == true)
 		assert(last().method == "DELETE" and last().url == API .. "/v9/projects/web/env/e2?" .. TEAM and last().body == nil)
 		payload = '[{"id":"e2","key":"FLAG"}]'
 		local deleted = vercel.deleteEnvVar({idOrName = "web", id = "e2"})

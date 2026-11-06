@@ -135,17 +135,6 @@ local function exportEndpoints(endpoints: {[string]: Endpoint})
 	end
 end
 
--- help() introduces the API, then documents exactly the configured operations.
-local function helpWith(overview: {string}): () -> string
-	return function(): string
-		local names: {string} = {}
-		for name in help do table.insert(names, name) end
-		table.sort(names)
-		local lines = table.clone(overview)
-		for _, name in names do table.insert(lines, help[name]) end
-		return table.concat(lines, "\n")
-	end
-end
 -- End of the shared request layer.
 
 -- Read and draft (custom) connections save drafts for a writing caller; the proxy refuses every send.
@@ -548,5 +537,61 @@ local overview = {
 if DRAFTS then
 	table.insert(overview, 2, "Read and draft connection: Houston refuses every send. Save drafts for the person to review and send from Gmail.")
 end
-exports.help = helpWith(overview)
+local str, nonempty = {type = "string"}, {type = "string", minLength = 1}
+local address = {anyOf = {nonempty :: any, {type = "array", minItems = 1, items = nonempty}}, description = "Mailbox address, optionally with a display name, or a nonempty array of addresses."}
+local readProperties = {id = nonempty, format = {type = "string", enum = {"full", "metadata", "minimal"}, default = "full"},
+	metadataHeaders = {type = "array", items = nonempty}, maxBodyBytes = {type = "integer", minimum = 0, default = 65536},
+	bodyFormat = {type = "string", enum = {"auto", "text", "html"}, default = "auto"}}
+local function readSchema(batch: boolean): any
+	local properties: Options = table.clone(readProperties)
+	if batch then properties.id, properties.ids = nil, {type = "array", minItems = 1, maxItems = 100, items = nonempty} end
+	return {type = "object", properties = properties, required = {if batch then "ids" else "id"}, additionalProperties = false}
+end
+local function composeSchema(update: boolean): any
+	local properties: Options = {to = address, cc = address, bcc = address, replyTo = address, from = str, subject = str,
+		text = nonempty, html = nonempty, inReplyTo = nonempty, replyAll = {type = "boolean", default = false},
+		attachments = {type = "array", items = {anyOf = {nonempty :: any, {type = "object", properties = {path = nonempty, filename = nonempty,
+			mimeType = {type = "string", minLength = 1, default = "application/octet-stream"}}, required = {"path"}, additionalProperties = false}}}}}
+	if update then properties.id = nonempty end
+	return {type = "object", properties = properties, required = if update then {"id"} else nil, additionalProperties = false,
+		allOf = {{anyOf = {{required = {"to"}}, {required = {"inReplyTo"}}}}, {anyOf = {{required = {"text"}}, {required = {"html"}}}}}}
+end
+local readAnnotations = {readOnlyHint = true, destructiveHint = false, idempotentHint = true}
+local writeAnnotations = {readOnlyHint = false, destructiveHint = true, idempotentHint = false}
+local messageOutput = {type = "object", properties = {id = str, threadId = str, subject = str, body = str, bodyTruncated = {type = "boolean"},
+	labelIds = {type = "array", items = str}, headers = {anyOf = {{type = "array", items = {type = "object"}} :: any, {type = "object", maxProperties = 0}}}, attachments = {type = "array", items = {type = "object", properties = {
+		id = str, filename = str, mimeType = str, size = {type = "integer"}, inline = {type = "boolean"}, contentId = str}}}}, additionalProperties = true}
+local ids: {string} = {}
+for i = 1, 12 do table.insert(ids, "id" .. tostring(i)) end
+local records: Options = {
+	getProfile = {examples = {{}}}, listLabels = {examples = {{}}}, getLabel = {examples = {{id = "Label_1"}}},
+	listMessages = {examples = {{q = "from:ana@example.com is:unread"}}},
+	listThreads = {examples = {{q = "is:unread", maxResults = 10}}}, listDrafts = {examples = {{maxResults = 10}}},
+	listHistory = {required = {"startHistoryId"}, examples = {{startHistoryId = "9", historyTypes = {"messageAdded"}}}}, listSendAs = {examples = {{}}},
+	modifyMessage = {examples = {{id = "m1", removeLabelIds = {"UNREAD"}}}},
+	batchModifyMessages = {required = {"ids"}, properties = {ids = {type = "array", minItems = 1, maxItems = 1000, items = nonempty}}, examples = {{ids = {"m1", "m2"}, removeLabelIds = {"UNREAD"}}}},
+	trashMessage = {examples = {{id = "m1"}}}, untrashMessage = {examples = {{id = "m1"}}},
+	modifyThread = {examples = {{id = "t1", removeLabelIds = {"UNREAD"}}}}, trashThread = {examples = {{id = "t1"}}}, untrashThread = {examples = {{id = "t1"}}},
+	createLabel = {required = {"name"}, properties = {name = nonempty}, examples = {{name = "Projects/Release", labelListVisibility = "labelShow", messageListVisibility = "show"}}},
+	updateLabel = {examples = {{id = "Label_1", name = "Projects/Archive"}}}, deleteLabel = {examples = {{id = "Label_1"}}},
+	sendDraft = {required = {"id"}, properties = {id = nonempty}, examples = {{id = "d1"}}}, deleteDraft = {examples = {{id = "d1"}}},
+	getMessage = {inputSchema = readSchema(false), examples = {{id = "m1"}}, annotations = readAnnotations, outputSchema = messageOutput},
+	getMessages = {inputSchema = readSchema(true), examples = {{ids = ids, format = "metadata", metadataHeaders = {"Subject"}}}, annotations = readAnnotations},
+	getThread = {inputSchema = readSchema(false), examples = {{id = "t1"}}, annotations = readAnnotations,
+		outputSchema = {type = "object", properties = {id = str, historyId = str, messages = {type = "array", items = messageOutput}}, additionalProperties = true}},
+	getDraft = {inputSchema = readSchema(false), examples = {{id = "d1"}}, annotations = readAnnotations,
+		outputSchema = {type = "object", properties = {id = str, message = messageOutput}, additionalProperties = true}},
+	getAttachment = {inputSchema = {type = "object", properties = {messageId = nonempty, attachmentId = nonempty, path = nonempty},
+		required = {"messageId", "attachmentId", "path"}, additionalProperties = false}, examples = {{messageId = "m:1", attachmentId = "att-1", path = "files/blob.bin"}},
+		annotations = {readOnlyHint = false, destructiveHint = true, idempotentHint = true},
+		outputSchema = {type = "object", properties = {path = str, url = str, size = {type = "integer", minimum = 0}}, required = {"path", "url", "size"}, additionalProperties = false}},
+	listMailFolders = {args = {}, inputSchema = {type = "object", properties = {}, additionalProperties = false}, examples = {{}}, annotations = readAnnotations},
+	sendMessage = {inputSchema = composeSchema(false), examples = {{to = {"Ana <ana@example.com>", "bo@example.com"}, subject = "Résumé", text = "Hi Ana", html = "<p>Hi Ana</p>", bcc = "boss@example.com",
+		attachments = {"files/report.bin" :: any, {path = "files/report.bin", filename = "naïve.bin", mimeType = "application/x-test"}}}}, annotations = writeAnnotations},
+	createDraft = {inputSchema = composeSchema(false), examples = {{to = "ana@example.com", subject = "Monday follow-up", text = "Hi Ana"} :: any,
+		{inReplyTo = "o1", replyAll = true, text = "Sounds good", attachments = json.decode("[]")}}, annotations = writeAnnotations},
+	updateDraft = {inputSchema = composeSchema(true), examples = {{id = "d1", to = "ana@example.com", subject = "Monday follow-up", html = "<p>Hi Ana</p>"} :: any,
+		{id = "d1", inReplyTo = "o1", html = "<p>Updated</p>"}}, annotations = writeAnnotations},
+}
+exports.help = require("lib/help.luau").build(require("lib/discovery-schemas.luau"), endpoints, help, records, overview)
 return exports

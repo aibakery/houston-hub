@@ -42,7 +42,7 @@ return {
 		assert(#requests == 0, "initialization reached Linear")
 
 		payload = '{"data":{"viewer":{"id":"u1","name":"Ada","email":"ada@example.com","organization":{"id":"o1","urlKey":"acme"},"timezone":null}}}'
-		local me = linear.getViewer()
+		local me = fixture.example("getViewer")
 		local query, variables = sent()
 		assert(last().method == "GET" and last().body == nil)
 		assert(last().headers.Accept[1] == "application/json" and last().headers["apollo-require-preflight"][1] == "true")
@@ -51,8 +51,7 @@ return {
 		assert(me.email == "ada@example.com" and me.organization.urlKey == "acme" and me.timezone == NULL)
 
 		payload = '{"data":{"issues":{"nodes":[{"id":"i1","identifier":"ENG-1","labels":{"nodes":[]}}],"pageInfo":{"hasNextPage":true,"endCursor":"c2"}}}}'
-		local filter = {assignee = {isMe = {eq = true}}, state = {type = {nin = {"completed", "canceled"}}}}
-		local page = linear.listIssues({filter = filter, first = 50, after = "c1", orderBy = "updatedAt"})
+		local page = fixture.example("listIssues")
 		query, variables = sent()
 		assert(string.find(query, "^query listIssues%(%$filter: IssueFilter, %$first: Int, %$after: String, %$last: Int, %$before: String, %$includeArchived: Boolean, %$orderBy: PaginationOrderBy%) { issues%(filter: %$filter, first: %$first, after: %$after, last: %$last, before: %$before, includeArchived: %$includeArchived, orderBy: %$orderBy%) { nodes { id identifier "), query)
 		assert(string.find(query, " } pageInfo { hasNextPage endCursor } } }$", 1, false), query)
@@ -63,39 +62,39 @@ return {
 		assert(json.encode(page.nodes[1].labels.nodes) == "[]")
 
 		payload = '{"data":{"comments":{"nodes":[],"pageInfo":{"hasNextPage":false,"endCursor":null}}}}'
-		local empty = linear.listComments({filter = {issue = {id = {eq = "i1"}}}})
+		local empty = fixture.example("listComments")
 		query, variables = sent()
-		assert(string.find(query, "comments(filter: $filter", 1, true) and variables.filter.issue.id.eq == "i1")
+		assert(string.find(query, "comments(filter: $filter", 1, true) and variables.filter.issue.id.eq == "00000000-0000-4000-8000-000000000003")
 		assert(json.encode(empty.nodes) == "[]" and empty.pageInfo.endCursor == NULL)
 
 		payload = '{"data":{"issue":{"id":"i1","identifier":"ENG-123","description":"# Hi","children":{"nodes":[]}}}}'
-		local issue = linear.getIssue({id = "ENG-123"})
+		local issue = fixture.example("getIssue")
 		query, variables = sent()
 		assert(string.find(query, "^query getIssue%(%$id: String!%) { issue%(id: %$id%) { id identifier ") and string.find(query, " description children(first: 50) { ", 1, true))
 		assert(variables.id == "ENG-123" and issue.description == "# Hi")
 
 		payload = '{"data":{"searchIssues":{"nodes":[],"pageInfo":{"hasNextPage":false,"endCursor":null},"totalCount":0}}}'
-		local found = linear.searchIssues({term = "login & crash", teamId = "t1", includeComments = true})
+		local found = fixture.example("searchIssues")
 		query, variables = sent()
 		assert(string.find(query, "searchIssues(filter: $filter, first: $first, after: $after, last: $last, before: $before, includeArchived: $includeArchived, orderBy: $orderBy, term: $term, teamId: $teamId, includeComments: $includeComments)", 1, true), query)
 		assert(string.find(query, "pageInfo { hasNextPage endCursor } totalCount } }", 1, true))
 		assert(string.find(last().url, "&variables=", 1, true) and not string.find(last().url, "&", string.find(last().url, "&variables=", 1, true) + 1, true),
 			"variables must be encoded")
-		assert(variables.term == "login & crash" and variables.teamId == "t1" and variables.includeComments == true and found.totalCount == 0)
+		assert(variables.term == "login & crash" and variables.teamId == "00000000-0000-4000-8000-000000000001" and variables.includeComments == true and found.totalCount == 0)
 
 		linear.listTeams()
 		assert(select(2, sent()) == nil, "no variables are sent without options")
-		linear.getProject({id = "launch-2a1b"})
+		fixture.example("getProject")
 		query = sent()
 		assert(string.find(query, " content } }$"), query)
 		for _, case in {
-			{function() return linear.listUsers({includeDisabled = true, first = 250}) end, "users", "includeDisabled: $includeDisabled", {first = 250, includeDisabled = true}},
-			{function() return linear.listWorkflowStates({filter = {team = {key = {eq = "ENG"}}}}) end, "workflowStates", "filter: $filter", json.decode('{"filter":{"team":{"key":{"eq":"ENG"}}}}')},
-			{function() return linear.listLabels({includeArchived = true}) end, "issueLabels", "includeArchived: $includeArchived", {includeArchived = true}},
-			{function() return linear.listProjects({filter = {status = {type = {eq = "started"}}}}) end, "projects", "filter: $filter", json.decode('{"filter":{"status":{"type":{"eq":"started"}}}}')},
-			{function() return linear.listCycles({filter = {isActive = {eq = true}}}) end, "cycles", "filter: $filter", json.decode('{"filter":{"isActive":{"eq":true}}}')},
-			{function() return linear.getCycle({id = "c1"}) end, "cycle", "id: $id", {id = "c1"}},
-			{function() return linear.getTeam({id = "t1"}) end, "team", "id: $id", {id = "t1"}},
+			{function() return fixture.example("listUsers") end, "users", "includeDisabled: $includeDisabled", {first = 250, includeDisabled = true}},
+			{function() return fixture.example("listWorkflowStates") end, "workflowStates", "filter: $filter", json.decode('{"filter":{"team":{"key":{"eq":"ENG"}}}}')},
+			{function() return fixture.example("listLabels") end, "issueLabels", "includeArchived: $includeArchived", {includeArchived = true}},
+			{function() return fixture.example("listProjects") end, "projects", "filter: $filter", json.decode('{"filter":{"status":{"type":{"eq":"started"}}}}')},
+			{function() return fixture.example("listCycles") end, "cycles", "filter: $filter", json.decode('{"filter":{"isActive":{"eq":true}}}')},
+			{function() return fixture.example("getCycle") end, "cycle", "id: $id", {id = "00000000-0000-4000-8000-000000000002"}},
+			{function() return fixture.example("getTeam") end, "team", "id: $id", {id = "00000000-0000-4000-8000-000000000001"}},
 		} do
 			local call, field, use, expected = case[1], case[2], case[3], case[4]
 			payload = json.encode({data = {[field] = {id = "x1"}}})

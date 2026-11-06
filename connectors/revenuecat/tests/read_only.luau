@@ -33,13 +33,13 @@ return {
 		assert(#requests == 0, "initialization reached RevenueCat")
 
 		payload = '{"object":"list","items":[{"object":"project","id":"proj1ab2c3d4","name":"Acme","created_at":1658399423658,"icon_url":null}],"next_page":null,"url":"/v2/projects"}'
-		local projects = revenuecat.listProjects()
+		local projects = fixture.example("listProjects")
 		got(API .. "/projects")
 		assert(projects.items[1].id == "proj1ab2c3d4" and projects.items[1].icon_url == NULL and projects.next == NULL)
 
 		-- next carries next_page's cursor, decoded, and a missing next_page ends the list too.
 		payload = '{"object":"list","items":[{"id":"app1"}],"next_page":"/v2/projects/proj1ab2c3d4/apps?limit=1&starting_after=app%241","url":"/v2/projects/proj1ab2c3d4/apps"}'
-		local apps = revenuecat.listApps({project_id = "proj1ab2c3d4", limit = 1})
+		local apps = fixture.example("listApps")
 		got(P .. "/apps?limit=1")
 		assert(apps.next == "app$1" and apps.next_page == "/v2/projects/proj1ab2c3d4/apps?limit=1&starting_after=app%241")
 		revenuecat.listApps({project_id = "proj1ab2c3d4", starting_after = apps.next})
@@ -48,12 +48,12 @@ return {
 		local empty = revenuecat.listApps({project_id = "proj1ab2c3d4"})
 		assert(json.encode(empty.items) == "[]" and empty.next == NULL)
 		payload = '{"object":"app","id":"app1","type":"app_store","app_store":{"bundle_id":"com.acme"}}'
-		assert(revenuecat.getApp({project_id = "proj1ab2c3d4", app_id = "app1"}).app_store.bundle_id == "com.acme")
+		assert(fixture.example("getApp").app_store.bundle_id == "com.acme")
 		got(P .. "/apps/app1")
 
 		-- Customer lists keep only the lean fields, with JSON nulls left as they are.
 		payload = '{"object":"list","items":[{"object":"customer","id":"user-1","project_id":"proj1ab2c3d4","first_seen_at":1,"last_seen_at":null,"last_seen_app_version":"1.2","last_seen_country":"FR","last_seen_platform":"iOS","last_seen_platform_version":null,"experiment":{"id":"exp1","name":"Price test","variant":"a"},"attributes":{"items":[{"name":"$email","value":"ada@example.com"}]}}],"next_page":"https://api.revenuecat.com/v2/projects/proj1ab2c3d4/customers?search=ada%40example.com&starting_after=user-1","url":"/v2/projects/proj1ab2c3d4/customers"}'
-		local customers = revenuecat.listCustomers({project_id = "proj1ab2c3d4", search = "ada@example.com", limit = 100})
+		local customers = fixture.example("listCustomers")
 		got(P .. "/customers?search=ada%40example.com&limit=100")
 		local found = customers.items[1]
 		assert(found.id == "user-1" and found.last_seen_platform == "iOS" and found.last_seen_at == NULL and found.last_seen_platform_version == NULL)
@@ -66,55 +66,55 @@ return {
 		assert(json.encode(revenuecat.listCustomers({project_id = "proj1ab2c3d4"}).items) == "[]")
 
 		payload = '{"object":"customer","id":"$RCAnonymousID:abc","last_seen_country":"FR","experiment":null,"active_entitlements":{"object":"list","items":[{"object":"customer.active_entitlement","entitlement_id":"entl1","expires_at":null}],"next_page":null,"url":"/v2/x"}}'
-		local one = revenuecat.getCustomer({project_id = "proj1ab2c3d4", customer_id = "$RCAnonymousID:abc", expand = "attributes"})
+		local one = fixture.example("getCustomer")
 		got(P .. "/customers/%24RCAnonymousID%3Aabc?expand=attributes")
 		assert(one.last_seen_country == "FR" and one.experiment == NULL and one.active_entitlements.items[1].expires_at == NULL)
 		assert(one.next == nil, "single objects get no cursor")
 
 		payload = '{"object":"list","items":[{"object":"subscription","id":"sub1","status":"active","gives_access":true,"ends_at":null}],"next_page":null,"url":"/v2/x"}'
-		local subs = revenuecat.listCustomerSubscriptions({project_id = "proj1ab2c3d4", customer_id = "user-1", environment = "production", expand = {"items.redemption"}})
+		local subs = fixture.example("listCustomerSubscriptions")
 		got(P .. "/customers/user-1/subscriptions?environment=production&expand=items.redemption")
 		assert(subs.items[1].status == "active" and subs.items[1].ends_at == NULL)
-		revenuecat.listCustomerPurchases({project_id = "proj1ab2c3d4", customer_id = "user-1", environment = "sandbox", starting_after = "purch1"})
+		fixture.example("listCustomerPurchases")
 		got(P .. "/customers/user-1/purchases?environment=sandbox&starting_after=purch1")
-		revenuecat.listCustomerActiveEntitlements({project_id = "proj1ab2c3d4", customer_id = "user-1"})
+		fixture.example("listCustomerActiveEntitlements")
 		got(P .. "/customers/user-1/active_entitlements")
 
 		payload = '{"object":"subscription","id":"sub1","pending_changes":null}'
-		assert(revenuecat.getSubscription({project_id = "proj1ab2c3d4", subscription_id = "sub1", expand = "redemption"}).pending_changes == NULL)
+		assert(fixture.example("getSubscription").pending_changes == NULL)
 		got(P .. "/subscriptions/sub1?expand=redemption")
 		payload = '{"object":"list","items":[],"next_page":null,"url":"/v2/x"}'
-		revenuecat.listSubscriptionEntitlements({project_id = "proj1ab2c3d4", subscription_id = "sub1"})
+		fixture.example("listSubscriptionEntitlements")
 		got(P .. "/subscriptions/sub1/entitlements")
 		payload = '{"object":"purchase","id":"purch1"}'
-		revenuecat.getPurchase({project_id = "proj1ab2c3d4", purchase_id = "purch1"})
+		fixture.example("getPurchase")
 		got(P .. "/purchases/purch1")
 
 		payload = '{"object":"list","items":[],"next_page":null,"url":"/v2/x"}'
-		revenuecat.listProducts({project_id = "proj1ab2c3d4", app_id = "app1", expand = {"items.app", "items.indicative_price"}})
+		fixture.example("listProducts")
 		got(P .. "/products?app_id=app1&expand=items.app&expand=items.indicative_price")
-		revenuecat.listEntitlements({project_id = "proj1ab2c3d4", expand = "items.product"})
+		fixture.example("listEntitlements")
 		got(P .. "/entitlements?expand=items.product")
-		revenuecat.listEntitlementProducts({project_id = "proj1ab2c3d4", entitlement_id = "entl1"})
+		fixture.example("listEntitlementProducts")
 		got(P .. "/entitlements/entl1/products")
-		revenuecat.listOfferings({project_id = "proj1ab2c3d4", expand = {"items.package", "items.package.product"}})
+		fixture.example("listOfferings")
 		got(P .. "/offerings?expand=items.package&expand=items.package.product")
-		revenuecat.listPackages({project_id = "proj1ab2c3d4", offering_id = "ofrng1", expand = "items.product"})
+		fixture.example("listPackages")
 		got(P .. "/offerings/ofrng1/packages?expand=items.product")
-		revenuecat.listPackageProducts({project_id = "proj1ab2c3d4", package_id = "pkge1"})
+		fixture.example("listPackageProducts")
 		got(P .. "/packages/pkge1/products")
 		payload = '{"object":"product","id":"prod1"}'
-		revenuecat.getProduct({project_id = "proj1ab2c3d4", product_id = "prod1", expand = "app"})
+		fixture.example("getProduct")
 		got(P .. "/products/prod1?expand=app")
-		revenuecat.getEntitlement({project_id = "proj1ab2c3d4", entitlement_id = "entl1"})
+		fixture.example("getEntitlement")
 		got(P .. "/entitlements/entl1")
-		revenuecat.getOffering({project_id = "proj1ab2c3d4", offering_id = "ofrng1", expand = {"package", "package.product"}})
+		fixture.example("getOffering")
 		got(P .. "/offerings/ofrng1?expand=package&expand=package.product")
-		revenuecat.getPackage({project_id = "proj1ab2c3d4", package_id = "pkge1"})
+		fixture.example("getPackage")
 		got(P .. "/packages/pkge1")
 
 		payload = '{"object":"overview_metrics","currency":"EUR","metrics":[{"object":"overview_metric","id":"mrr","name":"MRR","unit":"€","period":"P28D","value":34765,"last_updated_at":null,"last_updated_at_iso8601":null}]}'
-		local overview = revenuecat.getOverviewMetrics({project_id = "proj1ab2c3d4", currency = "EUR"})
+		local overview = fixture.example("getOverviewMetrics")
 		got(P .. "/metrics/overview?currency=EUR")
 		assert(overview.metrics[1].id == "mrr" and overview.metrics[1].value == 34765 and overview.metrics[1].last_updated_at == NULL)
 		assert(#requests == 25)

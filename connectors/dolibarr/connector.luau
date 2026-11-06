@@ -335,19 +335,11 @@ local function call(endpoint: Endpoint, recordID: any, input: any): any
 end
 
 local exports: {[string]: any} = {}
-local signatures: {[string]: string} = {}
+local docs: {[string]: any} = {}
+local helpRecord = require("lib/help.luau")
 local function add(endpoint: Endpoint)
-	local names: {string} = {}
-	for _, name in optionNames(endpoint) do
-		table.insert(names, name .. (if table.find(endpoint.required or EMPTY, name) then "" else "?"))
-	end
 	local hasID = string.find(endpoint.path, "{id}", 1, true) ~= nil
-	local args: {string} = {}
-	if hasID then table.insert(args, "id") end
-	if endpoint.fields then table.insert(args, if endpoint.fields == "required" then "fields" else "fields?") end
-	if #names > 0 then table.insert(args, "{" .. table.concat(names, ", ") .. "}" .. (if endpoint.required then "" else "?")) end
-	local returns = endpoint.returns or (if endpoint.list then "[record]" else "record")
-	signatures[endpoint.name] = "(" .. table.concat(args, ", ") .. ") -> " .. returns
+	docs[endpoint.name] = helpRecord(endpoint, optionNames(endpoint), SECRET)
 	-- After the optional ID, an endpoint takes either fields or options.
 	exports[endpoint.name] = if hasID then function(recordID: any, input: any): any return call(endpoint, recordID, input) end
 		else function(input: any): any return call(endpoint, nil, input) end
@@ -357,10 +349,7 @@ if config.access == "read-write" then
 	for _, endpoint in WRITES do add(endpoint) end
 end
 
-exports.help = function(): string
-	local names: {string} = {}
-	for name in signatures do table.insert(names, name) end
-	table.sort(names)
+exports.help = function(): any
 	local lines = {
 		"Dolibarr REST API for " .. HOST .. ". Results keep Dolibarr's native JSON: records are objects whose IDs and amounts are usually strings (\"id\":\"12\", \"total_ttc\":\"120.00000000\"), dates are Unix timestamps (payment lists use 'YYYY-MM-DD HH:MM:SS'), and lists are arrays, an empty list included. IDs can be passed as numbers or digit strings. Extra fields sit in array_options as options_<code>. Connector calls return completed values: use them directly, without await.",
 		"Lists fetch one page: limit (1-200, default 100) and page (from 0); fetch the next page while a page returns limit records. sortfield is a database column with its alias, such as t.rowid, t.ref, t.datec or t.tms, and sortorder ASC or DESC. properties={'id','ref','total_ttc'} returns only those fields (Dolibarr 19+). sqlfilters uses Dolibarr's syntax on database columns, not JSON names: \"(t.ref:like:'FA26%') and (t.fk_soc:=:12)\", with operators = != < > <= >= like notlike in notin is isnot, quoted strings and no parentheses inside values; for example (t.tms:>:'2026-10-01 00:00:00') finds records changed since a date. thirdparty_ids is an ID or an array of IDs. listThirdparties mode: 1 customers, 2 prospects, 3 neither, 4 suppliers; listProducts mode: 1 products, 2 services. listInvoices and listSupplierInvoices status: draft, unpaid, paid or cancelled; listSupplierOrders status: draft, validated, approved, running, received_start, received_end, cancelled or refused. listOrders sqlfilterlines (Dolibarr 18+) filters by line columns, such as (tl.fk_product:=:9). listPaymentTypes sorts and filters on code, id or libelle.",
@@ -371,7 +360,8 @@ exports.help = function(): string
 		table.insert(lines, "Writes send fields as a JSON object of Dolibarr field names (see Dolibarr's API explorer for each object); a create returns the new record's ID, so read it back with the matching get, while updates and actions return the record. Updates change only the given fields. Dates are Unix timestamps. createOrder({socid=12, date=1792540800, ref_ext='PS-1042'}) creates a draft order; add lines with addOrderLine(orderID, {fk_product=9, qty=2, subprice='12.50', tva_tx='20'}) or {desc='Shipping', qty=1, subprice='5', tva_tx='20', product_type=1}, then validateOrder(orderID) gives it its reference (pass {idwarehouse=1} when validation moves stock). createInvoiceFromOrder(orderID) returns a draft invoice copied from the order; validateInvoice(id) numbers it, which cannot be undone, and addInvoicePayment(id, {datepaye=1792540800, paymentid=<listPaymentTypes id>, accountid=<bank account id>, closepaidinvoices='yes'}) records a payment of the whole remaining amount. createStockMovement({product_id=9, warehouse_id=1, qty=-2, label='Shop order PS-1042'}) moves stock (negative qty removes it); before Dolibarr 23, pass movementlabel instead of label, batch as lot, and sellBy and eatBy as dlc and dluo. Validation and closing may run Dolibarr's workflows and notifications; they answer HTTP 304 when the record is already in that state. Only HTTP 429 is retried: after a timeout or 5xx, read the record before repeating a write.")
 	end
 	table.insert(lines, "Reference: " .. DOCS .. " and the API explorer at <your Dolibarr>/api/index.php/explorer.")
-	for _, name in names do table.insert(lines, name .. signatures[name]) end
-	return table.concat(lines, "\n")
+local sections = {paging=lines[2],examples=lines[3],records=lines[4]}
+    if config.access == "read-write" then sections.writes=lines[5] end
+    return {text=lines[1] .. "\n\n" .. lines[#lines],functions=docs,sections=sections}
 end
 return exports

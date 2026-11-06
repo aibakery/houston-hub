@@ -25,7 +25,7 @@ return {
 		respond(200, '{"err":null,"images":{"1:2":"' .. BUCKET .. 'u1","I3:4;5:6":"' .. BUCKET .. 'u2","7:8":null}}')
 		respond(200, "png-one")
 		respond(200, "png-two")
-		local saved = figma.renderImages({file_key = KEY, ids = {"1:2", "I3:4;5:6", "7:8"}, scale = 2, save_to = "renders/"})
+		local saved = fixture.example("renderImages", 2)
 		assert(#requests == 3 and requests[1].url == "https://api.figma.com/v1/images/" .. KEY .. "?ids=1%3A2,I3%3A4%3B5%3A6,7%3A8&scale=2", requests[1].url)
 		-- Downloads go to the render bucket in sorted id order, without credentials.
 		assert(requests[2].method == "GET" and requests[2].url == BUCKET .. "u1" and requests[2].headers == nil)

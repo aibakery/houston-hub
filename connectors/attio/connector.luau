@@ -1,6 +1,6 @@
 -- Attio REST API v2, read-only. Arguments and results keep Attio's native field names.
 type Kind = string | number | {string}
-type Endpoint = {method: string, path: string, params: {string}, options: {[string]: Kind}, required: {string}?, defaults: {[string]: any}?, bare: boolean?, help: string}
+type Endpoint = {method: string, path: string, params: {string}, options: {[string]: Kind}, required: {string}?, defaults: {[string]: any}?, bare: boolean?, help: string, examples: {{[string]: any}}}
 
 local API = "https://api.attio.com/v2"
 local NONE: {string} = table.freeze({})
@@ -8,69 +8,69 @@ local NO_DEFAULTS: {[string]: any} = table.freeze({})
 local QUERY: {[string]: Kind} = {filter = "table", filter_view_id = "text", sorts = "array", limit = "count", offset = "offset"}
 local QUERY_HELP = "Optional filter (Attio filter object) or filter_view_id (a saved view's UUID), sorts (array), limit (Attio defaults to 500) and offset. Page with offset and stop as soon as you have enough. Records are `{id = {workspace_id, object_id, record_id}, created_at, web_url, values}`; each attribute in values is an array of historic values, newest active first."
 local endpoints: {[string]: Endpoint} = {
-	identify = {method = "GET", path = "/self", params = {}, options = {}, bare = true,
+	identify = {examples = {{}}, method = "GET", path = "/self", params = {}, options = {}, bare = true,
 		help = "Describe the API key: `{active, scope, client_id, token_type, token_level, exp, iat, workspace_id, workspace_name, workspace_slug, workspace_logo_url, authorized_by_workspace_member_id}`. A revoked key returns active = false."},
-	listObjects = {method = "GET", path = "/objects", params = {}, options = {},
+	listObjects = {examples = {{}}, method = "GET", path = "/objects", params = {}, options = {},
 		help = "List every object: `{data = {{id = {object_id}, api_slug, singular_noun, plural_noun, created_at}}}`. Standard slugs include people, companies, deals, users and workspaces."},
-	listAttributes = {method = "GET", path = "/{target}/{identifier}/attributes", params = {"target", "identifier"},
+	listAttributes = {examples = {{target="objects", identifier="people", options={limit=20,offset=40,show_archived=true}}}, method = "GET", path = "/{target}/{identifier}/attributes", params = {"target", "identifier"},
 		options = {target = {"objects", "lists"}, limit = "count", offset = "offset", show_archived = "boolean"},
 		help = "List the attributes of an object or list: target is \"objects\" or \"lists\" and identifier is its slug or UUID. Each attribute has api_slug, title, type (text, number, select, status, record-reference, …), is_multiselect and config. Read them before filtering or sorting queries."},
-	queryRecords = {method = "POST", path = "/objects/{object}/records/query", params = {"object"}, options = QUERY,
+	queryRecords = {examples = {{object="companies",options={filter={name={["$contains"]="Acme"}},sorts={{attribute="created_at",direction="desc"}},limit=50,offset=100}}}, method = "POST", path = "/objects/{object}/records/query", params = {"object"}, options = QUERY,
 		help = "Query an object's records (object is a slug or UUID). " .. QUERY_HELP},
-	getRecord = {method = "GET", path = "/objects/{object}/records/{record_id}", params = {"object", "record_id"}, options = {},
+	getRecord = {examples = {{object="people",record_id="891dcbfc-9141-415d-9b2a-2238a6cc012d"}, {object="people",record_id={id={record_id="891dcbfc-9141-415d-9b2a-2238a6cc012d"},values={}}}}, method = "GET", path = "/objects/{object}/records/{record_id}", params = {"object", "record_id"}, options = {},
 		help = "Read one record with all its attribute values."},
-	searchRecords = {method = "POST", path = "/objects/records/search", params = {"query"}, required = {"objects"},
+	searchRecords = {examples = {{query="Acme", options={objects={"companies","people"},limit=25}}, {query="",options={objects="deals",request_as={type="workspace-member",email_address="ada@example.com"}}}}, method = "POST", path = "/objects/records/search", params = {"query"}, required = {"objects"},
 		options = {query = "string", objects = "texts", limit = 25, request_as = "table"}, defaults = {request_as = {type = "workspace"}},
 		help = "Fuzzy-search record names, domains, emails, phone numbers and social handles. objects (required) lists object slugs or UUIDs; request_as defaults to `{type = \"workspace\"}`, or pass `{type = \"workspace-member\", workspace_member_id = …}` to see only what that member can. Attio defaults limit to 25. Results are eventually consistent: use queryRecords for up-to-date or exhaustive results."},
-	listNotes = {method = "GET", path = "/notes", params = {},
+	listNotes = {examples = {{parent_object="companies",parent_record_id="891dcbfc-9141-415d-9b2a-2238a6cc012d",limit=50,offset=0}}, method = "GET", path = "/notes", params = {},
 		options = {limit = 50, offset = "offset", parent_object = "text", parent_record_id = "text"},
 		help = "List notes newest first: `{data = {{id = {note_id}, parent_object, parent_record_id, title, content_plaintext, content_markdown, tags, created_by_actor, created_at}}}`. Filter one record with parent_object and parent_record_id together. Attio defaults limit to 10 and allows 10 note requests per second; stop paging once created_at leaves the window you need. Notes synced from meeting tools often appear on both a company and its deal."},
-	getNote = {method = "GET", path = "/notes/{note_id}", params = {"note_id"}, options = {},
+	getNote = {examples = {{note_id="891dcbfc-9141-415d-9b2a-2238a6cc012d"}, {note_id={id={note_id="891dcbfc-9141-415d-9b2a-2238a6cc012d"},title="Call"}}}, method = "GET", path = "/notes/{note_id}", params = {"note_id"}, options = {},
 		help = "Read one note, including content_plaintext and content_markdown."},
-	listEmails = {method = "GET", path = "/emails", params = {},
+	listEmails = {examples = {{participants={"ada@example.com","bo@example.com"},exclude_automated_participants=true,cursor="c+/="}}, method = "GET", path = "/emails", params = {},
 		options = {limit = 50, cursor = "text", linked_object = "text", linked_record_ids = "texts", participants = "texts", domain = "text",
 			sent_after = "text", sent_before = "text", exclude_automated_participants = "boolean"},
 		help = "List email metadata, never message bodies: `{data = {{id, subject_line, participants, sent_at, direction, linked_records}}, pagination = {next_cursor}}`. Attio requires one filter: linked_object (people or companies) with linked_record_ids (up to 10), participants (up to 10 addresses) or domain. Arrays are sent comma-separated. sent_after and sent_before are exclusive ISO 8601 timestamps. Attio enables this alpha endpoint per workspace and requires the key's email scope; otherwise it answers HTTP 403. Attio defaults limit to 25."},
-	listTasks = {method = "GET", path = "/tasks", params = {},
+	listTasks = {examples = {{sort="created_at:desc",assignee="null",is_completed=false,limit=1000}}, method = "GET", path = "/tasks", params = {},
 		options = {limit = "count", offset = "offset", sort = {"created_at:asc", "created_at:desc", "completed_at:asc", "completed_at:desc"},
 			linked_object = "text", linked_record_id = "text", assignee = "string", is_completed = "boolean"},
 		help = "List tasks: `{data = {{id = {task_id}, content_plaintext, deadline_at, is_completed, completed_at, linked_records, assignees, created_at}}}`. Filter a record with linked_object and linked_record_id together; assignee is a member's email or UUID, or \"null\" for unassigned tasks. Attio defaults limit to 500 and sort to created_at:asc."},
-	getTask = {method = "GET", path = "/tasks/{task_id}", params = {"task_id"}, options = {},
+	getTask = {examples = {{task_id="891dcbfc-9141-415d-9b2a-2238a6cc012d"}}, method = "GET", path = "/tasks/{task_id}", params = {"task_id"}, options = {},
 		help = "Read one task."},
-	listThreads = {method = "GET", path = "/threads", params = {},
+	listThreads = {examples = {{object="people",record_id="891dcbfc-9141-415d-9b2a-2238a6cc012d"}}, method = "GET", path = "/threads", params = {},
 		options = {record_id = "text", object = "text", entry_id = "text", list = "text", limit = 50, offset = "offset"},
 		help = "List comment threads with their comments: `{data = {{id = {thread_id}, comments = {{id = {comment_id}, content_plaintext, author, created_at}}, created_at}}}`. Pass object with record_id for a record's threads, or list with entry_id for a list entry's. Attio defaults limit to 10. There is no endpoint listing every comment."},
-	getThread = {method = "GET", path = "/threads/{thread_id}", params = {"thread_id"},
+	getThread = {examples = {{thread_id="891dcbfc-9141-415d-9b2a-2238a6cc012d",options={limit=250,cursor="next"}}}, method = "GET", path = "/threads/{thread_id}", params = {"thread_id"},
 		options = {limit = 250, cursor = "text", created_after = "text"},
 		help = "Read one thread and up to 250 of its comments, with pagination.next_cursor for the rest. created_after keeps only newer comments."},
-	getComment = {method = "GET", path = "/comments/{comment_id}", params = {"comment_id"}, options = {},
+	getComment = {examples = {{comment_id="891dcbfc-9141-415d-9b2a-2238a6cc012d"}}, method = "GET", path = "/comments/{comment_id}", params = {"comment_id"}, options = {},
 		help = "Read one comment: thread_id, content_plaintext, author, entry or record, resolved state and created_at."},
-	listMeetings = {method = "GET", path = "/meetings", params = {},
+	listMeetings = {examples = {{sort="start_desc",participants="ada@example.com",limit=200}}, method = "GET", path = "/meetings", params = {},
 		options = {limit = 200, cursor = "text", linked_object = "text", linked_record_id = "text", participants = "texts",
 			sort = {"start_asc", "start_desc"}, ends_from = "text", starts_before = "text", timezone = "text"},
 		help = "List meetings: `{data = {{id = {meeting_id}, title, description, start, end, is_all_day, participants, linked_records, created_at}}, pagination = {next_cursor}}`. Filter a record with linked_object and linked_record_id together; participants (emails) and linked_record_id combine with OR. ends_from is inclusive and starts_before exclusive; timezone (default UTC) applies to all-day meetings. Attio defaults limit to 50 and sort to start_asc."},
-	getMeeting = {method = "GET", path = "/meetings/{meeting_id}", params = {"meeting_id"}, options = {},
+	getMeeting = {examples = {{meeting_id="2e6e29ea-c4e0-4f44-842d-78a891f8c156"}}, method = "GET", path = "/meetings/{meeting_id}", params = {"meeting_id"}, options = {},
 		help = "Read one meeting."},
-	listCallRecordings = {method = "GET", path = "/meetings/{meeting_id}/call_recordings", params = {"meeting_id"},
+	listCallRecordings = {examples = {{meeting_id="2e6e29ea-c4e0-4f44-842d-78a891f8c156",options={limit=10,cursor="c1"}}}, method = "GET", path = "/meetings/{meeting_id}/call_recordings", params = {"meeting_id"},
 		options = {limit = 200, cursor = "text"},
 		help = "List a meeting's call recordings: `{data = {{id = {call_recording_id}, status, web_url, created_at}}, pagination = {next_cursor}}`. Attio defaults limit to 50."},
-	getCallRecording = {method = "GET", path = "/meetings/{meeting_id}/call_recordings/{call_recording_id}", params = {"meeting_id", "call_recording_id"}, options = {},
+	getCallRecording = {examples = {{meeting_id="2e6e29ea-c4e0-4f44-842d-78a891f8c156",call_recording_id="a649e4d9-435c-43fb-83ba-847b4876f27a"}}, method = "GET", path = "/meetings/{meeting_id}/call_recordings/{call_recording_id}", params = {"meeting_id", "call_recording_id"}, options = {},
 		help = "Read one call recording, including its transcript when Attio has one. video_url expires after an hour."},
-	listLists = {method = "GET", path = "/lists", params = {}, options = {},
+	listLists = {examples = {{}}, method = "GET", path = "/lists", params = {}, options = {},
 		help = "List every list the key can read: `{data = {{id = {list_id}, api_slug, name, parent_object, workspace_access, created_at}}}`."},
-	getList = {method = "GET", path = "/lists/{list}", params = {"list"}, options = {},
+	getList = {examples = {{list="sales"}}, method = "GET", path = "/lists/{list}", params = {"list"}, options = {},
 		help = "Read one list by slug or UUID."},
-	queryListEntries = {method = "POST", path = "/lists/{list}/entries/query", params = {"list"}, options = QUERY,
+	queryListEntries = {examples = {{list="sales",options={filter_view_id="891dcbfc-9141-415d-9b2a-2238a6cc012d",sorts={}}}}, method = "POST", path = "/lists/{list}/entries/query", params = {"list"}, options = QUERY,
 		help = "Query a list's entries (list is a slug or UUID). Entries are `{id = {entry_id}, parent_record_id, parent_object, created_at, entry_values}`. " .. QUERY_HELP},
-	listWorkspaceMembers = {method = "GET", path = "/workspace_members", params = {}, options = {},
+	listWorkspaceMembers = {examples = {{}}, method = "GET", path = "/workspace_members", params = {}, options = {},
 		help = "List workspace members: `{data = {{id = {workspace_member_id}, first_name, last_name, email_address, access_level, created_at}}}`."},
-	getWorkspaceMember = {method = "GET", path = "/workspace_members/{workspace_member_id}", params = {"workspace_member_id"}, options = {},
+	getWorkspaceMember = {examples = {{workspace_member_id="891dcbfc-9141-415d-9b2a-2238a6cc012d"}}, method = "GET", path = "/workspace_members/{workspace_member_id}", params = {"workspace_member_id"}, options = {},
 		help = "Read one workspace member."},
-	listFiles = {method = "GET", path = "/files", params = {}, required = {"object", "record_id"},
+	listFiles = {examples = {{object="companies",record_id="891dcbfc-9141-415d-9b2a-2238a6cc012d",storage_provider="google-drive"}}, method = "GET", path = "/files", params = {}, required = {"object", "record_id"},
 		options = {object = "text", record_id = "text", storage_provider = {"attio", "dropbox", "box", "google-drive", "microsoft-onedrive"},
 			parent_folder_id = "text", limit = 200, cursor = "text"},
 		help = "List a record's files and folders (object and record_id are required): `{data = {{id = {file_id}, name, file_type, content_type, content_size, storage_provider, parent_folder_id, created_at}}, pagination = {next_cursor}}`. Without parent_folder_id every nesting level is returned. Attio defaults limit to 50. File contents cannot be downloaded through this connection."},
-	getFile = {method = "GET", path = "/files/{file_id}", params = {"file_id"}, options = {},
+	getFile = {examples = {{file_id="891dcbfc-9141-415d-9b2a-2238a6cc012d"}}, method = "GET", path = "/files/{file_id}", params = {"file_id"}, options = {},
 		help = "Read one file's metadata."},
 }
 
@@ -204,37 +204,9 @@ for name, endpoint in endpoints do
 	end
 end
 
-local function signature(name: string, endpoint: Endpoint): string
-	local params = table.clone(endpoint.params)
-	if next(endpoint.options) then
-		table.insert(params, if endpoint.required then "opts" else "opts?")
-	end
-	return name .. "(" .. table.concat(params, ", ") .. ")"
-end
-
-local function describe(field: string, kind: Kind): string
-	if type(kind) == "number" then return field .. " (1–" .. tostring(kind) .. ")" end
-	if type(kind) == "table" then return field .. " (" .. table.concat(kind, " | ") .. ")" end
-	return field
-end
-
-function functions.help(): string
+function functions.help(): any
 	local sections = {"Attio: read-only access to this workspace's CRM objects, records, lists, notes, tasks, comments, meetings, emails and files, limited by the API key's scopes. Credentials stay on Houston. Each call makes one request and returns Attio's JSON unchanged, with results under data. Calls return completed values; do not wrap them in await(). Unknown options are rejected.",
 		"IDs are UUIDs; objects, lists and attributes also accept their api_slug. Attio returns composite ids such as `record.id.record_id`: pass the inner UUID, or the row or id table itself, as in `attio.getNote(row)` or `attio.getRecord(\"people\", row)`. Offset-paged calls take limit and offset; cursor-paged calls return pagination.next_cursor, which you pass back as cursor until it is null. Attio allows 100 reads per second and limits queries by complexity, so prefer filters to paging through everything. HTTP 429 and 5xx errors are retryable."}
-	local names: {string} = {}
-	for name in endpoints do table.insert(names, name) end
-	table.sort(names)
-	for _, name in names do
-		local endpoint = endpoints[name]
-		local section = "## " .. signature(name, endpoint) .. "\n\n" .. endpoint.method .. " /v2" .. endpoint.path .. ". " .. endpoint.help
-		local fields: {string} = {}
-		for field, kind in endpoint.options do
-			if not table.find(endpoint.params, field) then table.insert(fields, describe(field, kind)) end
-		end
-		table.sort(fields)
-		if #fields > 0 then section ..= " Options: " .. table.concat(fields, ", ") .. "." end
-		table.insert(sections, section)
-	end
 	table.insert(sections, [[## Example
 
 Here attio is the configured Attio connection.
@@ -251,7 +223,7 @@ end
 ```
 
 Reference: https://docs.attio.com/rest-api/overview]])
-	return table.concat(sections, "\n\n")
+	return {text = sections[1], functions = require("lib/help.luau")(endpoints), sections = {paging = sections[2], workflow = sections[3]}}
 end
 
 return functions

@@ -1,6 +1,6 @@
 -- Linear GraphQL API. Arguments and results keep Linear's native field names.
 type Options = {[string]: any}
-type Operation = {field: string, args: {string}, select: string, connection: boolean?, page: string?, write: boolean?, about: string}
+type Operation = {field: string, args: {string}, select: string, connection: boolean?, page: string?, write: boolean?, about: string, example: Options}
 
 local API = "https://api.linear.app/graphql"
 local DOCS = "https://linear.app/developers/graphql"
@@ -38,37 +38,41 @@ end
 -- Query and Mutation fields of Linear's public schema (packages/sdk/src/schema.graphql), checked
 -- on 2026-10-27.
 local operations: {[string]: Operation} = {
-	getViewer = {field = "viewer", args = {}, select = USER .. " organization { id name urlKey }",
+	getViewer = {field = "viewer", args = {}, example = {}, select = USER .. " organization { id name urlKey }",
 		about = "You, with your workspace's id, name and urlKey."},
-	listUsers = {field = "users", args = list("UserFilter", "includeDisabled: Boolean"), select = USER, connection = true,
+	listUsers = {field = "users", args = list("UserFilter", "includeDisabled: Boolean"), select = USER, connection = true, example = {includeDisabled = true, first = 250},
 		about = "Workspace members. Filter by name, displayName, email or isMe, as {email={eq='ada@example.com'}}."},
-	listTeams = {field = "teams", args = list("TeamFilter"), select = TEAM, connection = true, about = "Teams you can access."},
-	getTeam = {field = "team", args = {"id: String!"}, select = TEAM, about = "A team."},
-	listWorkflowStates = {field = "workflowStates", args = list("WorkflowStateFilter"), select = STATE, connection = true,
+	listTeams = {field = "teams", args = list("TeamFilter"), select = TEAM, connection = true, example = {first = 10}, about = "Teams you can access."},
+	getTeam = {field = "team", args = {"id: String!"}, select = TEAM, example = {id = "00000000-0000-4000-8000-000000000001"}, about = "A team."},
+	listWorkflowStates = {field = "workflowStates", args = list("WorkflowStateFilter"), select = STATE, connection = true, example = {filter = {team = {key = {eq = "ENG"}}}},
 		about = "Issue statuses, as {team={key={eq='ENG'}}}. type: triage, backlog, unstarted, started, completed or canceled."},
-	listLabels = {field = "issueLabels", args = list("IssueLabelFilter"), select = LABEL, connection = true,
+	listLabels = {field = "issueLabels", args = list("IssueLabelFilter"), select = LABEL, connection = true, example = {includeArchived = true},
 		about = "Issue labels. Workspace labels have team null; group labels (isGroup) hold child labels."},
-	listProjects = {field = "projects", args = list("ProjectFilter"), select = PROJECT, connection = true,
+	listProjects = {field = "projects", args = list("ProjectFilter"), select = PROJECT, connection = true, example = {filter = {status = {type = {eq = "started"}}}},
 		about = "Projects, as {status={type={eq='started'}}} or {accessibleTeams={some={key={eq='ENG'}}}}."},
-	getProject = {field = "project", args = {"id: String!"}, select = PROJECT .. " content", about = "A project by id or slugId, with its content in Markdown."},
-	listCycles = {field = "cycles", args = list("CycleFilter"), select = CYCLE, connection = true,
+	getProject = {field = "project", args = {"id: String!"}, select = PROJECT .. " content", example = {id = "launch-2a1b"}, about = "A project by id or slugId, with its content in Markdown."},
+	listCycles = {field = "cycles", args = list("CycleFilter"), select = CYCLE, connection = true, example = {filter = {isActive = {eq = true}}},
 		about = "Cycles, as {team={key={eq='ENG'}}, isActive={eq=true}}."},
-	getCycle = {field = "cycle", args = {"id: String!"}, select = CYCLE, about = "A cycle."},
+	getCycle = {field = "cycle", args = {"id: String!"}, select = CYCLE, example = {id = "00000000-0000-4000-8000-000000000002"}, about = "A cycle."},
 	listIssues = {field = "issues", args = list("IssueFilter"), select = ISSUE, connection = true,
+		example = {filter = {assignee = {isMe = {eq = true}}, state = {type = {nin = {"completed", "canceled"}}}}, first = 50, after = "c1", orderBy = "updatedAt"},
 		about = "Issues, without descriptions; see Filters."},
 	searchIssues = {field = "searchIssues", args = list("IssueFilter", "term: String!", "teamId: String", "includeComments: Boolean"),
-		select = ISSUE, connection = true, page = "totalCount", about = "Full-text search over titles and descriptions (and comments with includeComments), with totalCount."},
-	getIssue = {field = "issue", args = {"id: String!"},
+		select = ISSUE, connection = true, page = "totalCount", example = {term = "login & crash", teamId = "00000000-0000-4000-8000-000000000001", includeComments = true}, about = "Full-text search over titles and descriptions (and comments with includeComments), with totalCount."},
+	getIssue = {field = "issue", args = {"id: String!"}, example = {id = "ENG-123"},
 		select = ISSUE .. " description children(first: 50) { nodes { id identifier title state { id name type } } pageInfo { hasNextPage } }",
 		about = "An issue by id or identifier such as ENG-123, with its Markdown description and first 50 sub-issues; when children.pageInfo.hasNextPage, list the rest with listIssues({filter={parent={id={eq=issue.id}}}})."},
-	listComments = {field = "comments", args = list("CommentFilter"), select = COMMENT, connection = true,
+	listComments = {field = "comments", args = list("CommentFilter"), select = COMMENT, connection = true, example = {filter = {issue = {id = {eq = "00000000-0000-4000-8000-000000000003"}}}},
 		about = "Comments in Markdown, as {issue={id={eq=issue.id}}}. parentId marks a reply."},
 
 	createIssue = {field = "issueCreate", args = {"input: IssueCreateInput!"}, select = "success issue { " .. ISSUE .. " }", write = true,
+		example = {input = {teamId = "00000000-0000-4000-8000-000000000001", title = "Crash on login", description = "Steps:\n1. Sign in", priority = 2}},
 		about = "input {teamId, title, description?, stateId?, assigneeId?, priority?, labelIds?, projectId?, cycleId?, parentId?, dueDate?, estimate?}. Returns {success, issue}."},
 	updateIssue = {field = "issueUpdate", args = {"id: String!", "input: IssueUpdateInput!"}, select = "success issue { " .. ISSUE .. " }", write = true,
+		example = {id = "ENG-9", input = {stateId = "00000000-0000-4000-8000-000000000004", assigneeId = NULL}},
 		about = "input: the fields to change, such as stateId, assigneeId (null unassigns), priority, labelIds (replaces), addedLabelIds, removedLabelIds, title or description."},
 	createComment = {field = "commentCreate", args = {"input: CommentCreateInput!"}, select = "success comment { " .. COMMENT .. " }", write = true,
+		example = {input = {issueId = "00000000-0000-4000-8000-000000000003", body = "Fixed in #42"}},
 		about = "input {issueId, body (Markdown), parentId? to reply}. Returns {success, comment}."},
 }
 
@@ -195,12 +199,6 @@ local function document(name: string, operation: Operation, params: {Parameter})
 	return head .. " { " .. field .. " { " .. selection .. " } }"
 end
 
-local function signature(params: {Parameter}): string
-	local fields: {string} = {}
-	for _, param in params do table.insert(fields, if param.required then param.field else param.field .. "?") end
-	return if #fields == 0 then "()" else "({" .. table.concat(fields, ", ") .. "})"
-end
-
 local function run(name: string, operation: Operation, params: {Parameter}, source: string, input: Options?): any
 	local args = options(input)
 	local variables: Options = {}
@@ -229,12 +227,29 @@ local function run(name: string, operation: Operation, params: {Parameter}, sour
 end
 
 local exports: {[string]: any} = {}
-local signatures: {[string]: string} = {}
+local docs: {[string]: any} = {}
+local bundleTypes = require("lib/input-types.luau")
 for name, operation in operations do
 	if not operation.write or WRITES then
 		local params = parameters(operation)
 		local source = document(name, operation, params)
-		signatures[name] = signature(params)
+		local properties: Options, required: {string} = {}, {}
+		for _, param in params do
+			local schema: any
+			if param.base == "Int" then schema = {type = "integer", minimum = 1, maximum = MAX_PAGE}
+			elseif param.base == "String" then schema = {type = "string", minLength = 1}
+			elseif param.base == "Boolean" then schema = {type = "boolean"}
+			else schema = {["$ref"] = "#/$defs/" .. param.base} end
+			if param.required then table.insert(required, param.field)
+			else schema = {anyOf = {schema, {type = "null"}}, description = "Optional; explicit null is omitted before sending."} end
+			properties[param.field] = schema
+		end
+		local input: any = {type = "object", properties = properties, additionalProperties = false, examples = {operation.example}}
+		if #required > 0 then input.required = required end
+		docs[name] = {description = operation.about .. " Selected GraphQL fields: `" .. operation.select .. "`."
+			.. (if operation.connection then " Returns {nodes, pageInfo={hasNextPage,endCursor}}" .. (if operation.page then " with " .. operation.page else "") .. "; fetch the next page with after while hasNextPage." else ""),
+			inputSchema = bundleTypes(input), annotations = {readOnlyHint = not operation.write}}
+		if #params == 0 then docs[name].args = {} end
 		exports[name] = function(input: Options?): any return run(name, operation, params, source, input) end
 	end
 end
@@ -253,31 +268,35 @@ local function graphql(input: Options?): any
 end
 
 -- Arbitrary documents can read webhook signing secrets and SSO settings, so they need read-write.
-if WRITES then exports.graphql = graphql end
+if WRITES then
+	exports.graphql = graphql
+	docs.graphql = {description = "Run any Linear query or mutation document, returning Linear's response {data, errors?}, including partial data. Supports fields and operations not exposed by the named helpers, such as attachments, project updates, issue relations or archiving. Schema: https://studio.apollographql.com/public/Linear-API. Requires read-write access because documents can also read webhook signing secrets and SSO settings. A mutation may notify subscribers; inspect the resource before retrying an ambiguous failure.",
+		inputSchema = {type = "object", properties = {
+			query = {type = "string", pattern = "\\S", description = "GraphQL document, at most " .. tostring(MAX_DOCUMENT) .. " UTF-8 bytes."},
+			variables = {type = {"object", "null"}, description = "Variables named by the document. Omission or null sends an empty object."},
+			operationName = {type = "string", pattern = "^[_A-Za-z][_A-Za-z0-9]*$", description = "Select one operation when the document has several."},
+		}, required = {"query"}, additionalProperties = false,
+			examples = {{query = "query($id: String!) { issue(id: $id) { attachments { nodes { title url } } } }", variables = {id = "ENG-9"}}}},
+		outputSchema = {type = "object", properties = {data = {type = "object"}, errors = {type = "array", items = {type = "object"}}}, required = {"data"}},
+		annotations = {readOnlyHint = false},
+	}
+end
 
-exports.help = function(): string
-	local names: {string} = {}
-	for name in operations do if exports[name] then table.insert(names, name) end end
-	table.sort(names)
+exports.help = function(): any
 	local lines = {
 		"Linear GraphQL API (" .. DOCS .. "). Every function takes one named options object with Linear's field names; ? marks optional fields. Results are Linear's JSON for the queried field, without the data wrapper; when Linear also reports errors, such as for nested items you cannot see, the result carries them as errors. In arguments, pass json.decode('null') to clear a field (such as assigneeId) and json.decode('[]') for an empty list: nil omits the field and {} is an object. Connector calls return completed values: use them directly, without await.",
 		"Lists return one page {nodes, pageInfo={hasNextPage, endCursor}}: first is 1.." .. MAX_PAGE .. " (default 50); pass pageInfo.endCursor as after while hasNextPage. orderBy: createdAt (default) or updatedAt. includeArchived=true adds archived items.",
 		"Filters use Linear's comparators: eq, neq, in, nin, lt, lte, gt, gte, null, contains, containsIgnoreCase, startsWith; and and/or arrays. Write the Luau keywords in, and, or as ['in'], ['and'], ['or']. Relations nest: {team={key={eq='ENG'}}, state={type={['in']={'unstarted', 'started'}}}, assignee={isMe={eq=true}}, labels={some={name={eq='Bug'}}}, priority={lte=2}}. Dates take ISO 8601 or durations relative to now, as {updatedAt={gt='-P2W'}}.",
 		"ids are UUIDs; getIssue and updateIssue also take identifiers such as ENG-123 and getProject a slugId. Issues show their first 10 labels and projects their first 10 teams. priority: 0 none, 1 urgent, 2 high, 3 medium, 4 low. Descriptions and comment bodies are Markdown.",
 	}
-	for _, name in names do
-		local operation = operations[name]
-		table.insert(lines, name .. signatures[name] .. ": " .. operation.about)
-	end
 	table.insert(lines, "Examples: local me = linear.getViewer(); local page = linear.listIssues({filter={assignee={isMe={eq=true}}, state={type={nin={'completed', 'canceled'}}}}, first=50}); linear.getIssue({id='ENG-123'}); linear.listComments({filter={issue={id={eq=issue.id}}}}).")
 	if WRITES then
-		table.insert(lines, "graphql({query, variables?, operationName?}): any Linear query or mutation document, returning Linear's response {data, errors?}, for fields and operations not listed above, such as attachments, project updates, issue relations or archiving. Schema: https://studio.apollographql.com/public/Linear-API. Example: linear.graphql({query='query($id: String!) { issue(id: $id) { attachments { nodes { title url } } } }', variables={id='ENG-123'}}).")
 		table.insert(lines, "Writes: find teamId with listTeams, stateId with listWorkflowStates, label ids with listLabels and user ids with listUsers. Linear notifies subscribers of new issues, assignments and comments. Houston retries an HTTP 429 at most twice when Retry-After is 5 seconds or less, and nothing else: after any failed write, read the issue again before repeating it, since Linear may have applied it.")
 	else
 		table.insert(lines, "This read-only connection sends queries with GET, which Linear refuses for mutations.")
 	end
 	table.insert(lines, "Errors report the HTTP status with Linear's error codes and messages; RATELIMITED (HTTP 429) is retryable and reports Retry-After and the reset times of the hourly windows. Linear limits API keys to 2,500 requests and 3,000,000 complexity points an hour per user (OAuth apps 5,000 and 2,000,000). A single query may cost at most 10,000 points, counting each list at its first value, so lower first when results nest lists. Your Linear permissions, team access and the API key's or app's permissions still apply.")
-	return table.concat(lines, "\n")
+	return {text = lines[1], functions = docs, sections = {paging = lines[2], filters = lines[3], identifiers = lines[4], workflow = lines[5], access = lines[6], errors = lines[7]}}
 end
 
 return exports

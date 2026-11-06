@@ -1,4 +1,10 @@
 -- Read-only connections expose only reads; each forwards one native command.
+local function message(fields)
+	local result = {id = "7:42:INBOX", folder = "INBOX", flags = json.decode("[]"), size = 0,
+		subject = "", from = "", to = "", cc = "", bcc = "", replyTo = "", body = "", bodyTruncated = false, attachments = json.decode("[]")}
+	for key, value in fields do result[key] = value end
+	return result
+end
 return {
 	scenario = {publisher = {}, auth_method = "", auth_config = {}, config = {host = "imap.example.com", username = "ada@example.com", password = "fixture-password"}},
 	config = {access = "read-only"},
@@ -21,7 +27,7 @@ return {
 		assert(not pcall(c.listMailFolders, {}, "Archive"), "list takes one argument at most")
 		assert(#requests == 0, "rejected calls never reach the server")
 		replies = {json.decode("[]")}
-		assert(json.encode(c.listMailFolders()) == "[]", "empty folders must remain a JSON array")
+		assert(json.encode(fixture.example("listMailFolders")) == "[]", "empty folders must remain a JSON array")
 		local fields = 0
 		for _ in requests[1] do fields += 1 end
 		assert(requests[1].command == "list" and fields == 1, "list takes no options")
@@ -40,8 +46,8 @@ return {
 		assert(#page.messages == 2 and page.messages[1].id == "7:43:INBOX" and page.nextPageToken == "7:42:INBOX", json.encode(page))
 		assert(requests[4].command == "search" and requests[4].pageToken == "7:44:INBOX" and requests[4].unread == true)
 
-		replies = {{{id = "7:42:INBOX", subject = "Hello"}}}
-		assert(c.getMessage({id = "7:42:INBOX", maxBodyBytes = 0}).subject == "Hello")
+		replies = {{message({subject = "Hello"})}}
+		assert(fixture.example("getMessage").subject == "Hello")
 		local fetch = requests[5]
 		assert(fetch.command == "fetch" and fetch.id == nil and #fetch.ids == 1 and fetch.ids[1] == "7:42:INBOX" and fetch.maxBodyBytes == 0)
 		assert(not pcall(c.getMessage, {}), "id is required")
@@ -50,16 +56,19 @@ return {
 		assert(#requests == 5, "rejected calls never reach the server")
 
 		replies = {{path = "files/report.pdf", size = 3, mimeType = "application/pdf", filename = "report.pdf"}}
-		local saved = c.getAttachment({messageId = "7:42:INBOX", attachmentId = "2", path = "files/report.pdf"})
+		local saved = fixture.example("getAttachment")
 		local download = requests[6]
 		assert(download.command == "download" and download.messageId == "7:42:INBOX" and download.attachmentId == "2" and download.path == "files/report.pdf")
 		assert(saved.path == "files/report.pdf" and saved.url == "https://houston.test/files/report.pdf" and saved.size == 3, json.encode(saved))
 
-		replies = {{{id = "7:42:INBOX", body = "<p>Hello</p>"}}, {{id = "7:42:INBOX", body = "Hello"}}}
+		replies = {{message({body = "<p>Hello</p>"})}, {message({body = "Hello"})}}
 		assert(c.getMessage({id = "7:42:INBOX", bodyFormat = "html"}).body == "<p>Hello</p>")
 		assert(requests[7].bodyFormat == "html" and requests[7].command == "fetch")
-		assert(c.getMessages({ids = {"7:42:INBOX"}, bodyFormat = "text"})[1].body == "Hello")
+		assert(fixture.example("getMessages")[1].body == "Hello")
 		assert(requests[8].bodyFormat == "text" and requests[8].ids[1] == "7:42:INBOX")
 		assert(#requests == 8)
+		replies = {{messages = json.decode("[]")}}
+		assert(#fixture.example("listMessages").messages == 0)
+		assert(#requests == 9 and requests[9].folder == "Archive/2026" and requests[9].maxResults == 20 and requests[9].unread == true)
 	end,
 }

@@ -44,7 +44,7 @@ return {
 		}}
 		local fields = url.encode("presentationId,title,revisionId,slides(objectId,pageElements(shape.text.textElements(textRun.content,autoText.content),table.tableRows.tableCells.text.textElements(textRun.content,autoText.content),wordArt.renderedText,elementGroup.children(shape.text.textElements(textRun.content,autoText.content),table.tableRows.tableCells.text.textElements(textRun.content,autoText.content),wordArt.renderedText,elementGroup.children(shape.text.textElements(textRun.content,autoText.content),table.tableRows.tableCells.text.textElements(textRun.content,autoText.content),wordArt.renderedText,elementGroup))),slideProperties(isSkipped,notesPage(notesProperties.speakerNotesObjectId,pageElements(objectId,shape.text.textElements(textRun.content,autoText.content)))))")
 		responses = {json.encode(deck), '{"presentationId":"p1","title":"Empty"}'}
-		local read = c.getPresentationText({presentationId = "https://docs.google.com/presentation/d/1PrE_x-9/edit#slide=id.p1"})
+		local read = fixture.example("getPresentationText")
 		assert(requests[1].url == API .. "1PrE_x-9?fields=" .. fields, requests[1].url)
 		assert(read.presentationId == "1PrE_x-9" and read.title == "Q3" and read.revisionId == "r1" and #read.slides == 3)
 		assert(read.slides[1].objectId == "p1" and read.slides[1].text == "Q3 results\nRevenue up\nagain\nCosts flat\n1\nRegion\tEU US APAC\t\nWOW\n", read.slides[1].text)
@@ -56,18 +56,18 @@ return {
 
 		responses = {json.encode(deck), '{"presentationId":"p1"}', '{"objectId":"g1","pageType":"SLIDE","pageElements":[]}',
 			'{"objectId":"g1","comments":[{"commentId":"c1"}]}', '{"width":800,"height":450,"contentUrl":"https://lh7-us.googleusercontent.com/t"}', '{"width":200,"height":113,"contentUrl":"https://lh7-us.googleusercontent.com/s"}', '{"width":2000,"height":1125,"contentUrl":"https://lh7-us.googleusercontent.com/w"}'}
-		assert(c.getPresentation({presentationId = "1PrE_x-9"}).slides[1].objectId == "p1" and requests[3].url == API .. "1PrE_x-9", requests[3].url)
+		assert(fixture.example("getPresentation").slides[1].objectId == "p1" and requests[3].url == API .. "1PrE_x-9", requests[3].url)
 		local none = c.getPresentation({presentationId = "https://docs.google.com/a/example.com/presentation/d/p1/edit", fields = "presentationId,slides.objectId", commentsViewMode = "COMMENTS_VIEW_MODE_INCLUDED"})
 		assert(none.slides == nil, "getPresentation changed Google's JSON")
 		assert(requests[4].url == API .. "p1?commentsViewMode=COMMENTS_VIEW_MODE_INCLUDED&fields=presentationId%2Cslides.objectId", requests[4].url)
-		assert(c.getPage({presentationId = "p1", pageObjectId = "g1"}).pageType == "SLIDE" and requests[5].url == API .. "p1/pages/g1", requests[5].url)
+		assert(fixture.example("getPage").pageType == "SLIDE" and requests[5].url == API .. "p1/pages/g1", requests[5].url)
 		assert(c.getPage({presentationId = "p1", pageObjectId = "g1", commentsViewMode = "COMMENTS_VIEW_MODE_INCLUDED"}).comments[1].commentId == "c1")
 		assert(requests[6].url == API .. "p1/pages/g1?commentsViewMode=COMMENTS_VIEW_MODE_INCLUDED", requests[6].url)
-		local thumbnail = c.getThumbnail({presentationId = "p1", pageObjectId = "g1"})
+		local thumbnail = fixture.example("getThumbnail")
 		assert(thumbnail.width == 800 and thumbnail.contentUrl == "https://lh7-us.googleusercontent.com/t" and requests[7].url == API .. "p1/pages/g1/thumbnail", requests[7].url)
 		c.getThumbnail({presentationId = "p1", pageObjectId = "SLIDES_API1_0", thumbnailSize = "SMALL"})
 		assert(requests[8].url == API .. "p1/pages/SLIDES_API1_0/thumbnail?thumbnailProperties.thumbnailSize=SMALL", requests[8].url)
-		assert(c.getThumbnail({presentationId = "p1", pageObjectId = "q3:summary", thumbnailSize = "WIDTH2000_PX"}).width == 2000)
+		assert(fixture.example("getThumbnail", 2).width == 2000)
 		assert(requests[9].url == API .. "p1/pages/q3%3Asummary/thumbnail?thumbnailProperties.thumbnailSize=WIDTH2000_PX", requests[9].url)
 		for _, req in requests do
 			assert(req.method == "GET" and req.body == nil, req.method .. " " .. req.url)

@@ -317,7 +317,7 @@ for name, endpoint in endpoints do
 		exports[name] = function(args: Options?): any return request(name, endpoint, args) end
 	end
 end
-exports.help = function(): string
+exports.help = function(): any
 	local lines = {
 		"The user.credentials_expire_at field controls email-code confirmation for sensitive account changes, not access-token expiry. Do not infer session expiry from it. Browser cookie renewal re-saves the same token; server-side token lifetime is undocumented.",
 		"Tipeee creator API v2.0, unofficial website contracts checked 2026-10-23. Official partial docs: https://api.tipeee.com/api/doc/default ; partner docs https://api.tipeee.com/api/doc/partner concern tipper integrations. No supported public creator-management spec or self-service OAuth registration was found. Session token setup; reconnect when it expires. Never pass credentials to functions.",
@@ -328,17 +328,10 @@ exports.help = function(): string
 		"Read-only omits all writes, account/project discovery and inbox project/thread/content reads (project objects may carry streaming keys; opening inbox content may mark it read), widget secret links, and tipper exports (the shared GET route can email exports). Creator ownership/role and payout eligibility are enforced by Tipeee. Complete KYC, account security and Discord association on Tipeee's website. Project publication requires explicit acceptance of Tipeee, Adyen and Hyperwallet terms; closure requires explicit instruction and the emailed confirmation code. Credential rotation, tipper checkout/subscription purchases, staff administration, and streaming endpoints requiring a project API key are outside this connector.",
 		"Files stream to/from session storage; downloads return {path,size,url} with Houston's signed file URL. A failed transfer leaves the path as it was. No external URL fetches. Native limits include256 calls/invocation,64MiB Luau memory,8MiB JSON frames; use smaller pages and stream files. Upload chunks sequentially with stable fileId,chunkIndex,totalChunks; do not replay ambiguous uploads. Private uploaded slugs must be attached separately.",
 	}
-	local names: {string} = {}
-	for name in exports do if name ~= "help" then table.insert(names, name) end end
-	table.sort(names)
-	for _, name in names do
-		local endpoint = endpoints[name]
-		local fields: {string} = {}
-		for field in string.gmatch(endpoint.path, "{([%w_]+)}") do table.insert(fields, field) end
-		for _, field in endpoint.query or NONE do table.insert(fields, field .. (if table.find(endpoint.required or NONE, field) then "" else "?")) end
-		if endpoint.body == "form" then table.insert(fields, "data?,files?") elseif endpoint.body == "json" then table.insert(fields, "data?") elseif endpoint.body == "download" then table.insert(fields, "output") end
-		table.insert(lines, name .. "({" .. table.concat(fields, ",") .. "}): " .. endpoint.about)
-	end
-	return table.concat(lines, "\n")
+	local all = require("lib/help.luau")(endpoints)
+	local functions = {}
+	for name in exports do if name ~= "help" then functions[name] = all[name] end end
+	return {text=table.concat({lines[2],lines[3],lines[4]},"\n\n"),functions=functions,
+		sections={session=lines[1],rewards=lines[5],news=lines[6],access=lines[7],files=lines[8]}}
 end
 return exports

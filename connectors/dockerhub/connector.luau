@@ -1,7 +1,7 @@
 -- Docker Hub API v2 (https://docs.docker.com/reference/api/hub/latest/), read anonymously. Arguments and results keep Docker Hub's native field names.
 type Options = {[string]: any}
 type Endpoint = {method: string, path: string, query: {string}?, extra: {string}?, required: {string}?, write: boolean?, body: (boolean | string)?,
-	reach: number?, doc: string, about: string}
+	reach: number?, doc: string, about: string, example: Options}
 
 local PROVIDER = "Docker Hub"
 local DOCS = "https://docs.docker.com/reference/api/hub/latest/#tag/repositories/operation/"
@@ -11,13 +11,13 @@ local API = "https://hub.docker.com/v2"
 -- without signing in. Path {fields} are required; tags' name filter is the one Docker Hub's website uses, outside the
 -- published schema. Lists answer with one page; reach is how many items Docker Hub lists without signing in (probed then).
 local endpoints: {[string]: Endpoint} = {
-	listRepositories = {method = "GET", path = "/namespaces/{namespace}/repositories", query = {"name", "ordering", "page", "page_size"}, reach = 100, doc = "listNamespaceRepositories",
+	listRepositories = {method = "GET", path = "/namespaces/{namespace}/repositories", query = {"name", "ordering", "page", "page_size"}, reach = 100, doc = "listNamespaceRepositories", example = {namespace = "docker", page_size = 2},
 		about = "A namespace's public repositories: {count, next, previous, results}, each {name, namespace, repository_type, status_description, description, is_private, star_count, pull_count, last_updated (last push), last_modified, date_registered, media_types, content_types, categories: [{name, slug}], storage_size (bytes), registry_region}. name keeps repositories whose name contains it. ordering: name or -name (A to Z, Z to A), last_updated (newest push first) or -last_updated, pull_count (most pulled first) or -pull_count; Docker Hub's reference documents these last two pairs the other way round. Without ordering, the earliest registered come first. A namespace that doesn't exist, or has no public repository, answers count 0."},
-	getRepository = {method = "GET", path = "/namespaces/{namespace}/repositories/{repository}", doc = "GetRepository",
+	getRepository = {method = "GET", path = "/namespaces/{namespace}/repositories/{repository}", doc = "GetRepository", example = {namespace = "library", repository = "nginx"},
 		about = "A public repository: {name, namespace, user, hub_user, repository_type, status_description, description, full_description (the repository overview in Markdown, up to 25,000 characters), is_private, is_automated, star_count, pull_count, last_updated (last push), last_modified, date_registered, collaborator_count, has_starred, permissions {read, write, admin}, media_types, content_types, categories, immutable_tags_settings {enabled, rules}, storage_size (bytes), source}."},
-	listTags = {method = "GET", path = "/namespaces/{namespace}/repositories/{repository}/tags", query = {"name", "page", "page_size"}, reach = 1000, doc = "ListRepositoryTags",
+	listTags = {method = "GET", path = "/namespaces/{namespace}/repositories/{repository}/tags", query = {"name", "page", "page_size"}, reach = 1000, doc = "ListRepositoryTags", example = {namespace = "library", repository = "nginx", name = "alpine", page_size = 1},
 		about = "A public repository's tags, most recently pushed first: {count, next, previous, results}, each as in getTag. name keeps tags whose name contains it, such as 'alpine' or '1.27'."},
-	getTag = {method = "GET", path = "/namespaces/{namespace}/repositories/{repository}/tags/{tag}", doc = "GetRepositoryTag",
+	getTag = {method = "GET", path = "/namespaces/{namespace}/repositories/{repository}/tags/{tag}", doc = "GetRepositoryTag", example = {namespace = "library", repository = "nginx", tag = "latest"},
 		about = "A tag: {name, digest (what docker pull resolves: the image index of a multi-platform tag, else its single manifest), media_type, content_type, full_size, tag_status (active or inactive), tag_last_pushed, tag_last_pulled, last_updated, last_updater_username, id, repository, images}. images (null for some old tags) has one manifest per platform: {architecture, os, variant, os_version, digest, size, status, last_pushed, last_pulled}; entries whose architecture and os are 'unknown' are build attestations, such as provenance and SBOMs, not runnable images. full_size is one platform's size, not the sum, and can be 0 for old tags."},
 }
 
@@ -82,48 +82,22 @@ local function object(name: string, endpoint: Endpoint, response: HttpResponse, 
 	return value, list
 end
 
--- name({path fields, query fields?, extra fields?, required body fields, ...body}) built from the
--- endpoint itself.
--- Extra fields are options the connector's own request consumes, such as a request header.
-local function signature(endpoint: Endpoint): string
-	local fields: {string} = {}
-	for field in string.gmatch(endpoint.path, "{([%w_]+)}") do table.insert(fields, field) end
-	for _, group in {endpoint.query or NONE, endpoint.extra or NONE} do
-		for _, field in group do
-			table.insert(fields, if table.find(endpoint.required or NONE, field) then field else field .. "?")
-		end
-	end
-	if type(endpoint.body) == "string" then
-		table.insert(fields, endpoint.body)
-	elseif hasBody(endpoint) then
-		for _, field in endpoint.required or NONE do
-			if not table.find(fields, field) then table.insert(fields, field) end
-		end
-		table.insert(fields, "...body")
-	end
-	return "({" .. table.concat(fields, ", ") .. "})"
-end
-
--- A function for each endpoint the connection's access allows, and help listing them after intro.
-local function operations(endpoints: {[string]: Endpoint}, request: (string, Endpoint, Options?) -> any, intro: {string}): {[string]: any}
-	local exports: {[string]: any} = {}
+-- Export and document exactly the operations enabled for this connection.
+local function operations(endpoints: {[string]: Endpoint}, request: (string, Endpoint, Options?) -> any, intro: {string}, documentation: {[string]: any}): {[string]: any}
+	local exports: {[string]: any}, docs: {[string]: any} = {}, {}
+	for name in documentation do assert(endpoints[name], "documentation without endpoint: " .. name) end
 	for name, endpoint in endpoints do
+		assert(documentation[name], "missing documentation for " .. name)
 		if not writes(endpoint) or config.access == "read-write" then
 			exports[name] = function(args: Options?): any return request(name, endpoint, args) end
+			local record = table.clone(documentation[name])
+			record.description = endpoint.about .. " " .. endpoint.method .. " " .. endpoint.path .. ". Reference: " .. DOCS .. endpoint.doc
+				.. (if record.description then "\n\n" .. record.description else "")
+			if record.annotations == nil then record.annotations = {readOnlyHint = not writes(endpoint)} end
+			docs[name] = record
 		end
 	end
-	exports.help = function(): string
-		local names: {string} = {}
-		for name in exports do if name ~= "help" then table.insert(names, name) end end
-		table.sort(names)
-		local lines = table.clone(intro)
-		table.insert(lines, "Each function below names its route and reference page, " .. DOCS .. "<page>.")
-		for _, name in names do
-			local endpoint = endpoints[name]
-			table.insert(lines, name .. signature(endpoint) .. ": " .. endpoint.about .. " " .. endpoint.method .. " " .. endpoint.path .. " (" .. endpoint.doc .. ")")
-		end
-		return table.concat(lines, "\n")
-	end
+	exports.help = {text = table.concat(intro, "\n\n"), functions = docs}
 	return exports
 end
 -- End of the shared request layer.
@@ -237,4 +211,48 @@ local intro = {
 	"Docker Hub allows 180 requests per minute per IP address, and every Houston connection shares Houston's addresses. Houston retries an HTTP 429 at most twice, waiting as Retry-After asks when that is 5 s or less, or 1 s and then 2 s without a readable one; a longer wait or a third 429 fails as retryable, with the wait. Errors report the HTTP status and Docker Hub's message; 429, 5xx and a Docker Hub that doesn't answer within " .. tostring(HEADERS_TIME // 1000) .. " s are retryable. This connection is read-only.",
 }
 
-return operations(endpoints, request, intro)
+local docs: {[string]: any} = {}
+local text = {type = "string"}
+local nullableText = {type = {"string", "null"}}
+local number = {type = "number"}
+local repository = {type = "object", properties = {name = text, namespace = text, description = nullableText, full_description = nullableText,
+	repository_type = nullableText, pull_count = number, star_count = number, storage_size = number,
+	permissions = {type = "object", properties = {read = {type = "boolean"}, write = {type = "boolean"}, admin = {type = "boolean"}}}}}
+local tag = {type = "object", properties = {name = text, digest = text, media_type = text, content_type = text, full_size = number,
+	images = {type = {"array", "null"}, items = {type = "object", properties = {architecture = text, os = text, variant = nullableText,
+		os_version = nullableText, digest = text, size = number, status = text, last_pushed = nullableText, last_pulled = nullableText}}}}}
+for name, endpoint in endpoints do
+	local properties: {[string]: any}, required: {string} = {}, {}
+	for field in string.gmatch(endpoint.path, "{([%w_]+)}") do
+		local rule = SEGMENTS[field]
+		-- These naming rules use only ASCII classes shared by Luau patterns and JSON Schema regexes.
+		local pattern = rule.pattern
+		local classes: {[string]: string} = {l = "a-z", d = "0-9", w = "A-Za-z0-9", ["-"] = "-"}
+		for class, replacement in classes do
+			pattern = string.gsub(pattern, "%%" .. (if class == "-" then "%-" else class), replacement)
+		end
+		properties[field] = {type = "string", maxLength = rule.max, pattern = pattern, description = rule.about}
+		table.insert(required, field)
+	end
+	for _, field in endpoint.query or NONE do
+		local schema: any
+		if field == "page" then schema = {type = "integer", minimum = 1, maximum = endpoint.reach, default = 1}
+		elseif field == "page_size" then schema = {type = "integer", minimum = 1, maximum = 100, default = 10}
+		elseif field == "ordering" then schema = {type = "string", enum = ORDERINGS}
+		else schema = {type = "string", pattern = "\\S", description = "Substring filter, at most 255 UTF-8 bytes."} end
+		properties[field] = {anyOf = {schema, {type = "null"}}, description = "Omitted or null uses the provider default."}
+	end
+	local output: any = if name == "getTag" or name == "listTags" then tag else repository
+	if endpoint.reach then
+		output = {type = "object", properties = {count = {type = "integer"}, next = nullableText, previous = nullableText,
+			results = {type = "array", items = output}}, required = {"results"}}
+	end
+	docs[name] = {inputSchema = {type = "object", properties = properties, required = required, additionalProperties = false, examples = {endpoint.example},
+		description = if endpoint.reach then "The page must start before the anonymous limit: (page - 1) * page_size < " .. tostring(endpoint.reach) .. ". Defaults are page=1, page_size=10. Narrow the name filter when the limit is reached." else nil},
+		outputSchema = output, annotations = {readOnlyHint = true, idempotentHint = true}}
+end
+local exports = operations(endpoints, request, {intro[1], intro[2]}, docs)
+local help = exports.help
+help.sections = {identifiers = intro[3], paging = intro[4], workflow = intro[5], limits = intro[6]}
+exports.help = help
+return exports

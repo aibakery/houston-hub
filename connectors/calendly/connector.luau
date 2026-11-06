@@ -197,48 +197,22 @@ local function object(name: string, endpoint: Endpoint, response: HttpResponse, 
 	return value, list
 end
 
--- name({path fields, query fields?, extra fields?, required body fields, ...body}) built from the
--- endpoint itself.
--- Extra fields are options the connector's own request consumes, such as a request header.
-local function signature(endpoint: Endpoint): string
-	local fields: {string} = {}
-	for field in string.gmatch(endpoint.path, "{([%w_]+)}") do table.insert(fields, field) end
-	for _, group in {endpoint.query or NONE, endpoint.extra or NONE} do
-		for _, field in group do
-			table.insert(fields, if table.find(endpoint.required or NONE, field) then field else field .. "?")
-		end
-	end
-	if type(endpoint.body) == "string" then
-		table.insert(fields, endpoint.body)
-	elseif hasBody(endpoint) then
-		for _, field in endpoint.required or NONE do
-			if not table.find(fields, field) then table.insert(fields, field) end
-		end
-		table.insert(fields, "...body")
-	end
-	return "({" .. table.concat(fields, ", ") .. "})"
-end
-
--- A function for each endpoint the connection's access allows, and help listing them after intro.
-local function operations(endpoints: {[string]: Endpoint}, request: (string, Endpoint, Options?) -> any, intro: {string}): {[string]: any}
-	local exports: {[string]: any} = {}
+-- Export and document exactly the operations enabled for this connection.
+local function operations(endpoints: {[string]: Endpoint}, request: (string, Endpoint, Options?) -> any, intro: {string}, documentation: {[string]: any}): {[string]: any}
+	local exports: {[string]: any}, docs: {[string]: any} = {}, {}
+	for name in documentation do assert(endpoints[name], "documentation without endpoint: " .. name) end
 	for name, endpoint in endpoints do
+		assert(documentation[name], "missing documentation for " .. name)
 		if not writes(endpoint) or config.access == "read-write" then
 			exports[name] = function(args: Options?): any return request(name, endpoint, args) end
+			local record = table.clone(documentation[name])
+			record.description = endpoint.about .. " " .. endpoint.method .. " " .. endpoint.path .. ". Reference: " .. DOCS .. endpoint.doc
+				.. (if record.description then "\n\n" .. record.description else "")
+			if record.annotations == nil then record.annotations = {readOnlyHint = not writes(endpoint)} end
+			docs[name] = record
 		end
 	end
-	exports.help = function(): string
-		local names: {string} = {}
-		for name in exports do if name ~= "help" then table.insert(names, name) end end
-		table.sort(names)
-		local lines = table.clone(intro)
-		table.insert(lines, "Each function below names its route and reference page, " .. DOCS .. "<page>.")
-		for _, name in names do
-			local endpoint = endpoints[name]
-			table.insert(lines, name .. signature(endpoint) .. ": " .. endpoint.about .. " " .. endpoint.method .. " " .. endpoint.path .. " (" .. endpoint.doc .. ")")
-		end
-		return table.concat(lines, "\n")
-	end
+	exports.help = {text = table.concat(intro, "\n\n"), functions = docs}
 	return exports
 end
 -- End of the shared request layer.
@@ -311,11 +285,25 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 	return decode(name, endpoint, await(http.request({method = endpoint.method, url = API .. path, headers = headers, body = body})))
 end
 
-return operations(endpoints, request, {
-	"Calendly API v2. Every function takes one named options object with Calendly's snake_case names; ? marks optional fields and ...body the JSON body fields. Results are Calendly's JSON unchanged: single objects usually as {resource}, lists as {collection, pagination}; deletes return {success=true}. In bodies, pass json.decode('[]') for empty arrays and json.decode('null') to clear a field. Connector calls return completed values: use them directly, without await.",
+local schemas = require("lib/schemas.luau")
+local docs: {[string]: any} = {}
+for name, endpoint in endpoints do
+ docs[name] = {inputSchema = assert(schemas[name], "missing schema for " .. name),
+  description = "Returns Calendly's native JSON: individual resources normally under resource, and lists under collection with pagination when supported. Follow pagination.next_page_token with page_token and the same filters. Deletes return {success=true}.",
+  annotations = {readOnlyHint = endpoint.method == "GET", destructiveHint = endpoint.method ~= "GET", idempotentHint = endpoint.method == "GET"}}
+end
+local exports = operations(endpoints, request, {
+	"Calendly API v2. Every function takes one named options object with Calendly's snake_case names; Function help describes required fields and nested request bodies. Results are Calendly's JSON unchanged: single objects usually as {resource}, lists as {collection, pagination}; deletes return {success=true}. In bodies, pass json.decode('[]') for empty arrays and json.decode('null') to clear a field. Connector calls return completed values: use them directly, without await.",
 	"Calendly identifies resources by URI, such as https://api.calendly.com/users/AAAA. Query and body fields that reference a resource (user, organization, event_type, invitee, owner, host, form, ...) take the full URI; path fields (event, invitee, contact, ...) take the UUID or the URI of that kind of resource. Start with getCurrentUser(): resource.uri is your user and resource.current_organization your organization.",
-	"Lists return one page: count is 1..100 (default 20) and pagination.next_page_token, while not null, is the next call's page_token. Array filters are sent comma-separated. Times are ISO 8601 UTC, such as 2026-10-14T09:00:00Z.",
+	"Lists return one page: count defaults to 20; its maximum depends on the operation (see function help) and pagination.next_page_token, while not null, is the next call's page_token. Array filters are sent comma-separated. Times are ISO 8601 UTC, such as 2026-10-14T09:00:00Z.",
 	"Examples: local me = calendly.getCurrentUser().resource; calendly.listScheduledEvents({user=me.uri, status='active', min_start_time='2026-10-14T00:00:00Z', sort='start_time:asc', count=50}); calendly.listInvitees({event=event.uri}); calendly.listEventTypeAvailableTimes({event_type=type.uri, start_time='2026-10-15T00:00:00Z', end_time='2026-10-22T00:00:00Z'}); calendly.createSchedulingLink({owner=type.uri, owner_type='EventType', max_event_count=1}).",
 	"Read-only connections omit writes. Calendly's own permissions also apply: organization-wide lists and webhooks need an admin or owner, the activity log and outgoing communications need Enterprise, and createInvitee, webhooks and recaps need a paid plan. A 403 for a missing scope lists the required scopes. Calendly has no API to delete event types or reschedule meetings.",
 	"Side effects: createInvitee books a real meeting and cancelScheduledEvent cancels one for every invitee, and Calendly emails them; inviteUserToOrganization emails an invitation. There are no automatic retries: after a timeout or 5xx, read the resource again before repeating a write. Errors report the HTTP status, Calendly's title, message and invalid parameters.",
-})
+}, docs)
+local help = exports.help
+help.sections = {
+ availability = "Use listEventTypeAvailableTimes for bookable start times before createInvitee. Its future range is at most 31 days; listUserBusyTimes accepts at most 7 days. The API validates actual availability and relative dates at call time. Availability rules replace the current schedule, including empty intervals on closed dates.",
+ webhooks = "Choose organization scope for organization-wide events, user scope with user for one user, or group scope with group for one group. The connected user's role, subscription and OAuth scopes still apply. The receiver URL is your endpoint, not a session file; handle duplicate webhook deliveries.",
+}
+exports.help = help
+return exports

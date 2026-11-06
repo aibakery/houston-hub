@@ -1,0 +1,1317 @@
+{
+  "addAssignees": [
+    {
+      "assignees": [
+        "octocat"
+      ],
+      "issue_number": 42,
+      "owner": "octocat",
+      "repo": "Hello-World"
+    }
+  ],
+  "addLabels": [
+    {
+      "issue_number": 42,
+      "labels": [
+        "bug",
+        "triage"
+      ],
+      "owner": "octocat",
+      "repo": "Hello-World"
+    }
+  ],
+  "cancelWorkflowRun": [
+    {
+      "owner": "octocat",
+      "repo": "Hello-World",
+      "run_id": 42
+    }
+  ],
+  "compareCommits": [
+    {
+      "basehead": "main...feature/schema-help",
+      "owner": "octocat",
+      "per_page": 20,
+      "repo": "Hello-World"
+    },
+    {
+      "basehead": "main...feature/schema-help",
+      "format": "diff",
+      "owner": "octocat",
+      "per_page": 20,
+      "repo": "Hello-World"
+    }
+  ],
+  "createBlob": [
+    {
+      "content": "Hello, world!\n",
+      "encoding": "utf-8",
+      "owner": "octocat",
+      "repo": "Hello-World"
+    }
+  ],
+  "createCommitComment": [
+    {
+      "body": "The updated parser handles this case.",
+      "commit_sha": "0123456789abcdef0123456789abcdef01234567",
+      "line": 12,
+      "owner": "octocat",
+      "path": "src/parser.go",
+      "repo": "Hello-World"
+    }
+  ],
+  "createCommitStatus": [
+    {
+      "context": "ci/schema",
+      "description": "Schema checks passed",
+      "owner": "octocat",
+      "repo": "Hello-World",
+      "sha": "0123456789abcdef0123456789abcdef01234567",
+      "state": "success",
+      "target_url": "https://example.com/builds/42"
+    }
+  ],
+  "createFork": [
+    {
+      "default_branch_only": true,
+      "name": "hello-world-fork",
+      "owner": "octocat",
+      "repo": "Hello-World"
+    }
+  ],
+  "createGist": [
+    {
+      "description": "Example notes",
+      "files": {
+        "notes.md": {
+          "content": "# Notes\nA small example."
+        }
+      },
+      "public": false
+    }
+  ],
+  "createGitCommit": [
+    {
+      "author": {
+        "email": "developer@example.com",
+        "name": "Example Developer"
+      },
+      "message": "Update documentation",
+      "owner": "octocat",
+      "parents": [
+        "89abcdef0123456789abcdef0123456789abcdef"
+      ],
+      "repo": "Hello-World",
+      "tree": "0123456789abcdef0123456789abcdef01234567"
+    }
+  ],
+  "createIssue": [
+    {
+      "assignees": [
+        "octocat"
+      ],
+      "body": "An empty input should return an empty result.",
+      "labels": [
+        "bug"
+      ],
+      "owner": "octocat",
+      "repo": "Hello-World",
+      "title": "Handle empty input"
+    }
+  ],
+  "createIssueComment": [
+    {
+      "body": "Confirmed with the example input.",
+      "issue_number": 42,
+      "owner": "octocat",
+      "repo": "Hello-World"
+    }
+  ],
+  "createIssueCommentReaction": [
+    {
+      "comment_id": 42,
+      "content": "+1",
+      "owner": "octocat",
+      "repo": "Hello-World"
+    }
+  ],
+  "createIssueReaction": [
+    {
+      "content": "eyes",
+      "issue_number": 42,
+      "owner": "octocat",
+      "repo": "Hello-World"
+    }
+  ],
+  "createLabel": [
+    {
+      "color": "0366d6",
+      "description": "Needs initial review",
+      "name": "triage",
+      "owner": "octocat",
+      "repo": "Hello-World"
+    }
+  ],
+  "createMilestone": [
+    {
+      "description": "Next minor release",
+      "due_on": "2026-12-01T00:00:00Z",
+      "owner": "octocat",
+      "repo": "Hello-World",
+      "title": "Version 1.1"
+    }
+  ],
+  "createOrgRepo": [
+    {
+      "auto_init": true,
+      "description": "Schema validation example",
+      "name": "schema-demo",
+      "org": "github",
+      "visibility": "private"
+    }
+  ],
+  "createPull": [
+    {
+      "base": "main",
+      "body": "Adds schemas and runnable examples.",
+      "draft": true,
+      "head": "feature/schema-help",
+      "owner": "octocat",
+      "repo": "Hello-World",
+      "title": "Document connector inputs"
+    },
+    {
+      "base": "main",
+      "body": "Adds schemas and runnable examples.",
+      "draft": true,
+      "head": "feature/schema-help",
+      "issue": 42,
+      "owner": "octocat",
+      "repo": "Hello-World"
+    }
+  ],
+  "createPullReview": [
+    {
+      "body": "Reviewed the schema and examples.",
+      "event": "APPROVE",
+      "owner": "octocat",
+      "pull_number": 42,
+      "repo": "Hello-World"
+    }
+  ],
+  "createPullReviewComment": [
+    {
+      "body": "Please cover the empty input case.",
+      "commit_id": "0123456789abcdef0123456789abcdef01234567",
+      "line": 12,
+      "owner": "octocat",
+      "path": "src/parser.go",
+      "pull_number": 42,
+      "repo": "Hello-World",
+      "side": "RIGHT"
+    }
+  ],
+  "createPullReviewCommentReaction": [
+    {
+      "comment_id": 42,
+      "content": "+1",
+      "owner": "octocat",
+      "repo": "Hello-World"
+    }
+  ],
+  "createRef": [
+    {
+      "owner": "octocat",
+      "ref": "refs/heads/feature/schema-help",
+      "repo": "Hello-World",
+      "sha": "0123456789abcdef0123456789abcdef01234567"
+    }
+  ],
+  "createRelease": [
+    {
+      "body": "Adds structured connector help.",
+      "draft": true,
+      "name": "Version 1.1",
+      "owner": "octocat",
+      "repo": "Hello-World",
+      "tag_name": "v1.1.0",
+      "target_commitish": "main"
+    }
+  ],
+  "createRepo": [
+    {
+      "auto_init": true,
+      "description": "Schema validation example",
+      "name": "schema-demo",
+      "private": true
+    }
+  ],
+  "createTree": [
+    {
+      "base_tree": "0123456789abcdef0123456789abcdef01234567",
+      "owner": "octocat",
+      "repo": "Hello-World",
+      "tree": [
+        {
+          "content": "# Notes\nA small example.",
+          "mode": "100644",
+          "path": "docs/notes.md",
+          "type": "blob"
+        }
+      ]
+    },
+    {
+      "base_tree": "0123456789abcdef0123456789abcdef01234567",
+      "owner": "octocat",
+      "repo": "Hello-World",
+      "tree": [
+        {
+          "mode": "100644",
+          "path": "old.md",
+          "sha": null,
+          "type": "blob"
+        }
+      ]
+    }
+  ],
+  "deleteFile": [
+    {
+      "branch": "feature/schema-help",
+      "message": "Remove obsolete notes",
+      "owner": "octocat",
+      "path": "README.md",
+      "repo": "Hello-World",
+      "sha": "0123456789abcdef0123456789abcdef01234567"
+    }
+  ],
+  "deleteGist": [
+    {
+      "gist_id": "0123456789abcdef0123456789abcdef"
+    }
+  ],
+  "deleteIssueComment": [
+    {
+      "comment_id": 42,
+      "owner": "octocat",
+      "repo": "Hello-World"
+    }
+  ],
+  "deleteLabel": [
+    {
+      "name": "bug",
+      "owner": "octocat",
+      "repo": "Hello-World"
+    }
+  ],
+  "deleteMilestone": [
+    {
+      "milestone_number": 42,
+      "owner": "octocat",
+      "repo": "Hello-World"
+    }
+  ],
+  "deletePendingReview": [
+    {
+      "owner": "octocat",
+      "pull_number": 42,
+      "repo": "Hello-World",
+      "review_id": 42
+    }
+  ],
+  "deletePullReviewComment": [
+    {
+      "comment_id": 42,
+      "owner": "octocat",
+      "repo": "Hello-World"
+    }
+  ],
+  "deleteRef": [
+    {
+      "owner": "octocat",
+      "ref": "heads/feature/schema-help",
+      "repo": "Hello-World"
+    }
+  ],
+  "deleteRelease": [
+    {
+      "owner": "octocat",
+      "release_id": 42,
+      "repo": "Hello-World"
+    }
+  ],
+  "deleteReleaseAsset": [
+    {
+      "asset_id": 42,
+      "owner": "octocat",
+      "repo": "Hello-World"
+    }
+  ],
+  "dismissPullReview": [
+    {
+      "message": "The requested changes have been addressed.",
+      "owner": "octocat",
+      "pull_number": 42,
+      "repo": "Hello-World",
+      "review_id": 42
+    }
+  ],
+  "dispatchWorkflow": [
+    {
+      "inputs": {
+        "environment": "staging"
+      },
+      "owner": "octocat",
+      "ref": "main",
+      "repo": "Hello-World",
+      "workflow_id": "ci.yml"
+    }
+  ],
+  "downloadArtifact": [
+    {
+      "archive_format": "zip",
+      "artifact_id": 42,
+      "owner": "octocat",
+      "repo": "Hello-World",
+      "save_as": "artifact.zip"
+    }
+  ],
+  "downloadGistFile": [
+    {
+      "filename": "notes.md",
+      "gist_id": "0123456789abcdef0123456789abcdef",
+      "save_as": "notes.md"
+    }
+  ],
+  "downloadJobLogs": [
+    {
+      "job_id": 42,
+      "owner": "octocat",
+      "repo": "Hello-World",
+      "save_as": "job.log"
+    }
+  ],
+  "downloadRunLogs": [
+    {
+      "owner": "octocat",
+      "repo": "Hello-World",
+      "run_id": 42,
+      "save_as": "run-logs.zip"
+    }
+  ],
+  "downloadTarball": [
+    {
+      "owner": "octocat",
+      "ref": "main",
+      "repo": "Hello-World",
+      "save_as": "repository.tar.gz"
+    }
+  ],
+  "downloadZipball": [
+    {
+      "owner": "octocat",
+      "ref": "main",
+      "repo": "Hello-World",
+      "save_as": "repository.zip"
+    }
+  ],
+  "generateReleaseNotes": [
+    {
+      "owner": "octocat",
+      "previous_tag_name": "v1.0.0",
+      "repo": "Hello-World",
+      "tag_name": "v1.1.0",
+      "target_commitish": "main"
+    }
+  ],
+  "getAuthenticatedUser": [
+    {}
+  ],
+  "getBlob": [
+    {
+      "file_sha": "0123456789abcdef0123456789abcdef01234567",
+      "owner": "octocat",
+      "repo": "Hello-World"
+    },
+    {
+      "file_sha": "0123456789abcdef0123456789abcdef01234567",
+      "owner": "octocat",
+      "repo": "Hello-World",
+      "save_as": "downloads/getBlob.bin"
+    }
+  ],
+  "getBranch": [
+    {
+      "branch": "feature/schema-help",
+      "owner": "octocat",
+      "repo": "Hello-World"
+    }
+  ],
+  "getCheckRun": [
+    {
+      "check_run_id": 42,
+      "owner": "octocat",
+      "repo": "Hello-World"
+    }
+  ],
+  "getCombinedStatus": [
+    {
+      "owner": "octocat",
+      "per_page": 20,
+      "ref": "main",
+      "repo": "Hello-World"
+    }
+  ],
+  "getCommit": [
+    {
+      "owner": "octocat",
+      "per_page": 20,
+      "ref": "main",
+      "repo": "Hello-World"
+    },
+    {
+      "format": "diff",
+      "owner": "octocat",
+      "per_page": 20,
+      "ref": "main",
+      "repo": "Hello-World"
+    }
+  ],
+  "getContent": [
+    {
+      "owner": "octocat",
+      "path": "README.md",
+      "repo": "Hello-World"
+    },
+    {
+      "owner": "octocat",
+      "path": "README.md",
+      "repo": "Hello-World",
+      "save_as": "downloads/getContent.bin"
+    }
+  ],
+  "getGist": [
+    {
+      "gist_id": "0123456789abcdef0123456789abcdef"
+    }
+  ],
+  "getGitCommit": [
+    {
+      "commit_sha": "0123456789abcdef0123456789abcdef01234567",
+      "owner": "octocat",
+      "repo": "Hello-World"
+    }
+  ],
+  "getIssue": [
+    {
+      "issue_number": 42,
+      "owner": "octocat",
+      "repo": "Hello-World"
+    }
+  ],
+  "getIssueComment": [
+    {
+      "comment_id": 42,
+      "owner": "octocat",
+      "repo": "Hello-World"
+    }
+  ],
+  "getJob": [
+    {
+      "job_id": 42,
+      "owner": "octocat",
+      "repo": "Hello-World"
+    }
+  ],
+  "getLatestRelease": [
+    {
+      "owner": "octocat",
+      "repo": "Hello-World"
+    }
+  ],
+  "getMilestone": [
+    {
+      "milestone_number": 42,
+      "owner": "octocat",
+      "repo": "Hello-World"
+    }
+  ],
+  "getOrg": [
+    {
+      "org": "github"
+    }
+  ],
+  "getPull": [
+    {
+      "owner": "octocat",
+      "pull_number": 42,
+      "repo": "Hello-World"
+    },
+    {
+      "format": "diff",
+      "owner": "octocat",
+      "pull_number": 42,
+      "repo": "Hello-World"
+    }
+  ],
+  "getPullReview": [
+    {
+      "owner": "octocat",
+      "pull_number": 42,
+      "repo": "Hello-World",
+      "review_id": 42
+    }
+  ],
+  "getPullReviewComment": [
+    {
+      "comment_id": 42,
+      "owner": "octocat",
+      "repo": "Hello-World"
+    }
+  ],
+  "getRateLimit": [
+    {}
+  ],
+  "getReadme": [
+    {
+      "owner": "octocat",
+      "repo": "Hello-World"
+    }
+  ],
+  "getRef": [
+    {
+      "owner": "octocat",
+      "ref": "heads/feature/schema-help",
+      "repo": "Hello-World"
+    }
+  ],
+  "getRelease": [
+    {
+      "owner": "octocat",
+      "release_id": 42,
+      "repo": "Hello-World"
+    }
+  ],
+  "getReleaseAsset": [
+    {
+      "asset_id": 42,
+      "owner": "octocat",
+      "repo": "Hello-World"
+    },
+    {
+      "asset_id": 42,
+      "owner": "octocat",
+      "repo": "Hello-World",
+      "save_as": "downloads/getReleaseAsset.bin"
+    }
+  ],
+  "getReleaseByTag": [
+    {
+      "owner": "octocat",
+      "repo": "Hello-World",
+      "tag": "v1.0.0"
+    }
+  ],
+  "getRepo": [
+    {
+      "owner": "octocat",
+      "repo": "Hello-World"
+    }
+  ],
+  "getTopics": [
+    {
+      "owner": "octocat",
+      "per_page": 20,
+      "repo": "Hello-World"
+    }
+  ],
+  "getTree": [
+    {
+      "owner": "octocat",
+      "recursive": true,
+      "repo": "Hello-World",
+      "tree_sha": "0123456789abcdef0123456789abcdef01234567"
+    }
+  ],
+  "getUser": [
+    {
+      "username": "octocat"
+    }
+  ],
+  "getWorkflow": [
+    {
+      "owner": "octocat",
+      "repo": "Hello-World",
+      "workflow_id": "ci.yml"
+    }
+  ],
+  "getWorkflowRun": [
+    {
+      "owner": "octocat",
+      "repo": "Hello-World",
+      "run_id": 42
+    }
+  ],
+  "listArtifacts": [
+    {
+      "owner": "octocat",
+      "per_page": 20,
+      "repo": "Hello-World"
+    }
+  ],
+  "listAssignees": [
+    {
+      "owner": "octocat",
+      "per_page": 20,
+      "repo": "Hello-World"
+    }
+  ],
+  "listBranches": [
+    {
+      "owner": "octocat",
+      "per_page": 20,
+      "repo": "Hello-World"
+    }
+  ],
+  "listCheckRunAnnotations": [
+    {
+      "check_run_id": 42,
+      "owner": "octocat",
+      "per_page": 20,
+      "repo": "Hello-World"
+    }
+  ],
+  "listCheckRuns": [
+    {
+      "owner": "octocat",
+      "per_page": 20,
+      "ref": "main",
+      "repo": "Hello-World"
+    }
+  ],
+  "listCheckSuites": [
+    {
+      "owner": "octocat",
+      "per_page": 20,
+      "ref": "main",
+      "repo": "Hello-World"
+    }
+  ],
+  "listCollaborators": [
+    {
+      "owner": "octocat",
+      "per_page": 20,
+      "repo": "Hello-World"
+    }
+  ],
+  "listCommitComments": [
+    {
+      "commit_sha": "0123456789abcdef0123456789abcdef01234567",
+      "owner": "octocat",
+      "per_page": 20,
+      "repo": "Hello-World"
+    }
+  ],
+  "listCommitStatuses": [
+    {
+      "owner": "octocat",
+      "per_page": 20,
+      "ref": "main",
+      "repo": "Hello-World"
+    }
+  ],
+  "listCommits": [
+    {
+      "owner": "octocat",
+      "per_page": 20,
+      "repo": "Hello-World"
+    }
+  ],
+  "listContributors": [
+    {
+      "owner": "octocat",
+      "per_page": 20,
+      "repo": "Hello-World"
+    }
+  ],
+  "listEmails": [
+    {
+      "per_page": 20
+    }
+  ],
+  "listForks": [
+    {
+      "owner": "octocat",
+      "per_page": 20,
+      "repo": "Hello-World"
+    }
+  ],
+  "listGists": [
+    {
+      "per_page": 20
+    }
+  ],
+  "listInstallationRepos": [
+    {
+      "installation_id": 42,
+      "per_page": 20
+    }
+  ],
+  "listInstallations": [
+    {
+      "per_page": 20
+    }
+  ],
+  "listIssueComments": [
+    {
+      "issue_number": 42,
+      "owner": "octocat",
+      "per_page": 20,
+      "repo": "Hello-World"
+    }
+  ],
+  "listIssueTimeline": [
+    {
+      "issue_number": 42,
+      "owner": "octocat",
+      "per_page": 20,
+      "repo": "Hello-World"
+    }
+  ],
+  "listIssues": [
+    {
+      "owner": "octocat",
+      "per_page": 20,
+      "repo": "Hello-World"
+    }
+  ],
+  "listLabels": [
+    {
+      "owner": "octocat",
+      "per_page": 20,
+      "repo": "Hello-World"
+    }
+  ],
+  "listLanguages": [
+    {
+      "owner": "octocat",
+      "repo": "Hello-World"
+    }
+  ],
+  "listMatchingRefs": [
+    {
+      "owner": "octocat",
+      "ref": "heads/feature/schema-help",
+      "repo": "Hello-World"
+    }
+  ],
+  "listMilestones": [
+    {
+      "owner": "octocat",
+      "per_page": 20,
+      "repo": "Hello-World"
+    }
+  ],
+  "listMyIssues": [
+    {
+      "per_page": 20
+    }
+  ],
+  "listMyOrgs": [
+    {
+      "per_page": 20
+    }
+  ],
+  "listMyRepos": [
+    {
+      "per_page": 20
+    }
+  ],
+  "listMyStarred": [
+    {
+      "per_page": 20
+    }
+  ],
+  "listNotifications": [
+    {
+      "per_page": 20
+    }
+  ],
+  "listOrgMembers": [
+    {
+      "org": "github",
+      "per_page": 20
+    }
+  ],
+  "listOrgRepos": [
+    {
+      "org": "github",
+      "per_page": 20
+    }
+  ],
+  "listOrgTeams": [
+    {
+      "org": "github",
+      "per_page": 20
+    }
+  ],
+  "listPullCommits": [
+    {
+      "owner": "octocat",
+      "per_page": 20,
+      "pull_number": 42,
+      "repo": "Hello-World"
+    }
+  ],
+  "listPullFiles": [
+    {
+      "owner": "octocat",
+      "per_page": 20,
+      "pull_number": 42,
+      "repo": "Hello-World"
+    }
+  ],
+  "listPullReviewComments": [
+    {
+      "owner": "octocat",
+      "per_page": 20,
+      "pull_number": 42,
+      "repo": "Hello-World"
+    }
+  ],
+  "listPullReviews": [
+    {
+      "owner": "octocat",
+      "per_page": 20,
+      "pull_number": 42,
+      "repo": "Hello-World"
+    }
+  ],
+  "listPulls": [
+    {
+      "owner": "octocat",
+      "per_page": 20,
+      "repo": "Hello-World"
+    }
+  ],
+  "listPullsForCommit": [
+    {
+      "commit_sha": "0123456789abcdef0123456789abcdef01234567",
+      "owner": "octocat",
+      "per_page": 20,
+      "repo": "Hello-World"
+    }
+  ],
+  "listReceivedEvents": [
+    {
+      "per_page": 20,
+      "username": "octocat"
+    }
+  ],
+  "listReleaseAssets": [
+    {
+      "owner": "octocat",
+      "per_page": 20,
+      "release_id": 42,
+      "repo": "Hello-World"
+    }
+  ],
+  "listReleases": [
+    {
+      "owner": "octocat",
+      "per_page": 20,
+      "repo": "Hello-World"
+    }
+  ],
+  "listRepoEvents": [
+    {
+      "owner": "octocat",
+      "per_page": 20,
+      "repo": "Hello-World"
+    }
+  ],
+  "listRequestedReviewers": [
+    {
+      "owner": "octocat",
+      "pull_number": 42,
+      "repo": "Hello-World"
+    }
+  ],
+  "listRunArtifacts": [
+    {
+      "owner": "octocat",
+      "per_page": 20,
+      "repo": "Hello-World",
+      "run_id": 42
+    }
+  ],
+  "listRunJobs": [
+    {
+      "owner": "octocat",
+      "per_page": 20,
+      "repo": "Hello-World",
+      "run_id": 42
+    }
+  ],
+  "listRunsForWorkflow": [
+    {
+      "owner": "octocat",
+      "per_page": 20,
+      "repo": "Hello-World",
+      "workflow_id": "ci.yml"
+    }
+  ],
+  "listStargazers": [
+    {
+      "owner": "octocat",
+      "per_page": 20,
+      "repo": "Hello-World"
+    }
+  ],
+  "listSubIssues": [
+    {
+      "issue_number": 42,
+      "owner": "octocat",
+      "per_page": 20,
+      "repo": "Hello-World"
+    }
+  ],
+  "listTags": [
+    {
+      "owner": "octocat",
+      "per_page": 20,
+      "repo": "Hello-World"
+    }
+  ],
+  "listTeamMembers": [
+    {
+      "org": "github",
+      "per_page": 20,
+      "team_slug": "platform"
+    }
+  ],
+  "listUserEvents": [
+    {
+      "per_page": 20,
+      "username": "octocat"
+    }
+  ],
+  "listUserGists": [
+    {
+      "per_page": 20,
+      "username": "octocat"
+    }
+  ],
+  "listUserRepos": [
+    {
+      "per_page": 20,
+      "username": "octocat"
+    }
+  ],
+  "listUserStarred": [
+    {
+      "per_page": 20,
+      "username": "octocat"
+    }
+  ],
+  "listWorkflowRuns": [
+    {
+      "owner": "octocat",
+      "per_page": 20,
+      "repo": "Hello-World"
+    }
+  ],
+  "listWorkflows": [
+    {
+      "owner": "octocat",
+      "per_page": 20,
+      "repo": "Hello-World"
+    }
+  ],
+  "markNotificationsRead": [
+    {
+      "last_read_at": "2026-11-01T00:00:00Z"
+    }
+  ],
+  "markThreadDone": [
+    {
+      "thread_id": 42
+    }
+  ],
+  "markThreadRead": [
+    {
+      "thread_id": 42
+    }
+  ],
+  "mergeBranch": [
+    {
+      "base": "main",
+      "commit_message": "Merge documentation updates",
+      "head": "feature/schema-help",
+      "owner": "octocat",
+      "repo": "Hello-World"
+    }
+  ],
+  "mergePull": [
+    {
+      "merge_method": "squash",
+      "owner": "octocat",
+      "pull_number": 42,
+      "repo": "Hello-World",
+      "sha": "0123456789abcdef0123456789abcdef01234567"
+    }
+  ],
+  "mergeUpstream": [
+    {
+      "branch": "main",
+      "owner": "octocat",
+      "repo": "Hello-World"
+    }
+  ],
+  "putFile": [
+    {
+      "branch": "feature/schema-help",
+      "committer": {
+        "email": "developer@example.com",
+        "name": "Example Developer"
+      },
+      "content": "SGVsbG8sIHdvcmxkIQo=",
+      "message": "Add example notes",
+      "owner": "octocat",
+      "path": "README.md",
+      "repo": "Hello-World"
+    }
+  ],
+  "removeAssignees": [
+    {
+      "assignees": [
+        "octocat"
+      ],
+      "issue_number": 42,
+      "owner": "octocat",
+      "repo": "Hello-World"
+    }
+  ],
+  "removeLabel": [
+    {
+      "issue_number": 42,
+      "name": "bug",
+      "owner": "octocat",
+      "repo": "Hello-World"
+    }
+  ],
+  "removeRequestedReviewers": [
+    {
+      "owner": "octocat",
+      "pull_number": 42,
+      "repo": "Hello-World",
+      "reviewers": [
+        "octocat"
+      ]
+    }
+  ],
+  "renameBranch": [
+    {
+      "branch": "feature/schema-help",
+      "new_name": "feature/documented-inputs",
+      "owner": "octocat",
+      "repo": "Hello-World"
+    }
+  ],
+  "replyToReviewComment": [
+    {
+      "body": "Added the requested case.",
+      "comment_id": 42,
+      "owner": "octocat",
+      "pull_number": 42,
+      "repo": "Hello-World"
+    }
+  ],
+  "requestReviewers": [
+    {
+      "owner": "octocat",
+      "pull_number": 42,
+      "repo": "Hello-World",
+      "reviewers": [
+        "octocat"
+      ]
+    }
+  ],
+  "rerunFailedJobs": [
+    {
+      "enable_debug_logging": false,
+      "owner": "octocat",
+      "repo": "Hello-World",
+      "run_id": 42
+    }
+  ],
+  "rerunWorkflow": [
+    {
+      "enable_debug_logging": false,
+      "owner": "octocat",
+      "repo": "Hello-World",
+      "run_id": 42
+    }
+  ],
+  "searchCode": [
+    {
+      "per_page": 20,
+      "q": "README repo:octocat/Hello-World"
+    }
+  ],
+  "searchCommits": [
+    {
+      "per_page": 20,
+      "q": "repo:octocat/Hello-World fix"
+    }
+  ],
+  "searchIssues": [
+    {
+      "per_page": 20,
+      "q": "repo:octocat/Hello-World is:issue is:open"
+    }
+  ],
+  "searchRepos": [
+    {
+      "per_page": 20,
+      "q": "language:go stars:\u003e100"
+    }
+  ],
+  "searchUsers": [
+    {
+      "per_page": 20,
+      "q": "octocat in:login"
+    }
+  ],
+  "setLabels": [
+    {
+      "issue_number": 42,
+      "labels": [
+        "bug",
+        "confirmed"
+      ],
+      "owner": "octocat",
+      "repo": "Hello-World"
+    },
+    {
+      "issue_number": 42,
+      "labels": [],
+      "owner": "octocat",
+      "repo": "Hello-World"
+    }
+  ],
+  "starRepo": [
+    {
+      "owner": "octocat",
+      "repo": "Hello-World"
+    }
+  ],
+  "submitPullReview": [
+    {
+      "body": "The remaining question is documented inline.",
+      "event": "COMMENT",
+      "owner": "octocat",
+      "pull_number": 42,
+      "repo": "Hello-World",
+      "review_id": 42
+    }
+  ],
+  "unstarRepo": [
+    {
+      "owner": "octocat",
+      "repo": "Hello-World"
+    }
+  ],
+  "updateGist": [
+    {
+      "description": "Updated example notes",
+      "files": {
+        "notes.md": {
+          "content": "# Updated notes\nA revised example."
+        }
+      },
+      "gist_id": "0123456789abcdef0123456789abcdef"
+    },
+    {
+      "description": "Updated example notes",
+      "files": {
+        "old.md": null
+      },
+      "gist_id": "0123456789abcdef0123456789abcdef"
+    }
+  ],
+  "updateIssue": [
+    {
+      "issue_number": 42,
+      "owner": "octocat",
+      "repo": "Hello-World",
+      "state": "closed",
+      "state_reason": "completed"
+    }
+  ],
+  "updateIssueComment": [
+    {
+      "body": "Confirmed after the fix.",
+      "comment_id": 42,
+      "owner": "octocat",
+      "repo": "Hello-World"
+    }
+  ],
+  "updateLabel": [
+    {
+      "color": "5319e7",
+      "name": "bug",
+      "new_name": "needs-triage",
+      "owner": "octocat",
+      "repo": "Hello-World"
+    }
+  ],
+  "updateMilestone": [
+    {
+      "description": "Updated release scope",
+      "milestone_number": 42,
+      "owner": "octocat",
+      "repo": "Hello-World"
+    }
+  ],
+  "updatePull": [
+    {
+      "owner": "octocat",
+      "pull_number": 42,
+      "repo": "Hello-World",
+      "title": "Document all connector inputs"
+    }
+  ],
+  "updatePullBranch": [
+    {
+      "expected_head_sha": "0123456789abcdef0123456789abcdef01234567",
+      "owner": "octocat",
+      "pull_number": 42,
+      "repo": "Hello-World"
+    }
+  ],
+  "updatePullReviewComment": [
+    {
+      "body": "Please also check the optional field.",
+      "comment_id": 42,
+      "owner": "octocat",
+      "repo": "Hello-World"
+    }
+  ],
+  "updateRef": [
+    {
+      "force": false,
+      "owner": "octocat",
+      "ref": "heads/feature/schema-help",
+      "repo": "Hello-World",
+      "sha": "0123456789abcdef0123456789abcdef01234567"
+    }
+  ],
+  "updateRelease": [
+    {
+      "body": "Updated draft release notes.",
+      "owner": "octocat",
+      "release_id": 42,
+      "repo": "Hello-World"
+    }
+  ]
+}

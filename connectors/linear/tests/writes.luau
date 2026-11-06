@@ -29,7 +29,7 @@ return {
 
 		-- Read-write connections send queries with POST too.
 		payload = '{"data":{"teams":{"nodes":[{"id":"t1","key":"ENG"}],"pageInfo":{"hasNextPage":false,"endCursor":"c1"}}}}'
-		local teams = linear.listTeams({first = 10})
+		local teams = fixture.example("listTeams")
 		assert(last().method == "POST" and last().url == API and last().headers.Authorization == nil)
 		assert(last().headers["Content-Type"][1] == "application/json" and last().headers["apollo-require-preflight"] == nil)
 		assert(string.find(sent().query, "^query listTeams%(") and sent().variables.first == 10 and teams.nodes[1].key == "ENG")
@@ -67,7 +67,7 @@ return {
 
 		payload = '{"data":{"issue":{"attachments":{"nodes":[]}}}}'
 		local document = "query($id: String!) { issue(id: $id) { attachments { nodes { title url } } } }"
-		local response = linear.graphql({query = document, variables = {id = "ENG-9"}})
+		local response = fixture.example("graphql")
 		assert(last().method == "POST" and last().body == json.encode({query = document, variables = {id = "ENG-9"}}))
 		assert(json.encode(response.data.issue.attachments.nodes) == "[]" and response.errors == nil)
 		linear.graphql({query = "query A { viewer { id } } query B { teams { nodes { id } } }", operationName = "B"})
@@ -77,6 +77,21 @@ return {
 		linear.graphql({query = "{ viewer { id } }", variables = NULL})
 		assert(string.find(last().body, '"variables":{}', 1, true), "null variables are omitted")
 		assert(#requests == 10)
+
+		-- Every documented mutation runs against the real request builder with a mocked provider.
+		for _, case in {
+			{"createIssue", "issueCreate", {input = {teamId = "00000000-0000-4000-8000-000000000001", title = "Crash on login", description = "Steps:\n1. Sign in", priority = 2}}},
+			{"updateIssue", "issueUpdate", {id = "ENG-9", input = {stateId = "00000000-0000-4000-8000-000000000004", assigneeId = NULL}}},
+			{"createComment", "commentCreate", {input = {issueId = "00000000-0000-4000-8000-000000000003", body = "Fixed in #42"}}},
+		} do
+			payload = json.encode({data = {[case[2]] = {success = true}}})
+			local before = #requests
+			assert(fixture.example(case[1]).success)
+			assert(#requests == before + 1 and last().method == "POST")
+			assert(string.find(sent().query, "^mutation " .. case[1]))
+			assert(json.encode(sent().variables) == json.encode(case[3]), last().body)
+		end
+
 
 		rejected(function() linear.createIssue({}) end, "input is required")
 		rejected(function() linear.createIssue({input = {"t1"}}) end, "input must be an object, not an array")

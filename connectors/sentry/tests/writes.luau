@@ -33,7 +33,7 @@ return {
 			"wrong read-write surface: " .. table.concat(names, ","))
 
 		payload = '{"id":"1001","status":"resolved","statusDetails":{"inNextRelease":true},"assignedTo":null}'
-		local issue = sentry.updateIssue({issue_id = "1001", status = "resolved", statusDetails = {inNextRelease = true}})
+		local issue = fixture.example("updateIssue")
 		sent("PUT", ISSUE, {status = "resolved", statusDetails = {inNextRelease = true}})
 		assert(issue.status == "resolved" and issue.assignedTo == NULL)
 
@@ -48,7 +48,7 @@ return {
 		sent("PUT", "https://de.sentry.io/api/0/organizations/acme/issues/WEB-1A/", {assignedTo = ""})
 
 		status, payload = 201, '{"id":"5","type":"note","data":{"text":"Fixed in #42"},"dateCreated":"2026-10-30T08:00:00Z"}'
-		local comment = sentry.addIssueComment({issue_id = "1001", text = "Fixed in #42"})
+		local comment = fixture.example("addIssueComment")
 		sent("POST", ISSUE .. "comments/", {text = "Fixed in #42"})
 		assert(comment.id == "5" and comment.data.text == "Fixed in #42")
 		assert(#requests == 5)

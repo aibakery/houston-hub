@@ -17,7 +17,7 @@ return {
 	run = function(c)
 		local API = "https://gmail.googleapis.com/gmail/v1/users/me"
 		responses = {{body = '{"resultSizeEstimate":0}'}, {body = '{"messages":[{"id":"m1","threadId":"t1"}],"nextPageToken":"next+1"}'}}
-		local empty = c.listMessages({q = "from:ana@example.com is:unread"})
+		local empty = fixture.example("listMessages")
 		assert(json.encode(empty.messages) == "[]", "absent lists must be empty arrays")
 		assert(requests[1].url == API .. "/messages?q=from%3Aana%40example.com%20is%3Aunread", requests[1].url)
 		local page = c.listMessages({labelIds = {"INBOX", "UNREAD"}, maxResults = 2, pageToken = "start+1"})
@@ -40,7 +40,7 @@ return {
 			}},
 		}
 		responses = {{body = json.encode(full)}}
-		local message = c.getMessage({id = "m1"})
+		local message = fixture.example("getMessage")
 		assert(requests[3].url == API .. "/messages/m1?format=full", requests[3].url)
 		assert(message.from == "Ana <ana@example.com>" and message.to == "me@example.com" and message.subject == "Plans" and message.messageId == "<a1@example.com>")
 		assert(message.body == "Héllo there!" and message.bodyTruncated == false and message.payload == nil)
@@ -67,19 +67,19 @@ return {
 			table.insert(responses, {body = json.encode({id = "id" .. i, threadId = "t", payload = {headers = {{name = "Subject", value = "S" .. i}}}})})
 		end
 		local before = #requests
-		local batch = c.getMessages({ids = ids, format = "metadata", metadataHeaders = {"Subject"}})
+		local batch = fixture.example("getMessages")
 		assert(#batch == 12 and #requests == before + 12)
 		for i = 1, 12 do assert(batch[i].id == "id" .. i and batch[i].subject == "S" .. i) end
 		assert(requests[before + 1].url == API .. "/messages/id1?format=metadata&metadataHeaders=Subject", requests[before + 1].url)
 
 		responses = {{body = json.encode({id = "t1", historyId = "9", messages = {full, latin}})}, {body = json.encode({id = "d1", message = full})}}
-		local thread = c.getThread({id = "t1"})
+		local thread = fixture.example("getThread")
 		assert(thread.id == "t1" and #thread.messages == 2 and thread.messages[1].body == "Héllo there!" and thread.messages[2].body == "café <b>ok</b>")
-		local draft = c.getDraft({id = "d1"})
+		local draft = fixture.example("getDraft")
 		assert(draft.id == "d1" and draft.message.subject == "Plans")
 
 		responses = {{body = '{"labels":[{"id":"Label_2","name":"Work","type":"user"},{"id":"INBOX","name":"INBOX","type":"system"}]}'}}
-		local folders = c.listMailFolders()
+		local folders = fixture.example("listMailFolders")
 		assert(#folders == 2 and folders[1].id == "INBOX" and folders[2].name == "Work" and folders[2].type == nil)
 		responses = {{body = '{"labels":[{"id":"A","name":"One"},{"id":"A","name":"Two"}]}'}}
 		assert(not pcall(c.listMailFolders), "duplicate label IDs accepted")

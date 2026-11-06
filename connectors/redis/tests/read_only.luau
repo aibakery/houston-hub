@@ -11,7 +11,7 @@ return {
 	end,
 	run = function(exports)
 		assert(exports.execute == nil, "read-only access must not expose execute")
-		assert(exports.query("HGETALL", "user:42").name == "Ada")
+		assert(fixture.example("query").name == "Ada")
 		local request = requests[1]
 		assert(request.readOnly == true and request.args[1] == "HGETALL" and request.args[2] == "user:42" and #request.args == 2)
 	end,

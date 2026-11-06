@@ -220,40 +220,20 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 	return decode(name, await(http.request({method = endpoint.method, url = API .. path, headers = headers, body = body})))
 end
 
-local function signature(endpoint: Endpoint): string
-	local fields: {string} = {}
-	for field in string.gmatch(endpoint.path, "{([%w_]+)}") do table.insert(fields, field) end
-	if endpoint.signature then
-		table.insert(fields, endpoint.signature)
-	elseif endpoint.method == "GET" or endpoint.method == "DELETE" then
-		table.insert(fields, "...query?")
-	else
-		table.insert(fields, "...fields")
-	end
-	return "({" .. table.concat(fields, ", ") .. "})"
-end
-
--- Reads, plus writes and sensitive reads on read-write connections, and help listing them
--- after intro.
-local function operations(endpoints: {[string]: Endpoint}, call: (string, Endpoint, Options?) -> any, intro: {string}): {[string]: any}
+-- Register the configured surface once; the same selection owns its documentation.
+local function operations(endpoints: {[string]: Endpoint}, call: (string, Endpoint, Options?) -> any, intro: {string}, documentation: any): {[string]: any}
 	local exports: {[string]: any} = {}
+	local configured: {[string]: Endpoint} = {}
 	for name, endpoint in endpoints do
 		if (endpoint.method == "GET" and not endpoint.sensitive) or config.access == "read-write" then
 			exports[name] = function(args: Options?): any return call(name, endpoint, args) end
+			configured[name] = endpoint
 		end
 	end
-	exports.help = function(): string
-		local names: {string} = {}
-		for name in exports do if name ~= "help" then table.insert(names, name) end end
-		table.sort(names)
-		local lines = table.clone(intro)
-		table.insert(lines, "Each function below names its route and its reference page, " .. DOCS .. "<page>/, which lists fields, filters and response shapes.")
-		for _, name in names do
-			local endpoint = endpoints[name]
-			table.insert(lines, name .. signature(endpoint) .. ": " .. endpoint.method .. " " .. endpoint.path .. " (" .. endpoint.doc .. ")")
-		end
-		return table.concat(lines, "\n")
-	end
+	local docs = require("lib/help.luau").build(PROVIDER, DOCS, configured, require("lib/route-schemas.luau"), require("lib/examples.luau"), META_QUERY, documentation)
+	exports.help = {text = table.concat(intro, "\n\n"), functions = docs, sections = {
+		schemas = "Fields follow the provider's public reference-site schema. WordPress/WooCommerce versions and installed extensions can add fields or change availability; the connected site's validation and permissions still apply. Query values are scalars or nonempty scalar arrays. Pass nested objects only in JSON bodies. Unknown provider extension fields are forwarded where this connection permits them.",
+	}}
 	return exports
 end
 -- End of the shared request layer.
@@ -264,4 +244,17 @@ return operations(endpoints, request, {
 	"Examples: listOrders({status={'processing','on-hold'}, after='2026-10-01T00:00:00', per_page=50}); getOrder({id=123}); listProducts({search='mug', stock_status='instock', _fields='id,name,price,stock_quantity'}); getSalesReport({period='month'}); updateOrder({id=123, status='completed'}); createOrderNote({order_id=123, note='Shipped', customer_note=true}); runSystemStatusTool({id='clear_transients', confirm=true}).",
 	"Read-only connections omit writes and the settings, payment gateway and webhook functions, whose responses can contain payment credentials and webhook secrets; treat those values as sensitive. The API key's own Read/Write permission and its WordPress user's role also apply. Orders, products and coupons move to the trash unless force=true; resources that cannot be trashed require force=true. Batch functions take create/update/delete arrays (100 objects in total by default; batchSettings accepts only update) and report failures per item: check each entry's error. Pass json.decode('[]') for empty arrays and json.decode('null') to clear nullable fields.",
 	"Side effects: createOrderRefund refunds through the payment gateway unless api_refund=false, so money moves; previewOrderRefund calculates one without creating it (WooCommerce 11.1+). sendOrderEmail, sendOrderDetails, order status changes and customer notes can email customers. runSystemStatusTool runs maintenance tools, such as clearing caches or regenerating data. Houston waits and retries HTTP 429 at most twice unless Retry-After asks for more than 5 seconds; nothing else is retried: after a timeout or 5xx, read the resource again before repeating a write. A remaining 429 usually comes from the store's host firewall rather than WooCommerce: space calls out and prefer fewer, larger ones, such as one updateProduct with every tag or a batch function, over one call per item. Errors report the HTTP status, WooCommerce code, message, invalid parameters, Retry-After, the Server header and the start of non-JSON bodies; a 401 usually means the key lacks permission or the web server drops the Authorization header.",
+}, {
+	previewOrderRefund = {description = "Calculate a refund for line_items without creating it or moving money (WooCommerce 11.1+). Check the amounts before createOrderRefund."},
+	createOrderRefund = {description = "Create an order refund. api_refund defaults to true and can move money through the payment gateway; set false for a manual/offline refund. Recheck the order after a timeout before retrying."},
+	sendOrderEmail = {description = "Send the selected order email template to the customer (or email override). listOrderEmailTemplates supplies template IDs. This sends a real email and should not be retried blindly."},
+	sendOrderDetails = {description = "Email the customer's order details, optionally overriding email. This can notify a customer again when repeated."},
+	listOrderEmailTemplates = {description = "List email templates available for this order; use their IDs with sendOrderEmail."},
+	duplicateProduct = {description = "Duplicate a product as a new product. Inspect the returned ID and status before publishing or retrying."},
+	listProductCustomFieldNames = {description = "List custom-field names already recorded on products; availability depends on the store's version and extensions."},
+	runSystemStatusTool = {description = "Execute one maintenance tool with confirm=true, such as clear_transients. Read getSystemStatusTool first to inspect what it changes. Other tools can delete or regenerate data."},
+	createOrder = {description = "Create an order with native billing, shipping, product line_items, fees and coupons. Payment flags and status can affect stock, payment records and customer emails."},
+	updateOrder = {description = "Update order fields and line items. Include an existing line item's id to modify it. Status changes can affect stock and email customers."},
+	createOrderNote = {description = "Add an order note. customer_note=true makes it customer-visible and can email the customer; omit it for an internal note."},
+	batchSettings = {description = "Update settings in a group using only the update array, each entry containing id and value. Settings can include credentials; inspect per-item errors."},
 })

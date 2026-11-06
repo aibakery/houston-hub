@@ -40,8 +40,8 @@ return {
 
 		woo.createOrderRefund({order_id = 42, amount = "5.00", api_refund = false})
 		assert(last().url == API .. "/orders/42/refunds" and sent().api_refund == false)
-		woo.previewOrderRefund({order_id = 42, line_items = {{id = 7, quantity = 1}}})
-		assert(last().method == "POST" and last().url == API .. "/orders/42/refunds/preview" and sent().line_items[1].id == 7)
+		fixture.example("previewOrderRefund")
+		assert(last().method == "POST" and last().url == API .. "/orders/42/refunds/preview" and sent().line_items[1].line_item_id == 7)
 		woo.sendOrderEmail({order_id = 42, template_id = "customer_invoice"})
 		assert(last().url == API .. "/orders/42/actions/send_email" and sent().template_id == "customer_invoice" and sent().order_id == nil)
 		woo.duplicateProduct({id = 9})

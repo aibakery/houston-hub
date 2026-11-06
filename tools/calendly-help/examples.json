@@ -1,0 +1,379 @@
+{
+  "cancelScheduledEvent": [
+    {
+      "event": "E1",
+      "reason": "Scheduling conflict"
+    }
+  ],
+  "createContact": [
+    {
+      "emails": [
+        {
+          "email": "ana@example.com",
+          "is_primary": true
+        }
+      ],
+      "name": "Ana"
+    }
+  ],
+  "createEventType": [
+    {
+      "active": false,
+      "duration": 30,
+      "name": "Project discussion",
+      "owner": "https://api.calendly.com/users/U1"
+    }
+  ],
+  "createInvitee": [
+    {
+      "event_guests": [],
+      "event_type": "https://api.calendly.com/event_types/T1",
+      "invitee": {
+        "email": "ana@example.com",
+        "name": "Ana",
+        "timezone": "Europe/Paris"
+      },
+      "location": {
+        "kind": "zoom_conference"
+      },
+      "start_time": "2030-11-10T09:00:00Z"
+    }
+  ],
+  "createInviteeNoShow": [
+    {
+      "invitee": "https://api.calendly.com/scheduled_events/E1/invitees/I1"
+    }
+  ],
+  "createOneOffEventType": [
+    {
+      "date_setting": {
+        "days": 7,
+        "only_weekdays": true,
+        "type": "days_in_future"
+      },
+      "duration": 30,
+      "host": "https://api.calendly.com/users/U1",
+      "name": "Project discussion"
+    }
+  ],
+  "createSchedulingLink": [
+    {
+      "max_event_count": 1,
+      "owner": "https://api.calendly.com/event_types/T1",
+      "owner_type": "EventType"
+    }
+  ],
+  "createShare": [
+    {
+      "event_type": "https://api.calendly.com/event_types/T1",
+      "name": "Project review"
+    }
+  ],
+  "createWebhookSubscription": [
+    {
+      "events": [
+        "invitee.created"
+      ],
+      "organization": "https://api.calendly.com/organizations/O1",
+      "scope": "organization",
+      "url": "https://example.com/calendly-events"
+    }
+  ],
+  "deleteContact": [
+    {
+      "contact": "C1"
+    }
+  ],
+  "deleteInviteeNoShow": [
+    {
+      "no_show": "N1"
+    }
+  ],
+  "deleteMeetingRecap": [
+    {
+      "recap": "R1"
+    }
+  ],
+  "deleteWebhookSubscription": [
+    {
+      "webhook": "W1"
+    }
+  ],
+  "getContact": [
+    {
+      "contact": "C1"
+    }
+  ],
+  "getContactCustomField": [
+    {
+      "field": "F1"
+    }
+  ],
+  "getCurrentUser": [
+    {}
+  ],
+  "getEventType": [
+    {
+      "event_type": "E1"
+    }
+  ],
+  "getEventTypeAvailability": [
+    {
+      "event_type": "https://api.calendly.com/event_types/T1"
+    }
+  ],
+  "getGroup": [
+    {
+      "group": "G1"
+    }
+  ],
+  "getGroupRelationship": [
+    {
+      "relationship": "R1"
+    }
+  ],
+  "getInvitee": [
+    {
+      "event": "E1",
+      "invitee": "I1"
+    }
+  ],
+  "getInviteeNoShow": [
+    {
+      "no_show": "N1"
+    }
+  ],
+  "getMeetingRecap": [
+    {
+      "recap": "R1"
+    }
+  ],
+  "getMeetingRecapTranscript": [
+    {
+      "recap": "R1"
+    }
+  ],
+  "getOrganization": [
+    {
+      "organization": "O1"
+    }
+  ],
+  "getOrganizationInvitation": [
+    {
+      "invitation": "I1",
+      "organization": "O1"
+    }
+  ],
+  "getOrganizationMembership": [
+    {
+      "membership": "M1"
+    }
+  ],
+  "getRoutingForm": [
+    {
+      "form": "F1"
+    }
+  ],
+  "getRoutingFormSubmission": [
+    {
+      "submission": "S1"
+    }
+  ],
+  "getSampleWebhookData": [
+    {
+      "event": "invitee.created",
+      "organization": "https://api.calendly.com/organizations/O1",
+      "scope": "organization"
+    }
+  ],
+  "getScheduledEvent": [
+    {
+      "event": "E1"
+    }
+  ],
+  "getTeam": [
+    {
+      "team": "T1"
+    }
+  ],
+  "getUser": [
+    {
+      "user": "U1"
+    }
+  ],
+  "getUserAvailabilitySchedule": [
+    {
+      "schedule": "S1"
+    }
+  ],
+  "getWebhookSubscription": [
+    {
+      "webhook": "W1"
+    }
+  ],
+  "inviteUserToOrganization": [
+    {
+      "email": "ana@example.com",
+      "organization": "O1"
+    }
+  ],
+  "listActivityLogEntries": [
+    {
+      "action": [
+        "Add",
+        "Remove"
+      ],
+      "organization": "https://api.calendly.com/organizations/O1"
+    }
+  ],
+  "listContactCustomFields": [
+    {}
+  ],
+  "listContacts": [
+    {}
+  ],
+  "listEventTypeAvailableTimes": [
+    {
+      "end_time": "2030-11-11T09:00:00Z",
+      "event_type": "https://api.calendly.com/event_types/T1",
+      "start_time": "2030-11-10T09:00:00Z"
+    }
+  ],
+  "listEventTypeHosts": [
+    {
+      "event_type": "https://api.calendly.com/event_types/T1"
+    }
+  ],
+  "listEventTypes": [
+    {
+      "active": true,
+      "user": "https://api.calendly.com/users/U1"
+    }
+  ],
+  "listGroupRelationships": [
+    {
+      "organization": "https://api.calendly.com/organizations/O1"
+    }
+  ],
+  "listGroups": [
+    {
+      "organization": "https://api.calendly.com/organizations/O1"
+    }
+  ],
+  "listInvitees": [
+    {
+      "event": "E1"
+    }
+  ],
+  "listMeetingRecaps": [
+    {}
+  ],
+  "listOrganizationInvitations": [
+    {
+      "organization": "O1"
+    }
+  ],
+  "listOrganizationMemberships": [
+    {
+      "count": 20,
+      "organization": "https://api.calendly.com/organizations/O1"
+    }
+  ],
+  "listOutgoingCommunications": [
+    {
+      "organization": "https://api.calendly.com/organizations/O1"
+    }
+  ],
+  "listRoutingFormSubmissions": [
+    {
+      "form": "https://api.calendly.com/routing_forms/F1"
+    }
+  ],
+  "listRoutingForms": [
+    {
+      "organization": "https://api.calendly.com/organizations/O1"
+    }
+  ],
+  "listScheduledEvents": [
+    {
+      "count": 50,
+      "status": "active",
+      "user": "https://api.calendly.com/users/U1"
+    }
+  ],
+  "listTeams": [
+    {}
+  ],
+  "listUserAvailabilitySchedules": [
+    {
+      "user": "https://api.calendly.com/users/U1"
+    }
+  ],
+  "listUserBusyTimes": [
+    {
+      "end_time": "2030-11-11T09:00:00Z",
+      "start_time": "2030-11-10T09:00:00Z",
+      "user": "https://api.calendly.com/users/U1"
+    }
+  ],
+  "listUserLocations": [
+    {
+      "user": "https://api.calendly.com/users/U1"
+    }
+  ],
+  "listWebhookSubscriptions": [
+    {
+      "organization": "https://api.calendly.com/organizations/O1",
+      "scope": "organization"
+    }
+  ],
+  "removeOrganizationMembership": [
+    {
+      "membership": "M1"
+    }
+  ],
+  "revokeOrganizationInvitation": [
+    {
+      "invitation": "I1",
+      "organization": "O1"
+    }
+  ],
+  "updateContact": [
+    {
+      "company": "ExampleCo",
+      "contact": "C1"
+    }
+  ],
+  "updateEventType": [
+    {
+      "event_type": "E1",
+      "name": "Project review"
+    }
+  ],
+  "updateEventTypeAvailability": [
+    {
+      "availability_rule": {
+        "rules": [
+          {
+            "intervals": [
+              {
+                "from": "09:00",
+                "to": "17:00"
+              }
+            ],
+            "type": "wday",
+            "wday": "monday"
+          }
+        ],
+        "timezone": "Europe/Paris"
+      },
+      "event_type": "https://api.calendly.com/event_types/T1"
+    }
+  ],
+  "updateMeetingRecap": [
+    {
+      "recap": "R1",
+      "summary_md": "# Project review\nWe agreed on the next milestone."
+    }
+  ]
+}

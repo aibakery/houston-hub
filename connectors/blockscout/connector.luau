@@ -1,7 +1,7 @@
 -- Blockscout REST API v2 (https://docs.blockscout.com/devs/apis/rest) on one hosted chain, public and read-only. Arguments and results keep Blockscout's native field names.
 type Options = {[string]: any}
 type Chain = {host: string, name: string, id: number}
-type Endpoint = {name: string, path: string, args: {string}, options: {[string]: string}, list: boolean, about: string}
+type Endpoint = {name: string, path: string, args: {string}, options: {[string]: string}, list: boolean, about: string, example: Options}
 
 -- The manifest's chain options, in its order: each chain's public explorer host, which is the option value, its name and chain ID.
 local CHAINS: {Chain} = {
@@ -59,76 +59,76 @@ local FORMATS = table.freeze({
 
 -- Every export, in help order. args are positional: path placeholders, then required query parameters.
 local ENDPOINTS: {Endpoint} = ({
-	{name = "getAddress", path = "/addresses/{address}", args = {"address"},
+	{name = "getAddress", path = "/addresses/{address}", args = {"address"}, example = {address="0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"},
 		about = "An address: hash, coin_balance (in wei, as a string), exchange_rate (coin price in USD), is_contract, is_verified, name, ens_domain_name, token (when it is a token contract), proxy_type and implementations, creator_address_hash, creation_transaction_hash, public_tags, has_tokens and has_token_transfers. An address the chain has never seen still answers, with a null coin_balance."},
-	{name = "getAddressCounters", path = "/addresses/{address}/counters", args = {"address"},
+	{name = "getAddressCounters", path = "/addresses/{address}/counters", args = {"address"}, example = {address=string.lower("0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045")},
 		about = "Activity counts as strings: transactions_count, token_transfers_count, gas_usage_count and validations_count."},
-	{name = "listAddressTransactions", path = "/addresses/{address}/transactions", args = {"address"}, list = true,
+	{name = "listAddressTransactions", path = "/addresses/{address}/transactions", args = {"address"}, example = {address="0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045",options={filter="from",sort="value",order="desc"}}, list = true,
 		options = {filter = "to from", sort = "block_number value fee", order = "asc desc"},
 		about = "Transactions sent or received by the address, newest first, as in getTransaction. filter = \"to\" keeps incoming, \"from\" outgoing; sort and order change the order. Contract calls made inside other transactions are in listAddressInternalTransactions, token movements in listAddressTokenTransfers."},
-	{name = "listAddressTokenTransfers", path = "/addresses/{address}/token-transfers", args = {"address"}, list = true,
+	{name = "listAddressTokenTransfers", path = "/addresses/{address}/token-transfers", args = {"address"}, example = {address="0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045",options={filter="to",type={"ERC-20","ERC-721"},token="0xdAC17F958D2ee523a2206206994597C13D831ec7"}}, list = true,
 		options = {filter = "to from", type = "@tokens", token = "@address"},
 		about = "Token transfers to or from the address, newest first: from, to, token, total ({value, decimals} for ERC-20; token_id for NFTs), type (token_transfer, token_minting, token_burning...), method, transaction_hash, log_index, block_number and timestamp. token keeps one token contract."},
-	{name = "listAddressInternalTransactions", path = "/addresses/{address}/internal-transactions", args = {"address"}, list = true,
+	{name = "listAddressInternalTransactions", path = "/addresses/{address}/internal-transactions", args = {"address"}, example = {address="0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045",options={filter="from"}}, list = true,
 		options = {filter = "to from"},
 		about = "Internal transactions (calls and value transfers made by contracts) to or from the address: from, to, value, type (call, create, selfdestruct...), success, error, transaction_hash, index and block_number."},
-	{name = "listAddressLogs", path = "/addresses/{address}/logs", args = {"address"}, list = true,
+	{name = "listAddressLogs", path = "/addresses/{address}/logs", args = {"address"}, example = {address="0xdAC17F958D2ee523a2206206994597C13D831ec7",options={topic="0x" .. string.rep("dd",32)}}, list = true,
 		options = {topic = "@topic"},
 		about = "Event logs the contract at the address emitted, newest first, as in listTransactionLogs. topic keeps the logs with that topic, such as an event signature hash."},
-	{name = "listAddressTokens", path = "/addresses/{address}/tokens", args = {"address"}, list = true,
+	{name = "listAddressTokens", path = "/addresses/{address}/tokens", args = {"address"}, example = {address="0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045",options={type="ERC-20"}}, list = true,
 		options = {type = "@tokens"},
 		about = "Token balances of the address, highest fiat value first: each item has token (address_hash, name, symbol, decimals, type, exchange_rate, holders_count), value (in the token's smallest unit, as a string: divide by 10^decimals) and token_id for NFTs. Known scam tokens are left out."},
-	{name = "listAddressCoinBalanceHistory", path = "/addresses/{address}/coin-balance-history", args = {"address"}, list = true,
+	{name = "listAddressCoinBalanceHistory", path = "/addresses/{address}/coin-balance-history", args = {"address"}, example = {address="0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045",options={page={block_number=26111475,items_count=50}}}, list = true,
 		about = "Changes of the address's native coin balance, newest first: block_number, block_timestamp, value (the balance after the change, in wei), delta and transaction_hash."},
-	{name = "listAddressNFTs", path = "/addresses/{address}/nft", args = {"address"}, list = true,
+	{name = "listAddressNFTs", path = "/addresses/{address}/nft", args = {"address"}, example = {address="0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045",options={type="ERC-1155"}}, list = true,
 		options = {type = "@tokens"},
 		about = "NFT instances the address holds: id (the token ID), token, token_type, value (count held, for ERC-1155), metadata, image_url, animation_url and owner."},
-	{name = "listTransactions", path = "/transactions", args = {}, list = true,
+	{name = "listTransactions", path = "/transactions", args = {}, example = {filter="pending"}, list = true,
 		options = {filter = "validated pending"},
 		about = "The chain's latest transactions, newest first, as in getTransaction; filter = \"pending\" lists the mempool where the explorer indexes it."},
-	{name = "getTransaction", path = "/transactions/{hash}", args = {"hash"},
+	{name = "getTransaction", path = "/transactions/{hash}", args = {"hash"}, example = {hash="0x" .. string.rep("ab", 32)},
 		about = "A transaction: hash, status (ok or error), result, revert_reason, block_number, timestamp, confirmations, from and to (address objects with hash, name, is_contract), value and fee ({type, value}) in wei, gas_used, gas_limit, gas_price, nonce, position, method (the called function's name), decoded_input ({method_call, method_id, parameters}) when the contract is verified, raw_input, token_transfers (at most 50, with token_transfers_overflow true when there are more) and transaction_types."},
-	{name = "listTransactionLogs", path = "/transactions/{hash}/logs", args = {"hash"}, list = true,
+	{name = "listTransactionLogs", path = "/transactions/{hash}/logs", args = {"hash"}, example = {hash="0x" .. string.rep("AB",32)}, list = true,
 		about = "The transaction's event logs: address, topics, data, index, block_number, transaction_hash and decoded ({method_call, method_id, parameters}) when the emitting contract is verified."},
-	{name = "listTransactionTokenTransfers", path = "/transactions/{hash}/token-transfers", args = {"hash"}, list = true,
+	{name = "listTransactionTokenTransfers", path = "/transactions/{hash}/token-transfers", args = {"hash"}, example = {hash="0x" .. string.rep("ab", 32),options={type="ERC-721"}}, list = true,
 		options = {type = "@tokens"},
 		about = "Every token transfer of the transaction, as in listAddressTokenTransfers."},
-	{name = "listTransactionInternalTransactions", path = "/transactions/{hash}/internal-transactions", args = {"hash"}, list = true,
+	{name = "listTransactionInternalTransactions", path = "/transactions/{hash}/internal-transactions", args = {"hash"}, example = {hash="0x" .. string.rep("ab", 32),options={page={index=2,block_number=1,transaction_index=107}}}, list = true,
 		about = "The transaction's internal transactions, as in listAddressInternalTransactions."},
-	{name = "getTransactionSummary", path = "/transactions/{hash}/summary", args = {"hash"},
+	{name = "getTransactionSummary", path = "/transactions/{hash}/summary", args = {"hash"}, example = {hash="0x" .. string.rep("ab", 32)},
 		about = "Blockscout's human-readable summary of what the transaction did: `{success, data = {summaries}}`, where each summary has a summary_template such as \"{action_type} {amount} {token} to {to_address}\" and the summary_template_variables to fill it with. summaries is empty when Blockscout has no interpretation. It can fail as retryable while the explorer is busy."},
-	{name = "listBlocks", path = "/blocks", args = {}, list = true,
+	{name = "listBlocks", path = "/blocks", args = {}, example = {type="reorg"}, list = true,
 		options = {type = "block uncle reorg"},
 		about = "The latest blocks, newest first, as in getBlock. type = \"uncle\" or \"reorg\" lists blocks outside the canonical chain."},
-	{name = "getBlock", path = "/blocks/{block}", args = {"block"},
+	{name = "getBlock", path = "/blocks/{block}", args = {"block"}, example = {block=26303681},
 		about = "A block by number or hash: height, hash, parent_hash, timestamp, miner, transactions_count, internal_transactions_count, gas_used, gas_limit, base_fee_per_gas, burnt_fees, priority_fee, transaction_fees, rewards, size and withdrawals_count."},
-	{name = "listBlockTransactions", path = "/blocks/{block}/transactions", args = {"block"}, list = true,
+	{name = "listBlockTransactions", path = "/blocks/{block}/transactions", args = {"block"}, example = {block=26303681,options={type="contract_call"}}, list = true,
 		options = {type = "coin_transfer contract_call contract_creation token_transfer token_creation"},
 		about = "The block's transactions in block order, as in getTransaction; type keeps one kind."},
-	{name = "listTokens", path = "/tokens", args = {}, list = true,
+	{name = "listTokens", path = "/tokens", args = {}, example = {q="usd",type="ERC-20",sort="holders_count",order="asc"}, list = true,
 		options = {q = "@text", type = "@tokens", sort = "fiat_value holders_count circulating_market_cap", order = "asc desc"},
 		about = "Tokens on the chain, by default by market cap and then holders, largest first: address_hash, name, symbol, type, decimals, total_supply, holders_count, exchange_rate, circulating_market_cap and volume_24h. q matches names and symbols. A sort other than the default can take 15 to 25 s on a large chain such as Ethereum, close to the time limit."},
-	{name = "getToken", path = "/tokens/{address}", args = {"address"},
+	{name = "getToken", path = "/tokens/{address}", args = {"address"}, example = {address="0xdAC17F958D2ee523a2206206994597C13D831ec7"},
 		about = "A token contract, with the fields of listTokens plus icon_url and reputation."},
-	{name = "getTokenCounters", path = "/tokens/{address}/counters", args = {"address"},
+	{name = "getTokenCounters", path = "/tokens/{address}/counters", args = {"address"}, example = {address="0xdAC17F958D2ee523a2206206994597C13D831ec7"},
 		about = "token_holders_count and transfers_count, as strings."},
-	{name = "listTokenHolders", path = "/tokens/{address}/holders", args = {"address"}, list = true,
+	{name = "listTokenHolders", path = "/tokens/{address}/holders", args = {"address"}, example = {address="0xdAC17F958D2ee523a2206206994597C13D831ec7"}, list = true,
 		about = "Holders of the token, largest first: address (an address object), value (in the token's smallest unit) and token_id for ERC-1155."},
-	{name = "listTokenTransfers", path = "/tokens/{address}/transfers", args = {"address"}, list = true,
+	{name = "listTokenTransfers", path = "/tokens/{address}/transfers", args = {"address"}, example = {address="0xdAC17F958D2ee523a2206206994597C13D831ec7"}, list = true,
 		about = "Transfers of the token, newest first, as in listAddressTokenTransfers."},
-	{name = "listTokenInstances", path = "/tokens/{address}/instances", args = {"address"}, list = true,
+	{name = "listTokenInstances", path = "/tokens/{address}/instances", args = {"address"}, example = {address="0xBC4CA0EdA7647A8Ab7C2061c2E118a18a936f13D",options={holder_address_hash="0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"}}, list = true,
 		options = {holder_address_hash = "@address"},
 		about = "Instances of an NFT collection, as in getTokenInstance without token. holder_address_hash keeps those one address holds."},
-	{name = "getTokenInstance", path = "/tokens/{address}/instances/{token_id}", args = {"address", "token_id"},
+	{name = "getTokenInstance", path = "/tokens/{address}/instances/{token_id}", args = {"address", "token_id"}, example = {address="0xBC4CA0EdA7647A8Ab7C2061c2E118a18a936f13D",token_id="7"},
 		about = "One NFT: id, token, owner, metadata (the token URI's JSON, such as name, description and attributes), image_url, animation_url and external_app_url."},
-	{name = "listSmartContracts", path = "/smart-contracts", args = {}, list = true,
+	{name = "listSmartContracts", path = "/smart-contracts", args = {}, example = {q="Uniswap",filter="solidity"}, list = true,
 		options = {q = "@text", filter = LANGUAGES},
 		about = "Verified contracts, most recently verified first: address, compiler_version, language, license_type, optimization_enabled, verified_at, coin_balance and transactions_count. q matches contract names and addresses; filter keeps one source language. There is no sort: Blockscout times out sorting verified contracts by balance or transactions."},
-	{name = "getSmartContract", path = "/smart-contracts/{address}", args = {"address"},
+	{name = "getSmartContract", path = "/smart-contracts/{address}", args = {"address"}, example = {address="0xdAC17F958D2ee523a2206206994597C13D831ec7"},
 		about = "A verified contract's source and ABI: name, language, compiler_version, evm_version, optimization_enabled, optimization_runs, license_type, source_code, file_path, additional_sources ({file_path, source_code}), abi (an array), constructor_args, decoded_constructor_args, compiler_settings, verified_at, is_verified, is_fully_verified, proxy_type and implementations (the logic contracts of a proxy, whose own source getSmartContract returns). Bytecode is included too, so a large contract can be several hundred KB. A contract without verified source still answers, with is_verified false, its bytecode and proxy fields, and no source_code or abi; an address without code fails with HTTP 404."},
-	{name = "search", path = "/search", args = {"q"}, list = true,
+	{name = "search", path = "/search", args = {"q"}, example = {q="USD Coin"}, list = true,
 		about = "Searches addresses, tokens, contracts, blocks, transactions and ENS names. Each item has type (address, contract, token, block, transaction, ens_domain...) and its fields, such as address_hash, name, symbol and token_type, or block_number and transaction_hash. q is a name, symbol, address, hash or block number. A broad text search can take long on a large chain and then fails as retryable; prefer exact names or addresses."},
-	{name = "getStats", path = "/stats", args = {},
+	{name = "getStats", path = "/stats", args = {}, example = {},
 		about = "Chain statistics: total_blocks, total_addresses, total_transactions, transactions_today, average_block_time (ms), coin_price (USD), market_cap, gas_prices ({slow, average, fast} in gwei) and network_utilization_percentage."},
 } :: {Options}) :: any
 
@@ -329,18 +329,62 @@ local function fetch(operation: string, target: string): any
 end
 
 local exports: {[string]: any} = {}
-local sections: {string} = {}
+local docs: {[string]: any} = {}
+local addressSchema: any = {type = "string", pattern = "^0x[0-9a-fA-F]{40}$"}
+local hashSchema: any = {type = "string", pattern = "^0x[0-9a-fA-F]{64}$"}
+local textSchema: any = {type = "string", pattern = "\\S", description = "Nonblank text, at most " .. tostring(MAX_TEXT) .. " UTF-8 bytes."}
+local integerSchema: any = {type = "integer", minimum = 0, exclusiveMaximum = 2 ^ 53}
 
-local function optionHelp(endpoint: Endpoint): string
-	local names: {string} = {}
-	for name in endpoint.options do table.insert(names, name) end
-	table.sort(names)
-	local parts: {string} = {}
-	for _, name in names do
-		local kind = endpoint.options[name]
-		table.insert(parts, name .. ": " .. (FORMATS[kind] or string.gsub(kind, " ", ", ")))
+local function positionalSchema(name: string): any
+	if name == "address" then return addressSchema end
+	if name == "hash" then return hashSchema end
+	if name == "block" then
+		return {anyOf = {integerSchema, hashSchema, {type = "string", pattern = "^[0-9]{1,16}$"}}, description = "Block height as an integer or decimal string, or block hash."}
 	end
-	return if #parts > 0 then " Options: " .. table.concat(parts, "; ") .. "." else ""
+	if name == "token_id" then
+		return {anyOf = {integerSchema, {type = "string", pattern = "^[0-9]{1,78}$"}}, description = "Token ID. Use a decimal string for IDs at or above 2^53 to preserve every digit."}
+	end
+	return textSchema
+end
+
+local function optionSchema(kind: string): any
+	if kind == "@address" then return addressSchema end
+	if kind == "@topic" then return hashSchema end
+	if kind == "@text" then return textSchema end
+	if kind == "@tokens" then
+		local token = {type = "string", enum = TOKEN_TYPES}
+		return {anyOf = {token :: any, {type = "array", minItems = 1, items = token}}, description = "One token type or a nonempty array, sent comma-separated."}
+	end
+	return {type = "string", enum = string.split(kind, " ")}
+end
+
+local function documentation(endpoint: Endpoint, takesOptions: boolean): any
+	local properties: {[string]: any} = {}
+	for name, kind in endpoint.options do properties[name] = optionSchema(kind) end
+	if endpoint.list then
+		properties.page = {type = "object", maxProperties = MAX_PAGE_KEYS, propertyNames = {maxLength = 64,
+			pattern = "^[a-z][a-z0-9_]*(\\[[a-z0-9_]+\\])?$", ["not"] = {enum = {"key", "apikey"}}},
+			properties = table.clone(properties), additionalProperties = {anyOf = {
+				{type = "string", maxLength = MAX_PAGE_VALUE} :: any,
+				{type = "number", exclusiveMinimum = -(2 ^ 53), exclusiveMaximum = 2 ^ 53}, {type = {"boolean", "null"}},
+			}}, description = "Copy next_page_params from the previous response and repeat its options. Any option also present here must match. Cursor strings are limited to " .. tostring(MAX_PAGE_VALUE) .. " UTF-8 bytes; bracketed keys are supported."}
+	end
+	local input: any = {type = "object", properties = properties, additionalProperties = false}
+	local args: any = nil
+	if #endpoint.args > 0 then
+		local positional: {[string]: any} = {}
+		for _, name in endpoint.args do positional[name] = positionalSchema(name) end
+		args = table.clone(endpoint.args)
+		if takesOptions then positional.options = input; table.insert(args, "options") end
+		input = {type = "object", properties = positional, required = endpoint.args, additionalProperties = false}
+	elseif not takesOptions then args = {} end
+	input.examples = {endpoint.example}
+	local output: any = {type = "object"}
+	if endpoint.list then
+		output.properties = {items = {type = "array"}, next_page_params = {type = "object", description = "Absent on the final page; pass unchanged as options.page."}}
+	end
+	return {description = "GET " .. endpoint.path .. ". " .. endpoint.about .. (if endpoint.list then " Returns one page; see the paging topic for continuation." else ""),
+		args = args, inputSchema = input, outputSchema = output, annotations = {readOnlyHint = true, idempotentHint = true}}
 end
 
 for _, endpoint in ENDPOINTS do
@@ -370,34 +414,19 @@ for _, endpoint in ENDPOINTS do
 		if endpoint.list and result.next_page_params == NULL then result.next_page_params = nil end
 		return result
 	end
-	local signature = table.concat(endpoint.args, ", ")
-	if takesOptions then signature ..= (if signature == "" then "" else ", ") .. "opts?" end
-	table.insert(sections, "## " .. endpoint.name .. "(" .. signature .. ")\n\nGET " .. endpoint.path
-		.. (if endpoint.list then ", a page" else "") .. ". " .. endpoint.about .. optionHelp(endpoint))
+	docs[endpoint.name] = documentation(endpoint, takesOptions)
 end
 
-local function help(): string
+local function help(): any
 	local name = if chain then chain.name .. " (chain ID " .. string.format("%d", chain.id) .. ")" else "an unknown chain"
 	local via = if KEYED then "through the multichain Blockscout API with the connection's API key, which allows 5 requests per second on the free plan and costs credits per call (20 for most, up to 50 for summaries and coin balance history)"
 		else "through the chain's public Blockscout explorer, without a key; every Houston connection shares its rate limit, and some explorers refuse automated requests until a connection admin adds a free Blockscout API key"
-	return [[Blockscout: read ]] .. name .. [[ from its Blockscout block explorer (REST API v2, https://docs.blockscout.com/devs/apis/rest): addresses with balances, tokens and transactions; transactions with logs, token transfers and internal transactions; blocks; tokens, holders and NFTs; verified contract sources and ABIs; search and chain statistics. Requests go ]] .. via .. [[. Read-only: nothing can sign or send a transaction. One connection reads one chain. Calls return completed values; do not wrap them in await(). Results are Blockscout's JSON unchanged. Amounts are integer strings in the smallest unit: wei for the native coin (divide by 10^18), and 10^decimals of the token for tokens; fiat values are current USD prices, never historical.
+	return {text = [[Blockscout: read ]] .. name .. [[ from its Blockscout block explorer (REST API v2, https://docs.blockscout.com/devs/apis/rest): addresses with balances, tokens and transactions; transactions with logs, token transfers and internal transactions; blocks; tokens, holders and NFTs; verified contract sources and ABIs; search and chain statistics. Requests go ]] .. via .. [[. Read-only: nothing can sign or send a transaction. One connection reads one chain. Calls return completed values; do not wrap them in await(). Results are Blockscout's JSON unchanged. Amounts are integer strings in the smallest unit: wei for the native coin (divide by 10^18), and 10^decimals of the token for tokens; fiat values are current USD prices, never historical.
 
-Addresses are 0x and 40 hex digits, in any letter case; transaction and block hashes 0x and 64 hex digits. Each call makes one request. Invalid input and unknown options fail before any request.
-
-## Pages
-
-A call marked "a page" returns `{items, next_page_params}`: up to 50 items, and next_page_params, the keyset of the last item, absent after the last page. For the next page, call again with the same arguments and options plus `page = result.next_page_params`; next_page_params does not always carry the options (such as sort, order, type or filter), so repeat every option. Collect only the pages you need: each call reads one.
-
-]] .. table.concat(sections, "\n\n") .. [[
-
-
-## Errors and limits
-
-Blockscout errors come back as upstream errors with the HTTP status and Blockscout's message: 404 for an unknown transaction, block or token, or a contract address without code, 422 for a value Blockscout rejects (such as an NFT-only type), 429 when the rate limit is reached and 5xx for server faults. 429 and 5xx (except 501, a feature this explorer lacks) are retryable; Houston waits and retries a refused request briefly. Each call reads at most ]] .. tostring(MAX_BYTES // 1048576) .. [[ MiB and gives Blockscout ]] .. tostring(CALL_TIME // 1000) .. [[ s: ]] .. tostring((CALL_TIME - BODY_TIME) // 1000) .. [[ s to start answering and ]] .. tostring(BODY_TIME // 1000) .. [[ s to send the body; a call that runs out of time fails as retryable. Lists of very active addresses, such as their tokens, can take long on large chains.
-
-## Example
-
-Here blockscout is the configured Blockscout connection.
+Addresses are 0x and 40 hex digits, in any letter case; transaction and block hashes 0x and 64 hex digits. Each call makes one request. Invalid input and unknown options fail before any request.]], functions = docs, sections = {
+		paging = [[A call marked "a page" returns `{items, next_page_params}`: up to 50 items, and next_page_params, the keyset of the last item, absent after the last page. For the next page, call again with the same arguments and options plus `page = result.next_page_params`; next_page_params does not always carry the options (such as sort, order, type or filter), so repeat every option. Collect only the pages you need: each call reads one.]],
+		limits = [[Blockscout errors come back as upstream errors with the HTTP status and Blockscout's message: 404 for an unknown transaction, block or token, or a contract address without code, 422 for a value Blockscout rejects (such as an NFT-only type), 429 when the rate limit is reached and 5xx for server faults. 429 and 5xx (except 501, a feature this explorer lacks) are retryable; Houston waits and retries a refused request briefly. Each call reads at most ]] .. tostring(MAX_BYTES // 1048576) .. [[ MiB and gives Blockscout ]] .. tostring(CALL_TIME // 1000) .. [[ s: ]] .. tostring((CALL_TIME - BODY_TIME) // 1000) .. [[ s to start answering and ]] .. tostring(BODY_TIME // 1000) .. [[ s to send the body; a call that runs out of time fails as retryable. Lists of very active addresses, such as their tokens, can take long on large chains.]],
+		workflow = [[Here blockscout is the configured Blockscout connection.
 
 ```lua
 local vitalik = "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"
@@ -414,7 +443,8 @@ local transfers = blockscout.listTransactionTokenTransfers(tx.hash, {type = "ERC
 local holders = blockscout.listTokenHolders("0xdAC17F958D2ee523a2206206994597C13D831ec7")
 local contract = blockscout.getSmartContract("0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984")
 if contract.is_verified then print(contract.name, contract.compiler_version, #contract.abi) end
-```]]
+```]],
+	}}
 end
 
 exports.help = help

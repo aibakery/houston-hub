@@ -38,9 +38,12 @@ should not spread through unrelated helpers. A type annotation does not validate
 an upstream response or untyped caller. Check IDs, integer bounds, required fields
 and provider confirmations before using them.
 
-The connector's pure `help()` is its callable documentation. Keep signatures,
-defaults, pagination, result shapes and mutation behavior accurate, and derive
-the listed operations from the configured exports. Keep the bundle README focused
+Export structured `help` metadata (or a pure zero-argument producer returning it),
+following [the authoring contract](../AUTHORING.md#structured-connector-help).
+Keep descriptions, input/output schemas, valid examples, defaults, provider
+paging and mutation behavior accurate. Register docs and implementations under
+the same configured-access conditions. Houston renders callable instance help;
+connectors do not implement help routing or pagination. Keep the bundle README focused
 on what people can do with the connector.
 
 ## Keep state small and its lifetime explicit

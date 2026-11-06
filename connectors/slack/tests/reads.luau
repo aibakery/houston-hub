@@ -21,7 +21,7 @@ return {
 	end,
 	run = function(slack)
 		responses = {'{"ok":true,"messages":[{"ts":"1790000000.000001","text":"hi"}],"has_more":true,"response_metadata":{"next_cursor":"bmV4dA=="}}'}
-		local history = slack.listMessages("C1", {oldest = "1780000000.000000"})
+		local history = fixture.example("listMessages")
 		assert(history.messages[1].ts == "1790000000.000001" and history.has_more and history.nextCursor == "bmV4dA==")
 		assert(last() == "https://slack.com/api/conversations.history?channel=C1&limit=15&oldest=1780000000.000000")
 
@@ -33,12 +33,12 @@ return {
 		assert(opts.channel == nil and opts.ts == nil, "options are not mutated")
 
 		responses = {'{"ok":true,"messages":{"matches":[{"text":"hi"}],"total":3,"paging":{"page":1,"pages":3}}}'}
-		local found = slack.searchMessages("in:#general hello", {count = 1})
+		local found = fixture.example("searchMessages")
 		assert(found.total == 3 and found.nextPage == 2)
 		assert(last() == "https://slack.com/api/search.messages?count=1&query=in%3A%23general%20hello&sort=timestamp&sort_dir=desc")
 
 		responses = {'{"ok":true,"user_id":"U1"}', '{"ok":true,"messages":{"matches":[],"total":0,"paging":{"page":1,"pages":1}}}'}
-		local mentions = slack.listMentions({query = "in:#general", page = 1})
+		local mentions = fixture.example("listMentions")
 		assert(json.encode(mentions.matches) == "[]" and mentions.nextPage == nil)
 		assert(requests[#requests - 1].url == "https://slack.com/api/auth.test")
 		assert(last() == "https://slack.com/api/search.messages?page=1&query=%3C%40U1%3E%20in%3A%23general&sort=timestamp&sort_dir=desc")
@@ -46,18 +46,18 @@ return {
 		responses = {'{"ok":true,"channel":{"id":"C1","name":"general"}}', '{"ok":true,"user":{"id":"U1"}}',
 			'{"ok":true,"permalink":"https://acme.slack.com/archives/C1/p1"}', '{"ok":true,"members":["U1","U2"]}',
 			'{"ok":true,"members":[{"id":"U1"}],"response_metadata":{"next_cursor":"dXNlcjpVMg=="}}', '{"ok":true,"members":[]}'}
-		assert(slack.getChannel("C1").name == "general" and last() == "https://slack.com/api/conversations.info?channel=C1")
-		assert(slack.getUser("U1").id == "U1" and last() == "https://slack.com/api/users.info?user=U1")
-		assert(slack.getPermalink("C1", "1.2") == "https://acme.slack.com/archives/C1/p1")
+		assert(fixture.example("getChannel").name == "general" and last() == "https://slack.com/api/conversations.info?channel=C1")
+		assert(fixture.example("getUser").id == "U1" and last() == "https://slack.com/api/users.info?user=U1")
+		assert(fixture.example("getPermalink") == "https://acme.slack.com/archives/C1/p1")
 		assert(last() == "https://slack.com/api/chat.getPermalink?channel=C1&message_ts=1.2")
-		assert(#slack.listMembers("C1", {limit = 2}).members == 2 and last() == "https://slack.com/api/conversations.members?channel=C1&limit=2")
-		local users = slack.listUsers()
+		assert(#fixture.example("listMembers").members == 2 and last() == "https://slack.com/api/conversations.members?channel=C1&limit=2")
+		local users = fixture.example("listUsers")
 		assert(users.members[1].id == "U1" and users.nextCursor == "dXNlcjpVMg==" and last() == "https://slack.com/api/users.list?limit=200")
 		assert(json.encode(slack.listMembers("C2").members) == "[]" and last() == "https://slack.com/api/conversations.members?channel=C2")
 
 		local file = '{"ok":true,"file":{"id":"F1","mimetype":"application/pdf","url_private_download":"https://files.slack.com/files-pri/T1-F1/download/report.pdf"}}'
 		responses = {file, {body = "%PDF bytes", headers = {["content-type"] = {"application/pdf"}}}}
-		local saved = slack.downloadFile("F1", "report.pdf")
+		local saved = fixture.example("downloadFile")
 		assert(requests[#requests - 1].url == "https://slack.com/api/files.info?file=F1")
 		assert(last() == "https://files.slack.com/files-pri/T1-F1/download/report.pdf" and requests[#requests].headers == nil)
 		assert(saved.path == "report.pdf" and saved.url == "https://houston.test/report.pdf" and saved.bytes == 10)
@@ -99,5 +99,12 @@ return {
 		assert(string.find(rejected(slack.listMentions, {query = 7}), "query must be", 1, true))
 		assert(string.find(rejected(slack.downloadFile, "F1", ""), "session path must be", 1, true))
 		assert(#responses == 0)
+
+		responses = {'{"ok":true,"user_id":"U1","team_id":"T1","team":"Example"}',
+			'{"ok":true,"file":{"id":"F1","name":"report.pdf"}}', '{"ok":true,"messages":[],"has_more":false}'}
+		assert(fixture.example("getProfile").team_id == "T1" and last() == "https://slack.com/api/auth.test")
+		assert(fixture.example("getFile").name == "report.pdf" and last() == "https://slack.com/api/files.info?file=F1")
+		assert(json.encode(fixture.example("getThread").messages) == "[]")
+		assert(last() == "https://slack.com/api/conversations.replies?channel=C1&cursor=next%2Bone&limit=5&ts=1790000000.000001")
 	end,
 }

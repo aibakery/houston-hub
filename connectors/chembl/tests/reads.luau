@@ -79,29 +79,28 @@ return {
 
 		-- Other resources keep their own row keys and compact fields; empty results stay arrays.
 		respond(page("activities", {}, 0, false))
-		found = chembl.searchActivities({filters = {target_chembl_id = "CHEMBL203", standard_type__in = {"IC50", "Ki"},
-			pchembl_value__gte = 7, potential_duplicate = 0}, order_by = "-pchembl_value"})
+		found = fixture.example("searchActivities")
 		assert(url() == API .. "/activity.json?pchembl_value__gte=7&potential_duplicate=0&standard_type__in=IC50%2CKi"
 			.. "&target_chembl_id=CHEMBL203&order_by=-pchembl_value&only=activity_id%2Cmolecule_chembl_id%2Cmolecule_pref_name"
 			.. "%2Ctarget_chembl_id%2Ctarget_pref_name%2Ctarget_organism%2Cassay_chembl_id%2Cassay_type%2Cdocument_chembl_id"
 			.. "%2Cstandard_type%2Cstandard_relation%2Cstandard_value%2Cstandard_units%2Cpchembl_value&limit=100&offset=0", url())
 		assert(json.encode(found.activities) == "[]" and found.total_count == 0 and found.next_offset == nil)
 		respond(page("targets", {'{"target_chembl_id":"CHEMBL203"}'}, 1, false))
-		found = chembl.searchTargets({filters = {target_components__accession = "P00533"}, fields = {"target_chembl_id"}})
+		found = fixture.example("searchTargets")
 		assert(url() == API .. "/target.json?target_components__accession=P00533&only=target_chembl_id&limit=100&offset=0", url())
 		assert(found.targets[1].target_chembl_id == "CHEMBL203")
 		for _, case in {
-			{fn = chembl.searchAssays, path = "assay/search.json?q=EGFR%20kinase&", key = "assays",
+			{name = "searchAssays", path = "assay/search.json?q=EGFR%20kinase&", key = "assays",
 				args = {q = "EGFR kinase", fields = "all"}, size = 32},
-			{fn = chembl.searchDocuments, path = "document.json?pubmed_id=23028140&", key = "documents",
+			{name = "searchDocuments", path = "document.json?pubmed_id=23028140&", key = "documents",
 				args = {filters = {pubmed_id = 23028140}, fields = "all"}, size = 32},
-			{fn = chembl.searchMechanisms, path = "mechanism.json?parent_molecule_chembl_id=CHEMBL941&", key = "mechanisms",
+			{name = "searchMechanisms", path = "mechanism.json?parent_molecule_chembl_id=CHEMBL941&", key = "mechanisms",
 				args = {filters = {parent_molecule_chembl_id = "CHEMBL941"}, fields = "all"}, size = 32},
-			{fn = chembl.searchDrugIndications, path = "drug_indication.json?efo_term__icontains=fibrillation&", key = "drug_indications",
+			{name = "searchDrugIndications", path = "drug_indication.json?efo_term__icontains=fibrillation&", key = "drug_indications",
 				args = {filters = {efo_term__icontains = "fibrillation"}, fields = {"drugind_id", "efo_term"}, limit = 50}, size = 50},
 		} do
 			respond(page(case.key, {"{}"}, 1, false))
-			local result = case.fn(case.args)
+			local result = fixture.example(case.name)
 			local only = if type(case.args.fields) == "table" then "only=drugind_id%2Cefo_term&" else ""
 			assert(url() == API .. "/" .. case.path .. only .. "limit=" .. case.size .. "&offset=0", url())
 			assert(#result[case.key] == 1 and result.total_count == 1)
@@ -177,7 +176,7 @@ return {
 		-- Structure searches use the query-string form, so SMILES characters such as # and / are encoded.
 		local SIMILAR = MOLECULE .. "%2Csimilarity"
 		respond(page("molecules", {'{"molecule_chembl_id":"CHEMBL25","similarity":"100"}'}, 1, false))
-		found = chembl.similarMolecules({smiles = "CC(=O)Oc1ccccc1C(=O)O"})
+		found = fixture.example("similarMolecules")
 		assert(url() == API .. "/similarity.json?similarity=80&smiles=CC%28%3DO%29Oc1ccccc1C%28%3DO%29O&" .. SIMILAR
 			.. "&limit=100&offset=0", url())
 		assert(found.molecules[1].similarity == "100")
@@ -188,7 +187,7 @@ return {
 			.. SIMILAR .. "&limit=10&offset=0", url())
 		assert(json.encode(found.molecules) == "[]" and found.next_offset == nil)
 		respond(page("molecules", molecules(1, 3), 30000, true))
-		found = chembl.substructureMolecules({smiles = "C#CC/C=C\\c1ccccc1", limit = 3})
+		found = fixture.example("substructureMolecules")
 		assert(url() == API .. "/substructure.json?smiles=C%23CC%2FC%3DC%5Cc1ccccc1&" .. MOLECULE .. "&limit=3&offset=0", url())
 		assert(#found.molecules == 3 and found.total_count == 30000 and found.next_offset == 3)
 		respond(page("molecules", {}, 0, false))
@@ -218,6 +217,29 @@ return {
 		respond('{"molecule_chembl_id":"CHEMBL25"}')
 		chembl.getMolecule("CHEMBL25", {fields = "all"})
 		assert(url() == API .. "/molecule/CHEMBL25.json", url())
+		-- Generated positional examples and both structure-query branches use the real request builders.
+		for _, case in {
+			{name = "getMolecule", path = "molecule/CHEMBL25.json"},
+			{name = "getTarget", path = "target/CHEMBL203.json"},
+			{name = "getAssay", path = "assay/CHEMBL1217643.json"},
+			{name = "getDocument", path = "document/CHEMBL1139451.json"},
+			{name = "getActivity", path = "activity/31863.json"},
+			{name = "getMechanism", path = "mechanism/241.json"},
+			{name = "getDrugIndication", path = "drug_indication/22713.json"},
+		} do
+			respond('{"record":"example"}')
+			assert(fixture.example(case.name).record == "example")
+			assert(url() == API .. "/" .. case.path, url())
+		end
+		respond(page("molecules", {'{"molecule_chembl_id":"CHEMBL941","pref_name":"IMATINIB","max_phase":"4.0"}'}, 1, false))
+		assert(fixture.example("searchMolecules").molecules[1].pref_name == "IMATINIB")
+		assert(url() == API .. "/molecule/search.json?q=imatinib&only=molecule_chembl_id%2Cpref_name%2Cmax_phase&limit=5&offset=0", url())
+		for _, case in {{name = "similarMolecules", path = "similarity", query = "&similarity=80", fields = SIMILAR},
+			{name = "substructureMolecules", path = "substructure", query = "", fields = MOLECULE}} do
+			respond(page("molecules", {}, 0, false))
+			assert(#fixture.example(case.name, 2).molecules == 0)
+			assert(url() == API .. "/" .. case.path .. ".json?chembl_id=CHEMBL25" .. case.query .. "&" .. case.fields .. "&limit=100&offset=0", url())
+		end
 		assert(#responses == 0, "unused responses")
 	end,
 }

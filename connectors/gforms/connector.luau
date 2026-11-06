@@ -132,17 +132,6 @@ local function exportEndpoints(endpoints: {[string]: Endpoint})
 	end
 end
 
--- help() introduces the API, then documents exactly the configured operations.
-local function helpWith(overview: {string}): () -> string
-	return function(): string
-		local names: {string} = {}
-		for name in help do table.insert(names, name) end
-		table.sort(names)
-		local lines = table.clone(overview)
-		for _, name in names do table.insert(lines, help[name]) end
-		return table.concat(lines, "\n")
-	end
-end
 -- End of the shared request layer.
 
 local RESPONSE = "{responseId, createTime, lastSubmittedTime, respondentEmail?, totalScore?, answers?={[questionId]={questionId, textAnswers?={answers={{value}}}, fileUploadAnswers?={answers={{fileId, fileName, mimeType}}}, grade?}}}"
@@ -182,5 +171,29 @@ local overview = {
 if config.access == "read-write" then
 	table.insert(overview, "Writes change a form's content, settings and publishing. An empty Luau table encodes as a JSON object: write an empty array, such as options, as json.decode('[]'). Responses cannot be submitted, edited or deleted, and forms cannot be deleted, renamed in Drive or shared here, including choosing who may respond: use Google Forms or the Google Drive connector. A failed or timed-out write may already have succeeded: check with getForm before repeating it, or pass writeControl={requiredRevisionId=form.revisionId} from getForm to batchUpdate, so a repeat fails with HTTP 400 instead of applying twice.")
 end
-exports.help = helpWith(overview)
+local str = {type = "string"}
+local formId = {type = "string", minLength = 1, description = "Form ID or its https://docs.google.com/forms/d/<id>/edit URL. Responder /d/e/ links and forms.gle links cannot identify an editable form."}
+local formOutput = {type = "object", properties = {formId = str, info = {type = "object", properties = {title = str, documentTitle = str, description = str}},
+	items = {type = "array", items = {type = "object"}}, responderUri = str, revisionId = str}, additionalProperties = true}
+local responseOutput = {type = "object", properties = {responseId = str, createTime = str, lastSubmittedTime = str, respondentEmail = str,
+	totalScore = {type = "number"}, answers = {type = "object", additionalProperties = {type = "object"}}}, additionalProperties = true}
+exports.help = require("lib/help.luau").build(require("lib/discovery-schemas.luau"), endpoints, help, {
+	getForm = {properties = {formId = formId}, examples = {{formId = "https://docs.google.com/forms/d/1FaB_c-9/edit#responses"}}, outputSchema = formOutput},
+	listResponses = {properties = {formId = formId}, examples = {{formId = "https://docs.google.com/forms/u/1/d/f1/edit", filter = "timestamp > 2026-10-01T00:00:00Z", pageSize = 50}},
+		outputSchema = {type = "object", properties = {responses = {type = "array", items = responseOutput}, nextPageToken = str}, required = {"responses"}, additionalProperties = true}},
+	getResponse = {properties = {formId = formId}, examples = {{formId = "f1", responseId = "ACYD"}}, outputSchema = responseOutput},
+	createForm = {inputSchema = {type = "object", properties = {info = {type = "object", properties = {title = {type = "string", minLength = 1}, documentTitle = str},
+		required = {"title"}, additionalProperties = false}, unpublished = {type = "boolean", default = true}}, required = {"info"}, additionalProperties = false},
+		examples = {{info = {title = "Lunch"}}}, outputSchema = formOutput},
+	batchUpdate = {properties = {formId = formId}, examples = {{formId = "https://docs.google.com/forms/d/f1/edit", requests = {
+		{createItem = {item = {title = "Which day?", questionItem = {question = {required = true,
+			choiceQuestion = {type = "RADIO", options = {{value = "Tuesday"}}}}}}, location = {index = 0}}},
+	}, writeControl = {requiredRevisionId = "r1"}} :: any,
+		{formId = "f1", requests = {{updateItem = {item = {title = "Pick a day"}, location = {index = 0}, updateMask = "title"}}}, includeFormInResponse = true}},
+		outputSchema = {type = "object", properties = {replies = {type = "array", items = {type = "object"}},
+		writeControl = {type = "object"}, form = formOutput}, additionalProperties = true}},
+	setPublishSettings = {properties = {formId = formId}, examples = {{formId = "f1", publishSettings = {publishState = {isPublished = true, isAcceptingResponses = false}}, updateMask = "publish_state"}},
+		outputSchema = {type = "object", properties = {formId = str, publishSettings = {type = "object", properties = {
+			publishState = {type = "object", properties = {isPublished = {type = "boolean"}, isAcceptingResponses = {type = "boolean"}}}}}}, additionalProperties = true}},
+}, overview)
 return exports

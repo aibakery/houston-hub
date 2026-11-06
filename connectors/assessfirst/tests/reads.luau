@@ -19,13 +19,13 @@ return {
 	run = function(af)
 		local function get(name, args, url, body)
 			payload = body or "{}"
-			local result = af[name](args)
+			local result = if args == false then fixture.example(name) else af[name](args)
 			assert(request.method == "GET" and request.url == url, name .. " requested " .. request.method .. " " .. request.url)
 			assert(request.body == nil and request.headers.Authorization == nil and request.headers["AF-Token"] == nil)
 			return result
 		end
-		get("listRecruiters", {uuid = C, email = "rh@example.com", page = 1, per_page = 1}, API .. "/recruiters?uuid=" .. C .. "&email=rh%40example.com&page=1&per_page=1")
-		assert(json.encode(get("listCandidateReports", {candidate_uuid = C}, API .. "/candidate/" .. C .. "/reports", "[]")) == "[]", "empty report array lost")
+		get("listRecruiters", false, API .. "/recruiters?uuid=" .. C .. "&email=rh%40example.com&page=1&per_page=1")
+		assert(json.encode(get("listCandidateReports", false, API .. "/candidate/" .. C .. "/reports", "[]")) == "[]", "empty report array lost")
 		local reports = get("listCandidateReports", {candidate_uuid = C}, API .. "/candidate/" .. C .. "/reports",
 			'[{"id":20,"name":"Summary of findings","assessment":"All assessments","web_link":"https://report.assessfirst.com/report/summary_report/' .. C .. '?from=api"}]')
 		assert(reports[1].id == 20 and string.find(reports[1].web_link, "?from=api", 1, true))
@@ -34,37 +34,37 @@ return {
 		for _, link in {{profile .. "?sso=6db2e7", profile}, {profile .. "?sso=6db2e7&tab=voice", profile .. "?tab=voice"},
 			{profile .. "?tab=voice&sso=6db2e7", profile .. "?tab=voice"}, {profile .. "?tab=voice&sso=6db2e7#top", profile .. "?tab=voice#top"},
 			{profile .. "?sso=a&sso=b", profile}, {profile .. "?a=1&sso=a&sso=b&c=2", profile .. "?a=1&c=2"}, {"Why use sso=1? Is it safe?", "Why use sso=1? Is it safe?"}} do
-			local fit = get("getCandidateAdequacies", {candidate_uuid = C, pm_uuid = PM, locale = "en-GB"}, API .. "/candidate/" .. C .. "/adequacies/" .. PM .. "?locale=en-GB",
+			local fit = get("getCandidateAdequacies", false, API .. "/candidate/" .. C .. "/adequacies/" .. PM .. "?locale=en-GB",
 				json.encode({adequacies = {global_adequacy = 14.29}, predict_success_url = link[1]}))
 			assert(fit.predict_success_url == link[2] and fit.adequacies.global_adequacy == 14.29, "kept " .. fit.predict_success_url)
 		end
-		get("getCandidateCompletion", {candidate_uuid = C}, API .. "/candidate/" .. C .. "/completion")
+		get("getCandidateCompletion", false, API .. "/candidate/" .. C .. "/completion")
 		get("getCandidateCompletion", {candidate_uuid = C, pm_uuid = json.decode("null")}, API .. "/candidate/" .. C .. "/completion")
 		local completion = get("getCandidateCompletion", {candidate_uuid = C, pm_uuid = PM}, API .. "/candidate/" .. C .. "/completion?pm_uuid=" .. PM,
 			'{"assessments":{"swipe":"finish","voice":"todo"},"is_completed":false}')
 		assert(completion.assessments.voice == "todo" and completion.is_completed == false)
-		get("getCandidateSynthesis", {candidate_uuid = C}, API .. "/candidate/" .. C .. "/synthesis")
+		get("getCandidateSynthesis", false, API .. "/candidate/" .. C .. "/synthesis")
 		-- PHP answers an empty object as [], which object endpoints pass through.
 		assert(json.encode(get("getCandidateSynthesis", {candidate_uuid = C}, API .. "/candidate/" .. C .. "/synthesis", "[]")) == "[]")
-		get("getCandidateTopCareers", {candidate_uuid = C, type = "full"}, API .. "/candidate/" .. C .. "/career/top?type=full")
-		get("getCandidateOnePager", {candidate_uuid = C, pm_uuid = PM}, API .. "/onepager/candidate/" .. C .. "/results?pm_uuid=" .. PM)
-		get("getVoiceStatus", {candidate_uuid = C, pm_uuid = PM}, API .. "/candidate/" .. C .. "/init-voice/" .. PM)
-		get("listPredictiveModels", {name = "Sales & Ops", is_public = true}, API .. "/predictive-models?name=Sales%20%26%20Ops&is_public=1")
+		get("getCandidateTopCareers", false, API .. "/candidate/" .. C .. "/career/top?type=full")
+		get("getCandidateOnePager", false, API .. "/onepager/candidate/" .. C .. "/results?pm_uuid=" .. PM)
+		get("getVoiceStatus", false, API .. "/candidate/" .. C .. "/init-voice/" .. PM)
+		get("listPredictiveModels", false, API .. "/predictive-models?name=Sales%20%26%20Ops&is_public=1")
 		get("listPredictiveModels", {is_public = false, page = 3}, API .. "/predictive-models?is_public=0&page=3")
-		get("listBenchmarks", {name = "Director"}, API .. "/benchmarks?name=Director")
-		get("listWebhooks", {name = "ATS", url = "https://hooks.example.com/af?x=1"}, API .. "/webhooks?name=ATS&url=https%3A%2F%2Fhooks.example.com%2Faf%3Fx%3D1")
-		get("listGroups", {per_page = 10}, API .. "/groups?per_page=10")
-		get("listGroupUsers", {group_uuid = G}, API .. "/groups/" .. G .. "/users")
+		get("listBenchmarks", false, API .. "/benchmarks?name=Director")
+		get("listWebhooks", false, API .. "/webhooks?name=ATS&url=https%3A%2F%2Fhooks.example.com%2Faf%3Fx%3D1")
+		get("listGroups", false, API .. "/groups?per_page=10")
+		get("listGroupUsers", false, API .. "/groups/" .. G .. "/users")
 
 		contentType = "application/pdf"
 		payload = "%PDF-1.7 report"
-		local report = af.downloadCandidateReport({candidate_uuid = C, report_id = 20, path = "reports/ana.pdf", locale = "fr-FR"})
+		local report = fixture.example("downloadCandidateReport")
 		assert(request.url == API .. "/candidate/" .. C .. "/report/20?locale=fr-FR" and request.headers.Accept == nil)
 		assert(report.path == "reports/ana.pdf" and report.size == #payload and report.contentType == "application/pdf" and type(report.url) == "string")
 		local file = fs.open("reports/ana.pdf", "r")
 		assert(await(file:readAll()) == payload)
 		await(file:close())
-		af.downloadCandidateReport({candidate_uuid = C, report_id = 17, pm_uuid = PM, path = "fit.pdf"})
+		fixture.example("downloadCandidateReport", 2)
 		assert(request.url == API .. "/candidate/" .. C .. "/report/17?pm_uuid=" .. PM)
 
 		contentType = "application/json; charset=utf-8"

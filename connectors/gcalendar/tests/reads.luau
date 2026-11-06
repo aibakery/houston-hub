@@ -22,7 +22,7 @@ return {
 		end
 
 		responses = {'{"items":[{"id":"primary@example.com","accessRole":"owner"}],"nextPageToken":"p+2"}', '{"kind":"calendar#calendarList"}'}
-		local calendars = c.listCalendars({maxResults = 250, minAccessRole = "writer", pageToken = "p+1"})
+		local calendars = fixture.example("listCalendars")
 		assert(calendars.items[1].accessRole == "owner" and calendars.nextPageToken == "p+2")
 		sent("GET", API .. "/users/me/calendarList?maxResults=250&pageToken=p%2B1&minAccessRole=writer")
 		assert(requests[1].body == nil)
@@ -30,18 +30,18 @@ return {
 		sent("GET", API .. "/users/me/calendarList")
 
 		responses = {'{"id":"primary@example.com","timeZone":"Europe/Paris"}', '{"id":"en.usa#holiday@group.v.calendar.google.com"}'}
-		assert(c.getCalendar().timeZone == "Europe/Paris")
+		assert(fixture.example("getCalendar").timeZone == "Europe/Paris")
 		sent("GET", API .. "/calendars/primary")
 		c.getCalendar({calendarId = "en.usa#holiday@group.v.calendar.google.com"})
 		sent("GET", API .. "/calendars/en.usa%23holiday%40group.v.calendar.google.com")
 
 		responses = {'{"calendar":{"1":{"background":"#ac725e","foreground":"#1d1d1d"}},"event":{"11":{"background":"#dc2127","foreground":"#1d1d1d"}}}'}
-		assert(c.getColors().event["11"].background == "#dc2127")
+		assert(fixture.example("getColors").event["11"].background == "#dc2127")
 		sent("GET", API .. "/colors")
 		assert(not pcall(c.getColors, {calendarId = "primary"}), "getColors takes no options")
 
 		responses = {'{"items":[{"id":"e1"}],"nextPageToken":"next+1"}', '{"kind":"calendar#events","nextSyncToken":"s1"}'}
-		local page = c.listEvents({timeMin = "2026-10-12T00:00:00Z", singleEvents = true, orderBy = "startTime", pageToken = "start+1", eventTypes = {"default", "focusTime"}})
+		local page = fixture.example("listEvents")
 		assert(page.nextPageToken == "next+1" and page.items[1].id == "e1")
 		sent("GET", API .. "/calendars/primary/events?timeMin=2026-10-12T00%3A00%3A00Z&pageToken=start%2B1&singleEvents=true&orderBy=startTime&eventTypes=default&eventTypes=focusTime")
 		local empty = c.listEvents({calendarId = "team@group.calendar.google.com", q = "standup & review", maxResults = 2500})
@@ -49,13 +49,13 @@ return {
 		sent("GET", API .. "/calendars/team%40group.calendar.google.com/events?q=standup%20%26%20review&maxResults=2500")
 
 		responses = {'{"id":"e1_20261013T090000Z","recurringEventId":"e1"}', '{"items":[{"id":"e1_20261013T090000Z"}]}'}
-		assert(c.getEvent({eventId = "e1_20261013T090000Z", timeZone = "Europe/Paris"}).recurringEventId == "e1")
+		assert(fixture.example("getEvent").recurringEventId == "e1")
 		sent("GET", API .. "/calendars/primary/events/e1_20261013T090000Z?timeZone=Europe%2FParis")
-		assert(#c.listEventInstances({calendarId = "team@group.calendar.google.com", eventId = "e1", timeMax = "2026-11-01T00:00:00+02:00"}).items == 1)
+		assert(#fixture.example("listEventInstances").items == 1)
 		sent("GET", API .. "/calendars/team%40group.calendar.google.com/events/e1/instances?timeMax=2026-11-01T00%3A00%3A00%2B02%3A00")
 
 		responses = {'{"calendars":{"primary":{"busy":[{"start":"2026-10-13T09:00:00Z","end":"2026-10-13T10:00:00Z"}]}}}'}
-		local busy = c.queryFreeBusy({timeMin = "2026-10-13T00:00:00Z", timeMax = "2026-10-14T00:00:00Z", items = {{id = "primary"}}})
+		local busy = fixture.example("queryFreeBusy")
 		assert(busy.calendars.primary.busy[1]["end"] == "2026-10-13T10:00:00Z")
 		sent("POST", API .. "/freeBusy")
 		assert(requests[#requests].headers["Content-Type"][1] == "application/json")

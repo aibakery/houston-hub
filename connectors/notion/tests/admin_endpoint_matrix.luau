@@ -83,5 +83,19 @@ return {
   end
   assert(#requests==#cases,"hidden network request or retry")
   assert(#cases==40,"official API coverage unexpectedly changed")
+
+  -- Execute the validated documentation example through the same real request
+  -- builder. Route expectations still come from the independent matrix above.
+  for _,case in cases do
+   local before=#requests
+   local result=fixture.example(case.name)
+   assert(#requests==before+1,"documented example made unexpected requests: "..case.name)
+   local req=requests[#requests]
+   local path=string.match(case.url,"https://api%.notion%.com([^?]+)")
+   local pattern=string.gsub(path,"id%-%w[%w_]*","[^/?]+")
+   local actual=string.match(req.url,"https://api%.notion%.com([^?]+)")
+   assert(req.method==case.method and string.match(actual,"^"..pattern.."$"),"wrong documented route: "..case.name.." "..req.url)
+   assert(result.future.retained,"documented example changed the result envelope")
+  end
  end,
 }

@@ -162,18 +162,17 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 	return responseJSON(name, endpoint, response)
 end
 
-local exports: {[string]: any} = {}
+local exports: {[string]: any}, docs: {[string]: any} = {}, {}
+local documentation = require("lib/help.luau").build(endpoints)
 for name, endpoint in endpoints do
 	if (not endpoint.write or config.access == "read-write") and (not endpoint.vault or config.reveal_card_details == true) then
 		exports[name] = function(args: Options?): any return request(name, endpoint, args) end
+		docs[name] = documentation[name]
 	end
 end
-exports.help = function(): string
-	local names: {string} = {}
-	for name in exports do if name ~= "help" then table.insert(names, name) end end
-	table.sort(names)
+exports.help = function(): any
 	local lines = {
-		"Mercury API v1. Each function takes one named options object with Mercury's native field names; ? marks optional fields. Path and query options are removed from the JSON body; remaining body fields, nested objects, nulls and arrays pass through unchanged. Responses preserve all native fields. Empty successful mutations return {success=true}.",
+		"Mercury API v1. Each function takes one named options object with Mercury's native field names; Function help describes required fields and nested body inputs. Path and query options are removed from the JSON body; remaining body fields, nested objects, nulls and arrays pass through unchanged. Responses preserve all native fields. Empty successful mutations return {success=true}.",
 		"getAccounts() returns accounts with currentBalance and availableBalance in dollars; getTreasury() and listCredit() return separate account types. Do not sum accounts of different kinds without checking what their balances represent.",
 		"getSafeRequests() returns an array, not an envelope. getSafeRequest({safeRequestId=...}) includes signedByInvestorAt, signedByOwnerAt, paidAt, canceledAt and expiresAt. Missing/null timestamps do not imply completion. There is no synthetic SAFE status and no documented SAFE creation, editing or signing endpoint. getSafeRequestDocument({safeRequestId=...,path='safe.pdf'}) downloads the PDF.",
 		"Lists fetch one page only. For cursor lists pass response.page.nextPage as start_after until absent; end_before navigates backwards and cannot be combined with start_after. getTreasuryTransactions uses response.cursor as opts.cursor; listAccountTransactions uses offset/limit and total. getSafeRequests, getAccountCards, listCredit and listInvoiceAttachments are unpaginated. Limits and query enums follow the linked API reference; most limits are 1..1000.",
@@ -183,7 +182,6 @@ exports.help = function(): string
 		"Cards can be issued only as virtual cards for existing users; physical issuance and user creation use the Mercury dashboard. revealCardPan appears only when Allow revealing agent card numbers and CVCs is enabled; it uses Mercury's dedicated Vault host and only supports agent cards. Its response and webhook signing secrets are sensitive: do not log or save them in shared actions or memories.",
 		"Connect using a Mercury API token; Houston injects it privately. OAuth client onboarding requires Mercury approval and is not part of this token connector. Complete nested request schemas, feature eligibility and response definitions are in each operation's reference link.",
 	}
-	for _, name in names do table.insert(lines, name .. "(opts): " .. endpoints[name].help) end
-	return table.concat(lines, "\n")
+	return {text = table.concat(lines, "\n\n"), functions = docs, sections = {paging = lines[4], payments = lines[5] .. "\n\n" .. lines[6], files = lines[7], cards = lines[8]}}
 end
 return exports

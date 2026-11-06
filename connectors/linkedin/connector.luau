@@ -6,7 +6,7 @@ type Post = {id: string, url: string}
 local API = "https://api.linkedin.com"
 -- Versioned REST APIs (YYYYMM) are supported for about a year after release.
 local VERSION = "202609"
-local VISIBILITY = table.freeze({PUBLIC = true, CONNECTIONS = true})
+local VISIBILITY: {[string]: boolean} = table.freeze({PUBLIC = true, CONNECTIONS = true})
 
 local function text(value: any, field: string): string
 	assert(type(value) == "string" and value ~= "", field .. " must be a nonempty string")
@@ -128,11 +128,18 @@ if config.access == "read-write" then
 	exports.deletePost = deletePost
 end
 
-local operationHelp: {[string]: string} = {
-	getProfile = [[getProfile() -> {sub, urn, name, given_name, family_name, picture?, locale, email?, email_verified?}
-The connected member's OpenID Connect profile. urn (urn:li:person:<sub>) identifies the member as a post author. LinkedIn omits email when it does not share one.]],
-	createPost = [==[createPost({text, visibility?, image?, article?}) -> {id, url}
-Publishes a post as the connected member. text is posted literally, up to LinkedIn's 3,000 characters; #hashtags link, mentions are not supported. visibility is "PUBLIC" (default) or "CONNECTIONS". Attach at most one of:
+local nonempty: any = {type = "string", minLength = 1}
+local postId = {type = "string", pattern = "^urn:li:(share|ugcPost):[0-9]+$"}
+local visibilityNames: {string} = {}
+for name in VISIBILITY do table.insert(visibilityNames, name) end
+table.sort(visibilityNames)
+local operationHelp: {[string]: any} = {
+	getProfile = {description = [[The connected member's OpenID Connect profile: {sub, urn, name, given_name, family_name, picture?, locale, email?, email_verified?}. urn (urn:li:person:<sub>) identifies the member as a post author. LinkedIn omits email when it does not share one.]],
+		args = {}, inputSchema = {type = "object", additionalProperties = false, examples = {{}}},
+		outputSchema = {type = "object", properties = {sub = nonempty, urn = nonempty, name = {type = "string"}, given_name = {type = "string"}, family_name = {type = "string"},
+			picture = {type = "string"}, email = {type = "string"}, email_verified = {type = "boolean"}, locale = {type = "string"}}, required = {"sub", "urn"}},
+		annotations = {readOnlyHint = true, idempotentHint = true}},
+	createPost = {description = [==[Publishes a post as the connected member, returning {id, url}. text is posted literally, up to LinkedIn's 3,000 characters; #hashtags link, mentions are not supported. visibility is "PUBLIC" (default) or "CONNECTIONS". Attach at most one of:
 - image = {path, altText?}: a JPG, GIF or PNG session file, streamed to LinkedIn.
 - article = {url, title, description?}: a link card. LinkedIn does not fetch link previews, so supply the title.
 id is the post URN (urn:li:share:... or urn:li:ugcPost:...); url opens the post. Never retry automatically: after an error or timeout the post may already be live, so check the member's recent activity first.
@@ -144,23 +151,32 @@ local post = linkedin.createPost({
     image = {path = "photos/team.png", altText = "Our team at the office"},
 })
 ```]==],
-	deletePost = [[deletePost(id) -> {id}
-Permanently deletes one of the member's own posts by URN, such as the id returned by createPost. Deleting an already deleted post succeeds.]],
+		inputSchema = {type = "object", properties = {
+			text = {type = "string", minLength = 1, maxLength = 3000, description = "Literal post text. Hashtags link; mentions are not supported. LinkedIn enforces its length limit."},
+			visibility = {type = "string", enum = visibilityNames, default = "PUBLIC"},
+			image = {type = "object", properties = {path = {type = "string", minLength = 1, description = "Existing JPG, GIF or PNG file in the current session."}, altText = nonempty}, required = {"path"}, additionalProperties = false},
+			article = {type = "object", properties = {url = {type = "string", pattern = "^https?://", description = "Article URL. LinkedIn does not fetch a preview; supply the card title."}, title = nonempty, description = nonempty}, required = {"url", "title"}, additionalProperties = false},
+		}, required = {"text"}, additionalProperties = false, ["not"] = {required = {"image", "article"}},
+			examples = {{text = "We're hiring engineers! #hiring", visibility = "PUBLIC"} :: any,
+				{text = "Read this", article = {url = "https://example.com/post", title = "Our launch"}},
+				{text = "Team", image = {path = "photos/team.png", altText = "Our team"}}},
+		}, outputSchema = {type = "object", properties = {id = nonempty, url = nonempty}, required = {"id", "url"}, additionalProperties = false},
+		annotations = {readOnlyHint = false, destructiveHint = false, idempotentHint = false}},
+	deletePost = {description = [[Permanently deletes one of the member's own posts by URN, such as the id returned by createPost. Returns {id}. Deleting an already deleted post succeeds.]],
+		args = {"id"}, inputSchema = {type = "object", properties = {id = postId}, required = {"id"}, additionalProperties = false, examples = {{id = "urn:li:share:7"}}},
+		outputSchema = {type = "object", properties = {id = postId}, required = {"id"}, additionalProperties = false},
+		annotations = {readOnlyHint = false, destructiveHint = true, idempotentHint = true}},
 }
 
-exports.help = function(): string
-	local names: {string} = {}
+exports.help = function()
+	local docs: {[string]: any} = {}
 	for name in exports do
-		if name ~= "help" then table.insert(names, name) end
+		if name ~= "help" then
+			assert(operationHelp[name], "missing help for configured function " .. name)
+			docs[name] = operationHelp[name]
+		end
 	end
-	table.sort(names)
-	local sections = {"LinkedIn: the connected member's profile and posts. Credentials stay on Houston. Calls return completed values; do not wrap them in await(). Posting requires Read and write access. LinkedIn does not let apps read feeds, existing posts, connections or messages."}
-	for _, name in names do
-		local section = operationHelp[name]
-		assert(section, "missing help for configured function " .. name)
-		table.insert(sections, "## " .. section)
-	end
-	return table.concat(sections, "\n\n")
+	return {text = "LinkedIn: the connected member's profile and posts. Credentials stay on Houston. Calls return completed values; do not wrap them in await(). Posting requires Read and write access. LinkedIn does not let apps read feeds, existing posts, connections or messages.", functions = docs}
 end
 
 return exports

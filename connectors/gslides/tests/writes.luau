@@ -29,7 +29,7 @@ return {
 		end
 
 		responses = {'{"presentationId":"new","title":"Q3","revisionId":"r1","slides":[{"objectId":"p"}]}', '{"presentationId":"untitled"}'}
-		local created = c.createPresentation({title = "Q3"})
+		local created = fixture.example("createPresentation")
 		assert(created.presentationId == "new" and created.slides[1].objectId == "p")
 		sent(API, {title = "Q3"})
 		assert(c.createPresentation().slides == nil)
@@ -41,13 +41,13 @@ return {
 				placeholderIdMappings = {{layoutPlaceholder = {type = "TITLE"}, objectId = "q3_summary_title"}}}},
 			{insertText = {objectId = "q3_summary_title", text = "Q3 results"}},
 		}
-		local reply = c.batchUpdate({presentationId = "https://docs.google.com/presentation/d/p1/edit#slide=id.g1", requests = edits, writeControl = {requiredRevisionId = "r1"}})
+		local reply = fixture.example("batchUpdate")
 		assert(reply.replies[1].createSlide.objectId == "q3_summary" and reply.writeControl.requiredRevisionId == "r2")
 		sent(API .. "/p1:batchUpdate", {requests = edits, writeControl = {requiredRevisionId = "r1"}})
 
 		responses = {'{"presentationId":"p1","replies":[{"insertComment":{"commentThread":{"commentId":"c1","anchorId":"a1"}}}],"commentUpdateState":"ALL_SAVED"}'}
 		local comment = {{insertComment = {content = "Update this chart", objectId = "g1"}}}
-		assert(c.batchUpdate({presentationId = "p1", requests = comment}).commentUpdateState == "ALL_SAVED")
+		assert(fixture.example("batchUpdate", 2).commentUpdateState == "ALL_SAVED")
 		sent(API .. "/p1:batchUpdate", {requests = comment})
 
 		-- Google's system parameters stay out of the URL; Google rejects them as unknown body fields.

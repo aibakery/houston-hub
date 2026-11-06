@@ -376,49 +376,44 @@ local function getFullText(value: any): any
 	return document
 end
 
-local function help(): string
+local function help()
 	local links: {string} = {}
 	for _, link in LINKS do table.insert(links, "- " .. link[1] .. ": " .. link[2] .. ".") end
-	return [[PubMed: search and read NLM's database of biomedical literature citations and abstracts through NCBI's E-utilities (https://www.ncbi.nlm.nih.gov/books/NBK25501/), and the open-access full text of PubMed Central (PMC) articles through NCBI's BioC API. No account needed; an optional NCBI API key only raises the rate limit. Read-only. Calls return completed values; do not wrap them in await(). Results keep NCBI's field names and values: numbers such as count come back as strings. Each call makes one NCBI request. Abstracts can be protected by copyright and PMC articles carry their own licenses (see each document's license); NCBI's disclaimer and copyright notice: https://www.ncbi.nlm.nih.gov/About/disclaimer.html.
+	local text: any = {type = "string"}
+	local texts = {type = "array", items = text}
+	local pmidSchema: any = {anyOf = {{type = "integer", minimum = 1, maximum = 999999999} :: any, {type = "string", pattern = "^[1-9][0-9]{0,8}$"}}}
+	local function idsSchema(maximum: number): any
+		return {description = "One PMID, a dense array, or comma/whitespace-separated PMIDs. Repeats are removed in first-seen order; 1 to " .. tostring(maximum) .. " distinct PMIDs. IDs are positive integers of at most 9 digits.",
+			anyOf = {pmidSchema, {type = "array", minItems = 1, items = pmidSchema}, {type = "string", pattern = "^[,\\s]*[1-9][0-9]{0,8}([,\\s]+[1-9][0-9]{0,8})*[,\\s]*$"}}}
+	end
+	local function input(properties: {[string]: any}, required: {string}, example: any): any
+		return {type = "object", properties = properties, required = required, additionalProperties = false, examples = {example}}
+	end
+	local date = {type = "string", pattern = "^[0-9]{4}(/[0-9]{2}(/[0-9]{2})?)?$", description = "Real calendar date in YYYY, YYYY/MM or YYYY/MM/DD form; year must be positive. mindate must not be after maxdate."}
+	local search = input({
+		term = {type = "string", pattern = "\\S", description = "PubMed query of at most " .. tostring(MAX_TERM) .. " UTF-8 bytes. Supports field tags, AND, OR, NOT and parentheses."},
+		retstart = {type = "integer", minimum = 0, maximum = MAX_RESULTS - 1, default = 0},
+		retmax = {type = "integer", minimum = 0, maximum = MAX_RESULTS, default = DEFAULT_RETMAX, description = "Zero returns only the count; only the first 9999 matches are accessible. Narrow larger searches."},
+		sort = {type = "string", enum = SORTS, default = "relevance"},
+		mindate = date, maxdate = date, reldate = {type = "integer", minimum = 1, maximum = 100000, description = "Restrict to the last n days."},
+		datetype = {type = "string", enum = DATETYPES, default = "edat", description = "edat: date added; pdat: publication; mdat: modification. Requires a date range or reldate."},
+	}, {"term"}, {term = "crispr[tiab] AND review[pt]", sort = "pub_date", retmax = 20, datetype = "pdat", mindate = "2024", maxdate = "2025"})
+	search.dependentRequired = {mindate = {"maxdate"}, maxdate = {"mindate"}}
+	search.dependentSchemas = {datetype = {anyOf = {{required = {"mindate", "maxdate"}}, {required = {"reldate"}}}}}
+	local recordProperties: {[string]: any} = {}
+	for tag in SINGLE do recordProperties[tag] = text end
+	recordProperties.authors = {type = "array", items = {type = "object", properties = {FAU = text, AU = text, CN = text, AUID = texts, AD = texts}, additionalProperties = false}}
+	local summary = {type = "object", properties = {
+		uid = text, title = text, error = text, lastauthor = text, source = text, fulljournalname = text, pubdate = text, epubdate = text,
+		volume = text, issue = text, pages = text, elocationid = text, lang = texts, pubtype = texts, attributes = texts, sortpubdate = text,
+		authors = {type = "array", items = {type = "object", properties = {name = text, authtype = text}}},
+		articleids = {type = "array", items = {type = "object", properties = {idtype = text, value = text}}}, pmcrefcount = {type = "integer"},
+	}}
+	return {
+		text = [[PubMed: search and read NLM's database of biomedical literature citations and abstracts through NCBI's E-utilities (https://www.ncbi.nlm.nih.gov/books/NBK25501/), and the open-access full text of PubMed Central (PMC) articles through NCBI's BioC API. No account needed; an optional NCBI API key only raises the rate limit. Read-only. Calls return completed values; do not wrap them in await(). Results keep NCBI's field names and values: numbers such as count come back as strings. Each call makes one NCBI request. Abstracts can be protected by copyright and PMC articles carry their own licenses (see each document's license); NCBI's disclaimer and copyright notice: https://www.ncbi.nlm.nih.gov/About/disclaimer.html.
 
-IDs are PMIDs, positive integers such as 31452104, given as a number or a string. ids takes one PMID, an array of up to ]] .. tostring(MAX_IDS) .. [[ (]] .. tostring(MAX_LINK_IDS) .. [[ for getLinks) or one string separated by commas or spaces; repeats are dropped.
-
-## searchArticles({term, retstart?, retmax?, sort?, datetype?, mindate?, maxdate?, reldate?})
-
-ESearch. Returns `{count, retstart, retmax, idlist, querytranslation, translationset, warninglist?, errorlist?}`: count is the number of matches, idlist the PMIDs of this page, querytranslation how PubMed read the query (with MeSH expansion), warninglist and errorlist phrases and fields PubMed ignored. Unknown options are rejected.
-- term: a query in PubMed syntax, at most ]] .. tostring(MAX_TERM) .. [[ bytes, for example `crispr[tiab] AND review[pt]`, `"Smith J"[au]`, `asthma[majr]`, `Nature[ta] AND 2024[dp]` or `31452104[pmid]`. Tags include [tiab] (title or abstract), [ti], [au], [1au] (first author), [ad] (affiliation), [mh] (MeSH, with subheadings), [majr] (major MeSH topic), [pt] (publication type), [ta] (journal), [dp] (publication date), [la] (language), [ot] (keyword) and [sb] (subset, such as free full text[sb]); combine with AND, OR, NOT and parentheses.
-- retmax: PMIDs to return, 0 to ]] .. tostring(MAX_RESULTS) .. [[ (default ]] .. tostring(DEFAULT_RETMAX) .. [[; 0 returns only count). retstart: matches to skip, 0 to ]] .. tostring(MAX_RESULTS - 1) .. [[ (default 0). For the next page, call again with retstart + retmax as retstart while that is below both count and ]] .. tostring(MAX_RESULTS) .. [[. PubMed returns only the first ]] .. tostring(MAX_RESULTS) .. [[ matches: retstart plus the PMIDs returned never exceeds ]] .. tostring(MAX_RESULTS) .. [[ (retstart = 9990 with retmax = 20 returns 9), so narrow larger result sets, for example by date.
-- sort: ]] .. table.concat(SORTS, ", ") .. [[. relevance (PubMed's Best Match) is the default; pub_date sorts newest first, Author and JournalName ascending.
-- mindate and maxdate together: YYYY, YYYY/MM or YYYY/MM/DD, real dates with mindate not after maxdate (NCBI would answer other dates with no matches). reldate: only the last n days. datetype selects the date they filter: edat (added to PubMed, the default), pdat (publication) or mdat (modification).
-
-## getSummaries(ids)
-
-ESummary. Returns `{uids, [pmid] = summary}`: uids lists the PMIDs in order and each summary has uid, title, authors (array of {name, authtype}), lastauthor, source (journal abbreviation), fulljournalname, pubdate, epubdate, volume, issue, pages, elocationid, lang, pubtype, articleids (array of {idtype, value}, idtype pubmed, doi, pmc, pmcid, pii or mid), attributes (such as "Has Abstract"), pmcrefcount and sortpubdate. A summary has no abstract or MeSH terms; use getRecords. An unknown PMID gets `{uid, error = "cannot get document summary"}`.
-
-## getRecords(ids)
-
-EFetch in MEDLINE format. Returns `{records}`, one complete record per known PMID in the order given; unknown PMIDs are left out, so the array can be empty. Records use MEDLINE tags as keys. These are strings: ]] .. string.gsub(SINGLE_TAGS, " ", ", ") .. [[; every other tag is an array of strings in record order. authors is always an array of {FAU (full name), AU (short name), AUID? (array, such as "ORCID: 0000-0002-4242-7526"), AD? (array of affiliations)} in author order, where a corporate author is {CN (group name), AD?}.
-Main tags: PMID; TI title; AB abstract (structured abstracts keep labels such as "BACKGROUND:"); DP publication date; TA journal abbreviation and JT full title; VI, IP and PG volume, issue and pages; LID and AID identifiers such as "10.1136/bmj.n71 [doi]"; PMC the PMCID; MH MeSH headings, where `*` marks a major topic and `/` a subheading, as in "*Molecular Docking Simulation" or "Proteins/chemistry"; OT keywords; PT publication types (such as "Review" or "Retracted Publication"); RN substances; GR grants; LA languages; CIN, EIN and RIN comments, errata and retractions; SO the citation.
-
-## getLinks(ids, linkname, opts?)
-
-ELink, one linkset per PMID. Returns an array of `{dbfrom, ids, linksetdbs?}` in the order given, where linksetdbs is `{{dbto, linkname, links}}`, absent when the article has none. links are PMIDs, or PMC numbers for the pubmed_pmc links. opts.scores = true returns links as `{id, score}` objects instead; similar-article links score numerically, other links with an empty string. linkname:
-]] .. table.concat(links, "\n") .. [[
-
-
-A long list, such as the citations of a highly cited article, comes back whole: pass fewer ids if a call holds too much. ELink takes about 0.1 s per PMID and gives up after about 15 s with an empty answer, which fails as retryable: pass fewer ids.
-
-## getFullText(id)
-
-PMC open-access full text as one BioC document: `{id, infons, passages}`, where id is the PMCID, infons.license the license (such as "CC BY"), and each passage is `{offset, infons, text}` with infons.section_type (TITLE, ABSTRACT, INTRO, METHODS, RESULTS, DISCUSSION, CONCL, REF, FIG, TABLE and others) and infons.type (front, abstract, paragraph, title_1, ref, fig_caption...). The first passage's infons hold article IDs, keywords and the license text. id is a PMCID such as PMC4412151 or a PMID such as 25977807. Only articles in the PMC open-access subset and author manuscript collection have one; any other fails as not found, so read its abstract with getRecords. Find an article's PMCID with getRecords (PMC tag) or getLinks(ids, "pubmed_pmc").
-
-## Errors and limits
-
-Invalid input fails before any request. NCBI errors come back as upstream errors with the HTTP status and NCBI's message; HTTP 429 and 5xx are retryable, as are failures NCBI reports inside a successful answer (such as "Search Backend failed"), except its rejections of input (messages about invalid or too many values or an empty term). Without an API key, NCBI accepts 3 requests per second from Houston as a whole, and 10 per connection with one; Houston waits and retries a refused request briefly, so prefer fewer calls with more IDs over many small ones. Each call reads at most ]] .. tostring(MAX_BYTES // 1048576) .. [[ MiB and gives NCBI ]] .. tostring(CALL_TIME // 1000) .. [[ s: ]] .. tostring((CALL_TIME - BODY_TIME) // 1000) .. [[ to start answering and ]] .. tostring(BODY_TIME // 1000) .. [[ to send the body; a call that runs out of time fails as retryable. Too much data fails as not retryable: pass fewer ids; a larger full text cannot be read.
-
-## Example
-
-Here pubmed is the configured PubMed connection.
+IDs are PMIDs, positive integers such as 31452104, given as a number or a string. ids takes one PMID, an array of up to ]] .. tostring(MAX_IDS) .. [[ (]] .. tostring(MAX_LINK_IDS) .. [[ for getLinks) or one string separated by commas or spaces; repeats are dropped.]],
+		sections = {limits = [[Invalid input fails before any request. NCBI errors come back as upstream errors with the HTTP status and NCBI's message; HTTP 429 and 5xx are retryable, as are failures NCBI reports inside a successful answer (such as "Search Backend failed"), except its rejections of input (messages about invalid or too many values or an empty term). Without an API key, NCBI accepts 3 requests per second from Houston as a whole, and 10 per connection with one; Houston waits and retries a refused request briefly, so prefer fewer calls with more IDs over many small ones. Each call reads at most ]] .. tostring(MAX_BYTES // 1048576) .. [[ MiB and gives NCBI ]] .. tostring(CALL_TIME // 1000) .. [[ s: ]] .. tostring((CALL_TIME - BODY_TIME) // 1000) .. [[ to start answering and ]] .. tostring(BODY_TIME // 1000) .. [[ to send the body; a call that runs out of time fails as retryable. Too much data fails as not retryable: pass fewer ids; a larger full text cannot be read.]], workflow = [[Here pubmed is the configured PubMed connection.
 
 ```lua
 local found = pubmed.searchArticles({term = "crispr[tiab] AND review[pt]", sort = "pub_date", retmax = 20,
@@ -440,7 +435,40 @@ if record then
 		end
 	end
 end
-```]]
+```]]},
+		functions = {
+			searchArticles = {description = [[ESearch. Returns `{count, retstart, retmax, idlist, querytranslation, translationset, warninglist?, errorlist?}`: count is the number of matches, idlist the PMIDs of this page, querytranslation how PubMed read the query (with MeSH expansion), warninglist and errorlist phrases and fields PubMed ignored. Unknown options are rejected.
+- term: a query in PubMed syntax, at most ]] .. tostring(MAX_TERM) .. [[ bytes, for example `crispr[tiab] AND review[pt]`, `"Smith J"[au]`, `asthma[majr]`, `Nature[ta] AND 2024[dp]` or `31452104[pmid]`. Tags include [tiab] (title or abstract), [ti], [au], [1au] (first author), [ad] (affiliation), [mh] (MeSH, with subheadings), [majr] (major MeSH topic), [pt] (publication type), [ta] (journal), [dp] (publication date), [la] (language), [ot] (keyword) and [sb] (subset, such as free full text[sb]); combine with AND, OR, NOT and parentheses.
+- retmax: PMIDs to return, 0 to ]] .. tostring(MAX_RESULTS) .. [[ (default ]] .. tostring(DEFAULT_RETMAX) .. [[; 0 returns only count). retstart: matches to skip, 0 to ]] .. tostring(MAX_RESULTS - 1) .. [[ (default 0). For the next page, call again with retstart + retmax as retstart while that is below both count and ]] .. tostring(MAX_RESULTS) .. [[. PubMed returns only the first ]] .. tostring(MAX_RESULTS) .. [[ matches: retstart plus the PMIDs returned never exceeds ]] .. tostring(MAX_RESULTS) .. [[ (retstart = 9990 with retmax = 20 returns 9), so narrow larger result sets, for example by date.
+- sort: ]] .. table.concat(SORTS, ", ") .. [[. relevance (PubMed's Best Match) is the default; pub_date sorts newest first, Author and JournalName ascending.
+- mindate and maxdate together: YYYY, YYYY/MM or YYYY/MM/DD, real dates with mindate not after maxdate (NCBI would answer other dates with no matches). reldate: only the last n days. datetype selects the date they filter: edat (added to PubMed, the default), pdat (publication) or mdat (modification).]], inputSchema = search,
+				outputSchema = {type = "object", properties = {count = text, retstart = text, retmax = text, idlist = texts, querytranslation = text,
+					translationset = {type = "array", items = {type = "object", properties = {from = text, to = text}}},
+					warninglist = {type = "object", additionalProperties = texts}, errorlist = {type = "object", additionalProperties = texts}}},
+				annotations = {readOnlyHint = true, idempotentHint = true}},
+			getSummaries = {description = [[ESummary. Returns `{uids, [pmid] = summary}`: uids lists the PMIDs in order and each summary has uid, title, authors (array of {name, authtype}), lastauthor, source (journal abbreviation), fulljournalname, pubdate, epubdate, volume, issue, pages, elocationid, lang, pubtype, articleids (array of {idtype, value}, idtype pubmed, doi, pmc, pmcid, pii or mid), attributes (such as "Has Abstract"), pmcrefcount and sortpubdate. A summary has no abstract or MeSH terms; use getRecords. An unknown PMID gets `{uid, error = "cannot get document summary"}`.]], args = {"ids"}, inputSchema = input({ids = idsSchema(MAX_IDS)}, {"ids"}, {ids = {31452104 :: any, "99999999", "31452104"}}),
+				outputSchema = {type = "object", properties = {uids = texts}, patternProperties = {["^[1-9][0-9]{0,8}$"] = summary}},
+				annotations = {readOnlyHint = true, idempotentHint = true}},
+			getRecords = {description = [[EFetch in MEDLINE format. Returns `{records}`, one complete record per known PMID in the order given; unknown PMIDs are left out, so the array can be empty. Records use MEDLINE tags as keys. These are strings: ]] .. string.gsub(SINGLE_TAGS, " ", ", ") .. [[; every other tag is an array of strings in record order. authors is always an array of {FAU (full name), AU (short name), AUID? (array, such as "ORCID: 0000-0002-4242-7526"), AD? (array of affiliations)} in author order, where a corporate author is {CN (group name), AD?}.
+Main tags: PMID; TI title; AB abstract (structured abstracts keep labels such as "BACKGROUND:"); DP publication date; TA journal abbreviation and JT full title; VI, IP and PG volume, issue and pages; LID and AID identifiers such as "10.1136/bmj.n71 [doi]"; PMC the PMCID; MH MeSH headings, where `*` marks a major topic and `/` a subheading, as in "*Molecular Docking Simulation" or "Proteins/chemistry"; OT keywords; PT publication types (such as "Review" or "Retracted Publication"); RN substances; GR grants; LA languages; CIN, EIN and RIN comments, errata and retractions; SO the citation.]], args = {"ids"}, inputSchema = input({ids = idsSchema(MAX_IDS)}, {"ids"}, {ids = {"33782057" :: any, 1, "2"}}),
+				outputSchema = {type = "object", properties = {records = {type = "array", items = {type = "object", properties = recordProperties, required = {"PMID", "authors"}, additionalProperties = texts}}}, required = {"records"}, additionalProperties = false},
+				annotations = {readOnlyHint = true, idempotentHint = true}},
+			getLinks = {description = [[ELink, one linkset per PMID. Returns an array of `{dbfrom, ids, linksetdbs?}` in the order given, where linksetdbs is `{{dbto, linkname, links}}`, absent when the article has none. links are PMIDs, or PMC numbers for the pubmed_pmc links. opts.scores = true returns links as `{id, score}` objects instead; similar-article links score numerically, other links with an empty string. linkname:
+]] .. table.concat(links, "\n") .. [[
+
+
+A long list, such as the citations of a highly cited article, comes back whole: pass fewer ids if a call holds too much. ELink takes about 0.1 s per PMID and gives up after about 15 s with an empty answer, which fails as retryable: pass fewer ids.]], args = {"ids", "linkname", "options"},
+				inputSchema = input({ids = idsSchema(MAX_LINK_IDS), linkname = {type = "string", enum = linkNames}, options = {type = "object", properties = {scores = {type = "boolean", default = false}}, additionalProperties = false}},
+					{"ids", "linkname"}, {ids = "25977807", linkname = "pubmed_pubmed", options = {scores = true}}),
+				annotations = {readOnlyHint = true, idempotentHint = true}},
+			getFullText = {description = [[PMC open-access full text as one BioC document: `{id, infons, passages}`, where id is the PMCID, infons.license the license (such as "CC BY"), and each passage is `{offset, infons, text}` with infons.section_type (TITLE, ABSTRACT, INTRO, METHODS, RESULTS, DISCUSSION, CONCL, REF, FIG, TABLE and others) and infons.type (front, abstract, paragraph, title_1, ref, fig_caption...). The first passage's infons hold article IDs, keywords and the license text. id is a PMCID such as PMC4412151 or a PMID such as 25977807. Only articles in the PMC open-access subset and author manuscript collection have one; any other fails as not found, so read its abstract with getRecords. Find an article's PMCID with getRecords (PMC tag) or getLinks(ids, "pubmed_pmc").]], args = {"id"},
+				inputSchema = input({id = {anyOf = {pmidSchema, {type = "string", pattern = "^[Pp][Mm][Cc][1-9][0-9]{0,8}$"}}}}, {"id"}, {id = "PMC4412151"}),
+				outputSchema = {type = "object", properties = {id = text, infons = {type = "object", description = "Article metadata, including license.", additionalProperties = text},
+					passages = {type = "array", items = {type = "object", properties = {offset = {type = "integer"}, text = text,
+						infons = {type = "object", description = "section_type and type identify the passage's role; other keys include article IDs, keywords and license text.", additionalProperties = text}}}}}, required = {"passages"}},
+				annotations = {readOnlyHint = true, idempotentHint = true}},
+		},
+	}
 end
 
 return {searchArticles = searchArticles, getSummaries = getSummaries, getRecords = getRecords, getLinks = getLinks,

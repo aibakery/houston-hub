@@ -318,65 +318,101 @@ if config.access == "read-write" then
 	exports.uploadFile = uploadFile
 end
 
-local operationHelp: {[string]: string} = {
-	getProfile = [[getProfile() -> {user_id, user, team_id, team, url}
-The connected Slack user and workspace.]],
-	listChannels = [[listChannels(opts?) -> {channels, nextCursor?}
-Your channels and DMs (users.conversations). opts: types (comma-separated public_channel,private_channel,im,mpim; default all), exclude_archived (default true), limit, cursor.]],
-	getChannel = [[getChannel(channel) -> channel
-Channel details (conversations.info).]],
-	listMessages = [[listMessages(channel, opts?) -> {messages, has_more, nextCursor?}
-Newest first (conversations.history). opts: limit (default 15), cursor, oldest, latest, inclusive, include_all_metadata. Message files arrays carry file IDs for getFile and downloadFile.]],
-	getThread = [[getThread(channel, ts, opts?) -> {messages, has_more, nextCursor?}
-The parent message and its replies (conversations.replies). Same opts as listMessages.]],
-	searchMessages = [[searchMessages(query, opts?) -> {matches, total, paging, nextPage?}
-Slack search syntax, such as "in:#general from:@ana after:2026-01-01". opts: count, page, sort ("timestamp" default or "score"), sort_dir ("desc" default), highlight. Pass page = result.nextPage for the next page.]],
-	listMentions = [[listMentions(opts?) -> {matches, total, paging, nextPage?}
-Search results mentioning you, including thread replies. Same opts as searchMessages, plus query to narrow it, such as "in:#general".]],
-	listMembers = [[listMembers(channel, opts?) -> {members, nextCursor?}
-User IDs in a channel. opts: limit, cursor.]],
-	getUser = [[getUser(user) -> user
-A user's profile (users.info).]],
-	listUsers = [[listUsers(opts?) -> {members, nextCursor?}
-Workspace users. opts: limit (default 200), cursor, include_locale.]],
-	getPermalink = [[getPermalink(channel, ts) -> string
-A message's Slack URL.]],
-	getFile = [[getFile(id) -> file
-File metadata (files.info): name, mimetype, size, url_private...]],
-	downloadFile = [[downloadFile(id, path) -> {path, url, bytes}
-Streams a Slack file into a session path; url is a Houston signed download URL. Never inline file contents. A download that fails while streaming leaves path as it was. External files (is_external) are not stored in Slack and cannot be downloaded.]],
-	postMessage = [[postMessage(channel, text, opts?) -> {channel, ts, message}
-Posts as you; channel is a channel or DM ID. opts: thread_ts, blocks, attachments, unfurl_links, unfurl_media, reply_broadcast, mrkdwn, parse, link_names, metadata, client_msg_id. Never retry automatically: after an error the message may already be posted, so check with listMessages first.]],
-	reply = [[reply(channel, ts, text, opts?) -> {channel, ts, message}
-Replies in the thread of message ts. Same opts as postMessage, without thread_ts.]],
-	updateMessage = [[updateMessage(channel, ts, text, opts?) -> {channel, ts, text}
-Edits one of your messages. opts: blocks, attachments, parse, link_names, metadata, file_ids, reply_broadcast.]],
-	deleteMessage = [[deleteMessage(channel, ts) -> {channel, ts}
-Deletes one of your messages.]],
-	openConversation = [[openConversation(users) -> channel
-Opens a DM (one user ID) or group DM (a comma-separated string or array of IDs); pass channel.id to postMessage.]],
-	addReaction = [[addReaction(channel, ts, name) -> {ok}
-Adds an emoji reaction; name has no colons, such as "thumbsup".]],
-	removeReaction = [[removeReaction(channel, ts, name) -> {ok}
-Removes your emoji reaction.]],
-	uploadFile = [[uploadFile(path, opts?) -> {files}
-Streams a session file to Slack. opts: filename (default the path's last segment), title, alt_text, channel (share there; omit to keep the file private), thread_ts, text (a comment posted with the file).]],
+local helpSchemas = require("lib/help.luau")
+local str, flag = {type = "string"}, {type = "boolean"}
+local nonempty = {type = "string", minLength = 1}
+local stamp = {type = "string", minLength = 1, description = "Opaque Slack message timestamp, preserving all digits; never a number."}
+local function record(properties: Options): any return {type = "object", properties = properties, additionalProperties = true} end
+local function list(item: any): any return {type = "array", items = item} end
+local channelSchema = record({id = str, name = str, is_channel = flag, is_group = flag, is_im = flag, is_mpim = flag, is_archived = flag,
+	topic = record({value = str}), purpose = record({value = str})})
+local userSchema = record({id = str, name = str, real_name = str, deleted = flag, is_bot = flag,
+	profile = record({display_name = str, real_name = str, email = str, title = str})})
+local fileSchema = record({id = str, name = str, title = str, mimetype = str, size = {type = "integer"}, is_external = flag,
+	url_private = str, url_private_download = str, permalink = str})
+local messageSchema = record({ts = stamp, thread_ts = stamp, text = str, user = str, subtype = str, files = list(fileSchema),
+	blocks = list(record({type = str})), reply_count = {type = "integer"}})
+local function page(field: string, item: any): any
+	return record({[field] = list(item), ok = {const = true}, has_more = flag, nextCursor = str,
+		response_metadata = record({next_cursor = str, warnings = list(str)})})
+end
+local historySchema = page("messages", messageSchema)
+local searchSchema = record({matches = list(messageSchema), total = {type = "integer"}, nextPage = {type = "integer"},
+	paging = record({count = {type = "integer"}, total = {type = "integer"}, page = {type = "integer"}, pages = {type = "integer"}})})
+local postedSchema = record({ok = {const = true}, channel = str, ts = stamp, text = str, message = messageSchema})
+local uploadOptions = helpSchemas.options(UPLOAD)
+uploadOptions.dependentRequired = {thread_ts = {"channel"}, text = {"channel"}}
+local function document(description: string, args: {string}, properties: Options, required: {string}, example: Options, output: any, write: boolean): any
+	local schema: any = {type = "object", properties = properties, required = if #required > 0 then required else nil,
+		additionalProperties = false, examples = {example}}
+	if properties.opts and (properties.opts.properties.blocks or properties.opts.properties.attachments) then
+		schema["$defs"] = helpSchemas.definitions
+	end
+	return {description = description, args = args, inputSchema = schema, outputSchema = output,
+		annotations = {readOnlyHint = not write, destructiveHint = write, idempotentHint = not write}}
+end
+local operationHelp: Options = {
+	getProfile = document([[The connected Slack user and workspace.]],
+		{}, {}, {}, {}, record({user_id=str,user=str,team_id=str,team=str,url=str}), false),
+	listChannels = document([[Your channels and DMs (users.conversations). opts: types (comma-separated public_channel,private_channel,im,mpim; default all), exclude_archived (default true), limit, cursor.]],
+		{"opts"}, {opts=helpSchemas.options(CHANNELS)}, {}, {}, page("channels",channelSchema), false),
+	getChannel = document([[Channel details (conversations.info).]],
+		{"channel"}, {channel=nonempty}, {"channel"}, {channel="C1"}, channelSchema, false),
+	listMessages = document([[Newest first (conversations.history). opts: limit (default 15), cursor, oldest, latest, inclusive, include_all_metadata. Message files arrays carry file IDs for getFile and downloadFile.]],
+		{"channel","opts"}, {channel=nonempty,opts=helpSchemas.options(HISTORY,LIMIT)}, {"channel"}, {channel="C1",opts={oldest="1780000000.000000"}}, historySchema, false),
+	getThread = document([[The parent message and its replies (conversations.replies). Same opts as listMessages.]],
+		{"channel","ts","opts"}, {channel=nonempty,ts=stamp,opts=helpSchemas.options(HISTORY,LIMIT)}, {"channel","ts"}, {channel="C1",ts="1790000000.000001",opts={cursor="next+one",limit=5}}, historySchema, false),
+	searchMessages = document([[Slack search syntax, such as "in:#general from:@ana after:2026-01-01". opts: count, page, sort ("timestamp" default or "score"), sort_dir ("desc" default), highlight. Pass page = result.nextPage for the next page.]],
+		{"query","opts"}, {query=nonempty,opts=helpSchemas.options(SEARCH)}, {"query"}, {query="in:#general hello",opts={count=1}}, searchSchema, false),
+	listMentions = document([[Search results mentioning you, including thread replies. Same opts as searchMessages, plus query to narrow it, such as "in:#general".]],
+		{"opts"}, {opts=helpSchemas.options(MENTIONS)}, {}, {opts={query="in:#general",page=1}}, searchSchema, false),
+	listMembers = document([[User IDs in a channel. opts: limit, cursor.]],
+		{"channel","opts"}, {channel=nonempty,opts=helpSchemas.options(PAGE)}, {"channel"}, {channel="C1",opts={limit=2}}, page("members",str), false),
+	getUser = document([[A user's profile (users.info).]],
+		{"user"}, {user=nonempty}, {"user"}, {user="U1"}, userSchema, false),
+	listUsers = document([[Workspace users. opts: limit (default 200), cursor, include_locale.]],
+		{"opts"}, {opts=helpSchemas.options(USERS,200)}, {}, {}, page("members",userSchema), false),
+	getPermalink = document([[A message's Slack URL.]],
+		{"channel","ts"}, {channel=nonempty,ts=stamp}, {"channel","ts"}, {channel="C1",ts="1.2"}, nil, false),
+	getFile = document([[File metadata (files.info): name, mimetype, size, url_private...]],
+		{"id"}, {id=nonempty}, {"id"}, {id="F1"}, fileSchema, false),
+	downloadFile = document([[Streams a Slack file into a session path; url is a Houston signed download URL. Never inline file contents. A download that fails while streaming leaves path as it was. External files (is_external) are not stored in Slack and cannot be downloaded.]],
+		{"id","path"}, {id=nonempty,path=nonempty}, {"id","path"}, {id="F1",path="report.pdf"}, record({path=str,url=str,bytes={type="integer",minimum=0}}), true),
+	postMessage = document([[Posts as you; channel is a channel or DM ID. opts: thread_ts, blocks, attachments, unfurl_links, unfurl_media, reply_broadcast, mrkdwn, parse, link_names, metadata, client_msg_id. Never retry automatically: after an error the message may already be posted, so check with listMessages first.]],
+		{"channel","text","opts"}, {channel=nonempty,text=nonempty,opts=helpSchemas.options(POST)}, {"channel","text"}, {channel="C1",text="Hi"}, postedSchema, true),
+	reply = document([[Replies in the thread of message ts. Same opts as postMessage, without thread_ts.]],
+		{"channel","ts","text","opts"}, {channel=nonempty,ts=stamp,text=nonempty,opts=helpSchemas.options(REPLY)}, {"channel","ts","text"}, {channel="C1",ts="1.000001",text="Hello",opts={blocks={{type="section",text={type="mrkdwn",text="*Hi*"}}},unfurl_links=false}}, postedSchema, true),
+	updateMessage = document([[Edits one of your messages. opts: blocks, attachments, parse, link_names, metadata, file_ids, reply_broadcast.]],
+		{"channel","ts","text","opts"}, {channel=nonempty,ts=stamp,text=nonempty,opts=helpSchemas.options(UPDATE)}, {"channel","ts","text"}, {channel="C1",ts="1.000003",text="Edited"}, postedSchema, true),
+	deleteMessage = document([[Deletes one of your messages.]],
+		{"channel","ts"}, {channel=nonempty,ts=stamp}, {"channel","ts"}, {channel="C1",ts="1.000003"}, postedSchema, true),
+	openConversation = document([[Opens a DM (one user ID) or group DM (a comma-separated string or array of IDs); pass channel.id to postMessage.]],
+		{"users"}, {users={anyOf={nonempty :: any,{type="array",minItems=1,maxItems=8,items=nonempty}}}}, {"users"}, {users={"U1","U2"}}, channelSchema, true),
+	addReaction = document([[Adds an emoji reaction; name has no colons, such as "thumbsup".]],
+		{"channel","ts","name"}, {channel=nonempty,ts=stamp,name=nonempty}, {"channel","ts","name"}, {channel="C1",ts="1.000003",name="thumbsup"}, record({ok={const=true}}), true),
+	removeReaction = document([[Removes your emoji reaction.]],
+		{"channel","ts","name"}, {channel=nonempty,ts=stamp,name=nonempty}, {"channel","ts","name"}, {channel="C1",ts="1.000003",name="thumbsup"}, record({ok={const=true}}), true),
+	uploadFile = document([[Streams a session file to Slack. opts: filename (default the path's last segment), title, alt_text, channel (share there; omit to keep the file private), thread_ts, text (a comment posted with the file).]],
+		{"path","opts"}, {path=nonempty,opts=uploadOptions}, {"path"}, {path="reports/q3.txt",opts={channel="C1",thread_ts="1.000001",text="Q3 numbers",title="Q3",alt_text="Report"}}, page("files",fileSchema), true),
 }
 
-exports.help = function(): string
-	local names: {string} = {}
-	for name in exports do
-		if name ~= "help" then table.insert(names, name) end
-	end
-	table.sort(names)
-	local sections = {[[Slack: one connected user in one workspace. Credentials stay on Houston. Calls return completed values; do not wrap them in await(). Pass channel IDs, user IDs and message timestamps (ts) as strings, never numbers. Unknown options are rejected. Writes act as the connected user and need Read and write access.
-Each call returns one page. Pass cursor = result.nextCursor (or page = result.nextPage for searches) for the next one. Slack limits conversations.history and conversations.replies to 1 request per minute and 15 messages for apps outside the Slack Marketplace, so listMessages and getThread can fail with ratelimited: wait as the error says, and prefer searchMessages to scan many channels. Slack errors name the Slack error code, such as not_in_channel or missing_scope.]]}
-	for _, name in names do
-		local section = operationHelp[name]
-		assert(section, "missing help for configured function " .. name)
-		table.insert(sections, "## " .. section)
-	end
-	return table.concat(sections, "\n\n")
+table.insert(operationHelp.postMessage.inputSchema.examples, {channel = "C1", text = "Review the release notes", opts = {
+	blocks = {{type = "rich_text", elements = {{type = "rich_text_section", elements = {{type = "text", text = "Release notes", style = {bold = true}} :: any,
+		{type = "link", url = "https://example.com/releases", text = "Read notes"}}}}} :: any,
+		{type = "actions", elements = {{type = "button", action_id = "review_release", text = {type = "plain_text", text = "Review"}, url = "https://example.com/releases"}}}},
+	metadata = {event_type = "release_notes", event_payload = {release = "example"}},
+}})
+local docs: Options = {}
+for name in exports do
+	assert(operationHelp[name], "missing help for configured function " .. name)
+	docs[name] = operationHelp[name]
 end
-
+exports.help = {text = "Slack: one connected user in one workspace. Calls return completed values; use them directly without await. Pass channel IDs, user IDs and message timestamps as strings. Unknown options are rejected. Writes act as the connected user and require Read and write access. Configured access: " .. config.access .. ".", functions = docs,
+	sections = {
+		paging = "Each call returns one page. Pass cursor=result.nextCursor, or page=result.nextPage for search, retaining other filters. Stop when the continuation field is absent. Slack timestamps are opaque strings: preserve every digit, including trailing zeros.",
+		limits = "Slack limits conversations.history and conversations.replies to 1 request per minute and 15 messages for apps outside the Slack Marketplace. Wait as a ratelimited error says; prefer searchMessages to scanning many channels. Methods have separate provider limits. Keep message text under 4000 characters when practical; Slack truncates very long text. A message allows at most 50 blocks and 100 attachments, with limits on each block's fields.",
+		formatting = "Slack uses mrkdwn: <@U123> mentions a user, <#C123> links a channel, and <https://example.com|label> labels a link. Message text is required by this connector, including with blocks; use it for an accessible fallback. Block Kit fields use native Slack objects. Help describes nested text, options, elements, rich text and common block discriminators; provider extensions pass through. See https://docs.slack.dev/reference/block-kit/ for each block's surface and field rules.",
+		files = "Download to a session path and return the signed Houston URL; never inline file bytes. Failed downloads leave the existing session file untouched. Upload a nonempty session file with uploadFile; omitting channel keeps it private. thread_ts and text need channel. Transfers must finish within the invocation and session file limits.",
+		errors = "Errors preserve Slack codes, such as not_in_channel or missing_scope, and Retry-After when supplied. Authentication or missing scopes require reconnecting with the necessary access. Writes never retry automatically; after a timeout or error, inspect the message or file before repeating a change because Slack may already have applied it.",
+	}}
 return exports

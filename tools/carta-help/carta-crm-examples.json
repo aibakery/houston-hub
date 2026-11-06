@@ -1,0 +1,779 @@
+{
+	"addCompanyToList": [
+		{
+			"id": "65a1b2c3d4e5f60718293a4b",
+			"listId": "65a1b2c3d4e5f60718293a4b"
+		}
+	],
+	"addContactToList": [
+		{
+			"id": "65a1b2c3d4e5f60718293a4b",
+			"listId": "65a1b2c3d4e5f60718293a4b"
+		}
+	],
+	"addLpToFundraising": [
+		{
+			"id": "65a1b2c3d4e5f60718293a4b"
+		}
+	],
+	"addLpToInvestors": [
+		{
+			"id": "65a1b2c3d4e5f60718293a4b"
+		}
+	],
+	"addThemeItem": [
+		{
+			"entityId": "65a1b2c3d4e5f60718293a4c",
+			"entityType": "NOTE",
+			"id": "65a1b2c3d4e5f60718293a4b"
+		}
+	],
+	"aggregateCompanies": [
+		{
+			"group_by": [
+				"65a1b2c3d4e5f60718293a4d"
+			]
+		}
+	],
+	"aggregateDealStageHistory": [
+		{
+			"group_by": [
+				"65a1b2c3d4e5f60718293a4d"
+			]
+		}
+	],
+	"aggregateDeals": [
+		{
+			"filters": [
+				{
+					"field_id": "65a1b2c3d4e5f60718293a4c",
+					"operator": "not_blank"
+				}
+			],
+			"group_by": [
+				"65a1b2c3d4e5f60718293a4b"
+			],
+			"metric": {
+				"agg_func": "sum",
+				"field_id": "65a1b2c3d4e5f60718293a4d"
+			}
+		}
+	],
+	"aggregateFees": [
+		{
+			"group_by": [
+				"65a1b2c3d4e5f60718293a4d"
+			]
+		}
+	],
+	"aggregateFundraisings": [
+		{
+			"group_by": [
+				"65a1b2c3d4e5f60718293a4d"
+			]
+		}
+	],
+	"aggregateInvestors": [
+		{
+			"group_by": [
+				"65a1b2c3d4e5f60718293a4d"
+			]
+		}
+	],
+	"createCompany": [
+		{
+			"fields": {
+				"65a1b2c3d4e5f60718293a4d": "https://example.com"
+			},
+			"lists": [
+				"65a1b2c3d4e5f60718293a4b"
+			],
+			"name": "Example Studio"
+		}
+	],
+	"createContact": [
+		{
+			"dynamicInfo": {
+				"source": "Conference",
+				"year": 2026
+			},
+			"emailDetail": "ana@example.com",
+			"enrich": false,
+			"firstName": "Ana",
+			"jobs": [
+				{
+					"companyName": "Example Studio",
+					"companyUrl": "https://example.com",
+					"startedOn": {
+						"month": 1,
+						"year": 2026
+					},
+					"title": "CFO"
+				}
+			],
+			"lastName": "Example",
+			"location": {
+				"city": "New York",
+				"country": "United States"
+			},
+			"name": "Ana Example",
+			"socialLinks": {
+				"linkedinUrl": "https://www.linkedin.com/in/example"
+			},
+			"title": "CFO"
+		}
+	],
+	"createDeal": [
+		{
+			"company": {
+				"name": "Example Studio",
+				"url": "https://example.com"
+			},
+			"people": {
+				"advisers": [
+					"65a1b2c3d4e5f60718293a4d"
+				]
+			},
+			"pipelineId": "65a1b2c3d4e5f60718293a4b",
+			"stageId": "65a1b2c3d4e5f60718293a4c",
+			"tags": [
+				"demo"
+			]
+		}
+	],
+	"createFee": [
+		{
+			"name": "Example"
+		}
+	],
+	"createFundraising": [
+		{
+			"name": "Example"
+		}
+	],
+	"createIcMeeting": [
+		{
+			"name": "Example"
+		}
+	],
+	"createIcRequest": [
+		{
+			"name": "Example"
+		}
+	],
+	"createInvestor": [
+		{
+			"name": "Example"
+		}
+	],
+	"createNote": [
+		{
+			"folderId": "65a1b2c3d4e5f60718293a4b",
+			"text": "Discuss the quarterly plan.",
+			"title": "Investment memo"
+		}
+	],
+	"createTask": [
+		{
+			"assignees": [
+				"65a1b2c3d4e5f60718293a4c"
+			],
+			"dueDate": "2026-11-30",
+			"emailNotifications": false,
+			"entityId": "65a1b2c3d4e5f60718293a4b",
+			"entityType": "DEAL",
+			"title": "Send memo"
+		}
+	],
+	"createTheme": [
+		{
+			"name": "Example"
+		}
+	],
+	"deleteCompany": [
+		{
+			"id": "65a1b2c3d4e5f60718293a4b"
+		}
+	],
+	"deleteContact": [
+		{
+			"id": "65a1b2c3d4e5f60718293a4b"
+		}
+	],
+	"deleteDeal": [
+		{
+			"id": "65a1b2c3d4e5f60718293a4b"
+		}
+	],
+	"deleteFee": [
+		{
+			"id": "65a1b2c3d4e5f60718293a4b"
+		}
+	],
+	"deleteFundraising": [
+		{
+			"id": "65a1b2c3d4e5f60718293a4b"
+		}
+	],
+	"deleteIcMeeting": [
+		{
+			"agenda": "unschedule",
+			"id": "65a1b2c3d4e5f60718293a4b"
+		}
+	],
+	"deleteIcRequest": [
+		{
+			"id": "65a1b2c3d4e5f60718293a4b"
+		}
+	],
+	"deleteInvestor": [
+		{
+			"id": "65a1b2c3d4e5f60718293a4b"
+		}
+	],
+	"deleteNote": [
+		{
+			"id": "65a1b2c3d4e5f60718293a4b"
+		}
+	],
+	"deleteTask": [
+		{
+			"id": "65a1b2c3d4e5f60718293a4b"
+		}
+	],
+	"findContactDuplicates": [
+		{
+			"limit": 20
+		}
+	],
+	"getCompany": [
+		{
+			"id": "65a1b2c3d4e5f60718293a4b"
+		}
+	],
+	"getCompanyAngles": [
+		{
+			"domain": "example.com"
+		}
+	],
+	"getContact": [
+		{
+			"id": "65a1b2c3d4e5f60718293a4b"
+		}
+	],
+	"getDeal": [
+		{
+			"id": "65a1b2c3d4e5f60718293a4b"
+		}
+	],
+	"getDealStageHistory": [
+		{
+			"id": "65a1b2c3d4e5f60718293a4b"
+		}
+	],
+	"getEmailCampaign": [
+		{
+			"id": "65a1b2c3d4e5f60718293a4b"
+		}
+	],
+	"getEmailHistory": [
+		{
+			"limit": 20
+		}
+	],
+	"getFee": [
+		{
+			"id": "65a1b2c3d4e5f60718293a4b"
+		}
+	],
+	"getFundClosingsStatus": [
+		{
+			"fundCartaIds": [
+				"101",
+				"102"
+			]
+		},
+		{
+			"fundCartaIds": "101,102"
+		}
+	],
+	"getFundraising": [
+		{
+			"id": "65a1b2c3d4e5f60718293a4b"
+		}
+	],
+	"getIcMeeting": [
+		{
+			"id": "65a1b2c3d4e5f60718293a4b"
+		}
+	],
+	"getIcRequest": [
+		{
+			"id": "65a1b2c3d4e5f60718293a4b"
+		}
+	],
+	"getInvestor": [
+		{
+			"id": "65a1b2c3d4e5f60718293a4b"
+		}
+	],
+	"getInvestorCapitalActivity": [
+		{
+			"id": "65a1b2c3d4e5f60718293a4b"
+		}
+	],
+	"getLpCatalogEntry": [
+		{
+			"id": "65a1b2c3d4e5f60718293a4b"
+		}
+	],
+	"getLpCatalogFacets": [
+		{}
+	],
+	"getMe": [
+		{}
+	],
+	"getNote": [
+		{
+			"id": "65a1b2c3d4e5f60718293a4b"
+		}
+	],
+	"getObjectsCount": [
+		{}
+	],
+	"getOrganization": [
+		{}
+	],
+	"getReport": [
+		{
+			"entityType": "deal",
+			"id": "65a1b2c3d4e5f60718293a4b"
+		}
+	],
+	"getReportData": [
+		{
+			"entityType": "deal",
+			"id": "65a1b2c3d4e5f60718293a4b",
+			"limit": 20,
+			"offset": 0
+		}
+	],
+	"getTask": [
+		{
+			"id": "65a1b2c3d4e5f60718293a4b"
+		}
+	],
+	"linkCalendarEventNote": [
+		{
+			"id": "65a1b2c3d4e5f60718293a4b",
+			"noteId": "65a1b2c3d4e5f60718293a4b"
+		}
+	],
+	"linkCompanyNote": [
+		{
+			"id": "65a1b2c3d4e5f60718293a4b",
+			"noteId": "65a1b2c3d4e5f60718293a4b"
+		}
+	],
+	"linkContactNote": [
+		{
+			"id": "65a1b2c3d4e5f60718293a4b",
+			"noteId": "65a1b2c3d4e5f60718293a4b"
+		}
+	],
+	"linkDealNote": [
+		{
+			"id": "65a1b2c3d4e5f60718293a4b",
+			"noteId": "65a1b2c3d4e5f60718293a4b"
+		}
+	],
+	"linkFundraisingNote": [
+		{
+			"id": "65a1b2c3d4e5f60718293a4b",
+			"noteId": "65a1b2c3d4e5f60718293a4b"
+		}
+	],
+	"linkInvestorNote": [
+		{
+			"id": "65a1b2c3d4e5f60718293a4b",
+			"noteId": "65a1b2c3d4e5f60718293a4b"
+		}
+	],
+	"listCalendarEventNotes": [
+		{
+			"id": "65a1b2c3d4e5f60718293a4b"
+		}
+	],
+	"listCalendarEvents": [
+		{
+			"endDate": "2026-11-30T23:59:59Z",
+			"limit": 20,
+			"mine": true,
+			"startDate": "2026-11-01T00:00:00Z"
+		}
+	],
+	"listClosingProspectStatuses": [
+		{
+			"fundCartaId": "101",
+			"prospectPublicIds": [
+				"65a1b2c3d4e5f60718293a4b"
+			]
+		}
+	],
+	"listCompanies": [
+		{
+			"limit": 20
+		}
+	],
+	"listCompanyFields": [
+		{}
+	],
+	"listCompanyInteractions": [
+		{
+			"id": "65a1b2c3d4e5f60718293a4b",
+			"limit": 20
+		}
+	],
+	"listCompanyLists": [
+		{}
+	],
+	"listCompanyNotes": [
+		{
+			"id": "65a1b2c3d4e5f60718293a4b"
+		}
+	],
+	"listCompanyRelations": [
+		{
+			"id": "65a1b2c3d4e5f60718293a4b",
+			"limit": 20
+		}
+	],
+	"listContactFields": [
+		{}
+	],
+	"listContactInteractions": [
+		{
+			"id": "65a1b2c3d4e5f60718293a4b",
+			"limit": 20
+		}
+	],
+	"listContactLists": [
+		{}
+	],
+	"listContactNotes": [
+		{
+			"id": "65a1b2c3d4e5f60718293a4b"
+		}
+	],
+	"listContacts": [
+		{
+			"interactionFrequencyGoals": [
+				"QUARTERLY"
+			],
+			"limit": 20,
+			"locationCountry": "United States",
+			"titles": [
+				"CFO",
+				"CEO"
+			]
+		}
+	],
+	"listDealFields": [
+		{}
+	],
+	"listDealNotes": [
+		{
+			"id": "65a1b2c3d4e5f60718293a4b"
+		}
+	],
+	"listDealPipelines": [
+		{}
+	],
+	"listDeals": [
+		{
+			"limit": 20
+		}
+	],
+	"listEmailCampaigns": [
+		{
+			"limit": 20
+		}
+	],
+	"listFeeFields": [
+		{}
+	],
+	"listFees": [
+		{
+			"limit": 20
+		}
+	],
+	"listFeesByContact": [
+		{
+			"contactId": "65a1b2c3d4e5f60718293a4b"
+		}
+	],
+	"listFeesByDeal": [
+		{
+			"dealId": "65a1b2c3d4e5f60718293a4b"
+		}
+	],
+	"listFundraisingFields": [
+		{}
+	],
+	"listFundraisingNotes": [
+		{
+			"id": "65a1b2c3d4e5f60718293a4b"
+		}
+	],
+	"listFundraisingStages": [
+		{}
+	],
+	"listFundraisings": [
+		{
+			"limit": 20
+		}
+	],
+	"listIcMeetingFields": [
+		{}
+	],
+	"listIcMeetingRequests": [
+		{
+			"id": "65a1b2c3d4e5f60718293a4b"
+		}
+	],
+	"listIcMeetings": [
+		{
+			"limit": 20
+		}
+	],
+	"listIcRequestFields": [
+		{}
+	],
+	"listIcRequests": [
+		{
+			"limit": 20
+		}
+	],
+	"listInteractions": [
+		{
+			"domain": "example.com",
+			"limit": 20,
+			"type": "EMAIL"
+		}
+	],
+	"listInvestorFields": [
+		{}
+	],
+	"listInvestorNotes": [
+		{
+			"id": "65a1b2c3d4e5f60718293a4b"
+		}
+	],
+	"listInvestors": [
+		{
+			"limit": 20
+		}
+	],
+	"listNoteFolders": [
+		{}
+	],
+	"listNotes": [
+		{
+			"limit": 20
+		}
+	],
+	"listNotesByDomain": [
+		{
+			"domain": "example.com",
+			"entityTypes": [
+				"Company",
+				"Deal"
+			],
+			"limit": 20
+		},
+		{
+			"domain": "example.com",
+			"entityTypes": "Company",
+			"limit": 20
+		}
+	],
+	"listReports": [
+		{
+			"entityType": "deal"
+		}
+	],
+	"listTasks": [
+		{
+			"limit": 20
+		}
+	],
+	"listTasksByEntity": [
+		{
+			"entityId": "65a1b2c3d4e5f60718293a4b",
+			"limit": 20
+		}
+	],
+	"listThemeFolders": [
+		{
+			"id": "65a1b2c3d4e5f60718293a4b",
+			"limit": 20
+		}
+	],
+	"listThemeItems": [
+		{
+			"id": "65a1b2c3d4e5f60718293a4b",
+			"limit": 20
+		}
+	],
+	"listThemes": [
+		{
+			"limit": 20
+		}
+	],
+	"listUsers": [
+		{}
+	],
+	"removeCompanyFromList": [
+		{
+			"id": "65a1b2c3d4e5f60718293a4b",
+			"listId": "65a1b2c3d4e5f60718293a4b"
+		}
+	],
+	"removeContactFromList": [
+		{
+			"id": "65a1b2c3d4e5f60718293a4b",
+			"listId": "65a1b2c3d4e5f60718293a4b"
+		}
+	],
+	"removeThemeItem": [
+		{
+			"id": "65a1b2c3d4e5f60718293a4b",
+			"itemId": "65a1b2c3d4e5f60718293a4b"
+		}
+	],
+	"searchCompanies": [
+		{
+			"filters": [
+				{
+					"field_id": "lists",
+					"operator": "in",
+					"value": [
+						"65a1b2c3d4e5f60718293a4b"
+					]
+				}
+			],
+			"limit": 20,
+			"offset": 0
+		}
+	],
+	"searchDeals": [
+		{
+			"limit": 20,
+			"search": "Example"
+		}
+	],
+	"searchFees": [
+		{
+			"limit": 20,
+			"search": "Example"
+		}
+	],
+	"searchFundraisings": [
+		{
+			"limit": 20,
+			"search": "Example"
+		}
+	],
+	"searchInvestors": [
+		{
+			"limit": 20,
+			"search": "Example"
+		}
+	],
+	"searchLpCatalog": [
+		{
+			"countries": [
+				"United States"
+			],
+			"limit": 20,
+			"sortBy": "name",
+			"sortDirection": "asc"
+		}
+	],
+	"searchPeople": [
+		{
+			"limit": 20,
+			"query": "Ana Example"
+		}
+	],
+	"updateCompany": [
+		{
+			"id": "65a1b2c3d4e5f60718293a4b",
+			"name": "Updated example"
+		}
+	],
+	"updateContact": [
+		{
+			"id": "65a1b2c3d4e5f60718293a4b",
+			"interactionFrequencyGoal": null,
+			"socialLinks": {
+				"githubUrl": "https://github.com/example"
+			},
+			"title": "CFO"
+		}
+	],
+	"updateDeal": [
+		{
+			"comment": "Review completed",
+			"id": "65a1b2c3d4e5f60718293a4b",
+			"tags": []
+		},
+		{
+			"id": "65a1b2c3d4e5f60718293a4b"
+		}
+	],
+	"updateFee": [
+		{
+			"id": "65a1b2c3d4e5f60718293a4b",
+			"name": "Updated example"
+		}
+	],
+	"updateFundraising": [
+		{
+			"id": "65a1b2c3d4e5f60718293a4b",
+			"name": "Updated example"
+		}
+	],
+	"updateIcMeeting": [
+		{
+			"id": "65a1b2c3d4e5f60718293a4b",
+			"name": "Updated example"
+		}
+	],
+	"updateIcRequest": [
+		{
+			"id": "65a1b2c3d4e5f60718293a4b",
+			"name": "Updated example"
+		}
+	],
+	"updateInvestor": [
+		{
+			"id": "65a1b2c3d4e5f60718293a4b",
+			"name": "Updated example"
+		}
+	],
+	"updateNote": [
+		{
+			"id": "65a1b2c3d4e5f60718293a4b",
+			"text": "Review completed.",
+			"title": "Updated investment memo"
+		}
+	],
+	"updateTask": [
+		{
+			"comment": "Memo sent.",
+			"done": true,
+			"id": "65a1b2c3d4e5f60718293a4b"
+		}
+	]
+}

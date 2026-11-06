@@ -18,7 +18,7 @@ return {
 		-- A PDF larger than readAll's default limit flows through native Reader and File streaming.
 		local size = 8 * 1024 * 1024 + 17
 		responses = {{body = "%PDF-1.4" .. string.rep("p", size - 8)}}
-		local saved = rxiv.downloadPdf({server = "biorxiv", doi = "10.1101/339747", version = "4", session_path = "papers/339747.pdf"})
+		local saved = fixture.example("downloadPdf")
 		assert(requests[1].url == "https://www.biorxiv.org/content/10.1101/339747v4.full.pdf", requests[1].url)
 		assert(requests[1].headers.Accept[1] == "application/pdf" and requests[1].timeoutMs == 8000)
 		assert(saved.session_path == "papers/339747.pdf" and saved.size == size and type(saved.url) == "string")

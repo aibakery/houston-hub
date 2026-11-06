@@ -1,0 +1,402 @@
+{
+  "cancelCard": [
+    {
+      "cardId": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "cancelInvoice": [
+    {
+      "invoiceId": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "createCard": [
+    {
+      "accountId": "00000000-0000-4000-8000-000000000003",
+      "kind": "debit",
+      "nickname": "Project expenses",
+      "type": "virtual",
+      "userId": "00000000-0000-4000-8000-000000000002"
+    }
+  ],
+  "createCategory": [
+    {
+      "name": "Office supplies",
+      "visibleForCardSpend": false,
+      "visibleForOther": false,
+      "visibleForReimbursements": false
+    }
+  ],
+  "createCustomer": [
+    {
+      "email": "billing@example.com",
+      "name": "ExampleCo"
+    }
+  ],
+  "createInternalTransfer": [
+    {
+      "amount": 12.34,
+      "destinationAccountId": "00000000-0000-4000-8000-000000000003",
+      "idempotencyKey": "example-transfer-001",
+      "sourceAccountId": "00000000-0000-4000-8000-000000000002"
+    }
+  ],
+  "createInvoice": [
+    {
+      "achDebitEnabled": false,
+      "ccEmails": [],
+      "creditCardEnabled": false,
+      "customerId": "00000000-0000-4000-8000-000000000002",
+      "destinationAccountId": "00000000-0000-4000-8000-000000000003",
+      "dueDate": "2030-12-01",
+      "invoiceDate": "2030-11-01",
+      "lineItems": [
+        {
+          "name": "Design services",
+          "quantity": 1,
+          "unitPrice": 100
+        }
+      ],
+      "useRealAccountNumber": false
+    }
+  ],
+  "createRecipient": [
+    {
+      "emails": [
+        "vendor@example.com"
+      ],
+      "name": "Example Vendor"
+    }
+  ],
+  "createRecipientInvite": [
+    {
+      "contactEmail": "vendor@example.com",
+      "paymentMethods": [
+        "ach"
+      ],
+      "requireTaxDocument": false,
+      "sendEmail": false
+    }
+  ],
+  "createTransaction": [
+    {
+      "accountId": "00000000-0000-4000-8000-000000000001",
+      "amount": 12.34,
+      "idempotencyKey": "example-payment-001",
+      "paymentMethod": "ach",
+      "recipientId": "00000000-0000-4000-8000-000000000002"
+    }
+  ],
+  "createWebhook": [
+    {
+      "url": "https://example.com/mercury-events"
+    }
+  ],
+  "deleteCategory": [
+    {
+      "expenseCategoryId": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "deleteCustomer": [
+    {
+      "customerId": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "deleteRecipient": [
+    {
+      "recipientId": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "deleteRecipientInvite": [
+    {
+      "inviteId": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "deleteWebhook": [
+    {
+      "webhookEndpointId": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "editCategory": [
+    {
+      "expenseCategoryId": "00000000-0000-4000-8000-000000000001",
+      "name": "Office supplies"
+    }
+  ],
+  "freezeCard": [
+    {
+      "cardId": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "getAccountCards": [
+    {
+      "accountId": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "getAccountStatements": [
+    {
+      "accountId": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "getAccounts": [
+    {}
+  ],
+  "getAttachment": [
+    {
+      "attachmentId": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "getCard": [
+    {
+      "cardId": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "getCustomer": [
+    {
+      "customerId": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "getEvent": [
+    {
+      "eventId": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "getEvents": [
+    {}
+  ],
+  "getInvoice": [
+    {
+      "invoiceId": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "getInvoicePdf": [
+    {
+      "invoiceId": "00000000-0000-4000-8000-000000000001",
+      "path": "getInvoicePdf.pdf"
+    }
+  ],
+  "getOrganization": [
+    {}
+  ],
+  "getRecipient": [
+    {
+      "recipientId": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "getRecipientInvite": [
+    {
+      "inviteId": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "getRecipients": [
+    {}
+  ],
+  "getSafeRequest": [
+    {
+      "safeRequestId": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "getSafeRequestDocument": [
+    {
+      "path": "getSafeRequestDocument.pdf",
+      "safeRequestId": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "getSafeRequests": [
+    {}
+  ],
+  "getSendMoneyApprovalRequest": [
+    {
+      "requestId": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "getStatementPdf": [
+    {
+      "path": "getStatementPdf.pdf",
+      "statementId": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "getTransaction": [
+    {
+      "accountId": "00000000-0000-4000-8000-000000000001",
+      "transactionId": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "getTransactionById": [
+    {
+      "transactionId": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "getTransferMoneyApprovalRequest": [
+    {
+      "requestId": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "getTreasury": [
+    {}
+  ],
+  "getTreasuryStatements": [
+    {
+      "treasuryId": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "getTreasuryTransactions": [
+    {
+      "treasuryId": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "getUser": [
+    {
+      "userId": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "getUsers": [
+    {}
+  ],
+  "getWebhook": [
+    {
+      "webhookEndpointId": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "getWebhooks": [
+    {}
+  ],
+  "listAccountTransactions": [
+    {
+      "accountId": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "listCards": [
+    {}
+  ],
+  "listCategories": [
+    {}
+  ],
+  "listCredit": [
+    {}
+  ],
+  "listCustomers": [
+    {}
+  ],
+  "listInvoiceAttachments": [
+    {
+      "invoiceId": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "listInvoices": [
+    {}
+  ],
+  "listMerchants": [
+    {}
+  ],
+  "listRecipientInvites": [
+    {}
+  ],
+  "listRecipientsAttachments": [
+    {}
+  ],
+  "listSendMoneyApprovalRequests": [
+    {}
+  ],
+  "listTransactions": [
+    {}
+  ],
+  "listTransferMoneyApprovalRequests": [
+    {}
+  ],
+  "requestSendMoney": [
+    {
+      "accountId": "00000000-0000-4000-8000-000000000001",
+      "amount": 12.34,
+      "idempotencyKey": "example-payment-request-001",
+      "paymentMethod": "ach",
+      "recipientId": "00000000-0000-4000-8000-000000000002"
+    }
+  ],
+  "requestTransferMoney": [
+    {
+      "amount": 12.34,
+      "destinationAccountId": "00000000-0000-4000-8000-000000000003",
+      "idempotencyKey": "example-transfer-request-001",
+      "sourceAccountId": "00000000-0000-4000-8000-000000000002"
+    }
+  ],
+  "revealCardPan": [
+    {
+      "cardId": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "unfreezeCard": [
+    {
+      "cardId": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "updateCard": [
+    {
+      "cardId": "00000000-0000-4000-8000-000000000001",
+      "nickname": "Project expenses"
+    }
+  ],
+  "updateCustomer": [
+    {
+      "customerId": "00000000-0000-4000-8000-000000000001",
+      "email": "billing@example.com",
+      "name": "ExampleCo",
+      "resendOpenInvoices": false
+    }
+  ],
+  "updateInvoice": [
+    {
+      "achDebitEnabled": false,
+      "ccEmails": [],
+      "creditCardEnabled": false,
+      "dueDate": "2030-12-01",
+      "invoiceDate": "2030-11-01",
+      "invoiceId": "00000000-0000-4000-8000-000000000001",
+      "invoiceNumber": "INV-001",
+      "lineItems": [
+        {
+          "name": "Design services",
+          "quantity": 1,
+          "unitPrice": 100
+        }
+      ],
+      "useRealAccountNumber": false
+    }
+  ],
+  "updateRecipient": [
+    {
+      "nickname": "Design vendor",
+      "recipientId": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "updateTransaction": [
+    {
+      "categoryId": null,
+      "note": null,
+      "transactionId": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "updateWebhook": [
+    {
+      "url": "https://example.com/mercury-events",
+      "webhookEndpointId": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "uploadRecipientAttachment": [
+    {
+      "path": "upload.bin",
+      "recipientId": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "uploadTransactionAttachment": [
+    {
+      "path": "upload.bin",
+      "transactionId": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "verifyWebhook": [
+    {
+      "webhookEndpointId": "00000000-0000-4000-8000-000000000001"
+    }
+  ]
+}

@@ -23,7 +23,7 @@ return {
 		-- Sends method and URL, and the JSON body exactly when expected.
 		local function write(name, args, method, url, body, code, response)
 			status, payload = code or 200, response or "{}"
-			local result = af[name](args)
+			local result = if args == false then fixture.example(name) else af[name](args)
 			assert(request.method == method and request.url == url, name .. " requested " .. request.method .. " " .. request.url)
 			assert(request.headers.Authorization == nil and request.headers["AF-Token"] == nil, "connector set credentials")
 			if body then
@@ -37,8 +37,7 @@ return {
 			return result
 		end
 
-		local invited = write("sendInvitation", {email = "ana@example.com", first_name = "Ana", last_name = "Silva", gender = "f",
-			recruiter_email = "rh@example.com", message = "Bonjour Ana", predictive_model_uuid = PM, locale = "fr-FR"},
+		local invited = write("sendInvitation", false,
 			"POST", API .. "/candidate/send-invitation?locale=fr-FR",
 			{email = "ana@example.com", first_name = "Ana", last_name = "Silva", gender = "f", recruiter_email = "rh@example.com", message = "Bonjour Ana", predictive_model_uuid = PM},
 			200, '{"uuid":"' .. C .. '","last_invited_at":"2025-05-16T09:15:43.000000Z","status":"invitation_sent"}')
@@ -46,25 +45,25 @@ return {
 		local again = write("sendInvitation", {email = "ana@example.com", first_name = json.decode("null")}, "POST", API .. "/candidate/send-invitation", {email = "ana@example.com"},
 			200, '{"uuid":"' .. C .. '","status":"user_already_invited_24_hours_ago"}')
 		assert(again.status == "user_already_invited_24_hours_ago")
-		local added = write("createCandidate", {email = "ana@example.com", gender = "n"}, "POST", API .. "/candidate", {email = "ana@example.com", gender = "n"},
+		local added = write("createCandidate", false, "POST", API .. "/candidate", {email = "ana@example.com", gender = "n"},
 			201, '{"uuid":"' .. C .. '","status":"added_to_network"}')
 		assert(added.status == "added_to_network")
-		write("startVoiceAssessment", {candidate_uuid = C, pm_uuid = PM}, "POST", API .. "/candidate/" .. C .. "/init-voice/" .. PM, nil,
+		write("startVoiceAssessment", false, "POST", API .. "/candidate/" .. C .. "/init-voice/" .. PM, nil,
 			201, '{"uuid":"33a9d4f816df4718818a28f04f8e23ef","candidate_uuid":"' .. C .. '","predictive_model_uuid":"' .. PM .. '"}')
-		local hook = write("createWebhook", {name = "ATS", url = "https://hooks.example.com/af", actions = {"assessment.finished", "user.linked"}},
+		local hook = write("createWebhook", false,
 			"POST", API .. "/webhooks", {name = "ATS", url = "https://hooks.example.com/af", actions = {"assessment.finished", "user.linked"}},
 			201, '{"uuid":"' .. W .. '","name":"ATS","actions":["assessment.finished","user.linked"]}')
 		assert(hook.uuid == W and hook.actions[2] == "user.linked")
-		assert(json.encode(write("deleteWebhook", {webhook_uuid = W}, "DELETE", API .. "/webhooks/" .. W, nil, 200, "{}")) == "{}")
-		local group = write("createGroup", {label = "Finalists", color = "#FF0088"}, "POST", API .. "/groups", {label = "Finalists", color = "#FF0088"},
+		assert(json.encode(write("deleteWebhook", false, "DELETE", API .. "/webhooks/" .. W, nil, 200, "{}")) == "{}")
+		local group = write("createGroup", false, "POST", API .. "/groups", {label = "Finalists", color = "#FF0088"},
 			201, '{"uuid":"' .. G .. '","label":"Finalists","color":"#FF0088","id":38679}')
 		assert(group.uuid == G)
-		local member = write("addGroupUser", {group_uuid = G, user_uuid = C}, "POST", API .. "/groups/" .. G .. "/user/" .. C, nil, 201,
+		local member = write("addGroupUser", false, "POST", API .. "/groups/" .. G .. "/user/" .. C, nil, 201,
 			'{"user":{"uuid":"' .. C .. '","iframe_candidate_token":"secret-iframe-token","profile_url":"https://app.assessfirst.com/recruiter/profile/' .. C .. '?sso=6db2e7"},"group":{"uuid":"' .. G .. '"}}')
 		assert(member.user.uuid == C and member.group.uuid == G)
 		assert(member.user.iframe_candidate_token == nil and member.user.profile_url == "https://app.assessfirst.com/recruiter/profile/" .. C, "nested secrets exposed")
-		assert(json.encode(write("removeGroupUser", {group_uuid = G, user_uuid = C}, "DELETE", API .. "/groups/" .. G .. "/user/" .. C, nil, 204, "")) == "{}")
-		assert(json.encode(write("deleteGroup", {group_uuid = G}, "DELETE", API .. "/groups/" .. G, nil, 204, "")) == "{}")
+		assert(json.encode(write("removeGroupUser", false, "DELETE", API .. "/groups/" .. G .. "/user/" .. C, nil, 204, "")) == "{}")
+		assert(json.encode(write("deleteGroup", false, "DELETE", API .. "/groups/" .. G, nil, 204, "")) == "{}")
 		assert(json.encode(write("startVoiceAssessment", {candidate_uuid = C, pm_uuid = PM}, "POST", API .. "/candidate/" .. C .. "/init-voice/" .. PM, nil, 204, "")) == "{}")
 		assert(calls == 11)
 

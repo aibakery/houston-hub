@@ -1,20 +1,25 @@
 -- Granola public API v1, read-only. Arguments and results keep Granola's native field names.
 type Options = {[string]: any}
-type Endpoint = {path: string, id: string?, list: string?, maximum: number?, query: {[string]: string}, help: string}
+type Endpoint = {path: string, id: string?, list: string?, maximum: number?, query: {[string]: string}, help: string, example: Options}
 
 local API = "https://public-api.granola.ai/v1"
 local PAGE = {cursor = "text", page_size = "size"}
 local endpoints: {[string]: Endpoint} = {
 	listNotes = {path = "/notes", list = "notes", maximum = 30,
+		example = {created_after = "2026-10-01T00:00:00Z", page_size = 30},
 		query = {created_after = "date", created_before = "date", updated_after = "date", folder_id = "fol", space_id = "spa", cursor = "text", page_size = "size"},
 		help = "List note summaries `{id, object, title, owner = {name, email}, created_at, updated_at, deleted_at}` the key can read. Optional created_after, created_before and updated_after take `YYYY-MM-DD` or RFC 3339 date-times. folder_id (`fol_…`, includes child folders) and space_id (`spa_…`) filter by location. Only notes with a generated summary and transcript are listed. Keys that read all workspace notes also see deleted notes: skip rows whose deleted_at is not null."},
 	getNote = {path = "/notes/{id}", id = "not", query = {include = "transcript"},
+		example = {include = "transcript"},
 		help = "Read one note (`not_…`): title, owner, attendees, calendar_event (event_title, invitees, organiser, scheduled times), folder_membership, space_membership, summary_text, summary_markdown, attachments (photo URLs anyone with the link can open), web_url, and private_notes_* (only for the note owner's key). Pass include = \"transcript\" to inline the transcript; if Granola answers HTTP 413 TRANSCRIPT_TOO_LARGE, page it with getTranscript."},
 	getTranscript = {path = "/notes/{id}/transcript", id = "not", list = "transcript", maximum = 100, query = PAGE,
+		example = {page_size = 100},
 		help = "Page a note's transcript: `{transcript = {{speaker = {source, attribution?, name?, diarization_label?}, text, start_time, end_time}}, hasMore, cursor}`. attribution is me (the note owner) or them (others) and may be absent; name or diarization_label identify the speaker when known. source is the audio stream only: iOS reports microphone for everyone."},
 	listFolders = {path = "/folders", list = "folders", maximum = 30, query = PAGE,
+		example = {page_size = 1},
 		help = "List folders alphabetically: `{id, object, name, parent_folder_id, space_id}`. Pass an id as listNotes folder_id."},
 	listSpaces = {path = "/spaces", list = "spaces", maximum = 30, query = PAGE,
+		example = {},
 		help = "List spaces `{id, object, name}`. Pass an id as listNotes space_id."},
 }
 
@@ -111,22 +116,63 @@ for name, endpoint in endpoints do
 	end
 end
 
-function functions.help(): string
-	local sections = {"Granola: read-only access to the meeting notes, transcripts, folders and spaces this API key can read. Credentials stay on Houston. Each call makes one request and returns Granola's JSON unchanged. Calls return completed values; do not wrap them in await(). IDs are a prefix plus 14 letters or digits (not_, fol_, spa_). Unknown options are rejected.",
-		"Paged calls take cursor and page_size (Granola defaults to 10, or 50 for getTranscript) and return hasMore and cursor: while hasMore is true, pass the returned cursor to fetch the next page, and stop as soon as you have enough. Granola allows bursts of 25 requests and 5 per second; HTTP 429 errors are retryable. Notes cannot be created or edited through this API."}
-	local names: {string} = {}
-	for name in endpoints do table.insert(names, name) end
-	table.sort(names)
-	for _, name in names do
-		local endpoint = endpoints[name]
-		local signature = if endpoint.id then "(id, opts?)" else "(opts?)"
-		local section = "## " .. name .. signature .. "\n\nGET /v1" .. endpoint.path .. ". " .. endpoint.help
-		if endpoint.maximum then section ..= " page_size: 1–" .. tostring(endpoint.maximum) .. "." end
-		table.insert(sections, section)
+function functions.help()
+	local function idSchema(prefix: string): any
+		local pattern = string.gsub(prefix, "%a", function(letter) return "[" .. letter .. string.upper(letter) .. "]" end)
+		return {type = "string", pattern = "^" .. pattern .. "_[A-Za-z0-9]{14}$", description = "Granola " .. prefix .. "_ ID with 14 letters or digits after the prefix; case-insensitive."}
 	end
-	table.insert(sections, [[## Example
-
-Here granola is the configured Granola connection.
+	local text: any = {type = "string"}
+	local nullableText = {type = {"string", "null"}}
+	local person = {type = "object", properties = {name = nullableText, email = nullableText}}
+	local rowSchemas: {[string]: any} = {
+		notes = {type = "object", properties = {id = text, object = text, title = nullableText, owner = person,
+			created_at = text, updated_at = text, deleted_at = nullableText}},
+		folders = {type = "object", properties = {id = text, object = text, name = text, parent_folder_id = nullableText, space_id = nullableText}},
+		spaces = {type = "object", properties = {id = text, object = text, name = text}},
+		transcript = {type = "object", properties = {text = text, start_time = text, end_time = text, speaker = {type = "object", properties = {
+			source = text, attribution = {type = {"string", "null"}, enum = {"me" :: any, "them", json.decode("null")}}, name = nullableText, diarization_label = nullableText,
+		}}}},
+	}
+	local docs: {[string]: any} = {}
+	for name, endpoint in endpoints do
+		local properties: {[string]: any} = {}
+		for field, kind in endpoint.query do
+			if kind == "size" then
+				properties[field] = {type = "integer", minimum = 1, maximum = endpoint.maximum, default = if endpoint.list == "transcript" then 50 else 10}
+			elseif kind == "date" then
+				properties[field] = {type = "string", pattern = "^[0-9]{4}-[0-9]{2}-[0-9]{2}(T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.?[0-9]*(Z|[+-][0-9]{2}:[0-9]{2}))?$", description = "Date or RFC 3339 timestamp; the provider validates calendar values."}
+			elseif kind == "transcript" then properties[field] = {const = "transcript", description = "Inline the transcript in the note. Page with getTranscript if Granola returns HTTP 413."}
+			elseif kind == "text" then properties[field] = {type = "string", minLength = 1, description = "Opaque cursor from the previous page. Repeat filters; continue only while hasMore is true."}
+			else properties[field] = idSchema(kind) end
+		end
+		local schema: any = {type = "object", properties = properties, additionalProperties = false, examples = {endpoint.example}}
+		local doc: any = {description = "GET /v1" .. endpoint.path .. ". " .. endpoint.help, inputSchema = schema, annotations = {readOnlyHint = true, idempotentHint = true}}
+		if endpoint.id then
+			local id = idSchema(endpoint.id)
+			local named = table.clone(properties)
+			named.id = id
+			doc.args = {"id", "options"}
+			doc.inputSchema = {type = "object", properties = {
+				id = {oneOf = {id, {type = "object", properties = named, required = {"id"}, additionalProperties = false}}},
+				options = {type = "object", properties = properties, additionalProperties = false},
+			}, required = {"id"}, additionalProperties = false,
+				["if"] = {properties = {id = {type = "object"}}}, ["then"] = {["not"] = {required = {"options"}}},
+				examples = {{id = "not_1d3tmYTlCICgjy", options = endpoint.example} :: any, {id = {id = "not_1d3tmYTlCICgjy"}}},
+			}
+			doc.description ..= " Also accepts one table with id and the same options; do not pass a second argument with that form."
+		end
+		if endpoint.list then
+			doc.outputSchema = {type = "object", properties = {[endpoint.list] = {type = "array", items = rowSchemas[endpoint.list]}, hasMore = {type = "boolean"}, cursor = nullableText}, required = {endpoint.list}}
+		else
+			doc.outputSchema = {type = "object", properties = {id = text, title = nullableText, owner = person, attendees = {type = "array", items = person},
+				summary_text = nullableText, summary_markdown = nullableText, private_notes_text = nullableText, private_notes_markdown = nullableText, web_url = text,
+				transcript = {type = {"array", "null"}, items = rowSchemas.transcript},
+				calendar_event = {type = {"object", "null"}, properties = {event_title = nullableText, organiser = nullableText, invitees = {type = "array", items = person}}},
+			}}
+		end
+		docs[name] = doc
+	end
+	return {text = "Granola: read-only access to the meeting notes, transcripts, folders and spaces this API key can read. Credentials stay on Houston. Each call makes one request and returns Granola's JSON unchanged. Calls return completed values; do not wrap them in await(). IDs are a prefix plus 14 letters or digits (not_, fol_, spa_). Unknown options are rejected.", functions = docs, sections = {paging = "Paged calls take cursor and page_size (Granola defaults to 10, or 50 for getTranscript) and return hasMore and cursor: while hasMore is true, pass the returned cursor to fetch the next page, and stop as soon as you have enough. Granola allows bursts of 25 requests and 5 per second; HTTP 429 errors are retryable. Notes cannot be created or edited through this API.", workflow = [[Here granola is the configured Granola connection.
 
 ```lua
 local page = granola.listNotes({created_after = "2026-10-01T00:00:00Z", page_size = 30})
@@ -142,8 +188,7 @@ if page.notes[1] then
 end
 ```
 
-Reference: https://docs.granola.ai/introduction]])
-	return table.concat(sections, "\n\n")
+Reference: https://docs.granola.ai/introduction]]}}
 end
 
 return functions

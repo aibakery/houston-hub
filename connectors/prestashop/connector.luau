@@ -315,10 +315,13 @@ end
 
 local GET_OPTIONS = {language = true, id_shop = true}
 local exports: {[string]: any} = {}
-local signatures: {[string]: string} = {}
+local functions: {[string]: any} = {}
+local documentation = require("lib/help.luau")
 for _, resource in RESOURCES do
 	local one, many, path = resource.one, resource.many, resource.path or resource.many
 	local listName, getName = "list" .. camel(many), "get" .. camel(one)
+	functions[listName] = documentation(resource, "list", listName, LIST_OPTIONS, SECRET)
+	functions[getName] = documentation(resource, "get", getName, GET_OPTIONS, SECRET)
 	exports[listName] = function(opts: Options?): any
 		local value = request(listName, "GET", path, listQuery(opts), nil)
 		-- PrestaShop answers an empty list with [] instead of its usual wrapper.
@@ -331,8 +334,6 @@ for _, resource in RESOURCES do
 		shop(options(opts, GET_OPTIONS), parts)
 		return single(getName, request(getName, "GET", path .. "/" .. segment, table.concat(parts, "&"), nil), one, many)
 	end
-	signatures[listName] = "({display?, filter?, sort?, limit?, offset?, language?, id_shop?}?) -> {" .. many .. ": [...]}"
-	signatures[getName] = "(id, {language?, id_shop?}?) -> {" .. one .. ": {...}}"
 
 	if config.access == "read-write" and resource.writes then
 		for _, verb in resource.writes do
@@ -348,7 +349,7 @@ for _, resource in RESOURCES do
 				end
 				return table.concat(parts, "&")
 			end
-			local email = if SENDS_EMAIL[name] then ", sendemail?" else ""
+			functions[name] = documentation(resource, verb, name, allowed, SECRET)
 			if verb == "create" then
 				exports[name] = function(fields: Options, opts: Options?): any
 					local q = query(opts)
@@ -356,28 +357,22 @@ for _, resource in RESOURCES do
 					local secret = if fields.passwd ~= nil then scalar(fields.passwd, "passwd") else nil
 					return single(name, request(name, "POST", path, q, body, secret), one, many)
 				end
-				signatures[name] = "(fields, {id_shop?" .. email .. "}?) -> {" .. one .. ": {...}}"
 			elseif verb == "update" then
 				exports[name] = function(recordID: number, fields: Options, opts: Options?): any
 					local segment, q = id(recordID, "id"), query(opts)
 					return single(name, request(name, "PATCH", path .. "/" .. segment, q, xml(one, segment, fields)), one, many)
 				end
-				signatures[name] = "(id, fields, {id_shop?" .. email .. "}?) -> {" .. one .. ": {...}}"
 			else
 				exports[name] = function(recordID: number, opts: Options?): any
 					local segment, q = id(recordID, "id"), query(opts)
 					return request(name, "DELETE", path .. "/" .. segment, q, nil)
 				end
-				signatures[name] = "(id, {id_shop?}?) -> true"
 			end
 		end
 	end
 end
 
-exports.help = function(): string
-	local names: {string} = {}
-	for name in signatures do table.insert(names, name) end
-	table.sort(names)
+exports.help = function(): any
 	local lines = {
 		"PrestaShop Webservice API for " .. STORE .. ". Results keep PrestaShop's native snake_case fields and wrappers: lists return {<plural>: [...]}, an empty list included, and get, create and update return {<singular>: {...}}. IDs are numbers and most other values strings. Translated fields are [{id, value}] per language, or one string when language=<id> is passed or the store has a single active language; links sit under associations. Password hashes, reset tokens and secure_key are removed from results and cannot be filtered, sorted or displayed. Connector calls return completed values: use them directly, without await.",
 		"Lists fetch one page with every field (display='full'): pass limit (1-100, default 50) and offset (default 0), and fetch the next offset while a page returns limit records; PrestaShop gives no total. display={'id','reference'} returns only those fields. filter maps a field to a value: a number or array matches exactly ({current_state={2,3}}), and a string uses PrestaShop's syntax: '[v]' equal, '[a|b]' either, '[1,10]' between, '>[v]', '<[v]', '![v]' not, '[mug]%' starts with, '%[mug]%' contains. Dates are 'YYYY-MM-DD HH:MM:SS' in the store's time zone, for example filter={date_upd='>[2026-10-01 00:00:00]'}. sort is 'field_ASC', 'field_DESC' or an array of those. language and id_shop (an ID, or 'all') pick a language and a multistore shop; the default shop is used otherwise.",
@@ -388,7 +383,6 @@ exports.help = function(): string
 		table.insert(lines, "Writes take fields as an object of PrestaShop field names (see the field reference below), sent as PrestaShop's XML; the result is the saved record. Translated fields take [{id=languageID, value='...'}] or one string for every language, associations take arrays of objects such as associations={categories={{id=2}}} and replace the whole set (json.decode('[]') clears it), and booleans become 1 or 0. Updates use PATCH and change only the given fields, which needs PrestaShop 8 or later; on PrestaShop 1.7 only creates and deletes work. createProduct needs at least price; createCustomer needs firstname, lastname, email and passwd (the plain password, which PrestaShop hashes; updates cannot change it). createOrderHistory({id_order=123, id_order_state=4}, {sendemail=true}) changes an order's status and, with sendemail, emails the customer when that status sends emails. updateOrderCarrier(id, {tracking_number='1Z...'}, {sendemail=true}) sets a shipment's tracking number and sends the in-transit email; if that email fails, PrestaShop answers HTTP 500 [46] although the number was saved. updateStockAvailable(id, {quantity=12}) sets a quantity: find the row with listStockAvailables({filter={id_product=9, id_product_attribute=0}}), but for a product with combinations update each combination's row (id_product_attribute=<combination ID>), as PrestaShop recomputes the 0 row as their total. Deleting a product or customer is permanent. Only HTTP 429 is retried: after a timeout or 5xx, read the record again before repeating a write.")
 	end
 	table.insert(lines, "Field reference: " .. DOCS .. "<path>/, where the path is the plural, or order_slip for credit slips.")
-	for _, name in names do table.insert(lines, name .. signatures[name]) end
-	return table.concat(lines, "\n")
+	return {text = table.concat(lines, "\n"), functions = functions}
 end
 return exports

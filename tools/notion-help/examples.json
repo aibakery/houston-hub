@@ -1,0 +1,748 @@
+{
+  "adminAddLegalHoldUsers": [
+    {
+      "legal_hold_id": "b55c9c91-384d-452b-81db-d1ef79372b75",
+      "user_ids": [
+        "b55c9c91-384d-452b-81db-d1ef79372b75"
+      ]
+    }
+  ],
+  "adminAddPermissionGroupMember": [
+    {
+      "group_id": "b55c9c91-384d-452b-81db-d1ef79372b75",
+      "member": {
+        "type": "user",
+        "user_id": "b55c9c91-384d-452b-81db-d1ef79372b75"
+      },
+      "role": "member",
+      "space_id": "b55c9c91-384d-452b-81db-d1ef79372b75"
+    }
+  ],
+  "adminCreateLegalHold": [
+    {
+      "name": "Project record preservation",
+      "start_date": 1790812800000,
+      "user_ids": [
+        "b55c9c91-384d-452b-81db-d1ef79372b75"
+      ],
+      "user_interaction_type": [
+        "page.created"
+      ]
+    }
+  ],
+  "adminCreatePermissionGroup": [
+    {
+      "name": "Project roadmap",
+      "space_id": "b55c9c91-384d-452b-81db-d1ef79372b75"
+    }
+  ],
+  "adminDeleteAgent": [
+    {
+      "agent_id": "b55c9c91-384d-452b-81db-d1ef79372b75",
+      "space_id": "b55c9c91-384d-452b-81db-d1ef79372b75"
+    }
+  ],
+  "adminDeletePermissionGroup": [
+    {
+      "group_id": "b55c9c91-384d-452b-81db-d1ef79372b75",
+      "space_id": "b55c9c91-384d-452b-81db-d1ef79372b75"
+    }
+  ],
+  "adminEnqueueSpaceExport": [
+    {
+      "export_type": "html",
+      "on_behalf_of_user_email": "alex@example.com",
+      "space_id": "b55c9c91-384d-452b-81db-d1ef79372b75"
+    }
+  ],
+  "adminExportLegalHold": [
+    {
+      "legal_hold_export_id": "b55c9c91-384d-452b-81db-d1ef79372b75",
+      "legal_hold_id": "b55c9c91-384d-452b-81db-d1ef79372b75",
+      "requesting_user_id": "b55c9c91-384d-452b-81db-d1ef79372b75"
+    }
+  ],
+  "adminGetAgentCreditUsage": [
+    {
+      "agent_id": "b55c9c91-384d-452b-81db-d1ef79372b75",
+      "space_id": "b55c9c91-384d-452b-81db-d1ef79372b75"
+    }
+  ],
+  "adminGetAgentPermissions": [
+    {
+      "agent_id": "b55c9c91-384d-452b-81db-d1ef79372b75",
+      "space_id": "b55c9c91-384d-452b-81db-d1ef79372b75"
+    }
+  ],
+  "adminGetAgentsCreditUsage": [
+    {
+      "space_id": "b55c9c91-384d-452b-81db-d1ef79372b75"
+    }
+  ],
+  "adminGetLegalHold": [
+    {
+      "legal_hold_id": "b55c9c91-384d-452b-81db-d1ef79372b75"
+    }
+  ],
+  "adminGetSpaceExportStatus": [
+    {
+      "export_job_id": "b55c9c91-384d-452b-81db-d1ef79372b75",
+      "space_id": "b55c9c91-384d-452b-81db-d1ef79372b75"
+    }
+  ],
+  "adminGetWorkflowsMetadataForSpace": [
+    {
+      "space_id": "b55c9c91-384d-452b-81db-d1ef79372b75"
+    }
+  ],
+  "adminListLegalHoldPages": [
+    {
+      "legal_hold_id": "b55c9c91-384d-452b-81db-d1ef79372b75",
+      "space_id": "b55c9c91-384d-452b-81db-d1ef79372b75"
+    }
+  ],
+  "adminListLegalHoldUsers": [
+    {
+      "legal_hold_id": "b55c9c91-384d-452b-81db-d1ef79372b75"
+    }
+  ],
+  "adminListLegalHoldWorkspaces": [
+    {
+      "legal_hold_id": "b55c9c91-384d-452b-81db-d1ef79372b75"
+    }
+  ],
+  "adminListLegalHolds": [
+    {}
+  ],
+  "adminListMcpClientConnections": [
+    {}
+  ],
+  "adminListPermissionGroupMembers": [
+    {
+      "group_id": "b55c9c91-384d-452b-81db-d1ef79372b75",
+      "space_id": "b55c9c91-384d-452b-81db-d1ef79372b75"
+    }
+  ],
+  "adminListPermissionGroups": [
+    {
+      "space_id": "b55c9c91-384d-452b-81db-d1ef79372b75"
+    }
+  ],
+  "adminListPersonalAccessTokens": [
+    {
+      "space_id": "b55c9c91-384d-452b-81db-d1ef79372b75"
+    }
+  ],
+  "adminListUsers": [
+    {
+      "space_id": "b55c9c91-384d-452b-81db-d1ef79372b75"
+    }
+  ],
+  "adminReleaseLegalHold": [
+    {
+      "legal_hold_id": "b55c9c91-384d-452b-81db-d1ef79372b75"
+    }
+  ],
+  "adminRemoveLegalHoldUser": [
+    {
+      "legal_hold_id": "b55c9c91-384d-452b-81db-d1ef79372b75",
+      "user_id": "b55c9c91-384d-452b-81db-d1ef79372b75"
+    }
+  ],
+  "adminRemovePermissionGroupMember": [
+    {
+      "group_id": "b55c9c91-384d-452b-81db-d1ef79372b75",
+      "space_id": "b55c9c91-384d-452b-81db-d1ef79372b75",
+      "user_id": "b55c9c91-384d-452b-81db-d1ef79372b75"
+    }
+  ],
+  "adminRetrievePermissionGroup": [
+    {
+      "group_id": "b55c9c91-384d-452b-81db-d1ef79372b75",
+      "space_id": "b55c9c91-384d-452b-81db-d1ef79372b75"
+    }
+  ],
+  "adminRevokeMcpClientConnection": [
+    {
+      "client_key": "example-client",
+      "user_id": "b55c9c91-384d-452b-81db-d1ef79372b75",
+      "workspace_id": "b55c9c91-384d-452b-81db-d1ef79372b75"
+    }
+  ],
+  "adminRevokePersonalAccessToken": [
+    {
+      "bot_id": "b55c9c91-384d-452b-81db-d1ef79372b75",
+      "space_id": "b55c9c91-384d-452b-81db-d1ef79372b75"
+    }
+  ],
+  "adminRevokeUserSession": [
+    {
+      "user": {
+        "email": "alex@example.com",
+        "type": "email"
+      }
+    }
+  ],
+  "adminUpdateAgentCreationPolicy": [
+    {
+      "policy": "all_workspace_members",
+      "space_id": "b55c9c91-384d-452b-81db-d1ef79372b75"
+    }
+  ],
+  "adminUpdateAgentCreditLimit": [
+    {
+      "agent_id": "b55c9c91-384d-452b-81db-d1ef79372b75",
+      "credit_limit": 1,
+      "space_id": "b55c9c91-384d-452b-81db-d1ef79372b75"
+    }
+  ],
+  "adminUpdateAgentPermissions": [
+    {
+      "agent_id": "b55c9c91-384d-452b-81db-d1ef79372b75",
+      "set": [
+        {
+          "principal": {
+            "type": "user",
+            "user_id": "2d8b6c42-2f16-4e39-bc50-66d19ccaa491"
+          },
+          "role": "view_and_interact"
+        }
+      ],
+      "space_id": "b55c9c91-384d-452b-81db-d1ef79372b75"
+    }
+  ],
+  "adminUpdateAgentStatus": [
+    {
+      "admin_status": "active",
+      "agent_id": "b55c9c91-384d-452b-81db-d1ef79372b75",
+      "space_id": "b55c9c91-384d-452b-81db-d1ef79372b75"
+    }
+  ],
+  "adminUpdateLegalHold": [
+    {
+      "legal_hold_id": "b55c9c91-384d-452b-81db-d1ef79372b75",
+      "name": "Project record preservation (updated)"
+    }
+  ],
+  "adminUpdateMcpClientConnectionEnterpriseManagedAccess": [
+    {
+      "access": "allowed",
+      "user_id": "b55c9c91-384d-452b-81db-d1ef79372b75",
+      "workspace_id": "b55c9c91-384d-452b-81db-d1ef79372b75"
+    }
+  ],
+  "adminUpdatePermissionGroup": [
+    {
+      "group_id": "b55c9c91-384d-452b-81db-d1ef79372b75",
+      "name": "Project roadmap",
+      "space_id": "b55c9c91-384d-452b-81db-d1ef79372b75"
+    }
+  ],
+  "adminUpdatePermissionGroupMember": [
+    {
+      "group_id": "b55c9c91-384d-452b-81db-d1ef79372b75",
+      "role": "member",
+      "space_id": "b55c9c91-384d-452b-81db-d1ef79372b75",
+      "user_id": "b55c9c91-384d-452b-81db-d1ef79372b75"
+    }
+  ],
+  "adminUpdateWorkspaceCreditLimit": [
+    {
+      "default_agent_credit_limit": 1,
+      "space_id": "b55c9c91-384d-452b-81db-d1ef79372b75"
+    }
+  ],
+  "appendBlockChildren": [
+    {
+      "block_id": "b55c9c91-384d-452b-81db-d1ef79372b75",
+      "children": [
+        {
+          "object": "block",
+          "paragraph": {
+            "rich_text": [
+              {
+                "text": {
+                  "content": "Planning notes."
+                },
+                "type": "text"
+              }
+            ]
+          },
+          "type": "paragraph"
+        }
+      ]
+    }
+  ],
+  "batchManageAgents": [
+    {
+      "operations": [
+        {
+          "action": "update_status",
+          "agent_id": "b55c9c91-384d-452b-81db-d1ef79372b75",
+          "fields": {
+            "status": "active"
+          }
+        }
+      ]
+    }
+  ],
+  "cancelSession": [
+    {
+      "session_id": "b55c9c91-384d-452b-81db-d1ef79372b75"
+    }
+  ],
+  "completeFileUpload": [
+    {
+      "file_upload_id": "b55c9c91-384d-452b-81db-d1ef79372b75"
+    }
+  ],
+  "createComment": [
+    {
+      "parent": {
+        "page_id": "b55c9c91-384d-452b-81db-d1ef79372b75"
+      },
+      "rich_text": [
+        {
+          "text": {
+            "content": "Ready for review."
+          },
+          "type": "text"
+        }
+      ]
+    }
+  ],
+  "createDataSource": [
+    {
+      "parent": {
+        "database_id": "b55c9c91-384d-452b-81db-d1ef79372b75"
+      },
+      "properties": {
+        "Due": {
+          "date": {}
+        },
+        "Name": {
+          "title": {}
+        }
+      },
+      "title": [
+        {
+          "text": {
+            "content": "Projects"
+          },
+          "type": "text"
+        }
+      ]
+    }
+  ],
+  "createDatabase": [
+    {
+      "parent": {
+        "page_id": "b55c9c91-384d-452b-81db-d1ef79372b75",
+        "type": "page_id"
+      },
+      "title": [
+        {
+          "text": {
+            "content": "Project tracker"
+          },
+          "type": "text"
+        }
+      ]
+    }
+  ],
+  "createFileUpload": [
+    {
+      "content_type": "text/plain",
+      "filename": "notes.txt",
+      "mode": "single_part"
+    }
+  ],
+  "createMeetingNote": [
+    {
+      "parent": {
+        "page_id": "b55c9c91-384d-452b-81db-d1ef79372b75",
+        "type": "page_id"
+      },
+      "source": {
+        "file_upload_id": "b55c9c91-384d-452b-81db-d1ef79372b75",
+        "type": "file_upload"
+      }
+    }
+  ],
+  "createPage": [
+    {
+      "markdown": "# Plan\n\nShip the next milestone.",
+      "markdown_version": "v2",
+      "parent": {
+        "page_id": "2d8b6c42-2f16-4e39-bc50-66d19ccaa491"
+      },
+      "properties": {
+        "title": {
+          "title": [
+            {
+              "text": {
+                "content": "Project roadmap"
+              },
+              "type": "text"
+            }
+          ],
+          "type": "title"
+        }
+      }
+    }
+  ],
+  "createView": [
+    {
+      "data_source_id": "b55c9c91-384d-452b-81db-d1ef79372b75",
+      "name": "Project roadmap",
+      "type": "table"
+    }
+  ],
+  "createViewQuery": [
+    {
+      "page_size": 10,
+      "view_id": "b55c9c91-384d-452b-81db-d1ef79372b75"
+    }
+  ],
+  "deleteAgent": [
+    {
+      "agent_id": "b55c9c91-384d-452b-81db-d1ef79372b75"
+    }
+  ],
+  "deleteBlock": [
+    {
+      "block_id": "b55c9c91-384d-452b-81db-d1ef79372b75"
+    }
+  ],
+  "deleteComment": [
+    {
+      "comment_id": "b55c9c91-384d-452b-81db-d1ef79372b75"
+    }
+  ],
+  "deleteView": [
+    {
+      "view_id": "b55c9c91-384d-452b-81db-d1ef79372b75"
+    }
+  ],
+  "deleteViewQuery": [
+    {
+      "query_id": "b55c9c91-384d-452b-81db-d1ef79372b75",
+      "view_id": "b55c9c91-384d-452b-81db-d1ef79372b75"
+    }
+  ],
+  "getAgent": [
+    {
+      "agent_id": "b55c9c91-384d-452b-81db-d1ef79372b75"
+    }
+  ],
+  "getAgentInsights": [
+    {
+      "agent_id": "b55c9c91-384d-452b-81db-d1ef79372b75"
+    }
+  ],
+  "getAsyncTask": [
+    {
+      "task_id": "task_abc123"
+    }
+  ],
+  "getBlock": [
+    {
+      "block_id": "b55c9c91-384d-452b-81db-d1ef79372b75"
+    }
+  ],
+  "getComment": [
+    {
+      "comment_id": "b55c9c91-384d-452b-81db-d1ef79372b75"
+    }
+  ],
+  "getDataSource": [
+    {
+      "data_source_id": "b55c9c91-384d-452b-81db-d1ef79372b75"
+    }
+  ],
+  "getDatabase": [
+    {
+      "database_id": "b55c9c91-384d-452b-81db-d1ef79372b75"
+    }
+  ],
+  "getFileUpload": [
+    {
+      "file_upload_id": "b55c9c91-384d-452b-81db-d1ef79372b75"
+    }
+  ],
+  "getPage": [
+    {
+      "page_id": "b55c9c91-384d-452b-81db-d1ef79372b75"
+    }
+  ],
+  "getPageMarkdown": [
+    {
+      "page_id": "b55c9c91-384d-452b-81db-d1ef79372b75"
+    }
+  ],
+  "getPageProperty": [
+    {
+      "page_id": "b55c9c91-384d-452b-81db-d1ef79372b75",
+      "property_id": "title"
+    }
+  ],
+  "getPlugin": [
+    {
+      "id": "9b4a1d3f-1f0a-4c2a-9f0b-6c1f5a3d2e10"
+    }
+  ],
+  "getSelf": [
+    {}
+  ],
+  "getSession": [
+    {
+      "session_id": "b55c9c91-384d-452b-81db-d1ef79372b75"
+    }
+  ],
+  "getSkill": [
+    {
+      "id": "b55c9c91-384d-452b-81db-d1ef79372b75"
+    }
+  ],
+  "getUser": [
+    {
+      "user_id": "b55c9c91-384d-452b-81db-d1ef79372b75"
+    }
+  ],
+  "getView": [
+    {
+      "view_id": "b55c9c91-384d-452b-81db-d1ef79372b75"
+    }
+  ],
+  "getViewQueryResults": [
+    {
+      "query_id": "b55c9c91-384d-452b-81db-d1ef79372b75",
+      "view_id": "b55c9c91-384d-452b-81db-d1ef79372b75"
+    }
+  ],
+  "listBlockChildren": [
+    {
+      "block_id": "b55c9c91-384d-452b-81db-d1ef79372b75"
+    }
+  ],
+  "listComments": [
+    {
+      "block_id": "b55c9c91-384d-452b-81db-d1ef79372b75"
+    }
+  ],
+  "listCustomEmojis": [
+    {}
+  ],
+  "listDataSourceTemplates": [
+    {
+      "data_source_id": "b55c9c91-384d-452b-81db-d1ef79372b75"
+    }
+  ],
+  "listFileUploads": [
+    {}
+  ],
+  "listPlugins": [
+    {}
+  ],
+  "listUsers": [
+    {}
+  ],
+  "listViews": [
+    {
+      "data_source_id": "b55c9c91-384d-452b-81db-d1ef79372b75"
+    }
+  ],
+  "movePage": [
+    {
+      "page_id": "b55c9c91-384d-452b-81db-d1ef79372b75",
+      "parent": {
+        "page_id": "2d8b6c42-2f16-4e39-bc50-66d19ccaa491"
+      }
+    }
+  ],
+  "queryAgents": [
+    {
+      "page_size": 10
+    }
+  ],
+  "queryDataSource": [
+    {
+      "data_source_id": "b55c9c91-384d-452b-81db-d1ef79372b75",
+      "filter": {
+        "property": "Status",
+        "status": {
+          "equals": "Done"
+        }
+      },
+      "page_size": 10
+    }
+  ],
+  "queryMeetingNotes": [
+    {
+      "page_size": 10
+    }
+  ],
+  "querySessionEvents": [
+    {
+      "session_id": "b55c9c91-384d-452b-81db-d1ef79372b75"
+    }
+  ],
+  "querySessions": [
+    {
+      "page_size": 10
+    }
+  ],
+  "search": [
+    {
+      "page_size": 10,
+      "query": "Roadmap"
+    }
+  ],
+  "streamSession": [
+    {
+      "agent_id": "notion_ai",
+      "message": "Summarize the project roadmap.",
+      "path": "session.sse"
+    },
+    {
+      "continue_from": "b55c9c91-384d-452b-81db-d1ef79372b75",
+      "path": "continued.sse",
+      "session_id": "b55c9c91-384d-452b-81db-d1ef79372b75"
+    }
+  ],
+  "updateAgentCreditLimit": [
+    {
+      "agent_id": "b55c9c91-384d-452b-81db-d1ef79372b75",
+      "credit_limit": 1
+    }
+  ],
+  "updateAgentStatus": [
+    {
+      "agent_id": "b55c9c91-384d-452b-81db-d1ef79372b75",
+      "status": "active"
+    }
+  ],
+  "updateBlock": [
+    {
+      "block_id": "b55c9c91-384d-452b-81db-d1ef79372b75",
+      "paragraph": {
+        "rich_text": [
+          {
+            "text": {
+              "content": "Updated planning notes."
+            },
+            "type": "text"
+          }
+        ]
+      }
+    }
+  ],
+  "updateComment": [
+    {
+      "comment_id": "b55c9c91-384d-452b-81db-d1ef79372b75",
+      "rich_text": [
+        {
+          "text": {
+            "content": "Reviewed and approved."
+          },
+          "type": "text"
+        }
+      ]
+    }
+  ],
+  "updateDataSource": [
+    {
+      "data_source_id": "b55c9c91-384d-452b-81db-d1ef79372b75",
+      "title": [
+        {
+          "text": {
+            "content": "Project tracker"
+          },
+          "type": "text"
+        }
+      ]
+    }
+  ],
+  "updateDatabase": [
+    {
+      "database_id": "b55c9c91-384d-452b-81db-d1ef79372b75",
+      "title": [
+        {
+          "text": {
+            "content": "Roadmap"
+          },
+          "type": "text"
+        }
+      ]
+    }
+  ],
+  "updatePage": [
+    {
+      "page_id": "b55c9c91-384d-452b-81db-d1ef79372b75",
+      "properties": {
+        "title": {
+          "title": [
+            {
+              "text": {
+                "content": "Updated roadmap"
+              },
+              "type": "text"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "updatePageMarkdown": [
+    {
+      "markdown_version": "v2",
+      "page_id": "b55c9c91-384d-452b-81db-d1ef79372b75",
+      "type": "update_content",
+      "update_content": {
+        "content_updates": [
+          {
+            "new_str": "Current roadmap",
+            "old_str": "Previous roadmap"
+          }
+        ]
+      }
+    },
+    {
+      "markdown_version": "v2",
+      "page_id": "b55c9c91-384d-452b-81db-d1ef79372b75",
+      "replace_content": {
+        "new_str": "# Roadmap\n\nUpdated milestones."
+      },
+      "type": "replace_content"
+    },
+    {
+      "insert_content": {
+        "content": "## Next steps\n\nReview the milestones."
+      },
+      "markdown_version": "v2",
+      "page_id": "b55c9c91-384d-452b-81db-d1ef79372b75",
+      "type": "insert_content"
+    },
+    {
+      "markdown_version": "v2",
+      "page_id": "b55c9c91-384d-452b-81db-d1ef79372b75",
+      "replace_content_range": {
+        "content": "## Milestones\n\nLaunch the beta.\n\n## Next steps",
+        "content_range": "## Milestones...## Next steps"
+      },
+      "type": "replace_content_range"
+    }
+  ],
+  "updateSession": [
+    {
+      "agent_id": "notion_ai",
+      "message": "Summarize the project roadmap."
+    }
+  ],
+  "updateView": [
+    {
+      "name": "Roadmap review",
+      "view_id": "b55c9c91-384d-452b-81db-d1ef79372b75"
+    }
+  ]
+}

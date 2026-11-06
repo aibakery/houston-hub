@@ -36,8 +36,10 @@ return {
 		assert(last().url == API .. "orders?display=full&filter%5Bcurrent_state%5D=%5B2%7C3%5D&filter%5Bdate_upd%5D=%3E%5B2026-10-01%2000%3A00%3A00%5D&sort=%5Bdate_add_DESC%5D&limit=40%2C20&date=1&language=1&id_shop=all", last().url)
 		assert(opts.filter.current_state[2] == 3 and opts.limit == 20, "caller options were modified")
 
+		payload = '{"products":[{"id":9,"reference":"MUG","price":"9.50"}]}'
 		shop.listProducts({display = {"id", "reference", "price"}, filter = {reference = "%[MUG]%"}, sort = {"price_ASC", "id_DESC"}})
 		assert(last().url == API .. "products?display=%5Bid%2Creference%2Cprice%5D&filter%5Breference%5D=%25%5BMUG%5D%25&sort=%5Bprice_ASC%2Cid_DESC%5D&limit=0%2C50", last().url)
+		payload = '{"order_slips":[{"id":1,"id_order":"12"}]}'
 		shop.listOrderSlips({filter = {id_order = 12}, limit = 100})
 		assert(last().url == API .. "order_slip?display=full&filter%5Bid_order%5D=%5B12%5D&limit=0%2C100", last().url)
 

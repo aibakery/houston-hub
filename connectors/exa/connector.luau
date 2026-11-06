@@ -1,6 +1,20 @@
 -- Exa API (OpenAPI 2.0.0, https://exa.ai/docs/exa-spec.yaml) for web search, page contents, similar pages and cited answers. Arguments and results keep Exa's native field names.
 type Options = {[string]: any}
 type Check = (any, string) -> any
+-- Validation factories own the corresponding documentation constraints too.
+local schemas: {[Check]: any} = {}
+local function described(check: Check, inputSchema: any): Check
+	schemas[check] = inputSchema
+	return check
+end
+local function objectSchema(spec: {[string]: Check}): any
+	local properties: {[string]: any} = {}
+	for name, check in spec do
+		assert(schemas[check], "missing schema for " .. name)
+		properties[name] = schemas[check]
+	end
+	return {type = "object", properties = properties, additionalProperties = false}
+end
 
 local API = "https://api.exa.ai"
 -- Houston ends a call after 30 s and the sandbox has no clock. Exa sends its whole answer once it is ready (about
@@ -27,11 +41,11 @@ local function finite(value: any): boolean
 end
 
 local function integer(minimum: number, maximum: number): Check
-	return function(value: any, field: string): any
+	return described(function(value: any, field: string): any
 		assert(finite(value) and value % 1 == 0 and value >= minimum and value <= maximum,
 			field .. " must be an integer from " .. tostring(minimum) .. " to " .. tostring(maximum))
 		return value
-	end
+	end, {type = "integer", minimum = minimum, maximum = maximum})
 end
 
 local function flag(value: any, field: string): any
@@ -40,22 +54,22 @@ local function flag(value: any, field: string): any
 end
 
 local function text(maximum: number): Check
-	return function(value: any, field: string): any
+	return described(function(value: any, field: string): any
 		assert(type(value) == "string" and string.find(value, "%S") and #value <= maximum,
 			field .. " must be a string of at most " .. tostring(maximum) .. " bytes, not only spaces")
 		return value
-	end
+	end, {type = "string", pattern = "\\S", description = "Nonblank text, at most " .. tostring(maximum) .. " UTF-8 bytes."})
 end
 
 local function choice(values: {string}): Check
-	return function(value: any, field: string): any
+	return described(function(value: any, field: string): any
 		assert(type(value) == "string" and table.find(values, value), field .. " must be one of " .. table.concat(values, ", "))
 		return value
-	end
+	end, {type = "string", enum = values})
 end
 
 local function list(maximum: number, item: Check): Check
-	return function(value: any, field: string): any
+	return described(function(value: any, field: string): any
 		assert(type(value) == "table", field .. " must be an array")
 		local count = 0
 		for index, entry in value do
@@ -66,7 +80,7 @@ local function list(maximum: number, item: Check): Check
 		assert(count == #value and count >= 1 and count <= maximum,
 			field .. " must be a dense array of 1 to " .. tostring(maximum) .. " entries")
 		return value
-	end
+	end, {type = "array", minItems = 1, maxItems = maximum, items = schemas[item]})
 end
 
 -- URLs and domain filters: no spaces or control characters, which would silently match nothing.
@@ -105,10 +119,11 @@ local DATE_RULE = " must be an ISO 8601 date such as 2026-01-31 or date-time suc
 
 -- Published-date filters take date-times only, so a date alone covers its whole UTC day. Snapshots take either.
 local function published(suffix: string): Check
-	return function(value: any, field: string): any
+	return described(function(value: any, field: string): any
 		assert(isDate(value), field .. DATE_RULE)
 		return if #value == 10 then value .. suffix else value
-	end
+	end, {type = "string", maxLength = 40, pattern = "^[0-9]{4}-[0-9]{2}-[0-9]{2}(T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2}))?$",
+		description = "Real ISO 8601 date or timestamp with seconds. " .. (if suffix == "" then "Snapshot date is sent unchanged." else "A date without time is expanded to " .. suffix .. " for this published-date boundary.")})
 end
 
 local function schema(value: any, field: string): any
@@ -152,7 +167,7 @@ local function fields(value: any, spec: {[string]: Check}, name: string, prefix:
 end
 
 local function nested(spec: {[string]: Check}): Check
-	return function(value: any, field: string): any return fields(value, spec, field, field .. ".") end
+	return described(function(value: any, field: string): any return fields(value, spec, field, field .. ".") end, objectSchema(spec))
 end
 
 local function extend(base: {[string]: Check}, more: {[string]: Check}): {[string]: Check}
@@ -161,6 +176,13 @@ local function extend(base: {[string]: Check}, more: {[string]: Check}): {[strin
 	return table.freeze(out)
 end
 
+schemas[flag] = {type = "boolean"}
+schemas[link] = {type = "string", minLength = 1, pattern = "^[^\\s\\x00-\\x1f\\x7f]+$", description = "URL or host of at most " .. tostring(MAX_URL) .. " UTF-8 bytes; no spaces or control characters."}
+schemas[schema] = {type = "object", minProperties = 1, description = "JSON Schema object describing the requested structured output; Exa validates supported schema features."}
+schemas[location] = {anyOf = {{type = "string", pattern = "^[A-Za-z]{2}$"} :: any,
+	{type = "object", properties = {country = {type = "string", pattern = "^[A-Za-z]{2}$"}, latitude = {type = "number", minimum = -90, maximum = 90}, longitude = {type = "number", minimum = -180, maximum = 180}},
+		additionalProperties = false, dependentRequired = {latitude = {"longitude"}, longitude = {"latitude"}}, anyOf = {{required = {"country"}}, {required = {"latitude", "longitude"}}}}},
+	description = "Two-letter country code or a location object. Coordinates must be supplied together; country or coordinates are required."}
 local TEXT = table.freeze({maxCharacters = integer(1, TEXT_BUDGET), includeHtmlTags = flag, verbosity = choice(VERBOSITY),
 	includeSections = list(#SECTIONS, choice(SECTIONS)), excludeSections = list(#SECTIONS, choice(SECTIONS))})
 local HIGHLIGHTS = table.freeze({query = text(MAX_PROMPT), maxCharacters = integer(1, HIGHLIGHTS_MAX)})
@@ -168,7 +190,14 @@ local SUMMARY = table.freeze({query = text(MAX_PROMPT), schema = schema})
 
 -- A content type is true or an options table, or false to leave it out. Without defaults, true is sent as is.
 local function view(spec: {[string]: Check}, default: Options?): Check
-	return function(value: any, field: string): any
+	local object = objectSchema(spec)
+	local defaults: Options = default or {}
+	for name, value in defaults do
+		object.properties[name] = table.clone(object.properties[name])
+		object.properties[name].default = value
+	end
+	local variants: {any} = {{type = "boolean"}, object}
+	return described(function(value: any, field: string): any
 		if value == false then return nil end
 		if value == true and default == nil then return true end
 		local out = fields(if value == true then {} else value, spec, field, field .. ".")
@@ -177,7 +206,7 @@ local function view(spec: {[string]: Check}, default: Options?): Check
 			if out[key] == nil then out[key] = item end
 		end
 		return out
-	end
+	end, {anyOf = variants, description = "True enables this content type with defaults, false omits it, or pass its options object."})
 end
 
 -- Full text always gets a character limit; a summary is an object even when empty.
@@ -343,15 +372,10 @@ local function answer(input: Options?): any
 	return call("answer", "/answer", body, "answer")
 end
 
-local function help(): string
+local function help(): any
 	local n = tostring
-	return [[Exa: web search built for agents (https://exa.ai/docs), with your connection's Exa API key. Credentials stay on Houston. Read-only: nothing is created or changed in Exa or on the web. Calls return completed values; do not wrap them in await(). Each call makes one Exa request with no paging (Houston retries an HTTP 429 briefly, nothing else), and results keep Exa's field names and values (requestId, results, costDollars, warnings, notices...).
-
-Every call spends the connection's Exa credits (about $0.004 to $0.012 per search, $0.005 per answer, $0.001 per page and content type for getContents; each search result above 10 and each AI summary add $0.001). Read costDollars in each result. Search once with the content you need instead of searching, then fetching each page. Bounds: numResults and urls 1 to ]] .. n(MAX_RESULTS) .. [[ (default ]] .. n(DEFAULT_RESULTS) .. [[); text.maxCharacters defaults to ]] .. n(TEXT_DEFAULT) .. [[ (also for text = true) and highlights.maxCharacters is at most ]] .. n(HIGHLIGHTS_MAX) .. [[; together, times the number of results, they allow at most ]] .. n(TEXT_BUDGET) .. [[ characters per call (one page of ]] .. n(TEXT_BUDGET) .. [[, or 25 of 20000). Unknown options and invalid values fail before any request, so they cost nothing.
-
-## search({query, type?, numResults?, category?, includeDomains?, excludeDomains?, startPublishedDate?, endPublishedDate?, userLocation?, moderation?, objective?, additionalQueries?, systemPrompt?, outputSchema?, contents?})
-
-POST /search. Returns `{requestId, results, costDollars, searchTime, output?, warnings?, notices?}`; there is no paging. Each result has id (its URL, also accepted by getContents), url, title, publishedDate?, author?, image?, favicon?, and the requested text, highlights (array of strings), summary, extras, or entities (structured company, person or publication data for those categories). Pass notices to the reader with the results; warnings name request fields that had no effect.
+	local descriptions = {
+		search = [[POST /search. Returns `{requestId, results, costDollars, searchTime, output?, warnings?, notices?}`; there is no paging. Each result has id (its URL, also accepted by getContents), url, title, publishedDate?, author?, image?, favicon?, and the requested text, highlights (array of strings), summary, extras, or entities (structured company, person or publication data for those categories). Pass notices to the reader with the results; warnings name request fields that had no effect.
 - query: natural language describing the pages wanted, such as "recent papers comparing hybrid and dense retrieval", at most ]] .. n(MAX_QUERY) .. [[ bytes. Prefer includeDomains over site: in the query.
 - type: auto (default, about 1 s), lite (cheapest, about 0.5 s, cached content only; rejects additionalQueries, outputSchema, systemPrompt, summary, extras, livecrawlTimeout and maxAgeHours), deep-lite (about 4 s, synthesized) or deep (4 to 15 s, multi-step research with synthesis).
 - category: ]] .. table.concat(CATEGORIES, ", ") .. [[. company and people return profiles and reject published dates; people also rejects excludeDomains.
@@ -365,27 +389,57 @@ POST /search. Returns `{requestId, results, costDollars, searchTime, output?, wa
   - text: true or {maxCharacters?, verbosity? (compact, standard or full), includeHtmlTags?, includeSections?, excludeSections?}; sections are ]] .. table.concat(SECTIONS, ", ") .. [[.
   - summary: true or {query?, schema?}; an AI summary string per page; with schema, a JSON string matching it, to read with json.decode.
   - extras: {links?, imageLinks?, richImageLinks?}, 0 to ]] .. n(LINKS_MAX) .. [[ links per page.
-  - maxAgeHours: -1 (cache only) to 720; 0 always fetches the live page. livecrawlTimeout: 1 to ]] .. n(LIVECRAWL_MAX) .. [[ ms (Exa's default 10000); with a fresh fetch, set it low, especially on deep types, so the call finishes in time. snapshotAsOf: a past date or date-time, served from stored versions.
+  - maxAgeHours: -1 (cache only) to 720; 0 always fetches the live page. livecrawlTimeout: 1 to ]] .. n(LIVECRAWL_MAX) .. [[ ms (Exa's default 10000); with a fresh fetch, set it low, especially on deep types, so the call finishes in time. snapshotAsOf: a past date or date-time, served from stored versions.]],
+		findSimilar = [[POST /findSimilar. Pages similar to url, with the same result and contents shapes as search plus score (higher is more similar, comparable within one response). excludeSourceDomain = true leaves out url's own site. Exa deprecates this endpoint in favor of search with a query describing the source, so prefer that when you can describe it.]],
+		getContents = [[POST /contents. Contents for 1 to ]] .. n(MAX_RESULTS) .. [[ URLs, with the contents options of search at the top level; at least one of text, highlights or summary is required. Returns `{requestId, results, statuses, costDollars}`: results are only the pages read, and statuses holds one {id, status = "success" or "error", source?, error = {tag, httpStatusCode}?} per URL. Tags include CRAWL_NOT_FOUND, CRAWL_HTTP_403, CRAWL_TIMEOUT, CRAWL_LIVECRAWL_TIMEOUT and SOURCE_NOT_AVAILABLE; a failed URL does not fail the call. Contents are billed per page and content type.]],
+		answer = [[POST /answer. Exa searches and answers with an LLM: `{requestId, answer, citations, costDollars}`, where answer is a string, or an object matching outputSchema (a JSON Schema), and citations are {id, url, title, publishedDate?, author?} of the sources used. model: ]] .. table.concat(MODELS, ", ") .. [[ (default exa). Read a citation's page with getContents.]],
+	}
+	local definitions: {[string]: {spec: {[string]: Check}, required: string, examples: {Options}}} = {
+		search = {spec = SEARCH, required = "query", examples = {{query = "open-source vector databases benchmarked in 2026", numResults = 5,
+			startPublishedDate = "2026-01-01", contents = {highlights = {query = "benchmark results"}}}}},
+		findSimilar = {spec = SIMILAR, required = "url", examples = {{url = "https://exa.ai/blog/dynamic-highlights", numResults = 3, excludeSourceDomain = true,
+			category = "company", contents = {highlights = true}}}},
+		getContents = {spec = GET_CONTENTS, required = "urls", examples = {{urls = {"https://a.example", "https://gone.example"}, text = true, maxAgeHours = 0,
+			snapshotAsOf = "2026-01-15"}}},
+		answer = {spec = ANSWER, required = "query", examples = {{query = "Who makes Exa?"}}},
+	}
+	local docs: {[string]: any} = {}
+	local resultRow = {type = "object", properties = {id = {type = "string"}, url = {type = "string"}, title = {type = {"string", "null"}},
+		text = {type = "string"}, highlights = {type = "array", items = {type = "string"}}, summary = {type = "string"}, score = {type = "number"}}}
+	for name, definition in definitions do
+		local input = objectSchema(definition.spec)
+		input.required = {definition.required}
+		input.examples = definition.examples
+		if name == "search" or name == "findSimilar" then
+			input.properties.numResults = table.clone(input.properties.numResults)
+			input.properties.numResults.default = DEFAULT_RESULTS
+		end
+		if name == "getContents" then
+			input.anyOf = {}
+			for _, kind in {"text", "highlights", "summary"} do
+				table.insert(input.anyOf, {required = {kind}, properties = {[kind] = {["not"] = {const = false}}}})
+			end
+		end
+		local output: any = {type = "object", properties = {requestId = {type = "string"}, costDollars = {type = "object"}}}
+		if name == "answer" then
+			output.properties.answer = {type = {"string", "object"}}
+			output.properties.citations = {type = "array", items = resultRow}
+			output.required = {"answer"}
+		else
+			output.properties.results = {type = "array", items = resultRow}
+			output.required = {"results"}
+		end
+		if name == "getContents" then
+			output.properties.statuses = {type = "array", items = {type = "object", properties = {
+				id = {type = "string"}, status = {enum = {"success", "error"}}, source = {type = "string"},
+				error = {type = "object", properties = {tag = {type = "string"}, httpStatusCode = {type = "integer"}}},
+			}}}
+		end
+		docs[name] = {description = descriptions[name], inputSchema = input, outputSchema = output, annotations = {readOnlyHint = true}}
+	end
+	return {text = [[Exa: web search built for agents (https://exa.ai/docs), with your connection's Exa API key. Credentials stay on Houston. Read-only: nothing is created or changed in Exa or on the web. Calls return completed values; do not wrap them in await(). Each call makes one Exa request with no paging (Houston retries an HTTP 429 briefly, nothing else), and results keep Exa's field names and values (requestId, results, costDollars, warnings, notices...).
 
-## findSimilar({url, numResults?, excludeSourceDomain?, category?, includeDomains?, excludeDomains?, startPublishedDate?, endPublishedDate?, contents?})
-
-POST /findSimilar. Pages similar to url, with the same result and contents shapes as search plus score (higher is more similar, comparable within one response). excludeSourceDomain = true leaves out url's own site. Exa deprecates this endpoint in favor of search with a query describing the source, so prefer that when you can describe it.
-
-## getContents({urls, text?, highlights?, summary?, extras?, maxAgeHours?, livecrawlTimeout?, snapshotAsOf?})
-
-POST /contents. Contents for 1 to ]] .. n(MAX_RESULTS) .. [[ URLs, with the contents options of search at the top level; at least one of text, highlights or summary is required. Returns `{requestId, results, statuses, costDollars}`: results are only the pages read, and statuses holds one {id, status = "success" or "error", source?, error = {tag, httpStatusCode}?} per URL. Tags include CRAWL_NOT_FOUND, CRAWL_HTTP_403, CRAWL_TIMEOUT, CRAWL_LIVECRAWL_TIMEOUT and SOURCE_NOT_AVAILABLE; a failed URL does not fail the call. Contents are billed per page and content type.
-
-## answer({query, model?, systemPrompt?, userLocation?, outputSchema?})
-
-POST /answer. Exa searches and answers with an LLM: `{requestId, answer, citations, costDollars}`, where answer is a string, or an object matching outputSchema (a JSON Schema), and citations are {id, url, title, publishedDate?, author?} of the sources used. model: ]] .. table.concat(MODELS, ", ") .. [[ (default exa). Read a citation's page with getContents.
-
-## Errors and limits
-
-Exa errors fail as upstream errors with the HTTP status, Exa's tag and message and its request ID, such as "Exa HTTP 402 NO_MORE_CREDITS: ...". 401 means the API key is invalid; 402 that credits or a spending budget ran out; 403 that the plan lacks a feature or moderation refused the request; 400 that options conflict (such as an option lite does not accept). HTTP 429, 500, 503 and 504 are retryable: Exa allows 10 searches or answers and 5 deep searches per second per team, and Houston waits and retries a refused request briefly. A call gives Exa ]] .. n((CALL_TIME - BODY_TIME) // 1000) .. [[ s to answer and reads at most ]] .. n(MAX_BYTES // 1048576) .. [[ MiB; past that it fails, and Exa may still bill it. A timed-out call is not retryable: make it faster (another type or model, fewer results, a lower livecrawlTimeout) before calling again. Not exposed: Exa Agent runs, the exa-research answer model, monitors, batches, Websets, team and API key management, streaming, subpage crawling and Exa's deprecated options.
-
-## Example
-
-Here exa is the configured Exa connection.
+Every call spends the connection's Exa credits (about $0.004 to $0.012 per search, $0.005 per answer, $0.001 per page and content type for getContents; each search result above 10 and each AI summary add $0.001). Read costDollars in each result. Search once with the content you need instead of searching, then fetching each page. Bounds: numResults and urls 1 to ]] .. n(MAX_RESULTS) .. [[ (default ]] .. n(DEFAULT_RESULTS) .. [[); text.maxCharacters defaults to ]] .. n(TEXT_DEFAULT) .. [[ (also for text = true) and highlights.maxCharacters is at most ]] .. n(HIGHLIGHTS_MAX) .. [[; together, times the number of results, they allow at most ]] .. n(TEXT_BUDGET) .. [[ characters per call (one page of ]] .. n(TEXT_BUDGET) .. [[, or 25 of 20000). Unknown options and invalid values fail before any request, so they cost nothing.]], functions = docs, sections = {limits = [[Exa errors fail as upstream errors with the HTTP status, Exa's tag and message and its request ID, such as "Exa HTTP 402 NO_MORE_CREDITS: ...". 401 means the API key is invalid; 402 that credits or a spending budget ran out; 403 that the plan lacks a feature or moderation refused the request; 400 that options conflict (such as an option lite does not accept). HTTP 429, 500, 503 and 504 are retryable: Exa allows 10 searches or answers and 5 deep searches per second per team, and Houston waits and retries a refused request briefly. A call gives Exa ]] .. n((CALL_TIME - BODY_TIME) // 1000) .. [[ s to answer and reads at most ]] .. n(MAX_BYTES // 1048576) .. [[ MiB; past that it fails, and Exa may still bill it. A timed-out call is not retryable: make it faster (another type or model, fewer results, a lower livecrawlTimeout) before calling again. Not exposed: Exa Agent runs, the exa-research answer model, monitors, batches, Websets, team and API key management, streaming, subpage crawling and Exa's deprecated options.]], workflow = [[Here exa is the configured Exa connection.
 
 ```lua
 local found = exa.search({query = "open-source vector databases benchmarked in 2026", numResults = 5,
@@ -398,7 +452,7 @@ if found.results[1] then
 end
 local reply = exa.answer({query = "Which company makes the Exa search API?"})
 print(reply.answer, reply.citations[1] and reply.citations[1].url)
-```]]
+```]]}}
 end
 
 return {search = search, findSimilar = findSimilar, getContents = getContents, answer = answer, help = help}

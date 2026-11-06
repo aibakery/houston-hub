@@ -248,13 +248,17 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 	return result
 end
 
+local schemas = require("lib/schemas.luau")
+local functions: {[string]: any} = {}
 local exports: {[string]: any} = {}
 for name, endpoint in endpoints do
 	if endpoint.method == "GET" or config.access == "read-write" then
 		exports[name] = function(args: Options?): any return request(name, endpoint, args) end
+		functions[name] = {description = endpoint.about, inputSchema = schemas[name], annotations = {readOnlyHint = endpoint.method == "GET", destructiveHint = endpoint.method ~= "GET", openWorldHint = true}}
+		if endpoint.kind == "download" then functions[name].outputSchema = {type = "object", properties = {path = {type = "string"}, url = {type = "string"}, size = {type = "integer", minimum = 0}}, required = {"path", "url", "size"}} end
 	end
 end
-exports.help = function(): string
+exports.help = function(): any
 	local lines = {
 		"Stripe API v1 (2026-09-30.endive). Call functions directly, e.g. stripe.listCustomers({limit=25}); do not await connector calls. Each takes one named options object; {field} in the route is required and removed before sending. Remaining options use Stripe's native parameter names and nested tables; results preserve Stripe's JSON objects, arrays and nulls. Full schemas: https://docs.stripe.com/api .",
 		"List functions fetch one page (limit 1..100, Stripe default 10). While has_more, pass the last data item's id as starting_after; ending_before pages backwards and cannot accompany starting_after. Search uses query and page=result.next_page instead, and is eventually consistent. No automatic paging or retries. Small pages and selective expand keep results within runtime memory/response budgets.",
@@ -264,13 +268,7 @@ exports.help = function(): string
 		"uploadFile({path='evidence.pdf',purpose='dispute_evidence',content_type='application/pdf'}) streams a session file as multipart. Stripe applies purpose-specific size and file-type limits. downloadFile({file_id='file_...',path='download.pdf'}) streams available contents and returns {path,url,size}, with a signed Houston URL; a failed download leaves the path as it was. getFile exposes availability. Invoice PDF links are returned unchanged, not fetched through arbitrary hosts.",
 		"Atlas incorporation, equity, tax and company documents are not in this public Stripe API connector. No supported public Atlas API was found; partner-only integrations need separate access and documentation. Use the Atlas dashboard for these workflows.",
 	}
-	local names: {string} = {}
-	for name in exports do if name ~= "help" then table.insert(names, name) end end
-	table.sort(names)
-	for _, name in names do
-		local endpoint = endpoints[name]
-		table.insert(lines, name .. "(opts): " .. endpoint.method .. " " .. endpoint.path .. ". " .. endpoint.about)
-	end
-	return table.concat(lines, "\n")
+	return {text = table.concat(lines, "\n"), functions = functions}
+
 end
 return exports

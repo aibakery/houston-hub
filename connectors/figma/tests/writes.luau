@@ -30,28 +30,32 @@ return {
 		payload = '{"id":"8","message":"Looks good","parent_id":"7","client_meta":null}'
 		local link = "https://www.figma.com/design/" .. KEY .. "/App"
 		local opts = {file_key = link, message = "Looks good", comment_id = "7"}
-		local reply = figma.postComment(opts)
+		local reply = fixture.example("postComment")
 		assert(last().method == "POST" and last().url == API .. "/v1/files/" .. KEY .. "/comments")
 		assert(last().headers["Content-Type"][1] == "application/json" and last().headers.Authorization == nil and last().headers["X-Figma-Token"] == nil)
 		local body = json.decode(last().body)
 		assert(body.message == "Looks good" and body.comment_id == "7" and body.file_key == nil)
 		assert(reply.parent_id == "7" and opts.file_key == link, "caller options were modified")
 
-		figma.postComment({file_key = KEY, message = "Pinned", client_meta = {node_id = "1-2", node_offset = {x = 10, y = 20}}})
+		fixture.example("postComment", 2)
 		body = json.decode(last().body)
 		assert(body.client_meta.node_id == "1:2" and body.client_meta.node_offset.y == 20)
 
 		payload = ""
-		assert(figma.deleteComment({file_key = KEY, comment_id = "8"}).success == true)
+		assert(fixture.example("deleteComment").success == true)
 		assert(last().method == "DELETE" and last().url == API .. "/v1/files/" .. KEY .. "/comments/8" and last().body == nil)
 		payload = '{"status":200,"error":false}'
-		figma.addCommentReaction({file_key = KEY, comment_id = "7", emoji = ":+1:"})
+		fixture.example("addCommentReaction")
 		assert(last().method == "POST" and last().url == API .. "/v1/files/" .. KEY .. "/comments/7/reactions" and last().body == '{"emoji":":+1:"}')
-		figma.removeCommentReaction({file_key = KEY, comment_id = "7", emoji = ":+1:"})
+		fixture.example("removeCommentReaction")
 		assert(last().method == "DELETE" and last().url == API .. "/v1/files/" .. KEY .. "/comments/7/reactions?emoji=%3A%2B1%3A" and last().body == nil, last().url)
 		figma.getMe()
 		assert(last().method == "GET" and last().url == API .. "/v1/me")
 		assert(#requests == 6)
+		-- Direct calls still preserve the caller's options and nested comment metadata.
+		opts.client_meta = {node_id = "1-2", node_offset = {x = 10, y = 20}}
+		figma.postComment(opts)
+		assert(opts.file_key == link and opts.client_meta.node_id == "1-2")
 
 		rejected(function() figma.postComment({file_key = KEY}) end, "message is required")
 		rejected(function() figma.addCommentReaction({file_key = KEY, comment_id = "7"}) end, "emoji is required")

@@ -65,7 +65,7 @@ return {
 			.. '"title":"Molegro Virtual Docker for Docking.","authors":[{"name":"Bitencourt-Ferreira G","authtype":"Author"}],'
 			.. '"articleids":[{"idtype":"doi","value":"10.1007/978-1-4939-9752-7_10"}]},'
 			.. '"99999999":{"uid":"99999999","error":"cannot get document summary"}}}')
-		local summaries = pubmed.getSummaries({31452104, "99999999", "31452104"})
+		local summaries = fixture.example("getSummaries")
 		posted("esummary", "db=pubmed&retmode=json&id=31452104%2C99999999")
 		assert(summaries.uids[1] == "31452104" and summaries["31452104"].authors[1].name == "Bitencourt-Ferreira G")
 		assert(summaries["99999999"].error == "cannot get document summary")
@@ -121,7 +121,7 @@ return {
 			"TI  - A record without authors.",
 			"",
 		}, "\n"), "text/plain; charset=UTF-8")
-		local records = pubmed.getRecords({"33782057", 1, "2"}).records
+		local records = fixture.example("getRecords").records
 		posted("efetch", "db=pubmed&rettype=medline&retmode=text&id=33782057%2C1%2C2")
 		assert(#records == 3)
 		local prisma = records[1]
@@ -164,7 +164,7 @@ return {
 		assert(#linksets == 2 and linksets[1].linksetdbs[1].links[2] == "31722288" and linksets[2].linksetdbs == nil)
 		respond('{"linksets":[{"dbfrom":"pubmed","ids":["25977807"],"linksetdbs":[{"dbto":"pubmed","linkname":"pubmed_pubmed",'
 			.. '"links":[{"id":"25194848","score":26054440}]}]}]}')
-		linksets = pubmed.getLinks("25977807", "pubmed_pubmed", {scores = true})
+		linksets = fixture.example("getLinks")
 		posted("elink", "dbfrom=pubmed&retmode=json&id=25977807&linkname=pubmed_pubmed&cmd=neighbor_score")
 		assert(linksets[1].linksetdbs[1].links[1].score == 26054440)
 		for _, name in {"pubmed_pubmed_reviews", "pubmed_pubmed_refs", "pubmed_pmc", "pubmed_pmc_refs"} do
@@ -179,6 +179,12 @@ return {
 			.. '{"offset":6,"infons":{"section_type":"INTRO","type":"paragraph"},"text":"Neuroscience is transforming."}],'
 			.. '"annotations":[],"relations":[]}'
 		local BIOC = "https://www.ncbi.nlm.nih.gov/research/bionlp/RESTful/pmcoa.cgi/BioC_json/"
+		respond('[{"documents":[' .. document .. ']}]')
+		assert(fixture.example("getFullText").id == "PMC4412151")
+		assert(last().url == BIOC .. "PMC4412151/unicode")
+		respond('{"esearchresult":{"count":"1","retmax":"1","retstart":"0","idlist":["31452104"]}}')
+		assert(fixture.example("searchArticles").idlist[1] == "31452104")
+		posted("esearch", "db=pubmed&retmode=json&term=crispr%5Btiab%5D%20AND%20review%5Bpt%5D&retstart=0&retmax=20&sort=pub_date&mindate=2024&maxdate=2025&datetype=pdat")
 		for _, case in {{id = "pmc4412151", path = "PMC4412151"}, {id = 25977807, path = "25977807"}, {id = "25977807", path = "25977807"}} do
 			respond('[{"bioctype":"BioCCollection","source":"PMC","documents":[' .. document .. "]}]", "application/json")
 			local article = pubmed.getFullText(case.id)

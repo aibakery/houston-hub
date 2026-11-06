@@ -46,13 +46,13 @@ return {
 		assert(#requests == 0, "initialization reached PostHog")
 
 		payloads = {'{"count":1,"next":null,"previous":null,"results":[{"id":"' .. ORG .. '","name":"Acme","slug":"acme","created_at":"2024-01-02T00:00:00Z","membership_level":8,"member_count":3,"teams":[{"api_token":"phc_public"}],"customer_id":"cus_1"}]}'}
-		local orgs = posthog.listOrganizations()
+		local orgs = fixture.example("listOrganizations")
 		assert(last() == API .. "/organizations/?limit=100", last())
 		assert(orgs.count == 1 and orgs.next == NULL and orgs.results[1].name == "Acme" and orgs.results[1].membership_level == 8)
 		assert(orgs.results[1].teams == nil and orgs.results[1].customer_id == nil, "organization rows must stay compact")
 
 		payloads = {'{"count":2,"next":null,"previous":null,"results":[{"id":12345,"uuid":"u1","organization":"' .. ORG .. '","project_id":12345,"api_token":"phc_public","name":"Web","timezone":"UTC","is_demo":false,"ingested_event":true,"tags":[],"access_control":false}]}'}
-		local projects = posthog.listProjects()
+		local projects = fixture.example("listProjects")
 		assert(last() == API .. "/organizations/@current/projects/?limit=100", last())
 		assert(projects.results[1].id == 12345 and projects.results[1].api_token == nil and json.encode(projects.results[1].tags) == "[]")
 		payloads = {'{"count":0,"next":null,"previous":null,"results":[]}'}
@@ -69,10 +69,9 @@ return {
 			'{"next":"https://us.posthog.com/api/projects/12345/events/?event=%24pageview&limit=1&before=2026-10-29T09%3A00%3A00Z","results":[' .. event .. ']}'}
 		local before = #requests + 1
 		local filters = {{key = "$browser", value = "Firefox", operator = "exact", type = "event"}}
-		local events = posthog.listEvents(12345, {event = "$pageview", after = "2026-10-29T00:00:00Z", before = "2026-10-30T00:00:00Z", distinct_id = "d1",
-			person_id = "0190-person", properties = filters, include_person = true, limit = 2})
+		local events = fixture.example("listEvents")
 		assert(urls(before) == P .. "/events/?after=2026-10-29T00%3A00%3A00Z&before=2026-10-30T00%3A00%3A00Z&distinct_id=d1&event=%24pageview&include_person=true"
-			.. "&person_id=0190-person&properties=" .. url.encode(json.encode(filters)) .. "&limit=2 "
+			.. "&person_id=00000000-0000-4000-8000-000000000001&properties=" .. url.encode(json.encode(filters)) .. "&limit=2 "
 			.. P .. "/events/?event=%24pageview&before=2026-10-29T10%3A00%3A00Z&limit=1", urls(before))
 		assert(#events.results == 2 and events.results[1].properties["$browser"] == "Firefox" and events.results[1].elements == nil and events.results[1].elements_chain == nil)
 		assert(events.count == nil and events.next == "https://us.posthog.com/api/projects/12345/events/?event=%24pageview&limit=1&before=2026-10-29T09%3A00%3A00Z", tostring(events.next))
@@ -100,7 +99,7 @@ return {
 		assert(posthog.listEvents(12345, {limit = 10}).next == "https://us.posthog.com/api/projects/999/events/?offset=1" and #requests == before)
 
 		payloads = {'{"count":1,"next":"https://us.posthog.com/api/projects/12345/persons/?limit=1&offset=1","previous":null,"results":[{"id":"0190-person","uuid":"0190-person","name":"ana@example.com","distinct_ids":["d1"],"properties":{"email":"ana@example.com"},"created_at":"2026-01-01T00:00:00Z","last_seen_at":null,"is_identified":true}]}'}
-		local persons = posthog.listPersons(12345, {search = "ana", email = "ana@example.com", distinct_id = "d1", properties = {{key = "plan", value = "pro", type = "person"}}, limit = 1})
+		local persons = fixture.example("listPersons")
 		assert(last() == P .. "/persons/?distinct_id=d1&email=ana%40example.com&properties=" .. url.encode(json.encode({{key = "plan", value = "pro", type = "person"}})) .. "&search=ana&limit=1", last())
 		assert(persons.results[1].distinct_ids[1] == "d1" and persons.results[1].last_seen_at == NULL and persons.results[1].is_identified == nil)
 		assert(persons.next == "https://us.posthog.com/api/projects/12345/persons/?limit=1&offset=1" and persons.count == 1)
@@ -109,7 +108,7 @@ return {
 		assert(last() == P .. "/persons/?offset=1&limit=100", last())
 
 		payloads = {'{"count":1,"next":null,"previous":null,"results":[{"id":7,"short_id":"AaVQ8Ijw","name":"Signups","derived_name":null,"query":{"kind":"InsightVizNode"},"saved":true,"favorited":false,"tags":[],"created_by":{"id":1,"uuid":"u","first_name":"Ana","last_name":"Lee","email":"ana@example.com","hedgehog_config":{}},"dashboards":[1],"dashboard_tiles":[{"id":2}],"user_access_level":"editor"}]}'}
-		local insights = posthog.listInsights(12345, {search = "signup", saved = true, insight = "TRENDS"})
+		local insights = fixture.example("listInsights")
 		assert(last() == P .. "/insights/?basic=true&insight=TRENDS&saved=true&search=signup&limit=100", last())
 		local insight = insights.results[1]
 		assert(insight.short_id == "AaVQ8Ijw" and insight.derived_name == NULL and insight.dashboards == nil and insight.user_access_level == nil)
@@ -121,7 +120,7 @@ return {
 		assert(last() == P .. "/insights/?offset=100&search=signup&basic=true&limit=100", last())
 
 		payloads = {'{"id":7,"short_id":"AaVQ8Ijw","name":"Signups","result":[{"data":[1,2,3]}],"last_refresh":"2026-10-29T00:00:00Z","dashboards":[1],"user_access_level":"editor","created_by":{"id":1,"email":"ana@example.com","hedgehog_config":{}}}'}
-		local full = posthog.getInsight(12345, 7)
+		local full = fixture.example("getInsight")
 		assert(last() == P .. "/insights/7/" and requests[#requests].timeoutMs == 20000 and full.result[1].data[3] == 3, last())
 		assert(full.dashboards == nil and full.last_refresh == "2026-10-29T00:00:00Z" and full.created_by.email == "ana@example.com" and full.created_by.hedgehog_config == nil, "insights must stay compact")
 		payloads = {'{"id":7,"short_id":"AaVQ8Ijw","result":null}'}
@@ -131,7 +130,7 @@ return {
 		payloads = {'{"count":2,"next":null,"previous":null,"results":['
 			.. '{"id":3,"key":"new-nav","name":"New navigation","active":true,"status":"ACTIVE","filters":{"groups":[{"properties":[],"rollout_percentage":50}],"payloads":{"true":"{\\"color\\":\\"blue\\"}"}},"has_encrypted_payloads":false,"created_by":null,"surveys":{},"usage_dashboard":9,"can_edit":true},'
 			.. '{"id":4,"key":"stripe-config","name":"Remote config","active":true,"filters":{"groups":[],"payloads":{"true":"sk_live_secret"}},"has_encrypted_payloads":true,"is_remote_configuration":true}]}'}
-		local flags = posthog.listFeatureFlags(12345, {active = true, search = "nav", key = "new-nav", type = "boolean", limit = 50})
+		local flags = fixture.example("listFeatureFlags")
 		assert(last() == P .. "/feature_flags/?active=true&key=new-nav&search=nav&type=boolean&limit=50", last())
 		assert(flags.results[1].filters.groups[1].rollout_percentage == 50 and flags.results[1].filters.payloads["true"] == '{"color":"blue"}')
 		assert(flags.results[1].created_by == NULL and flags.results[1].surveys == nil and flags.results[1].usage_dashboard == nil and flags.results[1].can_edit == nil)
@@ -140,8 +139,8 @@ return {
 		assert(json.encode(posthog.listFeatureFlags(12345, {active = "STALE"}).results) == "[]" and last() == P .. "/feature_flags/?active=STALE&limit=100")
 
 		payloads = {'{"columns":["day","pageviews"],"types":[["day","Date"],["pageviews","UInt64"]],"results":[["2026-10-28",10],["2026-10-29",12]],"hasMore":false,"hogql":"SELECT ...","clickhouse":"SELECT ...","timings":[{"k":"x","t":1}],"is_cached":false}'}
-		local sql = "select toDate(timestamp) as day, count() as pageviews from events where event = {name} group by day"
-		local result = posthog.query(12345, sql, {values = {name = "$pageview"}, name = "daily pageviews"})
+		local sql = "select toDate(timestamp) as day, count() as pageviews from events where event = {name} and timestamp > now() - interval 7 day group by day"
+		local result = fixture.example("query")
 		local request = requests[#requests]
 		assert(request.method == "POST" and request.url == P .. "/query/", request.url)
 		local body = json.decode(request.body)
