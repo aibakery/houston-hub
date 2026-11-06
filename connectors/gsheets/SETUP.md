@@ -4,7 +4,7 @@
    - **Read-only** to let agents read spreadsheets without changing anything.
    - **Read and write** to also let agents edit cells, add rows, create
      spreadsheets and change tabs and formatting.
-2. Select **Connect with Google**, choose your account, and approve the
+2. Select **Continue with Google**, choose your account, and approve the
    permissions Google lists. If Google shows a checkbox per permission, tick
    them all: Houston refuses a partial grant.
 

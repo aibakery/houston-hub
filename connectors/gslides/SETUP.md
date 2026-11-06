@@ -5,7 +5,7 @@
      changing anything.
    - **Read and write** to also let agents create presentations and edit their
      slides, text, notes and comments.
-2. Select **Connect with Google**, choose your account, and approve the
+2. Select **Continue with Google**, choose your account, and approve the
    permissions Google lists. If Google shows a checkbox per permission, tick
    them all: Houston refuses a partial grant.
 

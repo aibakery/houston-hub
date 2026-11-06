@@ -31,8 +31,8 @@ When the token expires, generate a new one and update the connection.
 Each Houston connection has its own callback URL, so create an app for this
 connection.
 
-1. In Houston, add the Figma connector, choose **Connect with Figma** and copy
-   the **OAuth callback URL** shown.
+1. In Houston, add the Figma connector, choose **Connect with Figma** under
+   **Connect using** and copy the **OAuth callback URL** shown.
 2. Open [My apps](https://www.figma.com/developers/apps), select **Create a new
    app**, name it, for example, `Houston`, choose the team or organization that
    owns it and select **Create**.
@@ -46,7 +46,7 @@ connection.
 6. On the **Publish** page, choose **Private**, add the logo and description Figma
    asks for, and select **Publish**. A draft app only works for you and your
    plan's admins.
-7. In Houston, select **Authorize account**, sign in to Figma and allow access.
+7. In Houston, select **Continue with Figma**, sign in to Figma and allow access.
 
 ## Scopes
 

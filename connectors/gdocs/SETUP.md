@@ -4,7 +4,7 @@
    - **Read-only** to let agents read documents without changing anything.
    - **Read and write** to also let agents create documents and edit their
      text, formatting, tabs, comments and suggestions.
-2. Select **Connect with Google**, choose your account, and approve the
+2. Select **Continue with Google**, choose your account, and approve the
    permissions Google lists. If Google shows a checkbox per permission, tick
    them all: Houston refuses a partial grant.
 

@@ -1,11 +1,11 @@
 # Connect GitHub
 
 Choose an access level, then either sign in with GitHub or paste a personal access
-token. With **Connect with GitHub** you install Houston's app instead of creating
+token. With **Continue with GitHub** you install Houston's app instead of creating
 one.
 
 1. Choose **Read-only** or **Read and write**.
-2. Select **Connect with GitHub** and authorize Houston's GitHub App, **OK Houston**.
+2. Select **Continue with GitHub** and authorize Houston's GitHub App, **OK Houston**.
 3. Install the app where your repositories live: open
    [OK Houston on GitHub](https://github.com/apps/ok-houston), select **Install**
    (or **Configure** if it is already installed), pick your account or organization,
@@ -47,7 +47,7 @@ tick `repo`, `workflow`, `read:org`, `gist`, `notifications` and `user:email`.
 Classic tokens reach every repository you can access, and `repo` always allows
 writes on GitHub's side; Houston still blocks writes on a read-only connection.
 Notifications are only available with classic tokens, and check runs need a
-classic token or **Connect with GitHub**: fine-grained tokens cannot read them.
+classic token or **Continue with GitHub**: fine-grained tokens cannot read them.
 
 ### Troubleshooting
 
