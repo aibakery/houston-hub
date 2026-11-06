@@ -146,9 +146,9 @@ return {
 		requestError = {code = "timeout", message = "request deadline"}
 		upstream(200, "", {}, search, {"ChEMBL did not answer within 15 s", '"retryable":true'})
 		upstream(200, "", {}, read, {"did not answer within 24 s"})
-		-- Other request failures pass through unchanged; the stand-in table loses its message across the export boundary.
+		-- Other request failures pass through unchanged, message included, and never become an upstream failure.
 		requestError = {code = "access_denied", message = "origin not allowed"}
-		upstream(200, "", {}, read, {"error"}, "retryable")
+		upstream(200, "", {}, read, {"origin not allowed"}, "retryable")
 		requestError = nil
 		-- The body read has its own share of the call's time.
 		readError = {code = "timeout", message = "await timed out"}
