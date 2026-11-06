@@ -28,7 +28,8 @@ return {
 		assert(requests[3].command == "draft" and requests[3].attachmentPaths == nil)
 
 		for _, rejected in {
-			{id = "3:1:Drafts"}, {replace = "3:1:Drafts"}, {attachmentPaths = {"x"}}, {send = true}, {body = "x"}, {replyToId = "7:42:INBOX"}, {references = "<a@x>"},
+			{id = "3:1:Drafts"}, {replace = "3:1:Drafts"}, {attachmentPaths = {"x"}}, {send = true}, {text = 42},
+			{attachments = {path = "files/a", filename = "a.txt"}},
 			{attachments = {{path = "files/a", size = 3}}}, {attachments = {{filename = "a.txt"}}}, {attachments = "files/a"},
 		} do
 			assert(not pcall(c.createDraft, rejected), json.encode(rejected))

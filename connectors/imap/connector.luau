@@ -57,44 +57,56 @@ export("getAttachment", true, function(input: any): any
 	return saved
 end, "getAttachment({messageId, attachmentId, path}) -> {path, url, size, filename?, mimeType}. Saves an attachment (id from a message's attachments) to a session path, decoded; url is a signed Houston download link. Never inline attachment bytes. The download must finish within 20 seconds.")
 
-local WRITE = " A failed or interrupted change may already have applied: check with getMessages or listMessages before repeating it."
+local WRITE_NOTE = " A failed or interrupted change may already have applied: check with getMessages or listMessages before repeating it."
 
 export("setFlags", WRITES, function(input: any): any
 	return command("store", options(input))
-end, "setFlags({ids, add?, remove?}) -> {ids}. Adds and removes flags on 1 to 1000 messages, e.g. add={'\\\\Seen'} marks read, remove={'\\\\Seen'} marks unread, add={'\\\\Flagged'} stars. Keywords such as $Important are allowed when the server accepts them. Fails without changes if an ID no longer exists." .. WRITE)
+end, "setFlags({ids, add?, remove?}) -> {ids}. Adds and removes flags on 1 to 1000 messages, e.g. add={'\\\\Seen'} marks read, remove={'\\\\Seen'} marks unread, add={'\\\\Flagged'} stars. Keywords such as $Important are allowed when the server accepts them. Fails without changes if an ID no longer exists." .. WRITE_NOTE)
 
 export("moveMessages", WRITES, function(input: any): any
 	return command("move", options(input))
-end, "moveMessages({ids, folder}) -> {folder, ids?}. Moves 1 to 1000 messages to a folder id or role (trash, archive, junk...). Messages get new IDs in the destination: ids lists them in input order when the server reports them. Fails without changes if an ID no longer exists." .. WRITE)
+end, "moveMessages({ids, folder}) -> {folder, ids?}. Moves 1 to 1000 messages to a folder id or role (trash, archive, junk...). Messages get new IDs in the destination: ids lists them in input order when the server reports them. Fails without changes if an ID no longer exists." .. WRITE_NOTE)
 
 export("trashMessages", WRITES, function(input: any): any
 	local args = options(input)
 	assert(args.folder == nil, "trashMessages always moves to the trash folder")
 	args.folder = "trash"
 	return command("move", args)
-end, "trashMessages({ids}) -> {folder, ids?}. Moves messages to the trash folder, like moveMessages with folder='trash'. Nothing is deleted permanently here, but many providers empty their trash automatically after some days." .. WRITE)
+end, "trashMessages({ids}) -> {folder, ids?}. Moves messages to the trash folder, like moveMessages with folder='trash'. Nothing is deleted permanently here, but many providers empty their trash automatically after some days." .. WRITE_NOTE)
 
 export("createFolder", WRITES, function(input: any): any
 	return command("create", options(input))
 end, "createFolder({name, parent?}) -> {id, name}. Creates name at the top level or inside parent (a folder id or role); name cannot contain the folder separator. Some servers keep every folder inside INBOX: pass parent='INBOX' there.")
 
-local DRAFT_FIELDS = {"to", "cc", "bcc", "subject", "html", "from", "replyTo", "inReplyTo", "replyAll", "folder"}
+local DRAFT_FIELDS = {"to", "cc", "bcc", "subject", "html", "from", "replyTo", "inReplyTo", "replyAll"}
 
 -- Copies the public draft fields, sends text as body (text is the search filter in imap.command) and flattens
--- attachments into the parallel lists imap.command takes.
-local function draft(name: string, input: any, replace: string?): any
+-- attachments into the parallel lists imap.command takes. updateDraft passes the draft it replaces as replace.
+local function draft(name: string, input: any, replacing: boolean): any
 	local args = options(input)
-	local out: Options = {replace = replace, body = args.text}
+	local id = args.id
+	args.id = nil
+	if replacing then
+		assert(type(id) == "string" and id ~= "", "id must be a nonempty string")
+	else
+		assert(id == nil, "createDraft takes no id; use updateDraft to replace a draft")
+	end
+	assert(args.text == nil or type(args.text) == "string", "text must be a string")
+	local out: Options = {replace = id, body = args.text}
 	args.text = nil
 	for _, field in DRAFT_FIELDS do
 		out[field], args[field] = args[field], nil
 	end
-	assert(replace ~= nil or args.id == nil, "createDraft takes no id; use updateDraft to replace a draft")
 	local files = args.attachments
-	args.attachments, args.id = nil, nil
+	args.attachments = nil
 	for key in args do error(name .. " has no " .. key .. " option") end
 	if files ~= nil then
-		assert(type(files) == "table", "attachments must be a list of paths or {path, filename?, mimeType?}")
+		local count = 0
+		for key in (if type(files) == "table" then files else {}) do
+			assert(type(key) == "number", "attachments must be a list of paths or {path, filename?, mimeType?}")
+			count += 1
+		end
+		assert(type(files) == "table" and count == #files, "attachments must be a list of paths or {path, filename?, mimeType?}")
 		local paths: {string}, names: {string}, kinds: {string} = json.decode("[]"), json.decode("[]"), json.decode("[]")
 		for _, item in files do
 			local file = if type(item) == "string" then {path = item} else item
@@ -111,17 +123,15 @@ local function draft(name: string, input: any, replace: string?): any
 	return command("draft", out)
 end
 
-local DRAFT = "to, cc, bcc and replyTo take an address ('Ana <ana@example.com>') or an array of them; from defaults to the account's address when its username is one. text and/or html give the body. inReplyTo=<message id> makes a reply: to, subject (Re:) and threading headers default from the original; replyAll=true also copies its To and Cc (except you) into cc. attachments={'path' or {path, filename?, mimeType?}} reads session files, at most 20 files and 6 MiB in all, and must finish within 20 seconds. Saved with the \\Draft and \\Seen flags; nothing is ever sent. id is absent when the server can't report it."
+local DRAFT_NOTE = "to, cc, bcc and replyTo take an address ('Ana <ana@example.com>') or an array of them; from defaults to the account's address when its username is one. text and/or html give the body. inReplyTo=<id from listMessages or getMessages, not its messageId> makes a reply: to, subject (Re:) and threading headers default from the original; replyAll=true also copies its To and Cc (except you) into cc. attachments={'path' or {path, filename?, mimeType?}} reads session files, at most 20 files and 6 MiB in all, and must finish within 20 seconds. Saved with the \\Draft and \\Seen flags; nothing is ever sent. id is absent when the server can't report it."
 
 export("createDraft", DRAFTS, function(input: any): any
-	return draft("createDraft", input, nil)
-end, "createDraft({to?, subject?, text?, html?, cc?, bcc?, replyTo?, from?, attachments?, inReplyTo?, replyAll?, folder?}) -> {id?, folder, messageId}. Saves a new draft in folder (default the drafts role) for the user to review and send. " .. DRAFT .. WRITE)
+	return draft("createDraft", input, false)
+end, "createDraft({to?, subject?, text?, html?, cc?, bcc?, replyTo?, from?, attachments?, inReplyTo?, replyAll?}) -> {id?, folder, messageId}. Saves a new draft in the drafts folder for the user to review and send. " .. DRAFT_NOTE .. WRITE_NOTE)
 
 export("updateDraft", DRAFTS, function(input: any): any
-	local id = if type(input) == "table" then input.id else nil
-	assert(type(id) == "string" and id ~= "", "id must be a nonempty string")
-	return draft("updateDraft", input, id)
-end, "updateDraft({id, ...createDraft fields}) -> {id?, folder, messageId}. Replaces a draft (a message with the \\Draft flag) with a new version built only from the given fields, so pass every field to keep. Saves the new version first, then deletes the old one permanently, or moves it to the trash on servers without UIDPLUS. The draft gets a new id; fields work as in createDraft." .. WRITE)
+	return draft("updateDraft", input, true)
+end, "updateDraft({id, ...createDraft fields}) -> {id?, folder, messageId}. Replaces a draft (a message flagged \\Draft or in the drafts folder) with a new version built only from the given fields, so pass every field to keep. Saves the new version in the old draft's folder first, then moves the old one to the trash. The draft gets a new id; fields work as in createDraft." .. WRITE_NOTE)
 
 export("deleteDraft", DRAFTS, function(input: any): any
 	local args = options(input)
@@ -129,7 +139,7 @@ export("deleteDraft", DRAFTS, function(input: any): any
 	args.id = nil
 	assert(type(id) == "string" and id ~= "" and next(args) == nil, "deleteDraft takes one id and nothing else")
 	return command("discard", {ids = {id}})
-end, "deleteDraft({id}) -> {folder, ids?}. Moves a draft to the trash folder, and fails without changes unless the message has the \\Draft flag." .. WRITE)
+end, "deleteDraft({id}) -> {folder, ids?}. Moves a draft to the trash folder, and fails without changes unless the message is flagged \\Draft or in the drafts folder." .. WRITE_NOTE)
 
 function exports.help(): string
 	local names: {string} = {}
