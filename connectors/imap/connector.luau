@@ -131,7 +131,7 @@ end, "createDraft({to?, subject?, text?, html?, cc?, bcc?, replyTo?, from?, atta
 
 export("updateDraft", DRAFTS, function(input: any): any
 	return draft("updateDraft", input, true)
-end, "updateDraft({id, ...createDraft fields}) -> {id?, folder, messageId}. Replaces a draft (a message flagged \\Draft or in the drafts folder) with a new version built only from the given fields, so pass every field to keep. Saves the new version in the old draft's folder first, then moves the old one to the trash. The draft gets a new id; fields work as in createDraft." .. WRITE_NOTE)
+end, "updateDraft({id, ...createDraft fields}) -> {id?, folder, messageId}. Replaces a draft (a message flagged \\Draft or in the drafts folder) with a new version built only from the given fields, so pass every field to keep. Saves the new version in the drafts folder first, then moves the old one to the trash. The draft gets a new id; fields work as in createDraft." .. WRITE_NOTE)
 
 export("deleteDraft", DRAFTS, function(input: any): any
 	local args = options(input)
