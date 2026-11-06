@@ -400,13 +400,12 @@ literal and inspect caller headers before action changes.
 
 The matched method is the method the provider runs. Houston refuses any request
 that asks the provider to run another one: the headers `X-HTTP-Method-Override`,
-`X-HTTP-Method` and `X-Method-Override` (also spelled with underscores), and a
-query parameter named `$httpMethod` (Google) or `_method` (WordPress, Laravel,
-Rails), in any case or percent-encoding, including names PHP reads as `_method`,
-such as `.method`. Provider-specific
-overrides with other names, such as Dolibarr's `http_method`, and overrides in a
-request body, such as a `_method` form field on POST, remain the connector's to
-reject.
+`X-HTTP-Method` and `X-Method-Override` (compared on letters and digits, so
+`X_HTTP_Method` counts), and a query parameter named `$httpMethod` (Google) or
+`_method` (WordPress, Laravel, Rails), in any case or percent-encoding, including
+names PHP reads as `_method`, such as `.method`. Provider-specific overrides with
+other names, such as Dolibarr's `http_method`, and overrides in a request body,
+such as a `_method` form field on POST, remain the connector's to reject.
 
 For custom methods (`POST /v1/{name=items/*}:archive`, as in Google's APIs),
 write the verb on the placeholder: `/v1/items/{id}:archive` matches only a segment
@@ -416,7 +415,9 @@ a Sheets range does in `/values/{range}:clear` (`A1:B2:clear`). Every listed nam
 must appear in each path. A bare `{id}` still matches any nonempty segment,
 including one with a colon; a later release restricts it to values without
 colons, so declare colon IDs (such as `urn:li:share:1`) in
-`colon_path_parameters` now, and write custom methods with their verb.
+`colon_path_parameters` now, and write custom methods with their verb. Verbs are
+letters and digits, starting with a letter. A literal segment with a colon, such
+as `/values:batchGet`, needs that colon unescaped: `%3A` never selects a verb.
 
 An API with opaque IDs can explicitly declare `opaque_path_parameters: ["id"]`
 on a path such as `/records/{id}`. That parameter may contain encoded slash,

@@ -7,23 +7,6 @@ import (
 	"strings"
 )
 
-func (p Proxy) validateOpaquePathParameters() error {
-	if p.Match.OpaquePathParameters == nil {
-		return nil
-	}
-	if p.Action.Rewrite != nil {
-		return fmt.Errorf("opaque_path_parameters requires explicit paths without rewrite")
-	}
-	return p.Match.validatePathParameters("opaque_path_parameters", p.Match.OpaquePathParameters, true)
-}
-
-func (p Proxy) validateColonPathParameters() error {
-	if p.Match.ColonPathParameters == nil {
-		return nil
-	}
-	return p.Match.validatePathParameters("colon_path_parameters", p.Match.ColonPathParameters, false)
-}
-
 // validatePathParameters requires nonempty unique names, each naming a
 // placeholder in every explicit path; only opaque parameters may name the
 // terminal * wildcard.
@@ -54,8 +37,7 @@ func (m ProxyMatch) validatePathParameters(field string, names []string, wildcar
 
 // Match original escaped segments, so encoded delimiters inside an explicitly
 // opaque parameter never change the route's structure or another parameter.
-func (m ProxyMatch) matchesOpaquePath(raw string) bool {
-	segments := strings.Split(raw, "/")
+func (m ProxyMatch) matchesOpaquePath(segments []string) bool {
 	for _, pattern := range m.Path {
 		if templated(pattern) {
 			continue
@@ -69,7 +51,7 @@ func (m ProxyMatch) matchesOpaquePath(raw string) bool {
 		for i, part := range parts {
 			if part == "*" {
 				if slices.Contains(m.OpaquePathParameters, "*") {
-					matched = safeOpaqueSegment(strings.Join(segments[i:], "/"))
+					_, matched = decodeOpaque(strings.Join(segments[i:], "/"))
 				} else {
 					_, err := requestPath("/" + strings.Join(segments[i:], "/"))
 					matched = err == nil
@@ -78,7 +60,8 @@ func (m ProxyMatch) matchesOpaquePath(raw string) bool {
 			}
 			name, verb, parameter := pathParameter(part)
 			if parameter && slices.Contains(m.OpaquePathParameters, name) {
-				if value, ok := m.parameterValue(name, verb, segments[i]); !ok || !safeOpaqueSegment(value) {
+				value, ok := m.parameterValue(name, verb, segments[i])
+				if _, safe := decodeOpaque(value); !ok || !safe {
 					matched = false
 					break
 				}
@@ -102,11 +85,6 @@ func (m ProxyMatch) matchesOpaquePath(raw string) bool {
 		}
 	}
 	return false
-}
-
-func safeOpaqueSegment(raw string) bool {
-	_, ok := decodeOpaque(raw)
-	return ok
 }
 
 // decodeOpaque decodes valid percent triples repeatedly and returns the final

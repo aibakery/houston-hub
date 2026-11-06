@@ -286,18 +286,19 @@ func TestGoogleRefusesMethodOverrideQueries(t *testing.T) {
 	const upload = "https://gmail.googleapis.com/upload/gmail/v1/users/me"
 	assertRoutes(t, gmail, "fixture-token", true, "GET "+api+"/drafts/abc", "PUT "+upload+"/drafts/abc?uploadType=multipart")
 	for _, name := range []string{"$httpMethod", "%24httpMethod"} {
-		assertRefusedRoutes(t, gmail, "GET "+api+"/drafts/send?"+name+"=POST", "GET "+api+"/messages/send?"+name+"=POST",
+		assertRefusedRoutes(t, gmail, "method override", "GET "+api+"/drafts/send?"+name+"=POST", "GET "+api+"/messages/send?"+name+"=POST",
 			"PUT "+upload+"/drafts/send?"+name+"=POST")
 	}
 	// Read and draft never sends, so the send routes themselves stay refused.
-	assertRefusedRoutes(t, gmail, "POST "+api+"/drafts/send", "POST "+api+"/messages/send", "POST "+upload+"/messages/send?uploadType=multipart")
+	assertRefusedRoutes(t, gmail, "", "POST "+api+"/drafts/send", "POST "+api+"/messages/send", "POST "+upload+"/messages/send?uploadType=multipart")
 
 	drive := resolveGoogle(t, parseManifest(t, "../../connectors/gdrive/houston.json"), "read-only", "drive.readonly")
 	assertRoutes(t, drive, "fixture-token", true, "GET https://www.googleapis.com/drive/v3/files/x")
-	assertRefusedRoutes(t, drive, "GET https://www.googleapis.com/drive/v3/files/x?$httpMethod=PATCH")
+	assertRefusedRoutes(t, drive, "method override", "GET https://www.googleapis.com/drive/v3/files/x?$httpMethod=PATCH")
 
 	sheets := resolveGoogle(t, parseManifest(t, "../../connectors/gsheets/houston.json"), "read-only", "spreadsheets.readonly")
 	const spreadsheet = "https://sheets.googleapis.com/v4/spreadsheets/x"
 	assertRoutes(t, sheets, "fixture-token", true, "GET "+spreadsheet)
-	assertRefusedRoutes(t, sheets, "POST "+spreadsheet+":batchUpdate", "GET "+spreadsheet+":batchUpdate?$httpMethod=POST")
+	assertRefusedRoutes(t, sheets, "", "POST "+spreadsheet+":batchUpdate")
+	assertRefusedRoutes(t, sheets, "method override", "GET "+spreadsheet+":batchUpdate?$httpMethod=POST")
 }

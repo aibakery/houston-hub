@@ -22,7 +22,7 @@ func TestMethodOverridesAreRejected(t *testing.T) {
 {"match":{"protocol":"http","host":["api.example.com"],"method":["GET"],"path":["/legacy/*"]},"action":{"rewrite":{"strip_prefix":"/legacy"}}}
 ]`)
 	const item = "https://api.example.com/v1/items/a"
-	for _, name := range []string{"X-HTTP-Method-Override", "x-http-method-override", "X-Http-Method", "X-Method-Override", "X_HTTP_Method_Override", "x_method-override"} {
+	for _, name := range []string{"X-HTTP-Method-Override", "x-http-method-override", "X-Http-Method", "X-Method-Override", "X_HTTP_Method_Override", "x_method-override", "X.HTTP.Method.Override", "XHTTPMethod"} {
 		if err := request(m.Proxy, "GET", item, http.Header{name: {"DELETE"}}); err == nil {
 			t.Errorf("accepted override header %s", name)
 		}
@@ -52,10 +52,7 @@ func TestMethodOverridesAreRejected(t *testing.T) {
 	if err := request(m.Proxy, "GET", "https://api.example.com/legacy/v1/items/a?_method=DELETE", nil); err == nil {
 		t.Error("a rewritten request kept an override query")
 	}
-	if err := request(m.Proxy, "GET", item+"?%zz=1", nil); err == nil {
-		t.Error("accepted an undecodable query name")
-	}
-	for _, query := range []string{"", "fields=id", "q=$httpMethod%3DDELETE", "httpMethod=DELETE", "method=DELETE", "x_method=1", "my.method=1", "_methods=1"} {
+	for _, query := range []string{"", "fields=id", "q=$httpMethod%3DDELETE", "httpMethod=DELETE", "method=DELETE", "x_method=1", "my.method=1", "_methods=1", "%zz=1", "%=1", "q=foo;100%", "_method%zz=1"} {
 		u := item
 		if query != "" {
 			u += "?" + query
@@ -97,6 +94,7 @@ func TestCustomMethodSegments(t *testing.T) {
 		{"POST", "/v1/items/a%3Aarchive", false},
 		{"POST", "/v1/items:batchGet", true},
 		{"POST", "/v1/items%3AbatchGet", false},
+		{"POST", "/v1/item%73:batchGet", true},
 		{"POST", "/v1/items/a%3Adelete:archive", false},
 		{"POST", "/v4/sheets/s/values/A1%3AB2:clear", true},
 		{"PATCH", "/files/a%2Fb:copy", true},
