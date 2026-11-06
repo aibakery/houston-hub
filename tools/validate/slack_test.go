@@ -23,7 +23,6 @@ func TestSlackScopesAndAccessRoutes(t *testing.T) {
 		"GET https://slack.com/api/conversations.replies?channel=C1&ts=1.2",
 		"GET https://slack.com/api/conversations.info?channel=C1",
 		"GET https://slack.com/api/conversations.members?channel=C1",
-		"GET https://slack.com/api/search.messages?query=hi",
 		"GET https://slack.com/api/users.info?user=U1",
 		"GET https://slack.com/api/users.list?limit=200",
 		"GET https://slack.com/api/chat.getPermalink?channel=C1&message_ts=1.2",
@@ -57,7 +56,7 @@ func TestSlackScopesAndAccessRoutes(t *testing.T) {
 		"GET https://evil.slack.com/api/auth.test",
 	}
 	readScopes := []string{"channels:read", "channels:history", "groups:read", "groups:history", "im:read", "im:history",
-		"mpim:read", "mpim:history", "users:read", "search:read", "files:read"}
+		"mpim:read", "mpim:history", "users:read", "files:read"}
 	for _, access := range []string{"read-only", "read-write"} {
 		publisher := map[string]any{"client_id": "fixture-client", "client_secret": "fixture-secret"}
 		r, err := m.Resolve(publisher, map[string]any{"access": access}, nil, "oauth")

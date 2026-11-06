@@ -1,6 +1,7 @@
 {
   "schema_version": 1,
   "name": "Slack",
+  "personal": true,
   "files": [
     "connector.luau"
   ],
@@ -47,7 +48,6 @@
             "mpim:read",
             "mpim:history",
             "users:read",
-            "search:read",
             "files:read"
           ]
         },
@@ -95,6 +95,18 @@
             "path": "/ok",
             "value": true
           }
+        ],
+        "revoked": [
+          {
+            "op": "equals",
+            "path": "/error",
+            "value": "invalid_refresh_token"
+          },
+          {
+            "op": "equals",
+            "path": "/error",
+            "value": "token_revoked"
+          }
         ]
       },
       "account": {
@@ -110,6 +122,18 @@
             "op": "equals",
             "path": "/ok",
             "value": true
+          }
+        ],
+        "revoked": [
+          {
+            "op": "equals",
+            "path": "/error",
+            "value": "token_revoked"
+          },
+          {
+            "op": "equals",
+            "path": "/error",
+            "value": "account_inactive"
           }
         ]
       }
@@ -146,7 +170,6 @@
           "/api/conversations.history",
           "/api/conversations.replies",
           "/api/conversations.members",
-          "/api/search.messages",
           "/api/users.info",
           "/api/users.list",
           "/api/chat.getPermalink",
