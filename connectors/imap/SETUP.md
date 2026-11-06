@@ -7,8 +7,10 @@
    regular password works only where the provider still allows it for IMAP.
 3. In Houston, choose the access level:
    - **Read-only** to search, read, and download attachments.
+   - **Read and draft** to also let agents create, update and delete drafts for
+     you to review and send, without changing any other mail.
    - **Read and write** to also flag messages, mark them read, move them,
-     move them to the trash, and create folders.
+     move them to the trash, create folders, and save drafts for you to send.
 4. Enter the IMAP server, port, username (usually your full email address), and
    password.
 5. Keep **TLS mode** on **Verify certificate and host name (recommended)** for a

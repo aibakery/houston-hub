@@ -1,5 +1,5 @@
 ---
-description: Give agents access to any IMAP mailbox to find, read, and organize email, read-only unless you allow changes.
+description: Give agents access to any IMAP mailbox to find, read, and organize email and prepare drafts, read-only unless you allow changes.
 ---
 # IMAP
 
@@ -16,8 +16,15 @@ domain host, iCloud Mail, Yahoo Mail, Zoho Mail, or a company mail server.
 
 With **Read and write** access, agents can also mark messages read or unread,
 flag them, move them between folders, move them to the trash, and create
-folders. Agents never delete messages permanently, though many providers empty
-the trash automatically after some days. With **Read-only** access, agents
-cannot change anything, and reading a message never marks it as read.
+folders. Agents never delete messages permanently, except the earlier version
+of a draft they update, though many providers empty the trash automatically
+after some days. With **Read-only** access, agents cannot change anything, and
+reading a message never marks it as read.
 
-Sending email is not part of IMAP, so this connector cannot send.
+## Prepare replies
+
+With **Read and draft** or **Read and write** access, agents can write drafts,
+including replies and attachments, and save them in your drafts folder for you
+to review and send. **Read and draft** lets them change only drafts, so they
+can read your mail and prepare answers without moving, flagging or trashing
+anything else. This connector never sends email.

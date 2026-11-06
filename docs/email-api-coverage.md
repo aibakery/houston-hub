@@ -139,7 +139,7 @@ Read/unread/starred/answered/custom keyword mutation already exists via setFlags
 | DELETE / RENAME | Missing folder deletion/rename/reparent. |
 | SUBSCRIBE / UNSUBSCRIBE | Missing subscription changes. |
 | NAMESPACE / STATUS | No direct namespace or detailed mailbox status/UIDNEXT/UIDVALIDITY API; some counts are returned when supplied with folder listing. |
-| APPEND | Missing raw message import/save drafts; draft updates require append/delete workflow. |
+| APPEND | Drafts: createDraft builds MIME (text, HTML alternative, session-file attachments, reply threading) and appends with `\Draft` and `\Seen`; updateDraft appends then removes only the old UID (or moves it to trash without UIDPLUS); deleteDraft trashes drafts. No raw message import. |
 | IDLE / NOOP notification loop | No long-lived notification subscription; one connection per call. |
 | EXPUNGE / UID EXPUNGE | No explicit permanent-deletion operation. Houston forbids adding Deleted through setFlags (removal is allowed); explicit final expunge is also missing. |
 | SEARCH | Limited from/to/cc/subject/text/since/before/unread/flagged. No bcc, arbitrary headers/body-only, sent-date, size, arbitrary keyword/answered/draft/deleted criteria, OR/NOT expressions or server sort/thread extensions. |
