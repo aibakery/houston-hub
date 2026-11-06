@@ -15,7 +15,6 @@ return {
 				"GET https://slack.com/api/conversations.replies?channel=C1&ts=1.2",
 				"GET https://slack.com/api/conversations.info?channel=C1",
 				"GET https://slack.com/api/conversations.members?channel=C1",
-				"GET https://slack.com/api/search.messages?query=hi",
 				"GET https://slack.com/api/users.info?user=U1",
 				"GET https://slack.com/api/users.list?limit=200",
 				"GET https://slack.com/api/chat.getPermalink?channel=C1&message_ts=1.2",
@@ -58,7 +57,6 @@ return {
 				"mpim:read",
 				"mpim:history",
 				"users:read",
-				"search:read",
 				"files:read",
 			}
 			for _, access in { "read-only", "read-write" } do

@@ -14,8 +14,6 @@ end
 local PAGE = allow({"cursor", "limit"})
 local CHANNELS = allow({"cursor", "limit", "types", "exclude_archived"})
 local HISTORY = allow({"cursor", "limit", "oldest", "latest", "inclusive", "include_all_metadata"})
-local SEARCH = allow({"count", "page", "sort", "sort_dir", "highlight"})
-local MENTIONS = allow({"count", "page", "sort", "sort_dir", "highlight", "query"})
 local USERS = allow({"cursor", "limit", "include_locale"})
 local MESSAGE = {"blocks", "attachments", "unfurl_links", "unfurl_media", "reply_broadcast", "mrkdwn", "parse", "link_names", "metadata", "client_msg_id"}
 local REPLY = allow(MESSAGE)
@@ -157,33 +155,6 @@ local function getThread(channel: string, ts: string, opts: Options?): Options
 	return call("getThread", "conversations.replies", params)
 end
 
-local function search(operation: string, query: string, params: Options): Options
-	params.query = text(query, "search query")
-	params.sort = params.sort or "timestamp"
-	params.sort_dir = params.sort_dir or "desc"
-	local messages = call(operation, "search.messages", params).messages
-	if type(messages) ~= "table" then
-		return houston.fail({operation = operation, layer = "upstream", retryable = false, message = "slack: response has no messages"})
-	end
-	local paging = messages.paging
-	if type(paging) == "table" and type(paging.page) == "number" and type(paging.pages) == "number" and paging.page < paging.pages then
-		messages.nextPage = paging.page + 1
-	end
-	return messages
-end
-
-local function searchMessages(query: string, opts: Options?): Options
-	return search("searchMessages", query, options(opts, SEARCH))
-end
-
-local function listMentions(opts: Options?): Options
-	local params = options(opts, MENTIONS)
-	local narrow = if params.query == "" then nil else optional(params.query, "query")
-	params.query = nil
-	local query = "<@" .. text(call("listMentions", "auth.test", {}).user_id, "authenticated user ID") .. ">"
-	return search("listMentions", if narrow then query .. " " .. narrow else query, params)
-end
-
 local function listMembers(channel: string, opts: Options?): Options
 	local params = options(opts, PAGE)
 	params.channel = text(channel, "channel ID")
@@ -299,8 +270,7 @@ end
 
 local exports: {[string]: any} = {
 	getProfile = getProfile, listChannels = listChannels, getChannel = getChannel,
-	listMessages = listMessages, getThread = getThread, searchMessages = searchMessages,
-	listMentions = listMentions, listMembers = listMembers, getUser = getUser, listUsers = listUsers,
+	listMessages = listMessages, getThread = getThread, listMembers = listMembers, getUser = getUser, listUsers = listUsers,
 	getPermalink = getPermalink, getFile = getFile, downloadFile = downloadFile,
 }
 if config.access == "read-write" then
@@ -329,10 +299,6 @@ Channel details (conversations.info).]],
 Newest first (conversations.history). opts: limit (default 15), cursor, oldest, latest, inclusive, include_all_metadata. Message files arrays carry file IDs for getFile and downloadFile.]],
 	getThread = [[getThread(channel, ts, opts?) -> {messages, has_more, nextCursor?}
 The parent message and its replies (conversations.replies). Same opts as listMessages.]],
-	searchMessages = [[searchMessages(query, opts?) -> {matches, total, paging, nextPage?}
-Slack search syntax, such as "in:#general from:@ana after:2026-01-01". opts: count, page, sort ("timestamp" default or "score"), sort_dir ("desc" default), highlight. Pass page = result.nextPage for the next page.]],
-	listMentions = [[listMentions(opts?) -> {matches, total, paging, nextPage?}
-Search results mentioning you, including thread replies. Same opts as searchMessages, plus query to narrow it, such as "in:#general".]],
 	listMembers = [[listMembers(channel, opts?) -> {members, nextCursor?}
 User IDs in a channel. opts: limit, cursor.]],
 	getUser = [[getUser(user) -> user
@@ -370,7 +336,7 @@ exports.help = function(): string
 	end
 	table.sort(names)
 	local sections = {[[Slack: one connected user in one workspace. Credentials stay on Houston. Calls return completed values; do not wrap them in await(). Pass channel IDs, user IDs and message timestamps (ts) as strings, never numbers. Unknown options are rejected. Writes act as the connected user and need Read and write access.
-Each call returns one page. Pass cursor = result.nextCursor (or page = result.nextPage for searches) for the next one. Slack limits conversations.history and conversations.replies to 1 request per minute and 15 messages for apps outside the Slack Marketplace, so listMessages and getThread can fail with ratelimited: wait as the error says, and prefer searchMessages to scan many channels. Slack errors name the Slack error code, such as not_in_channel or missing_scope.]]}
+Each call returns one page. Pass cursor = result.nextCursor for the next one. Slack limits conversations.history and conversations.replies to 1 request per minute and 15 messages for apps outside the Slack Marketplace, so listMessages and getThread can fail with ratelimited: wait as the error says, and narrow reads with oldest and latest instead of paging through long histories. Slack errors name the Slack error code, such as not_in_channel or missing_scope.]]}
 	for _, name in names do
 		local section = operationHelp[name]
 		assert(section, "missing help for configured function " .. name)

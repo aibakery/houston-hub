@@ -32,17 +32,6 @@ return {
 		assert(last() == "https://slack.com/api/conversations.replies?channel=C1&cursor=next%2Bone&limit=5&ts=1790000000.000001")
 		assert(opts.channel == nil and opts.ts == nil, "options are not mutated")
 
-		responses = {'{"ok":true,"messages":{"matches":[{"text":"hi"}],"total":3,"paging":{"page":1,"pages":3}}}'}
-		local found = slack.searchMessages("in:#general hello", {count = 1})
-		assert(found.total == 3 and found.nextPage == 2)
-		assert(last() == "https://slack.com/api/search.messages?count=1&query=in%3A%23general%20hello&sort=timestamp&sort_dir=desc")
-
-		responses = {'{"ok":true,"user_id":"U1"}', '{"ok":true,"messages":{"matches":[],"total":0,"paging":{"page":1,"pages":1}}}'}
-		local mentions = slack.listMentions({query = "in:#general", page = 1})
-		assert(json.encode(mentions.matches) == "[]" and mentions.nextPage == nil)
-		assert(requests[#requests - 1].url == "https://slack.com/api/auth.test")
-		assert(last() == "https://slack.com/api/search.messages?page=1&query=%3C%40U1%3E%20in%3A%23general&sort=timestamp&sort_dir=desc")
-
 		responses = {'{"ok":true,"channel":{"id":"C1","name":"general"}}', '{"ok":true,"user":{"id":"U1"}}',
 			'{"ok":true,"permalink":"https://acme.slack.com/archives/C1/p1"}', '{"ok":true,"members":["U1","U2"]}',
 			'{"ok":true,"members":[{"id":"U1"}],"response_metadata":{"next_cursor":"dXNlcjpVMg=="}}', '{"ok":true,"members":[]}'}
@@ -86,17 +75,12 @@ return {
 		responses = {page, {body = "<html>Page</html>", headers = {["content-type"] = {"text/html"}}}}
 		assert(slack.downloadFile("F2", "page.html").bytes == 17, "an HTML file downloads")
 
-		responses = {'{"ok":true,"user_id":"U1"}', '{"ok":true,"messages":{"matches":[],"total":0,"paging":{"page":1,"pages":1}}}'}
-		slack.listMentions({query = ""})
-		assert(last() == "https://slack.com/api/search.messages?query=%3C%40U1%3E&sort=timestamp&sort_dir=desc", "an empty filter is ignored")
-
 		assert(string.find(rejected(slack.getThread, "C1", 1790000000.000001), "thread timestamp must be", 1, true))
 		assert(string.find(rejected(slack.listMessages, "", nil), "channel ID must be", 1, true))
 		assert(string.find(rejected(slack.listMessages, "C1", {limit = {1}}), "limit must be", 1, true))
 		assert(string.find(rejected(slack.listMessages, "C1", {latest = 1790000000.00001}), "latest must be", 1, true))
 		assert(string.find(rejected(slack.listChannels, {cursor = ""}), "cursor must be", 1, true))
-		assert(string.find(rejected(slack.searchMessages, "x", {query = "y"}), "unknown option query", 1, true))
-		assert(string.find(rejected(slack.listMentions, {query = 7}), "query must be", 1, true))
+		assert(string.find(rejected(slack.listMessages, "C1", {query = "y"}), "unknown option query", 1, true))
 		assert(string.find(rejected(slack.downloadFile, "F1", ""), "session path must be", 1, true))
 		assert(#responses == 0)
 	end,
