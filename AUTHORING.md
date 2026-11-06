@@ -480,7 +480,9 @@ of at most 128 entries, with at most 64 KiB of headers and 8 MiB of string bodie
 in total. File contents stream without a size limit or temporary staging file.
 `fs.open`, `stat`, `exists`, `list`, `grep`, `signedGetUrl`, and `signedPutUrl`
 operate on invocation-scoped session files and return operations. `list` returns
-all sorted child names or a limit error; `grep` returns `{matches, truncated}`.
+all sorted child names or a limit error; `grep` returns `{matches, skipped, truncated}`:
+a file with a NUL byte or a line over 1 MiB is listed in `skipped` with reason
+`binary` or `line_too_long` instead of failing the search.
 SQL protocols provide `db.query({sql, params?, maxRows?, readOnly?})`, an
 operation for one statement on its own connection. Postgres parameters use `$1`
 and MySQL `?`, with `params` as an array; ClickHouse binds named placeholders
