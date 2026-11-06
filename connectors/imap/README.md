@@ -16,10 +16,9 @@ domain host, iCloud Mail, Yahoo Mail, Zoho Mail, or a company mail server.
 
 With **Read and write** access, agents can also mark messages read or unread,
 flag them, move them between folders, move them to the trash, and create
-folders. Agents never delete messages permanently, except the earlier version
-of a draft they update, though many providers empty the trash automatically
-after some days. With **Read-only** access, agents cannot change anything, and
-reading a message never marks it as read.
+folders. Agents never delete messages permanently, though many providers empty
+the trash automatically after some days. With **Read-only** access, agents
+cannot change anything, and reading a message never marks it as read.
 
 ## Prepare replies
 
@@ -27,5 +26,5 @@ With **Read and draft** or **Read and write** access, agents can write drafts,
 including replies and attachments, and save them in your drafts folder for you
 to review and send. **Read and draft** lets them change only drafts, so they
 can read your mail and prepare answers without moving, flagging or trashing
-anything else. Updating a draft replaces it and deletes its earlier version.
+anything else. Updating a draft moves its earlier version to the trash.
 This connector never sends email.
