@@ -5,7 +5,7 @@ Slack app to create. Some workspaces require an admin to approve Houston before 
 can connect.
 
 1. Choose the access level:
-   - **Read-only** to let agents read and search your channels, direct messages
+   - **Read-only** to let agents read your channels, direct messages
      and files.
    - **Read and write** to also let agents post, reply, edit or delete your
      messages, add reactions and share files as you.
@@ -38,10 +38,17 @@ permissions, so edit the connection and connect with Slack again.
 
 Slack limits how quickly apps outside the Slack Marketplace can read channel
 history and threads. Agents may need to wait between pages of a long channel,
-so searching is usually faster for finding older messages.
+so ask about a recent period rather than a whole history.
 
 ### Revoking access
 
 Removing the connection in Houston deletes its stored authorization. To also
 revoke it in Slack, remove Houston from your authorized apps in Slack's
-[app management](https://slack.com/apps/manage) page.
+[app management](https://slack.com/apps/manage) page. When you remove Houston in
+Slack, or your Slack account is deactivated, Houston removes the connection and
+deletes its authorization within about a day.
+
+### Shared connections
+
+Slack connections are personal: only the person who connected can use them, and
+workspace admins can't share them. Each teammate connects their own Slack account.
