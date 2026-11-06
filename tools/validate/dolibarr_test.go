@@ -12,8 +12,8 @@ import (
 )
 
 // assertDolibarrRoutes checks each "METHOD URL" route's access, and that allowed routes
-// carry the key in DOLAPIKEY and drop forged credentials, entities and method overrides
-// (Restler also reads http_method from cookies).
+// carry the key in DOLAPIKEY, refuse method-override headers and drop forged credentials,
+// entities and cookies (Restler also reads http_method from cookies).
 func assertDolibarrRoutes(t *testing.T, r *manifest.Resolved, key string, allowed bool, routes ...string) {
 	t.Helper()
 	for _, route := range routes {
@@ -25,12 +25,13 @@ func assertDolibarrRoutes(t *testing.T, r *manifest.Resolved, key string, allowe
 		if err != nil {
 			continue
 		}
+		assertPrepareRejectsMethodOverrides(t, recipe, r.Context, route)
 		headers, err := recipe.Prepare(r.Context, http.Header{"Dolapikey": {"forged"}, "Authorization": {"Bearer forged"},
-			"X-Http-Method-Override": {"DELETE"}, "Dolapientity": {"2"}, "Cookie": {"http_method=DELETE"}})
+			"Dolapientity": {"2"}, "Cookie": {"http_method=DELETE"}})
 		if err != nil || headers.Get("DOLAPIKEY") != key {
 			t.Fatalf("credential injection for %s: %v %v", route, headers, err)
 		}
-		for _, name := range []string{"Authorization", "X-HTTP-Method-Override", "DOLAPIENTITY", "Cookie"} {
+		for _, name := range []string{"Authorization", "DOLAPIENTITY", "Cookie"} {
 			if headers.Get(name) != "" {
 				t.Fatalf("%s kept %s", route, name)
 			}

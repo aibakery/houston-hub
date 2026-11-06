@@ -109,7 +109,8 @@ func TestBlockscoutAPIKeyRoutes(t *testing.T) {
 	if prepared, err := recipe.PrepareURL(r.Context); err != nil || prepared != api+"/stats" {
 		t.Fatalf("the key reached the URL: %s %v", prepared, err)
 	}
-	dropped := []string{"X-HTTP-Method-Override", "X-HTTP-Method", "X-Method-Override", "Cookie"}
+	assertPrepareRejectsMethodOverrides(t, recipe, r.Context, "GET "+api+"/stats")
+	dropped := []string{"Cookie"}
 	caller := http.Header{"Accept": {"application/json"}, "Authorization": {"Bearer forged"}}
 	for _, name := range dropped {
 		caller.Set(name, "caller-value")

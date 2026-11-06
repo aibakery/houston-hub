@@ -30,7 +30,7 @@ func TestChEMBLPublicReadRoutes(t *testing.T) {
 		"GET https://www.ebi.ac.uk.example.com/chembl/api/data/molecule.json", "GET http://www.ebi.ac.uk:8080/chembl/api/data/molecule.json")
 }
 
-func TestChEMBLDropsCallerOverridesAndCredentials(t *testing.T) {
+func TestChEMBLRejectsMethodOverridesAndDropsCredentials(t *testing.T) {
 	m := parseManifest(t, "../../connectors/chembl/houston.json")
 	r, err := m.Resolve(nil, nil, nil, "")
 	if err != nil {
@@ -40,7 +40,8 @@ func TestChEMBLDropsCallerOverridesAndCredentials(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	dropped := []string{"X-HTTP-Method-Override", "X-HTTP-Method", "X-Method-Override", "Authorization", "Cookie"}
+	assertPrepareRejectsMethodOverrides(t, recipe, r.Context, "GET molecule.json")
+	dropped := []string{"Authorization", "Cookie"}
 	caller := http.Header{"Accept": {"application/json"}}
 	for _, name := range dropped {
 		caller.Set(name, "caller-value")

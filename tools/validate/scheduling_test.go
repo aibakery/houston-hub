@@ -50,6 +50,46 @@ func assertAuthorizedRoutes(t *testing.T, r *manifest.Resolved, authorization st
 	}
 }
 
+// assertPrepareRejectsMethodOverrides checks that a selected route refuses each method-override header.
+func assertPrepareRejectsMethodOverrides(t *testing.T, recipe manifest.HTTPRecipe, c manifest.Context, route string) {
+	t.Helper()
+	for _, name := range manifest.MethodOverrideHeaders() {
+		if _, err := recipe.Prepare(c, http.Header{name: {"DELETE"}}); err == nil {
+			t.Fatalf("%s accepted %s", route, name)
+		}
+	}
+}
+
+// assertRejectsMethodOverrides checks that each allowed "METHOD URL" route refuses method-override headers.
+func assertRejectsMethodOverrides(t *testing.T, r *manifest.Resolved, routes ...string) {
+	t.Helper()
+	for _, route := range routes {
+		method, url, _ := strings.Cut(route, " ")
+		recipe, err := r.Proxy.HTTPRecipe(method, url, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		assertPrepareRejectsMethodOverrides(t, recipe, r.Context, route)
+	}
+}
+
+// assertRefusedRoutes checks that Houston's transport refuses each "METHOD URL" route,
+// as HTTPStream does: no rule matches it, or the matching rule fails to prepare it.
+// A nonempty reason must appear in the refusal.
+func assertRefusedRoutes(t *testing.T, r *manifest.Resolved, reason string, routes ...string) {
+	t.Helper()
+	for _, route := range routes {
+		method, url, _ := strings.Cut(route, " ")
+		recipe, err := r.Proxy.HTTPRecipe(method, url, nil)
+		if err == nil {
+			_, err = recipe.Prepare(r.Context, nil)
+		}
+		if err == nil || !strings.Contains(err.Error(), reason) {
+			t.Fatalf("%s was not refused for %q: %v", route, reason, err)
+		}
+	}
+}
+
 func TestCalcomAccessRoutes(t *testing.T) {
 	m := parseManifest(t, "../../connectors/calcom/houston.json")
 	const api = "https://api.cal.com/v2"

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"net/http"
 	"slices"
 	"testing"
 )
@@ -43,14 +42,7 @@ func TestLinearScopesAndAccessRoutes(t *testing.T) {
 				"PUT "+api, "DELETE "+api, "POST https://api.linear.app/oauth/token", "POST https://api.linear.app/oauth/revoke",
 				"GET https://api.linear.app/graphql/x", "GET https://linear.app/graphql", "GET https://uploads.linear.app/o1/file",
 				"GET https://api.linear.app.example.com/graphql", "GET http://api.linear.app:8080/graphql")
-			recipe, err := r.Proxy.HTTPRecipe("GET", api, nil)
-			if err != nil {
-				t.Fatal(err)
-			}
-			headers, err := recipe.Prepare(r.Context, http.Header{"X-Http-Method-Override": {"POST"}, "X-Http-Method": {"POST"}, "X-Method-Override": {"POST"}})
-			if err != nil || headers.Get("X-HTTP-Method-Override") != "" || headers.Get("X-HTTP-Method") != "" || headers.Get("X-Method-Override") != "" {
-				t.Fatalf("method override kept on a read: %v", err)
-			}
+			assertRejectsMethodOverrides(t, r, "GET "+api)
 		}
 	}
 }

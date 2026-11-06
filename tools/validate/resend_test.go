@@ -56,13 +56,6 @@ func TestResendAccessRoutes(t *testing.T) {
 		}
 
 		// Read-only GETs cannot be turned into writes with a method override.
-		recipe, err := r.Proxy.HTTPRecipe("GET", api+"/emails", nil)
-		if err != nil {
-			t.Fatal(err)
-		}
-		headers, err := recipe.Prepare(r.Context, http.Header{"X-HTTP-Method-Override": {"POST"}})
-		if err != nil || headers.Get("X-HTTP-Method-Override") != "" {
-			t.Fatalf("method override kept: %v %v", headers, err)
-		}
+		assertRejectsMethodOverrides(t, r, "GET "+api+"/emails")
 	}
 }

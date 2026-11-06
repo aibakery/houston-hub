@@ -1,7 +1,6 @@
 package main
 
 import (
-	"net/http"
 	"regexp"
 	"strings"
 	"testing"
@@ -48,21 +47,7 @@ func TestWiseAccessRoutes(t *testing.T) {
 				"GET https://api.transferwise.com/v2/profiles", "GET https://"+host+".evil.test/v2/profiles",
 				"GET "+api+"/v2/profiles/%2e%2e/1", "GET "+api+"/v1/profiles/1/balance-statements/2/statement.html",
 				"POST "+api+"/v1/transfers/9/cancel", "PATCH "+api+"/v1/transfers/9")
-			recipe, err := r.Proxy.HTTPRecipe("GET", api+"/v2/profiles", nil)
-			if err != nil {
-				t.Fatal(err)
-			}
-			headers, err := recipe.Prepare(r.Context, http.Header{
-				"Authorization": {"forged"}, "X-Http-Method-Override": {"DELETE"}, "X-Http-Method": {"DELETE"}, "X-Method-Override": {"DELETE"},
-			})
-			if err != nil {
-				t.Fatal(err)
-			}
-			for _, name := range []string{"X-HTTP-Method-Override", "X-HTTP-Method", "X-Method-Override"} {
-				if headers.Get(name) != "" {
-					t.Fatalf("kept %s", name)
-				}
-			}
+			assertRejectsMethodOverrides(t, r, "GET "+api+"/v2/profiles")
 		}
 	}
 	if _, err := m.Resolve(nil, map[string]any{"api_host": "attacker.example"}, map[string]any{"token": "wise_fixture"}, "token"); err == nil || !strings.Contains(err.Error(), "api_host") {

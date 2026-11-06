@@ -61,7 +61,8 @@ func TestTipeeeCreatorRoutesAndQueryCredentials(t *testing.T) {
 				if err != nil || parsed.Query().Get("access_token") != "synthetic +&token" {
 					t.Fatalf("query credential not injected: %v", err)
 				}
-				h, err := recipe.Prepare(r.Context, http.Header{"Authorization": {"forged"}, "Cookie": {"session=forged"}, "X-Http-Method-Override": {"DELETE"}, "X-Http-Method": {"DELETE"}, "X-Method-Override": {"DELETE"}, "Accept": {"application/json"}})
+				assertPrepareRejectsMethodOverrides(t, recipe, r.Context, c.method+" "+c.path)
+				h, err := recipe.Prepare(r.Context, http.Header{"Authorization": {"forged"}, "Cookie": {"session=forged"}, "Accept": {"application/json"}})
 				if err != nil || len(h) != 1 || h.Get("Accept") != "application/json" {
 					t.Fatalf("unsafe caller headers: %v %v", h, err)
 				}

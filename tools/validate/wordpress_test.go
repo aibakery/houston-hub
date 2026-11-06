@@ -35,7 +35,7 @@ func TestWordPressSiteHostAndAccessBoundaries(t *testing.T) {
 		}
 		assertRoute := func(method, url string, allowed bool) {
 			t.Helper()
-			caller := http.Header{"Authorization": {"forged"}, "X-Http-Method-Override": {"DELETE"}}
+			caller := http.Header{"Authorization": {"forged"}}
 			recipe, err := r.Proxy.HTTPRecipe(method, url, caller)
 			if !allowed {
 				if err == nil {
@@ -50,9 +50,7 @@ func TestWordPressSiteHostAndAccessBoundaries(t *testing.T) {
 			if err != nil || headers.Get("Authorization") != basic || caller.Get("Authorization") != "forged" {
 				t.Fatalf("incorrect credential injection: %v", err)
 			}
-			if headers.Get("X-Http-Method-Override") != "" {
-				t.Fatalf("%s %s kept the method override", method, url)
-			}
+			assertPrepareRejectsMethodOverrides(t, recipe, r.Context, method+" "+url)
 		}
 		const api = "https://blog.example.com/wp-json/wp/v2"
 		for _, path := range []string{

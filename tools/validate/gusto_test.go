@@ -51,14 +51,14 @@ func TestGustoAccessRoutes(t *testing.T) {
 	}
 }
 
-func TestGustoRoutesStripMethodOverrides(t *testing.T) {
+func TestGustoRoutesRejectMethodOverrides(t *testing.T) {
 	r, err := parseManifest(t, "../../connectors/gusto/houston.json").Resolve(
 		map[string]any{"client_id": "houston-client", "client_secret": "houston-secret"}, map[string]any{"access": "read-write"}, nil, "gusto")
 	if err != nil {
 		t.Fatal(err)
 	}
 	r.Context.Auth["gusto"]["access_token"] = "gusto-token"
-	assertStripsMethodOverrides(t, r, "GET https://api.gusto.com/v1/employees/e1", "POST https://api.gusto.com/v1/payrolls/p1/reports/general_ledger",
+	assertRejectsMethodOverrides(t, r, "GET https://api.gusto.com/v1/employees/e1", "POST https://api.gusto.com/v1/payrolls/p1/reports/general_ledger",
 		"POST https://api.gusto.com/v1/companies/c1/employees", "PUT https://api.gusto.com/v1/employees/e1",
 		"PATCH https://api.gusto.com/v1/employees/e1/section603_high_earner_statuses/2026", "DELETE https://api.gusto.com/v1/employees/e1")
 }

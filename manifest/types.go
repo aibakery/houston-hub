@@ -120,6 +120,7 @@ type ProxyMatch struct {
 	Method               []string       `json:"method,omitempty"`
 	Path                 []string       `json:"path,omitempty"`
 	OpaquePathParameters []string       `json:"opaque_path_parameters,omitempty"`
+	ColonPathParameters  []string       `json:"colon_path_parameters,omitempty"`
 	Header               map[string]any `json:"header,omitempty"`
 }
 type ProxyAction struct {

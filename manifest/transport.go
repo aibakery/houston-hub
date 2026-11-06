@@ -142,7 +142,7 @@ func ValidatePathPattern(s string) error {
 		if part == "*" && i == len(strings.Split(s, "/"))-2 {
 			continue
 		}
-		if strings.HasPrefix(part, "{") && strings.HasSuffix(part, "}") && regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`).MatchString(part[1:len(part)-1]) {
+		if pathParameterRE.MatchString(part) {
 			continue
 		}
 		if strings.ContainsAny(part, "*{}") {
@@ -165,23 +165,75 @@ func (m *Manifest) validatePath(pattern string, used map[string]bool) error {
 	}
 	return ValidatePathPattern(strings.Join(parts, "/"))
 }
-func placeholder(s string) bool { return strings.HasPrefix(s, "{") && strings.HasSuffix(s, "}") }
 
-// PathMatches never matches an unrendered template, even a request segment spelling it.
-func PathMatches(pattern, p string) bool {
+var pathParameterRE = regexp.MustCompile(`^\{([A-Za-z_][A-Za-z0-9_]*)\}(?::([A-Za-z][A-Za-z0-9]*))?$`)
+
+// pathParameter parses a placeholder segment that ValidatePathPattern
+// accepted: {name}, or {name}:verb for a custom method.
+func pathParameter(part string) (name, verb string, ok bool) {
+	end := strings.IndexByte(part, '}')
+	if !strings.HasPrefix(part, "{") || end < 2 {
+		return "", "", false
+	}
+	if rest := part[end+1:]; rest != "" {
+		if verb, ok = strings.CutPrefix(rest, ":"); !ok || verb == "" {
+			return "", "", false
+		}
+	}
+	return part[1:end], verb, true
+}
+
+// parameterValue returns a placeholder's value from one escaped request
+// segment. A {name}:verb part requires that literal, unescaped suffix, so an
+// encoded colon never selects a verb; the value may contain another colon,
+// at any encoding depth, only when the rule lists name in colon_path_parameters.
+func (m ProxyMatch) parameterValue(name, verb, escaped string) (string, bool) {
+	value := escaped
+	if verb != "" {
+		var ok bool
+		if value, ok = strings.CutSuffix(escaped, ":"+verb); !ok {
+			return "", false
+		}
+		if !slices.Contains(m.ColonPathParameters, name) {
+			if decoded, ok := decodeOpaque(value); !ok || strings.Contains(decoded, ":") {
+				return "", false
+			}
+		}
+	}
+	return value, value != ""
+}
+
+// literalMatches compares a literal pattern segment with a decoded request
+// segment. A literal with a colon, such as values:batchGet, needs that colon
+// unescaped, so an encoded colon never selects a custom method.
+func literalMatches(part, decoded, escaped string) bool {
+	return part == decoded && (!strings.Contains(part, ":") || !strings.Contains(strings.ToLower(escaped), "%3a"))
+}
+
+// pathMatches takes the request path as decoded and escaped segments, which
+// align because encoded separators are rejected first. It never matches an
+// unrendered template, even a request segment spelling it.
+func (m ProxyMatch) pathMatches(pattern string, decoded, escaped []string) bool {
 	if templated(pattern) {
 		return false
 	}
-	a, b := strings.Split(pattern, "/"), strings.Split(p, "/")
-	for i := 0; i < len(a) && i < len(b); i++ {
-		if a[i] == "*" {
+	parts := strings.Split(pattern, "/")
+	for i := 0; i < len(parts) && i < len(decoded); i++ {
+		if parts[i] == "*" {
 			return true
 		}
-		if a[i] != b[i] && (!placeholder(a[i]) || b[i] == "") {
+		if literalMatches(parts[i], decoded[i], escaped[i]) {
+			continue
+		}
+		name, verb, ok := pathParameter(parts[i])
+		if !ok {
+			return false
+		}
+		if _, ok := m.parameterValue(name, verb, escaped[i]); !ok {
 			return false
 		}
 	}
-	return len(a) == len(b)
+	return len(parts) == len(decoded)
 }
 
 // RequestPath rejects encoded separators and dot segments before route matching.
@@ -259,8 +311,18 @@ func (m *Manifest) validateProxy(p Proxy, used map[string]bool) error {
 		if err := validateHeaderFilters(p.Match.Header); err != nil {
 			return err
 		}
-		if err := p.validateOpaquePathParameters(); err != nil {
-			return err
+		if names := p.Match.OpaquePathParameters; names != nil {
+			if p.Action.Rewrite != nil {
+				return fmt.Errorf("opaque_path_parameters requires explicit paths without rewrite")
+			}
+			if err := p.Match.validatePathParameters("opaque_path_parameters", names, true); err != nil {
+				return err
+			}
+		}
+		if names := p.Match.ColonPathParameters; names != nil {
+			if err := p.Match.validatePathParameters("colon_path_parameters", names, false); err != nil {
+				return err
+			}
 		}
 		if err := m.validateRecipe(p.Action.httpRecipe("").Headers, p.Action.BasicAuth, used); err != nil {
 			return err
@@ -296,7 +358,7 @@ func (m *Manifest) validateProxy(p Proxy, used map[string]bool) error {
 		}
 	case "postgres", "mysql", "clickhouse", "redis", "imap":
 		c := p.Action.Connection
-		if c == nil || p.Match.Host != nil || p.Match.Method != nil || p.Match.Path != nil || p.Match.OpaquePathParameters != nil || p.Match.Header != nil || p.Action.Headers.Set != nil || p.Action.Headers.Remove != nil || p.Action.Query != nil || p.Action.BasicAuth != nil || p.Action.Rewrite != nil {
+		if c == nil || p.Match.Host != nil || p.Match.Method != nil || p.Match.Path != nil || p.Match.OpaquePathParameters != nil || p.Match.ColonPathParameters != nil || p.Match.Header != nil || p.Action.Headers.Set != nil || p.Action.Headers.Remove != nil || p.Action.Query != nil || p.Action.BasicAuth != nil || p.Action.Rewrite != nil {
 			return fmt.Errorf("native protocol requires action.connection and forbids HTTP filters/actions")
 		}
 		if c.TLS != nil {
@@ -521,7 +583,11 @@ func (rules ProxyRules) HTTPRecipe(method, rawURL string, caller http.Header) (H
 	if err != nil {
 		return out, err
 	}
+	if err := methodOverride(rawURL, caller); err != nil {
+		return out, err
+	}
 	path, pathError := RequestPath(u)
+	request := requestSegments{escaped: strings.Split(escapedPath(u), "/"), decoded: strings.Split(path, "/"), err: pathError}
 	originFound := false
 	for _, rule := range rules {
 		if rule.Match.Protocol != "http" {
@@ -539,7 +605,7 @@ func (rules ProxyRules) HTTPRecipe(method, rawURL string, caller http.Header) (H
 			continue
 		}
 		originFound = true
-		if !rule.Match.matchesRequest(method, u, caller) {
+		if !rule.Match.matchesRequest(method, request, caller) {
 			continue
 		}
 		out = rule.Action.httpRecipe(rawURL)
@@ -581,21 +647,35 @@ func originMatches(pattern, origin string) bool {
 	suffix, wildcard := strings.CutPrefix(pattern, "https://*")
 	return wildcard && strings.HasSuffix(strings.TrimPrefix(origin, "https://"), suffix)
 }
-func (m ProxyMatch) matchesRequest(method string, u *url.URL, caller http.Header) bool {
+
+// requestSegments is a request path split once per request: escaped as sent,
+// and decoded when it has no encoded separators (err otherwise).
+type requestSegments struct {
+	escaped, decoded []string
+	err              error
+}
+
+func escapedPath(u *url.URL) string {
+	if raw := u.EscapedPath(); raw != "" {
+		return raw
+	}
+	return "/"
+}
+
+func (m ProxyMatch) matchesRequest(method string, request requestSegments, caller http.Header) bool {
 	if m.Method != nil && !slices.Contains(m.Method, method) {
 		return false
 	}
-	path, err := RequestPath(u)
 	if len(m.OpaquePathParameters) > 0 {
-		if !m.matchesOpaquePath(u.EscapedPath()) {
+		if !m.matchesOpaquePath(request.escaped) {
 			return false
 		}
-	} else if err != nil {
+	} else if request.err != nil {
 		return false
 	} else if m.Path != nil {
 		found := false
 		for _, pattern := range m.Path {
-			if PathMatches(pattern, path) {
+			if m.pathMatches(pattern, request.decoded, request.escaped) {
 				found = true
 				break
 			}
@@ -667,7 +747,64 @@ func removeHeader(headers http.Header, name string) {
 	}
 }
 
+var methodOverrideHeaders = []string{"X-HTTP-Method-Override", "X-HTTP-Method", "X-Method-Override"}
+
+// MethodOverrideHeaders returns the headers that ask a provider to run another
+// HTTP method than the one a rule matched; Houston refuses each.
+func MethodOverrideHeaders() []string { return slices.Clone(methodOverrideHeaders) }
+
+// headerKey keeps only a header name's letters and digits, upper-cased: CGI
+// gateways map "-", "_", "." and other separators to the same variable.
+func headerKey(name string) string {
+	return strings.ToUpper(strings.Map(func(r rune) rune {
+		if r < 128 && (r >= '0' && r <= '9' || r >= 'A' && r <= 'Z' || r >= 'a' && r <= 'z') {
+			return r
+		}
+		return -1
+	}, name))
+}
+
+// methodOverride rejects a request that asks the provider to run another HTTP
+// method, which would bypass the selected rule's method filter. Google honours
+// $httpMethod; WordPress, Laravel and Rails honour _method.
+func methodOverride(rawURL string, caller http.Header) error {
+	for key := range caller {
+		for _, name := range methodOverrideHeaders {
+			if headerKey(key) == headerKey(name) {
+				return fmt.Errorf("method override header %s forbidden", name)
+			}
+		}
+	}
+	_, query, _ := strings.Cut(rawURL, "?")
+	query, _, _ = strings.Cut(query, "#")
+	for _, pair := range strings.FieldsFunc(query, func(r rune) bool { return r == '&' || r == ';' }) {
+		name, _, _ := strings.Cut(pair, "=")
+		// A name that does not decode cannot spell an override.
+		decoded, err := url.QueryUnescape(name)
+		if err != nil {
+			decoded = name
+		}
+		if name := overrideName(decoded); name == "$httpmethod" || name == "_method" {
+			return fmt.Errorf("method override query parameter forbidden")
+		}
+	}
+	return nil
+}
+
+var phpNameSeparators = strings.NewReplacer(".", "_", " ", "_")
+
+// overrideName reads a query name as PHP does: it drops leading spaces, ends
+// the name at NUL or "[", and reads "." and " " as "_".
+func overrideName(name string) string {
+	name, _, _ = strings.Cut(strings.TrimLeft(name, " "), "\x00")
+	name, _, _ = strings.Cut(name, "[")
+	return strings.ToLower(phpNameSeparators.Replace(name))
+}
+
 func (r HTTPRecipe) Prepare(c Context, caller http.Header) (http.Header, error) {
+	if err := methodOverride(r.URL, caller); err != nil {
+		return nil, err
+	}
 	h := caller.Clone()
 	if h == nil {
 		h = http.Header{}

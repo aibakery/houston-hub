@@ -13,12 +13,13 @@ func TestExaRoutes(t *testing.T) {
 		t.Fatal(err)
 	}
 	const api = "https://api.exa.ai"
-	dropped := []string{"Authorization", "X-HTTP-Method-Override", "X-HTTP-Method", "X-Method-Override"}
+	dropped := []string{"Authorization"}
 	for _, path := range []string{"/search", "/contents", "/findSimilar", "/answer"} {
 		recipe, err := r.Proxy.HTTPRecipe("POST", api+path, nil)
 		if err != nil {
 			t.Fatalf("POST %s denied: %v", path, err)
 		}
+		assertPrepareRejectsMethodOverrides(t, recipe, r.Context, "POST "+path)
 		caller := http.Header{"Content-Type": {"application/json"}, "X-Api-Key": {"forged"}}
 		for _, name := range dropped {
 			caller.Set(name, "Bearer forged")

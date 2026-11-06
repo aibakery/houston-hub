@@ -38,8 +38,9 @@ func TestStripeAccessRoutes(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		assertPrepareRejectsMethodOverrides(t, recipe, r.Context, "GET "+api+"/v1/balance")
 		headers, err := recipe.Prepare(r.Context, http.Header{
-			"Authorization": {"forged"}, "Stripe-Version": {"old"}, "Stripe-Account": {"acct_other"}, "Stripe-Context": {"acct_other"}, "X-HTTP-Method-Override": {"POST"},
+			"Authorization": {"forged"}, "Stripe-Version": {"old"}, "Stripe-Account": {"acct_other"}, "Stripe-Context": {"acct_other"},
 		})
 		if err != nil {
 			t.Fatal(err)
@@ -47,7 +48,7 @@ func TestStripeAccessRoutes(t *testing.T) {
 		if headers.Get("Stripe-Version") != "2026-09-30.endive" || headers.Get("Authorization") != "Bearer rk_test_fixture" {
 			t.Fatal(headers)
 		}
-		for _, header := range []string{"Stripe-Account", "Stripe-Context", "X-HTTP-Method-Override"} {
+		for _, header := range []string{"Stripe-Account", "Stripe-Context"} {
 			if headers.Get(header) != "" {
 				t.Fatalf("kept %s", header)
 			}
