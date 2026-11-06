@@ -53,6 +53,8 @@ func TestOAuthFactsValidation(t *testing.T) {
 		{`"/channels/{channel}"`, `"/channels/{{auth.oauth.team_id || auth.oauth.team_name}}"`, "exactly one declared OAuth fact reference"},
 		{`"pkce":"none",`, `"pkce":"none","refresh_response":{"scopes_unreported":true},`, "refresh_response forbids facts, label and scopes_unreported"},
 		{`"token_response":{"checks":[{"op":"exists","path":"/team/id"}],`, `"token_response":{"scopes_unreported":true,`, "scopes_unreported requires checks"},
+		{`"token_response":{"checks":`, `"token_response":{"revoked":[{"op":"exists","path":"/error"}],"checks":`, "token_response forbids revoked"},
+		{`"pkce":"none",`, `"pkce":"none","refresh_response":{"revoked":[{"op":"matches","path":"/error"}]},`, "unknown response check"},
 		{`"label":"/team/name"}`, `"label":"/team/name","scopes":"/scope","scopes_unreported":true}`, "token scopes conflict with scopes_unreported"},
 	} {
 		raw := strings.Replace(factsManifest, tc.old, tc.new, 1)
@@ -66,6 +68,10 @@ func TestOAuthFactsValidation(t *testing.T) {
 	facts := strings.Replace(factsManifest, `"facts":{"team_id":"/team/id","team_name":"/team/name"}`, `"facts":`+string(tooMany), 1)
 	if _, err := Parse([]byte(facts)); err == nil || !strings.Contains(err.Error(), "at most 16 facts") {
 		t.Errorf("accepted more than %d facts: %v", MaxFacts, err)
+	}
+	revoked := strings.Replace(factsManifest, `"pkce":"none",`, `"pkce":"none","refresh_response":{"revoked":[{"op":"equals","path":"/error","value":"invalid_grant"}]},`, 1)
+	if m, err := Parse([]byte(revoked)); err != nil || len(m.Auth["oauth"].RefreshResponse.Revoked) != 1 {
+		t.Errorf("refresh revocation checks: %v", err)
 	}
 	unreported := strings.Replace(factsManifest, `"label":"/team/name"}`, `"label":"/team/name","scopes_unreported":true}`, 1)
 	if m, err := Parse([]byte(unreported)); err != nil || !m.Auth["oauth"].TokenResponse.ScopesUnreported || m.Auth["oauth"].TokenResponse.Scopes != "" {

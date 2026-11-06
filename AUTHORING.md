@@ -384,6 +384,17 @@ the previous ones on every refresh. The flag requires `checks` that prove the
 grant another way (for Discord, `{"op": "exists", "path": "/guild/id"}`), and it
 cannot be combined with `scopes` or set in `refresh_response`.
 
+When a provider can revoke Houston's access outside Houston, for example when a
+user removes the app in the provider's settings, declare `revoked` checks so Houston
+can delete the stored credential. They use the same shape as `checks`, but a single
+passing check is enough. Put them on `refresh_response`, for refresh errors that
+prove revocation, and on `account`, which Houston then requests about once a day
+for each connection. When one passes, Houston removes the connection and its
+credential. Match only error codes that prove revocation, never configuration or
+rate-limit errors. Slack, for example, declares
+`{"op": "equals", "path": "/error", "value": "token_revoked"}`
+(see the [Slack manifest](connectors/slack/houston.json)).
+
 Luau selects the exports from the connection's public config. Discovery is
 recomputed from the current connection release, settings and authentication
 facts on each request;
