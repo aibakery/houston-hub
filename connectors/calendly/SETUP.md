@@ -30,8 +30,8 @@ sign up at [developer.calendly.com](https://developer.calendly.com) with GitHub
 or Google. Create an app for this connection: a Calendly app has one redirect URI,
 and each Houston connection has its own callback URL.
 
-1. In Houston, add the Calendly connector, choose **Connect with Calendly** and copy
-   the **OAuth callback URL** shown.
+1. In Houston, add the Calendly connector, choose **Connect with Calendly** under
+   **Connect using** and copy the **OAuth callback URL** shown.
 2. In the Calendly developer portal, create an OAuth application. Choose **Web**
    as its kind and **Production** as its environment, and paste the callback URL as
    its **Redirect URI**.
@@ -39,7 +39,7 @@ and each Houston connection has its own callback URL.
    you can change the access level later without editing the app.
 4. Copy the **Client ID** and **Client Secret** into Houston's **OAuth client ID**
    and **OAuth client secret**. Calendly shows the secret only once.
-5. Select **Authorize account**, sign in to Calendly and allow access.
+5. Select **Authorize connector**, sign in to Calendly and allow access.
 
 ## Scopes
 

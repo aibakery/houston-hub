@@ -9,7 +9,7 @@ can connect.
      and files.
    - **Read and write** to also let agents post, reply, edit or delete your
      messages, add reactions and share files as you.
-2. Select **Connect with Slack** and sign in to Slack.
+2. Select **Add to Slack** and sign in to Slack.
 3. Check the workspace shown in the top-right corner of Slack's permission page.
    Switch to the workspace you want to connect, then select **Allow**.
 
