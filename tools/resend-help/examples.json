@@ -1,0 +1,851 @@
+{
+  "addContactToSegment": [
+    {
+      "contact_id": "00000000-0000-4000-8000-000000000001",
+      "segment_id": "00000000-0000-4000-8000-000000000002"
+    }
+  ],
+  "addSuppression": [
+    {
+      "email": "ana@example.com"
+    }
+  ],
+  "addSuppressions": [
+    {
+      "emails": [
+        "ana@example.com"
+      ]
+    }
+  ],
+  "addThreadLabels": [
+    {
+      "inbox_id": "support@example.com",
+      "labels": [
+        "00000000-0000-4000-8000-000000000003"
+      ],
+      "thread_id": "00000000-0000-4000-8000-000000000002"
+    }
+  ],
+  "cancelBroadcast": [
+    {
+      "broadcast_id": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "cancelEmail": [
+    {
+      "email_id": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "claimDomain": [
+    {
+      "name": "mail.example.com",
+      "region": "us-east-1"
+    }
+  ],
+  "createAutomation": [
+    {
+      "connections": [
+        {
+          "from": "start",
+          "to": "welcome"
+        }
+      ],
+      "name": "New account welcome",
+      "status": "disabled",
+      "steps": [
+        {
+          "config": {
+            "event_name": "user.created"
+          },
+          "key": "start",
+          "type": "trigger"
+        },
+        {
+          "config": {
+            "template": {
+              "id": "welcome"
+            }
+          },
+          "key": "welcome",
+          "type": "send_email"
+        }
+      ]
+    }
+  ],
+  "createBroadcast": [
+    {
+      "from": "hello@example.com",
+      "html": "\u003cp\u003eHere is our latest release.\u003c/p\u003e",
+      "segment_id": "00000000-0000-4000-8000-000000000001",
+      "send": false,
+      "subject": "Product news"
+    }
+  ],
+  "createContact": [
+    {
+      "email": "ana@example.com",
+      "first_name": "Ana",
+      "segments": [
+        {
+          "id": "00000000-0000-4000-8000-000000000001"
+        }
+      ]
+    }
+  ],
+  "createContactImport": [
+    {
+      "column_map": {
+        "email": "Email",
+        "first_name": "First Name"
+      },
+      "on_conflict": "skip",
+      "path": "contacts.csv",
+      "segments": [
+        {
+          "id": "00000000-0000-4000-8000-000000000001"
+        }
+      ]
+    }
+  ],
+  "createContactProperty": [
+    {
+      "fallback_value": "free",
+      "key": "plan",
+      "type": "string"
+    }
+  ],
+  "createDomain": [
+    {
+      "name": "mail.example.com",
+      "region": "us-east-1"
+    }
+  ],
+  "createDraft": [
+    {
+      "idempotency_key": "invoice/draft-1",
+      "inbox_id": "support@example.com",
+      "subject": "Invoice received",
+      "text": "Thanks for the invoice.",
+      "to": [
+        "ana@example.com"
+      ]
+    }
+  ],
+  "createEvent": [
+    {
+      "name": "user.created",
+      "schema": {
+        "plan": "string",
+        "trial": "boolean"
+      }
+    }
+  ],
+  "createInbox": [
+    {
+      "email_address": "support@example.com",
+      "name": "Support"
+    }
+  ],
+  "createInboxLabel": [
+    {
+      "color": "#3366CC",
+      "inbox_id": "support@example.com",
+      "name": "Billing"
+    }
+  ],
+  "createSegment": [
+    {
+      "name": "Product updates"
+    }
+  ],
+  "createTemplate": [
+    {
+      "alias": "welcome",
+      "from": "hello@example.com",
+      "html": "\u003cp\u003eWelcome to Acme\u003c/p\u003e",
+      "name": "Welcome",
+      "subject": "Welcome"
+    }
+  ],
+  "createTopic": [
+    {
+      "default_subscription": "opt_out",
+      "name": "Product news",
+      "visibility": "public"
+    }
+  ],
+  "createWebhook": [
+    {
+      "endpoint": "https://example.com/resend-events",
+      "events": [
+        "email.delivered",
+        "email.bounced"
+      ]
+    }
+  ],
+  "deleteAutomation": [
+    {
+      "automation_id": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "deleteBroadcast": [
+    {
+      "broadcast_id": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "deleteContact": [
+    {
+      "contact_id": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "deleteContactProperty": [
+    {
+      "property_id": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "deleteDomain": [
+    {
+      "domain_id": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "deleteDraft": [
+    {
+      "draft_id": "00000000-0000-4000-8000-000000000002",
+      "inbox_id": "support@example.com"
+    }
+  ],
+  "deleteEvent": [
+    {
+      "identifier": "user.created"
+    }
+  ],
+  "deleteInbox": [
+    {
+      "inbox_id": "support@example.com"
+    }
+  ],
+  "deleteInboxLabel": [
+    {
+      "inbox_id": "support@example.com",
+      "label_id": "00000000-0000-4000-8000-000000000002"
+    }
+  ],
+  "deleteSegment": [
+    {
+      "segment_id": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "deleteTemplate": [
+    {
+      "template_id": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "deleteThread": [
+    {
+      "inbox_id": "support@example.com",
+      "thread_id": "00000000-0000-4000-8000-000000000002"
+    }
+  ],
+  "deleteTopic": [
+    {
+      "topic_id": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "deleteWebhook": [
+    {
+      "webhook_id": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "duplicateAutomation": [
+    {
+      "automation_id": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "duplicateBroadcast": [
+    {
+      "broadcast_id": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "duplicateTemplate": [
+    {
+      "template_id": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "forwardThreadEmail": [
+    {
+      "email_id": "00000000-0000-4000-8000-000000000003",
+      "idempotency_key": "invoice/forward-1",
+      "inbox_id": "support@example.com",
+      "text": "Please review this invoice.",
+      "thread_id": "00000000-0000-4000-8000-000000000002",
+      "to": [
+        "billing@example.com"
+      ]
+    }
+  ],
+  "getAutomation": [
+    {
+      "automation_id": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "getAutomationRun": [
+    {
+      "automation_id": "00000000-0000-4000-8000-000000000001",
+      "run_id": "00000000-0000-4000-8000-000000000002"
+    }
+  ],
+  "getBroadcast": [
+    {
+      "broadcast_id": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "getContact": [
+    {
+      "contact_id": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "getContactImport": [
+    {
+      "import_id": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "getContactProperty": [
+    {
+      "property_id": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "getDomain": [
+    {
+      "domain_id": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "getDomainClaim": [
+    {
+      "domain_id": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "getDraft": [
+    {
+      "draft_id": "00000000-0000-4000-8000-000000000002",
+      "inbox_id": "support@example.com"
+    }
+  ],
+  "getEmail": [
+    {
+      "email_id": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "getEmailAttachment": [
+    {
+      "attachment_id": "00000000-0000-4000-8000-000000000002",
+      "email_id": "00000000-0000-4000-8000-000000000001",
+      "path": "sent-attachment.pdf"
+    }
+  ],
+  "getEmailMetrics": [
+    {
+      "dimensions": [
+        "period"
+      ],
+      "end_date": "2026-10-31",
+      "granularity": "daily",
+      "metrics": [
+        "delivered",
+        "opened"
+      ],
+      "start_date": "2026-10-01"
+    }
+  ],
+  "getEvent": [
+    {
+      "identifier": "user.created"
+    }
+  ],
+  "getInbox": [
+    {
+      "inbox_id": "support@example.com"
+    }
+  ],
+  "getInboxAgent": [
+    {
+      "inbox_id": "support@example.com"
+    }
+  ],
+  "getLog": [
+    {
+      "log_id": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "getReceivedEmail": [
+    {
+      "email_id": "00000000-0000-4000-8000-000000000001",
+      "html_format": "cid"
+    }
+  ],
+  "getReceivedEmailAttachment": [
+    {
+      "attachment_id": "00000000-0000-4000-8000-000000000002",
+      "email_id": "00000000-0000-4000-8000-000000000001",
+      "path": "received-attachment.pdf"
+    }
+  ],
+  "getSegment": [
+    {
+      "segment_id": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "getSuppression": [
+    {
+      "suppression": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "getTemplate": [
+    {
+      "template_id": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "getThread": [
+    {
+      "inbox_id": "support@example.com",
+      "thread_id": "00000000-0000-4000-8000-000000000002"
+    }
+  ],
+  "getThreadEmail": [
+    {
+      "email_id": "00000000-0000-4000-8000-000000000003",
+      "inbox_id": "support@example.com",
+      "thread_id": "00000000-0000-4000-8000-000000000002"
+    }
+  ],
+  "getTopic": [
+    {
+      "topic_id": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "getUsage": [
+    {}
+  ],
+  "getWebhook": [
+    {
+      "webhook_id": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "getWebhookEvent": [
+    {
+      "event_id": "00000000-0000-4000-8000-000000000002",
+      "webhook_id": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "listApiKeys": [
+    {}
+  ],
+  "listAutomationRuns": [
+    {
+      "automation_id": "00000000-0000-4000-8000-000000000001",
+      "limit": 20,
+      "status": [
+        "completed",
+        "failed"
+      ]
+    }
+  ],
+  "listAutomations": [
+    {
+      "limit": 20,
+      "status": "disabled"
+    }
+  ],
+  "listBroadcastClickedLinks": [
+    {
+      "broadcast_id": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "listBroadcastRecipients": [
+    {
+      "broadcast_id": "00000000-0000-4000-8000-000000000001",
+      "limit": 20,
+      "type": "delivered"
+    }
+  ],
+  "listBroadcasts": [
+    {}
+  ],
+  "listContactImports": [
+    {}
+  ],
+  "listContactProperties": [
+    {}
+  ],
+  "listContactSegments": [
+    {
+      "contact_id": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "listContactTopics": [
+    {
+      "contact_id": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "listContacts": [
+    {}
+  ],
+  "listDomains": [
+    {}
+  ],
+  "listDrafts": [
+    {
+      "inbox_id": "support@example.com"
+    }
+  ],
+  "listEmailAttachments": [
+    {
+      "email_id": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "listEmails": [
+    {
+      "limit": 20
+    }
+  ],
+  "listEvents": [
+    {}
+  ],
+  "listInboxLabels": [
+    {
+      "inbox_id": "support@example.com"
+    }
+  ],
+  "listInboxes": [
+    {}
+  ],
+  "listLogs": [
+    {}
+  ],
+  "listReceivedEmailAttachments": [
+    {
+      "email_id": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "listReceivedEmails": [
+    {}
+  ],
+  "listSegmentContacts": [
+    {
+      "segment_id": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "listSegments": [
+    {}
+  ],
+  "listSuppressions": [
+    {
+      "limit": 20,
+      "origin": "manual"
+    }
+  ],
+  "listTemplates": [
+    {}
+  ],
+  "listThreadEmails": [
+    {
+      "inbox_id": "support@example.com",
+      "thread_id": "00000000-0000-4000-8000-000000000002"
+    }
+  ],
+  "listThreads": [
+    {
+      "folders": [
+        "inbox"
+      ],
+      "inbox_id": "support@example.com",
+      "limit": 20,
+      "read": false
+    }
+  ],
+  "listTopics": [
+    {}
+  ],
+  "listWebhookEventAttempts": [
+    {
+      "event_id": "00000000-0000-4000-8000-000000000002",
+      "webhook_id": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "listWebhookEvents": [
+    {
+      "webhook_id": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "listWebhooks": [
+    {}
+  ],
+  "publishTemplate": [
+    {
+      "template_id": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "removeContactFromSegment": [
+    {
+      "contact_id": "00000000-0000-4000-8000-000000000001",
+      "segment_id": "00000000-0000-4000-8000-000000000002"
+    }
+  ],
+  "removeSuppression": [
+    {
+      "suppression": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "removeSuppressions": [
+    {
+      "emails": [
+        "ana@example.com"
+      ]
+    }
+  ],
+  "removeThreadLabel": [
+    {
+      "inbox_id": "support@example.com",
+      "label_id": "00000000-0000-4000-8000-000000000003",
+      "thread_id": "00000000-0000-4000-8000-000000000002"
+    }
+  ],
+  "replayWebhookEvent": [
+    {
+      "event_id": "00000000-0000-4000-8000-000000000002",
+      "webhook_id": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "replyToThreadEmail": [
+    {
+      "email_id": "00000000-0000-4000-8000-000000000003",
+      "idempotency_key": "invoice/reply-1",
+      "inbox_id": "support@example.com",
+      "text": "Thanks, we received your invoice.",
+      "thread_id": "00000000-0000-4000-8000-000000000002"
+    }
+  ],
+  "rotateWebhookSigningSecret": [
+    {
+      "webhook_id": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "searchThreads": [
+    {
+      "has_attachment": true,
+      "inbox_id": "support@example.com",
+      "limit": 20,
+      "query": "invoice"
+    }
+  ],
+  "sendBatchEmails": [
+    {
+      "emails": [
+        {
+          "from": "hello@example.com",
+          "subject": "Welcome",
+          "text": "Hi Ana",
+          "to": "ana@example.com"
+        }
+      ],
+      "idempotency_key": "welcome/batch-1"
+    }
+  ],
+  "sendBroadcast": [
+    {
+      "broadcast_id": "00000000-0000-4000-8000-000000000001",
+      "scheduled_at": "in 1 hour"
+    }
+  ],
+  "sendDraft": [
+    {
+      "draft_id": "00000000-0000-4000-8000-000000000002",
+      "idempotency_key": "invoice/send-draft-1",
+      "inbox_id": "support@example.com"
+    }
+  ],
+  "sendEmail": [
+    {
+      "from": "Acme \u003chello@example.com\u003e",
+      "html": "\u003cp\u003eHi Ana\u003c/p\u003e",
+      "idempotency_key": "welcome/ana",
+      "subject": "Welcome",
+      "tags": [
+        {
+          "name": "category",
+          "value": "welcome"
+        }
+      ],
+      "to": [
+        "ana@example.com"
+      ]
+    },
+    {
+      "idempotency_key": "welcome/template/ana",
+      "template": {
+        "id": "welcome"
+      },
+      "to": "ana@example.com"
+    }
+  ],
+  "sendEvent": [
+    {
+      "email": "ana@example.com",
+      "event": "user.created",
+      "payload": {
+        "plan": "pro",
+        "trial": true
+      }
+    }
+  ],
+  "setThreadLabels": [
+    {
+      "inbox_id": "support@example.com",
+      "labels": [],
+      "thread_id": "00000000-0000-4000-8000-000000000002"
+    }
+  ],
+  "shareEmail": [
+    {
+      "email_id": "00000000-0000-4000-8000-000000000001",
+      "expires_in": "2 hours"
+    }
+  ],
+  "stopAutomation": [
+    {
+      "automation_id": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "updateAutomation": [
+    {
+      "automation_id": "00000000-0000-4000-8000-000000000001",
+      "status": "disabled"
+    }
+  ],
+  "updateBroadcast": [
+    {
+      "broadcast_id": "00000000-0000-4000-8000-000000000001",
+      "subject": "Our latest release"
+    }
+  ],
+  "updateContact": [
+    {
+      "contact_id": "00000000-0000-4000-8000-000000000001",
+      "first_name": "Ana",
+      "properties": {
+        "plan": "pro"
+      }
+    }
+  ],
+  "updateContactProperty": [
+    {
+      "fallback_value": "free",
+      "property_id": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "updateContactTopics": [
+    {
+      "contact_id": "00000000-0000-4000-8000-000000000001",
+      "topics": [
+        {
+          "id": "00000000-0000-4000-8000-000000000002",
+          "subscription": "opt_out"
+        }
+      ]
+    }
+  ],
+  "updateDomain": [
+    {
+      "click_tracking": false,
+      "domain_id": "00000000-0000-4000-8000-000000000001",
+      "open_tracking": false
+    }
+  ],
+  "updateDraft": [
+    {
+      "draft_id": "00000000-0000-4000-8000-000000000002",
+      "inbox_id": "support@example.com",
+      "text": "Thanks for the invoice. We will review it this week."
+    }
+  ],
+  "updateEmail": [
+    {
+      "email_id": "00000000-0000-4000-8000-000000000001",
+      "scheduled_at": "2026-11-10T12:00:00Z"
+    }
+  ],
+  "updateEvent": [
+    {
+      "identifier": "user.created",
+      "schema": {
+        "joined_at": "date",
+        "plan": "string",
+        "trial": "boolean"
+      }
+    }
+  ],
+  "updateInbox": [
+    {
+      "inbox_id": "support@example.com",
+      "name": "Customer support"
+    }
+  ],
+  "updateInboxAgent": [
+    {
+      "actions": [
+        "draft_reply"
+      ],
+      "inbox_id": "support@example.com",
+      "instructions": "Draft brief answers to delivery questions.",
+      "tone": "concise_professional"
+    }
+  ],
+  "updateInboxLabel": [
+    {
+      "inbox_id": "support@example.com",
+      "label_id": "00000000-0000-4000-8000-000000000002",
+      "name": "Invoices"
+    }
+  ],
+  "updateSegment": [
+    {
+      "name": "Product announcements",
+      "segment_id": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "updateTemplate": [
+    {
+      "html": "\u003cp\u003eWelcome! Your account is ready.\u003c/p\u003e",
+      "template_id": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "updateThread": [
+    {
+      "folder": "archive",
+      "inbox_id": "support@example.com",
+      "read": true,
+      "thread_id": "00000000-0000-4000-8000-000000000002"
+    }
+  ],
+  "updateTopic": [
+    {
+      "description": "Occasional product announcements",
+      "topic_id": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "updateWebhook": [
+    {
+      "status": "disabled",
+      "webhook_id": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "verifyDomain": [
+    {
+      "domain_id": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "verifyDomainClaim": [
+    {
+      "domain_id": "00000000-0000-4000-8000-000000000001"
+    }
+  ]
+}

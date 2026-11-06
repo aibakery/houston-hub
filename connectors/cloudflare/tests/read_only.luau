@@ -34,64 +34,64 @@ return {
 		assert(#requests == 0, "initialization reached Cloudflare")
 
 		-- An empty list comes back unchanged.
-		local accounts = cloudflare.listAccounts()
+		local accounts = fixture.example("listAccounts")
 		got(API .. "/accounts")
 		assert(accounts.success == true and json.encode(accounts.result) == "[]", json.encode(accounts))
 		cloudflare.listAccounts({name = "Acme Inc", page = 2, per_page = 50})
 		got(API .. "/accounts?name=Acme%20Inc&page=2&per_page=50")
-		cloudflare.getAccount({account_id = ACCOUNT})
+		fixture.example("getAccount")
 		got(API .. "/accounts/" .. ACCOUNT)
 
 		-- Populated results keep Cloudflare's nulls and paging fields.
 		payload = '{"success":true,"errors":[],"messages":[],"result":[{"id":"' .. ZONE .. '","name":"example.com","status":"active","paused":false,'
 			.. '"account":{"id":"' .. ACCOUNT .. '","name":"Acme"},"owner":{"id":null,"type":"user","email":null},"vanity_name_servers":null}],'
 			.. '"result_info":{"page":1,"per_page":20,"count":1,"total_count":21,"total_pages":2}}'
-		local zones = cloudflare.listZones({name = "contains:example", type = {"full", "partial"}, ["account.id"] = ACCOUNT, status = "active", page = 1})
+		local zones = fixture.example("listZones")
 		got(API .. "/zones?name=contains%3Aexample&status=active&type=full,partial&account.id=" .. ACCOUNT .. "&page=1")
 		local zone = zones.result[1]
 		assert(zone.name == "example.com" and zone.owner.id == NULL and zone.vanity_name_servers == NULL and zones.result_info.total_pages == 2, json.encode(zones))
-		cloudflare.getZone({zone_id = ZONE})
+		fixture.example("getZone")
 		got(API .. "/zones/" .. ZONE)
 
 		payload = '{"success":true,"errors":[],"messages":[],"result":[{"id":"372e67954025e0ba6aaa6d586b9e0b59","type":"CNAME","name":"www.example.com",'
 			.. '"content":"example.com","proxied":true,"ttl":1,"comment":null,"tags":[],"settings":{"flatten_cname":false}}],"result_info":{"page":1,"per_page":1000,"count":1,"total_count":1,"total_pages":1}}'
-		local records = cloudflare.listDnsRecords({zone_id = ZONE, type = "CNAME", ["name.endswith"] = ".example.com", proxied = true, search = "www", per_page = 1000})
+		local records = fixture.example("listDnsRecords")
 		got(API .. "/zones/" .. ZONE .. "/dns_records?type=CNAME&name.endswith=.example.com&proxied=true&search=www&per_page=1000")
 		assert(records.result[1].comment == NULL and records.result[1].proxied == true)
-		cloudflare.getDnsRecord({zone_id = ZONE, dns_record_id = "372e67954025e0ba6aaa6d586b9e0b59"})
+		fixture.example("getDnsRecord")
 		got(API .. "/zones/" .. ZONE .. "/dns_records/372e67954025e0ba6aaa6d586b9e0b59")
 
 		payload = '{"success":true,"errors":[],"messages":[],"result":[{"id":"api","created_on":"2026-10-01T00:00:00Z","tags":null}]}'
-		assert(cloudflare.listWorkerScripts({account_id = ACCOUNT, tags = "prod:yes"}).result[1].id == "api")
+		assert(fixture.example("listWorkerScripts").result[1].id == "api")
 		got(API .. "/accounts/" .. ACCOUNT .. "/workers/scripts?tags=prod%3Ayes")
 		local SCRIPT = API .. "/accounts/" .. ACCOUNT .. "/workers/scripts/api"
-		cloudflare.listWorkerDeployments({account_id = ACCOUNT, script_name = "api", per_page = 5})
+		fixture.example("listWorkerDeployments")
 		got(SCRIPT .. "/deployments?per_page=5")
-		cloudflare.listWorkerVersions({account_id = ACCOUNT, script_name = "api", deployable = true, page = 2})
+		fixture.example("listWorkerVersions")
 		got(SCRIPT .. "/versions?deployable=true&page=2")
-		cloudflare.getWorkerVersion({account_id = ACCOUNT, script_name = "api", version_id = "bcf48806-b317-4351-9ee7-36e7d557d4de"})
+		fixture.example("getWorkerVersion")
 		got(SCRIPT .. "/versions/bcf48806-b317-4351-9ee7-36e7d557d4de")
 
 		local PAGES = API .. "/accounts/" .. ACCOUNT .. "/pages/projects"
-		cloudflare.listPagesProjects({account_id = ACCOUNT})
+		fixture.example("listPagesProjects")
 		got(PAGES)
-		cloudflare.getPagesProject({account_id = ACCOUNT, project_name = "site"})
+		fixture.example("getPagesProject")
 		got(PAGES .. "/site")
-		cloudflare.listPagesDeployments({account_id = ACCOUNT, project_name = "site", env = "production", per_page = 10})
+		fixture.example("listPagesDeployments")
 		got(PAGES .. "/site/deployments?env=production&per_page=10")
-		cloudflare.getPagesDeployment({account_id = ACCOUNT, project_name = "site", deployment_id = "4f0b3a52-3c5d-4b6c-9c1a-1d2e3f4a5b6c"})
+		fixture.example("getPagesDeployment")
 		got(PAGES .. "/site/deployments/4f0b3a52-3c5d-4b6c-9c1a-1d2e3f4a5b6c")
 		payload = '{"success":true,"errors":[],"messages":[],"result":{"total":2,"includes_container_logs":true,"data":[{"ts":"2026-10-30T10:00:00Z","line":"Cloning repository..."},{"ts":"2026-10-30T10:00:05Z","line":"Success: Build complete!"}]}}'
-		local logs = cloudflare.getPagesDeploymentLogs({account_id = ACCOUNT, project_name = "site", deployment_id = "4f0b3a52-3c5d-4b6c-9c1a-1d2e3f4a5b6c"})
+		local logs = fixture.example("getPagesDeploymentLogs")
 		got(PAGES .. "/site/deployments/4f0b3a52-3c5d-4b6c-9c1a-1d2e3f4a5b6c/history/logs")
 		assert(logs.result.total == 2 and logs.result.data[2].line == "Success: Build complete!")
 
 		-- R2 pages with a cursor, and a jurisdiction travels as Cloudflare's header.
 		payload = '{"success":true,"errors":[],"messages":[],"result":{"buckets":[{"name":"assets","creation_date":"2026-01-01T00:00:00Z","location":"WEUR","jurisdiction":"eu"}]},"result_info":{"cursor":"YXNzZXRz","per_page":1}}'
-		local buckets = cloudflare.listR2Buckets({account_id = ACCOUNT, per_page = 1, cursor = "YXNzZXRz", jurisdiction = "eu"})
+		local buckets = fixture.example("listR2Buckets")
 		assert(last().url == API .. "/accounts/" .. ACCOUNT .. "/r2/buckets?per_page=1&cursor=YXNzZXRz" and last().headers["cf-r2-jurisdiction"][1] == "eu", last().url)
 		assert(buckets.result.buckets[1].name == "assets" and buckets.result_info.cursor == "YXNzZXRz")
-		cloudflare.getR2Bucket({account_id = ACCOUNT, bucket_name = "assets"})
+		fixture.example("getR2Bucket")
 		got(API .. "/accounts/" .. ACCOUNT .. "/r2/buckets/assets")
 		assert(last().headers["cf-r2-jurisdiction"] == nil)
 		cloudflare.getR2Bucket({account_id = ACCOUNT, bucket_name = "records", jurisdiction = "fedramp-high"})
@@ -100,7 +100,7 @@ return {
 		-- Analytics send a fixed GraphQL query, with caller values only as variables.
 		payload = '{"data":{"viewer":{"zones":[{"groups":[{"dimensions":{"date":"2026-10-01"},"sum":{"requests":1200,"cachedRequests":800,"bytes":5000000,'
 			.. '"responseStatusMap":[{"edgeResponseStatus":200,"requests":1100},{"edgeResponseStatus":404,"requests":100}]},"uniq":{"uniques":90}}]}]}},"errors":null}'
-		local traffic = cloudflare.getZoneAnalytics({zone_id = string.upper(ZONE), since = "2026-10-01", ["until"] = "2026-10-07", breakdowns = {"responseStatusMap", "countryMap"}})
+		local traffic = fixture.example("getZoneAnalytics")
 		local req = last()
 		assert(req.method == "POST" and req.url == API .. "/graphql" and req.headers["Content-Type"][1] == "application/json" and req.headers.Authorization == nil)
 		local sent = json.decode(req.body)
@@ -113,7 +113,7 @@ return {
 		assert(traffic.errors == NULL and group.sum.requests == 1200 and group.sum.responseStatusMap[2].edgeResponseStatus == 404 and group.uniq.uniques == 90)
 
 		payload = '{"data":{"viewer":{"zones":[{"groups":[]}]}},"errors":null}'
-		local hourly = cloudflare.getZoneAnalytics({zone_id = ZONE, granularity = "hour", since = "2026-10-29T00:00:00Z", ["until"] = "2026-10-30T00:00:00Z"})
+		local hourly = fixture.example("getZoneAnalytics", 2)
 		sent = json.decode(last().body)
 		assert(sent.query == "query ZoneAnalytics($zoneTag: string, $since: Time, $until: Time) { viewer { zones(filter: {zoneTag: $zoneTag}) { "
 			.. "groups: httpRequests1hGroups(limit: 1000, orderBy: [datetime_ASC], filter: {datetime_geq: $since, datetime_lt: $until}) { dimensions { datetime } "

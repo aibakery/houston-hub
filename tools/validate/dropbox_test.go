@@ -7,6 +7,7 @@ import (
 	"maps"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -74,9 +75,17 @@ func TestDropboxPublisherClient(t *testing.T) {
 }
 
 func TestDropboxDiscoveryUsesGrantedScopes(t *testing.T) {
-	source, err := os.ReadFile("../../connectors/dropbox/connector.luau")
+	paths, err := filepath.Glob("../../connectors/dropbox/lib/*.luau")
 	if err != nil {
 		t.Fatal(err)
+	}
+	modules := map[string]string{}
+	for _, path := range append(paths, "../../connectors/dropbox/connector.luau") {
+		source, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		modules[strings.TrimPrefix(filepath.ToSlash(path), "../../connectors/dropbox/")] = string(source)
 	}
 	binary := os.Getenv("HOUSTON_RUNTIME")
 	if binary == "" {
@@ -93,7 +102,7 @@ func TestDropboxDiscoveryUsesGrantedScopes(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			input, err := json.Marshal(map[string]any{
-				"files": []string{"connector.luau"}, "modules": map[string]string{"connector.luau": string(source)},
+				"files": []string{"connector.luau"}, "modules": modules,
 				"config": map[string]string{"access": "read-write"}, "protocol": "http", "args": []any{},
 				"auth": map[string]any{"method": "oauth", "scopes": test.scopes},
 			})
@@ -113,7 +122,9 @@ func TestDropboxDiscoveryUsesGrantedScopes(t *testing.T) {
 				Type    string   `json:"type"`
 				Error   string   `json:"error"`
 				Exports []string `json:"exports"`
-				Help    string   `json:"help"`
+				Help    struct {
+					Functions map[string]json.RawMessage `json:"functions"`
+				} `json:"help"`
 			}
 			if err := json.Unmarshal(raw, &result); err != nil {
 				t.Fatalf("invalid connector host response: %v: %s", err, raw)
@@ -127,13 +138,7 @@ func TestDropboxDiscoveryUsesGrantedScopes(t *testing.T) {
 			if result.Type != "result" || !slices.Equal(result.Exports, test.exports) {
 				t.Fatalf("wrong configured exports: %s", raw)
 			}
-			var documented []string
-			for _, line := range strings.Split(result.Help, "\n") {
-				name, _, found := strings.Cut(line, "(")
-				if found && name != "" && !strings.ContainsAny(name, " \t") {
-					documented = append(documented, name)
-				}
-			}
+			documented := slices.Sorted(maps.Keys(result.Help.Functions))
 			if !slices.Equal(documented, test.exports) {
 				t.Fatalf("help documents %v; enabled operations are %v", documented, test.exports)
 			}

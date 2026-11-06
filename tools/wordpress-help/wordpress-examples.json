@@ -1,0 +1,245 @@
+{
+  "createCategory": [
+    {
+      "name": "Launch"
+    }
+  ],
+  "createComment": [
+    {
+      "content": "Thanks!",
+      "parent": 5,
+      "post": 42
+    }
+  ],
+  "createPage": [
+    {
+      "content": "\u003cp\u003eMeet the team.\u003c/p\u003e",
+      "status": "draft",
+      "title": "About us"
+    }
+  ],
+  "createPost": [
+    {
+      "categories": [
+        4
+      ],
+      "content": "\u003c!-- wp:paragraph --\u003e\u003cp\u003eHello\u003c/p\u003e\u003c!-- /wp:paragraph --\u003e",
+      "status": "draft",
+      "title": "Launch notes"
+    }
+  ],
+  "createTag": [
+    {
+      "name": "Launch"
+    }
+  ],
+  "deleteCategory": [
+    {
+      "force": true,
+      "id": 42
+    }
+  ],
+  "deleteComment": [
+    {
+      "force": true,
+      "id": 42
+    }
+  ],
+  "deleteMedia": [
+    {
+      "force": true,
+      "id": 42
+    }
+  ],
+  "deletePage": [
+    {
+      "force": true,
+      "id": 42
+    }
+  ],
+  "deletePost": [
+    {
+      "force": true,
+      "id": 42
+    }
+  ],
+  "deleteTag": [
+    {
+      "force": true,
+      "id": 42
+    }
+  ],
+  "getCategory": [
+    {
+      "id": 42
+    }
+  ],
+  "getComment": [
+    {
+      "id": 42
+    }
+  ],
+  "getMedia": [
+    {
+      "id": 42
+    }
+  ],
+  "getPage": [
+    {
+      "id": 42
+    }
+  ],
+  "getPageRevision": [
+    {
+      "id": 42,
+      "parent": 42
+    }
+  ],
+  "getPost": [
+    {
+      "id": 42
+    }
+  ],
+  "getPostRevision": [
+    {
+      "id": 42,
+      "parent": 42
+    }
+  ],
+  "getPostStatus": [
+    {
+      "id": "publish"
+    }
+  ],
+  "getPostType": [
+    {
+      "id": "post"
+    }
+  ],
+  "getSettings": [
+    {}
+  ],
+  "getTag": [
+    {
+      "id": 42
+    }
+  ],
+  "getTaxonomy": [
+    {
+      "id": "category"
+    }
+  ],
+  "getUser": [
+    {
+      "id": "me"
+    }
+  ],
+  "listCategories": [
+    {
+      "per_page": 3
+    }
+  ],
+  "listComments": [
+    {
+      "per_page": 3
+    }
+  ],
+  "listMedia": [
+    {
+      "per_page": 3
+    }
+  ],
+  "listPageRevisions": [
+    {
+      "parent": 42,
+      "per_page": 3
+    }
+  ],
+  "listPages": [
+    {
+      "per_page": 3
+    }
+  ],
+  "listPostRevisions": [
+    {
+      "parent": 42,
+      "per_page": 3
+    }
+  ],
+  "listPostStatuses": [
+    {}
+  ],
+  "listPostTypes": [
+    {}
+  ],
+  "listPosts": [
+    {
+      "per_page": 3
+    }
+  ],
+  "listTags": [
+    {
+      "per_page": 3
+    }
+  ],
+  "listTaxonomies": [
+    {}
+  ],
+  "listUsers": [
+    {
+      "per_page": 3
+    }
+  ],
+  "search": [
+    {
+      "search": "pricing",
+      "type": "post"
+    }
+  ],
+  "updateCategory": [
+    {
+      "id": 42,
+      "name": "Launch updated"
+    }
+  ],
+  "updateComment": [
+    {
+      "id": 5,
+      "status": "approved"
+    }
+  ],
+  "updateMedia": [
+    {
+      "caption": "The team",
+      "id": 77
+    }
+  ],
+  "updatePage": [
+    {
+      "id": 42,
+      "title": "Launch notes"
+    }
+  ],
+  "updatePost": [
+    {
+      "date": "2026-11-10T09:00:00",
+      "id": 42,
+      "status": "future"
+    }
+  ],
+  "updateTag": [
+    {
+      "id": 42,
+      "name": "Launch updated"
+    }
+  ],
+  "uploadMedia": [
+    {
+      "alt_text": "Team photo",
+      "content_type": "image/jpeg",
+      "filename": "team.jpg",
+      "path": "photos/team.jpg",
+      "post": 42
+    }
+  ]
+}

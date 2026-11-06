@@ -31,31 +31,36 @@ return {
   assert(string.find(url, "post.fields=id%2Ctext", 1, true))
   c.searchRecentTweets({query = "conversation_id:123", next_token = result.meta.next_token})
   assert(string.find(requests[2].url, "next_token=second%2B%2F%3D", 1, true))
-  c.searchAllTweets({query = "Houston", max_results = 500, sort_order = "recency", start_time = "2020-01-01T00:00:00Z", since_id = "123"})
+  fixture.example("searchAllTweets")
   assert(string.find(requests[3].url, "/tweets/search/all?", 1, true))
   assert(string.find(requests[3].url, "max_results=500", 1, true))
 
   payload = '{"data":{"id":"123","text":"tweet"}}'
-  c.getTweet({id = "123"})
+  fixture.example("getTweet")
   assert(string.find(requests[4].url, "/tweets/123?", 1, true))
   payload = '{"data":[{"id":"123"}],"errors":[{"resource_id":"456","detail":"Not found"}]}'
-  assert(c.getTweets({ids = {"123", "456"}}).errors[1].resource_id == "456")
+  assert(fixture.example("getTweets").errors[1].resource_id == "456")
   assert(string.find(requests[5].url, "ids=123%2C456", 1, true))
   payload = '{"data":{"id":"789","username":"XDevelopers"}}'
-  c.getUser({id = "789"})
+  fixture.example("getUser")
   assert(string.find(requests[6].url, "/users/789?", 1, true))
   assert(not string.find(requests[6].url, "post.fields", 1, true))
-  local user = c.getUserByUsername({username = "XDevelopers"})
+  local user = fixture.example("getUserByUsername")
+  assert(user.data.id == "789")
   assert(string.find(requests[7].url, "/users/by/username/XDevelopers?", 1, true))
   payload = '{"data":[],"meta":{"result_count":0,"next_token":"timeline+/="}}'
-  result = c.listUserTweets({id = user.data.id, exclude = {"replies", "retweets"}, max_results = 5})
+  result = fixture.example("listUserTweets")
+  assert(result.meta.next_token == "timeline+/=")
   assert(string.find(requests[8].url, "/users/789/tweets?", 1, true))
   assert(string.find(requests[8].url, "exclude=replies%2Cretweets", 1, true))
-  c.listUserMentions({id = user.data.id, pagination_token = result.meta.next_token, until_id = "999"})
+  fixture.example("listUserMentions")
   assert(string.find(requests[9].url, "/users/789/mentions?", 1, true))
   assert(string.find(requests[9].url, "pagination_token=timeline%2B%2F%3D", 1, true))
   payload = '{"meta":{"result_count":0}}'
   assert(c.searchRecentTweets({query = "none"}).data == nil)
   assert(#requests == 10, "unexpected automatic requests")
+  assert(fixture.example("searchRecentTweets").meta.result_count == 0)
+  assert(string.find(requests[11].url, "query=from%3AXDevelopers%20-is%3Aretweet", 1, true))
+  assert(string.find(requests[11].url, "max_results=10", 1, true))
  end,
 }

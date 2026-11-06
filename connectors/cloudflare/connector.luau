@@ -1,7 +1,7 @@
 -- Cloudflare API v4 and its GraphQL Analytics API. Arguments and results keep Cloudflare's native snake_case field names.
 type Options = {[string]: any}
 type Endpoint = {method: string, path: string, query: {string}?, extra: {string}?, required: {string}?, write: boolean?, body: (boolean | string)?,
-	fields: {string}?, perPage: number?, doc: string, about: string}
+	fields: {string}?, perPage: number?, doc: string, about: string, example: Options}
 
 local PROVIDER = "Cloudflare"
 local DOCS = "https://developers.cloudflare.com/"
@@ -18,70 +18,71 @@ end
 -- 2026-10-30, plus the GraphQL Analytics API. Path {fields} are required; listed query fields
 -- are taken from the options and the other fields form the JSON body.
 local endpoints: {[string]: Endpoint} = {
-	listAccounts = {method = "GET", path = "/accounts", query = with({"name", "direction"}, PAGE), doc = "api/resources/accounts/methods/list/",
+	listAccounts = {method = "GET", path = "/accounts", example = {}, query = with({"name", "direction"}, PAGE), doc = "api/resources/accounts/methods/list/",
 		about = "Accounts the token can reach: {id, name, type, settings, created_on}. An account token sees only its own account. per_page is 5 to 50."},
-	getAccount = {method = "GET", path = "/accounts/{account_id}", doc = "api/resources/accounts/methods/get/", about = "One account."},
+	getAccount = {method = "GET", path = "/accounts/{account_id}", example = {account_id = "0123456789abcdef0123456789abcdef"}, doc = "api/resources/accounts/methods/get/", about = "One account."},
 
-	listZones = {method = "GET", path = "/zones", query = with({"name", "status", "type", "account.id", "account.name", "match", "order", "direction"}, PAGE),
+	listZones = {method = "GET", path = "/zones", example = {name = "contains:example", type = {"full", "partial"}, ["account.id"] = "0123456789abcdef0123456789abcdef", status = "active", page = 1}, query = with({"name", "status", "type", "account.id", "account.name", "match", "order", "direction"}, PAGE),
 		doc = "api/resources/zones/methods/list/",
 		about = "Zones (domains): {id, name, status, paused, type, name_servers, account={id, name}, plan, meta, created_on, modified_on}. name matches exactly, or with a prefix such as 'contains:shop' (also starts_with:, ends_with:). status: initializing, pending, active or moved. type: full, partial or secondary, or an array. order: name, status, account.id, account.name or plan.id; direction asc or desc. per_page is 5 to 50."},
-	getZone = {method = "GET", path = "/zones/{zone_id}", doc = "api/resources/zones/methods/get/", about = "One zone, with its plan, name servers and status."},
+	getZone = {method = "GET", path = "/zones/{zone_id}", example = {zone_id = "023e105f4ecef8ad9ca31a8372d0c353"}, doc = "api/resources/zones/methods/get/", about = "One zone, with its plan, name servers and status."},
 
-	listDnsRecords = {method = "GET", path = "/zones/{zone_id}/dns_records",
+	listDnsRecords = {method = "GET", path = "/zones/{zone_id}/dns_records", example = {zone_id = "023e105f4ecef8ad9ca31a8372d0c353", type = "CNAME", ["name.endswith"] = ".example.com", proxied = true, search = "www", per_page = 1000},
 		query = with({"type", "name", "name.contains", "name.startswith", "name.endswith", "content", "content.contains", "proxied", "comment.contains", "tag", "search", "match", "order", "direction"}, PAGE),
 		perPage = 1000, doc = "api/resources/dns/subresources/records/methods/list/",
 		about = "DNS records: {id, type, name, content, proxied, proxiable, ttl (1 is automatic), priority?, data?, comment, tags, settings, created_on, modified_on}. name is the full hostname, such as www.example.com. type: A, AAAA, CNAME, MX, TXT, NS, SRV, CAA and others. search matches any field; match='any' ORs the other filters. order: type (default), name, content, ttl or proxied. per_page is at most 1000 here (default 100)."},
-	getDnsRecord = {method = "GET", path = "/zones/{zone_id}/dns_records/{dns_record_id}", doc = "api/resources/dns/subresources/records/methods/get/", about = "One DNS record."},
+	getDnsRecord = {method = "GET", path = "/zones/{zone_id}/dns_records/{dns_record_id}", example = {zone_id = "023e105f4ecef8ad9ca31a8372d0c353", dns_record_id = "372e67954025e0ba6aaa6d586b9e0b59"}, doc = "api/resources/dns/subresources/records/methods/get/", about = "One DNS record."},
 
-	getZoneAnalytics = {method = "POST", path = "/graphql", write = false, body = false, extra = {"zone_id", "since", "until", "granularity", "breakdowns"},
+	getZoneAnalytics = {method = "POST", path = "/graphql", example = {zone_id = string.upper("023e105f4ecef8ad9ca31a8372d0c353"), since = "2026-10-01", ["until"] = "2026-10-07", breakdowns = {"responseStatusMap", "countryMap"}}, write = false, body = false, extra = {"zone_id", "since", "until", "granularity", "breakdowns"},
 		required = {"zone_id", "since", "until"}, doc = "analytics/graphql-api/",
 		about = "A zone's HTTP traffic over time, from Cloudflare's GraphQL Analytics API, as {data={viewer={zones=[{groups=[{dimensions={date or datetime}, sum={requests, cachedRequests, bytes, cachedBytes, encryptedRequests, encryptedBytes, threats, pageViews, ...breakdowns}, uniq={uniques}}]}]}}, errors}, oldest first. granularity 'day' (default) takes since and until as inclusive dates such as '2026-10-01'; 'hour' takes whole UTC hours such as '2026-10-29T00:00:00Z', with until excluded. breakdowns adds per-group lists, an array of: responseStatusMap {edgeResponseStatus, requests}, countryMap {clientCountryName, requests, bytes, threats}, contentTypeMap {edgeResponseContentTypeName, requests, bytes}, browserMap {uaBrowserFamily, pageViews}, clientSSLMap {clientSSLProtocol, requests}, clientHTTPVersionMap {clientHTTPProtocol, requests}, ipClassMap {ipType, requests}, threatPathingMap {threatPathingName, requests}. One request covers at most 1000 days or hours, or 100 with breakdowns; the zone's plan may allow less, and limits how far back data goes."},
 
-	listWorkerScripts = {method = "GET", path = "/accounts/{account_id}/workers/scripts", query = {"tags"}, doc = "api/resources/workers/subresources/scripts/methods/list/",
+	listWorkerScripts = {method = "GET", path = "/accounts/{account_id}/workers/scripts", example = {account_id = "0123456789abcdef0123456789abcdef", tags = "prod:yes"}, query = {"tags"}, doc = "api/resources/workers/subresources/scripts/methods/list/",
 		about = "The account's Workers, all at once: {id (the script name), created_on, modified_on, usage_model, handlers, compatibility_date, placement, tags, ...}."},
-	listWorkerDeployments = {method = "GET", path = "/accounts/{account_id}/workers/scripts/{script_name}/deployments", query = with({"since", "until"}, PAGE),
+	listWorkerDeployments = {method = "GET", path = "/accounts/{account_id}/workers/scripts/{script_name}/deployments", example = {account_id = "0123456789abcdef0123456789abcdef", script_name = "api", per_page = 5}, query = with({"since", "until"}, PAGE),
 		doc = "api/resources/workers/subresources/scripts/subresources/deployments/methods/list/",
 		about = "A Worker's deployments, newest first, in result.deployments: {id, created_on, source, strategy='percentage', versions=[{version_id, percentage}], author_email, annotations={'workers/message', 'workers/triggered_by'}}. The first is the one serving traffic. since and until filter creation times (ISO 8601); per_page is at most 100 (default 10)."},
-	listWorkerVersions = {method = "GET", path = "/accounts/{account_id}/workers/scripts/{script_name}/versions", query = with({"deployable"}, PAGE),
+	listWorkerVersions = {method = "GET", path = "/accounts/{account_id}/workers/scripts/{script_name}/versions", example = {account_id = "0123456789abcdef0123456789abcdef", script_name = "api", deployable = true, page = 2}, query = with({"deployable"}, PAGE),
 		doc = "api/resources/workers/subresources/scripts/subresources/versions/methods/list/",
 		about = "A Worker's uploaded versions, newest first, in result.items: {id, number, metadata={created_on, author_email, source, hasPreview}, annotations}. deployable=true keeps those that can still be deployed."},
-	getWorkerVersion = {method = "GET", path = "/accounts/{account_id}/workers/scripts/{script_name}/versions/{version_id}",
+	getWorkerVersion = {method = "GET", path = "/accounts/{account_id}/workers/scripts/{script_name}/versions/{version_id}", example = {account_id = "0123456789abcdef0123456789abcdef", script_name = "api", version_id = "bcf48806-b317-4351-9ee7-36e7d557d4de"},
 		doc = "api/resources/workers/subresources/scripts/subresources/versions/methods/get/",
 		about = "One version with its bindings (names, types and non-secret values such as plain_text text and json; secret values are never returned), compatibility settings and metadata, but not its code."},
 
-	listPagesProjects = {method = "GET", path = "/accounts/{account_id}/pages/projects", query = PAGE, doc = "api/resources/pages/subresources/projects/methods/list/",
+	listPagesProjects = {method = "GET", path = "/accounts/{account_id}/pages/projects", example = {account_id = "0123456789abcdef0123456789abcdef"}, query = PAGE, doc = "api/resources/pages/subresources/projects/methods/list/",
 		about = "Pages projects: {id, name, subdomain, domains, production_branch, source, build_config, latest_deployment, canonical_deployment, created_on}."},
-	getPagesProject = {method = "GET", path = "/accounts/{account_id}/pages/projects/{project_name}", doc = "api/resources/pages/subresources/projects/methods/get/",
+	getPagesProject = {method = "GET", path = "/accounts/{account_id}/pages/projects/{project_name}", example = {account_id = "0123456789abcdef0123456789abcdef", project_name = "site"}, doc = "api/resources/pages/subresources/projects/methods/get/",
 		about = "One project, with its deployment settings per environment (deployment_configs.production and .preview)."},
-	listPagesDeployments = {method = "GET", path = "/accounts/{account_id}/pages/projects/{project_name}/deployments", query = with({"env"}, PAGE),
+	listPagesDeployments = {method = "GET", path = "/accounts/{account_id}/pages/projects/{project_name}/deployments", example = {account_id = "0123456789abcdef0123456789abcdef", project_name = "site", env = "production", per_page = 10}, query = with({"env"}, PAGE),
 		doc = "api/resources/pages/subresources/projects/subresources/deployments/methods/list/",
 		about = "A project's deployments, newest first: {id, short_id, url, environment, created_on, latest_stage={name, status}, deployment_trigger={type, metadata={branch, commit_hash, commit_message}}, aliases, is_skipped_build}. env: production or preview."},
-	getPagesDeployment = {method = "GET", path = "/accounts/{account_id}/pages/projects/{project_name}/deployments/{deployment_id}",
+	getPagesDeployment = {method = "GET", path = "/accounts/{account_id}/pages/projects/{project_name}/deployments/{deployment_id}", example = {account_id = "0123456789abcdef0123456789abcdef", project_name = "site", deployment_id = "4f0b3a52-3c5d-4b6c-9c1a-1d2e3f4a5b6c"},
 		doc = "api/resources/pages/subresources/projects/subresources/deployments/methods/get/", about = "One deployment, with its build stages."},
-	getPagesDeploymentLogs = {method = "GET", path = "/accounts/{account_id}/pages/projects/{project_name}/deployments/{deployment_id}/history/logs",
+	getPagesDeploymentLogs = {method = "GET", path = "/accounts/{account_id}/pages/projects/{project_name}/deployments/{deployment_id}/history/logs", example = {account_id = "0123456789abcdef0123456789abcdef", project_name = "site", deployment_id = "4f0b3a52-3c5d-4b6c-9c1a-1d2e3f4a5b6c"},
 		doc = "api/resources/pages/subresources/projects/subresources/deployments/subresources/history/subresources/logs/methods/get/",
 		about = "A deployment's build log: {total, includes_container_logs, data=[{ts, line}]}."},
 
-	listR2Buckets = {method = "GET", path = "/accounts/{account_id}/r2/buckets", query = {"name_contains", "start_after", "per_page", "order", "direction", "cursor"},
+	listR2Buckets = {method = "GET", path = "/accounts/{account_id}/r2/buckets", example = {account_id = "0123456789abcdef0123456789abcdef", per_page = 1, cursor = "YXNzZXRz", jurisdiction = "eu"}, query = {"name_contains", "start_after", "per_page", "order", "direction", "cursor"},
 		extra = {"jurisdiction"}, doc = "api/resources/r2/subresources/buckets/methods/list/",
 		about = "R2 buckets in result.buckets: {name, creation_date, location, jurisdiction, storage_class}. Pages with cursor=result_info.cursor; per_page is at most 1000. jurisdiction 'eu', 'us', 'fedramp' or 'fedramp-high' lists the buckets kept there instead."},
-	getR2Bucket = {method = "GET", path = "/accounts/{account_id}/r2/buckets/{bucket_name}", extra = {"jurisdiction"},
+	getR2Bucket = {method = "GET", path = "/accounts/{account_id}/r2/buckets/{bucket_name}", example = {account_id = "0123456789abcdef0123456789abcdef", bucket_name = "assets"}, extra = {"jurisdiction"},
 		doc = "api/resources/r2/subresources/buckets/methods/get/", about = "One bucket; pass jurisdiction for a bucket in one."},
 
-	createDnsRecord = {method = "POST", path = "/zones/{zone_id}/dns_records", required = {"type", "name"}, fields = DNS_FIELDS,
+	createDnsRecord = {method = "POST", path = "/zones/{zone_id}/dns_records", example = {zone_id = "023e105f4ecef8ad9ca31a8372d0c353", type = "A", name = "api.example.com", content = "198.51.100.4", proxied = true, ttl = 1}, required = {"type", "name"}, fields = DNS_FIELDS,
 		doc = "api/resources/dns/subresources/records/methods/create/",
 		about = "Creates a record and returns it. Body {type, name, content, ttl? (1 automatic, else 60 to 86400 seconds, 30 on Enterprise), proxied? (A, AAAA and CNAME only), comment?, tags? ('name:value' strings), priority? (MX), data? (SRV, CAA and other structured types), settings?, private_routing?}. Cloudflare refuses an identical record and a CNAME next to other records of the same name."},
-	updateDnsRecord = {method = "PATCH", path = "/zones/{zone_id}/dns_records/{dns_record_id}", fields = DNS_FIELDS,
+	updateDnsRecord = {method = "PATCH", path = "/zones/{zone_id}/dns_records/{dns_record_id}", example = {zone_id = "023e105f4ecef8ad9ca31a8372d0c353", dns_record_id = "372e67954025e0ba6aaa6d586b9e0b59", content = "198.51.100.5", comment = "moved"}, fields = DNS_FIELDS,
 		doc = "api/resources/dns/subresources/records/methods/edit/", about = "Changes only the given fields of a record and returns it."},
-	deleteDnsRecord = {method = "DELETE", path = "/zones/{zone_id}/dns_records/{dns_record_id}", doc = "api/resources/dns/subresources/records/methods/delete/",
+	deleteDnsRecord = {method = "DELETE", path = "/zones/{zone_id}/dns_records/{dns_record_id}", example = {zone_id = "023e105f4ecef8ad9ca31a8372d0c353", dns_record_id = "372e67954025e0ba6aaa6d586b9e0b59"}, doc = "api/resources/dns/subresources/records/methods/delete/",
 		about = "Deletes a record and returns {result={id}}."},
-	purgeCache = {method = "POST", path = "/zones/{zone_id}/purge_cache", fields = {"purge_everything", "files", "tags", "hosts", "prefixes"},
+	purgeCache = {method = "POST", path = "/zones/{zone_id}/purge_cache", example = {zone_id = "023e105f4ecef8ad9ca31a8372d0c353", files = {"https://www.example.com/app.css"}}, fields = {"purge_everything", "files", "tags", "hosts", "prefixes"},
 		doc = "api/resources/cache/methods/purge/",
 		about = "Removes cached content from every Cloudflare data center, so the next requests go to the origin. Body: exactly one of purge_everything=true, files (full URLs, or {url, headers} for cache keys with headers), tags (Cache-Tag values), hosts or prefixes (such as 'www.example.com/blog/'), at most 100 items (500 URLs on Enterprise). Free plans allow 5 purges of everything, hosts, tags or prefixes per minute."},
-	createWorkerDeployment = {method = "POST", path = "/accounts/{account_id}/workers/scripts/{script_name}/deployments", required = {"strategy", "versions"},
+	createWorkerDeployment = {method = "POST", path = "/accounts/{account_id}/workers/scripts/{script_name}/deployments", example = {account_id = "0123456789abcdef0123456789abcdef", script_name = "api", strategy = "percentage", versions = {{version_id = "bcf48806-b317-4351-9ee7-36e7d557d4de", percentage = 100}},
+			annotations = {["workers/message"] = "Roll back to 41"}}, required = {"strategy", "versions"},
 		fields = {"strategy", "versions", "annotations"}, doc = "api/resources/workers/subresources/scripts/subresources/deployments/methods/create/",
 		about = "Deploys existing versions, which serve traffic at once, and returns the deployment. Body {strategy='percentage', versions=[{version_id, percentage}] totalling 100, annotations?={['workers/message']=text}}. Roll back with one earlier version at 100 (one of the 100 most recent); Cloudflare refuses when a KV namespace, R2 bucket or queue it binds no longer exists, or Durable Object classes changed since. Bindings, routes and secrets stay as they are."},
-	rollbackPagesDeployment = {method = "POST", path = "/accounts/{account_id}/pages/projects/{project_name}/deployments/{deployment_id}/rollback", body = false,
+	rollbackPagesDeployment = {method = "POST", path = "/accounts/{account_id}/pages/projects/{project_name}/deployments/{deployment_id}/rollback", example = {account_id = "0123456789abcdef0123456789abcdef", project_name = "site", deployment_id = "4f0b3a52-3c5d-4b6c-9c1a-1d2e3f4a5b6c"}, body = false,
 		doc = "api/resources/pages/subresources/projects/subresources/deployments/methods/rollback/",
 		about = "Serves production from an earlier successful production deployment at once, without rebuilding, and returns it. Preview deployments are not valid targets."},
 }
@@ -147,48 +148,22 @@ local function object(name: string, endpoint: Endpoint, response: HttpResponse, 
 	return value, list
 end
 
--- name({path fields, query fields?, extra fields?, required body fields, ...body}) built from the
--- endpoint itself.
--- Extra fields are options the connector's own request consumes, such as a request header.
-local function signature(endpoint: Endpoint): string
-	local fields: {string} = {}
-	for field in string.gmatch(endpoint.path, "{([%w_]+)}") do table.insert(fields, field) end
-	for _, group in {endpoint.query or NONE, endpoint.extra or NONE} do
-		for _, field in group do
-			table.insert(fields, if table.find(endpoint.required or NONE, field) then field else field .. "?")
-		end
-	end
-	if type(endpoint.body) == "string" then
-		table.insert(fields, endpoint.body)
-	elseif hasBody(endpoint) then
-		for _, field in endpoint.required or NONE do
-			if not table.find(fields, field) then table.insert(fields, field) end
-		end
-		table.insert(fields, "...body")
-	end
-	return "({" .. table.concat(fields, ", ") .. "})"
-end
-
--- A function for each endpoint the connection's access allows, and help listing them after intro.
-local function operations(endpoints: {[string]: Endpoint}, request: (string, Endpoint, Options?) -> any, intro: {string}): {[string]: any}
-	local exports: {[string]: any} = {}
+-- Export and document exactly the operations enabled for this connection.
+local function operations(endpoints: {[string]: Endpoint}, request: (string, Endpoint, Options?) -> any, intro: {string}, documentation: {[string]: any}): {[string]: any}
+	local exports: {[string]: any}, docs: {[string]: any} = {}, {}
+	for name in documentation do assert(endpoints[name], "documentation without endpoint: " .. name) end
 	for name, endpoint in endpoints do
+		assert(documentation[name], "missing documentation for " .. name)
 		if not writes(endpoint) or config.access == "read-write" then
 			exports[name] = function(args: Options?): any return request(name, endpoint, args) end
+			local record = table.clone(documentation[name])
+			record.description = endpoint.about .. " " .. endpoint.method .. " " .. endpoint.path .. ". Reference: " .. DOCS .. endpoint.doc
+				.. (if record.description then "\n\n" .. record.description else "")
+			if record.annotations == nil then record.annotations = {readOnlyHint = not writes(endpoint)} end
+			docs[name] = record
 		end
 	end
-	exports.help = function(): string
-		local names: {string} = {}
-		for name in exports do if name ~= "help" then table.insert(names, name) end end
-		table.sort(names)
-		local lines = table.clone(intro)
-		table.insert(lines, "Each function below names its route and reference page, " .. DOCS .. "<page>.")
-		for _, name in names do
-			local endpoint = endpoints[name]
-			table.insert(lines, name .. signature(endpoint) .. ": " .. endpoint.about .. " " .. endpoint.method .. " " .. endpoint.path .. " (" .. endpoint.doc .. ")")
-		end
-		return table.concat(lines, "\n")
-	end
+	exports.help = {text = table.concat(intro, "\n\n"), functions = docs}
 	return exports
 end
 -- End of the shared request layer.
@@ -347,7 +322,7 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 end
 
 local intro = {
-	"Cloudflare API v4 on " .. API .. ". Every function takes one named options object with Cloudflare's native names; ? marks optional fields and ...body the JSON body fields. Connector calls return completed values: use them directly, without await.",
+	"Cloudflare API v4 on " .. API .. ". Every function takes one named options object with Cloudflare's native names. Connector calls return completed values: use them directly, without await.",
 	"Results are Cloudflare's JSON unchanged: {success, errors, messages, result, result_info?}; read result. Lists return one page with result_info={page, per_page, count, total_count, total_pages}: pass page=result_info.page + 1 while it is below total_pages. R2 buckets page with a cursor instead. getZoneAnalytics returns GraphQL's {data, errors}.",
 	"Account, zone and DNS record ids are 32-character hex strings: start with listAccounts and listZones (zone.account.id is its account). Workers are named by script_name, Pages projects by project_name and R2 buckets by bucket_name; Workers version and deployment ids and Pages deployment ids are UUIDs. Times are ISO 8601 UTC. Write until as ['until'] in Luau, since until is a keyword.",
 	"Examples: local zone = cloudflare.listZones({name='example.com'}).result[1]; cloudflare.listDnsRecords({zone_id=zone.id, type='CNAME', per_page=100}); cloudflare.getZoneAnalytics({zone_id=zone.id, since='2026-10-01', ['until']='2026-10-07', breakdowns={'responseStatusMap'}}).",
@@ -359,4 +334,129 @@ else
 	table.insert(intro, "This read-only connection omits writes.")
 end
 
-return operations(endpoints, request, intro)
+local text, flag = {type = "string"}, {type = "boolean"}
+local nonempty = {type = "string", minLength = 1}
+local segment = {type = "string", minLength = 1, pattern = "^[^/?#\\\\\\x00-\\x20]+$", ["not"] = {enum = {".", ".."}},
+	description = "Cloudflare ID or name, as returned by the corresponding list operation; one URL path segment."}
+local function choice(values: {string}): any return {type = "string", enum = values} end
+local function list(item: any, minimum: number?): any return {type = "array", items = item, minItems = minimum} end
+local function objectSchema(properties: Options, required: {string}?): any
+	return {type = "object", properties = properties, required = required, additionalProperties = true}
+end
+local function keys(value: Options): {string}
+	local names: {string} = {}
+	for name in value do table.insert(names, name) end
+	table.sort(names)
+	return names
+end
+local integer16 = {type = "integer", minimum = 0, maximum = 65535}
+local dnsTypes = {"A", "AAAA", "CNAME", "MX", "NS", "OPENPGPKEY", "PTR", "TXT", "CAA", "CERT", "DNSKEY", "DS", "HTTPS", "LOC", "NAPTR", "SMIMEA", "SRV", "SSHFP", "SVCB", "TLSA", "URI"}
+-- Structured DNS data varies with the record type. Keep nested provider extension fields open.
+local dnsData = objectSchema({
+	flags = {type = "integer", minimum = 0}, tag = text, value = text, certificate = text, key_tag = integer16,
+	algorithm = {type = "integer", minimum = 0, maximum = 255}, protocol = {type = "integer", minimum = 0, maximum = 255}, public_key = text,
+	digest = text, digest_type = {type = "integer", minimum = 0, maximum = 255}, priority = integer16, target = text,
+	precision_horz = {type = "number"}, precision_vert = {type = "number"}, size = {type = "number"}, altitude = {type = "number"},
+	lat_degrees = {type = "number"}, lat_minutes = {type = "number"}, lat_seconds = {type = "number"}, lat_direction = choice({"N", "S"}),
+	long_degrees = {type = "number"}, long_minutes = {type = "number"}, long_seconds = {type = "number"}, long_direction = choice({"E", "W"}),
+	order = integer16, preference = integer16, service = text, regex = text, replacement = text,
+	usage = {type = "integer", minimum = 0, maximum = 255}, selector = {type = "integer", minimum = 0, maximum = 255},
+	matching_type = {type = "integer", minimum = 0, maximum = 255}, weight = integer16, port = integer16,
+	proto = text, name = text, fingerprint = text, type = {type = "integer", minimum = 0},
+})
+-- NAPTR flags are textual; HTTPS/SVCB value is a serialized parameter string.
+dnsData.properties.flags = {type = {"integer", "string"}}
+local fields: Options = {
+	type = choice(dnsTypes), name = nonempty, content = text,
+	ttl = {anyOf = {{const = 1} :: any, {type = "integer", minimum = 30, maximum = 86400}}, default = 1,
+		description = "Seconds: 1 is automatic. Minimum 60 except Enterprise zones, which allow 30."},
+	proxied = flag, comment = {type = {"string", "null"}}, tags = list({type = "string", pattern = "^[A-Za-z0-9_-]+:"}), priority = integer16,
+	data = dnsData, settings = objectSchema({ipv4_only = flag, ipv6_only = flag, flatten_cname = flag}), private_routing = flag,
+	purge_everything = {const = true},
+	files = {type = "array", minItems = 1, maxItems = 500, items = {anyOf = {{type = "string", format = "uri"},
+		objectSchema({url = {type = "string", format = "uri"}, headers = {type = "object", additionalProperties = text}}, {"url"})}},
+		description = "Full URLs, optionally with cache-key headers. Standard plans allow 100 URLs per request; Enterprise allows 500."},
+	hosts = {type = "array", minItems = 1, maxItems = 100, items = nonempty}, prefixes = {type = "array", minItems = 1, maxItems = 100, items = nonempty},
+	strategy = {const = "percentage"}, versions = {type = "array", minItems = 1, items = objectSchema({version_id = segment,
+		percentage = {type = "number", minimum = 0, maximum = 100}}, {"version_id", "percentage"}), description = "Existing Worker versions; percentages must total 100."},
+	annotations = objectSchema({["workers/message"] = {type = "string", description = "Deployment message, truncated by Cloudflare to 1000 bytes."}}),
+}
+local queries: Options = {
+	page = {type = "integer", minimum = 1}, per_page = {type = "integer", minimum = 1, maximum = 100},
+	name = text, direction = choice({"asc", "desc"}), status = choice({"initializing", "pending", "active", "moved"}),
+	type = {anyOf = {{type = "string", pattern = "^(full|partial|secondary|internal)(,(full|partial|secondary|internal))*$"}, list(choice({"full", "partial", "secondary", "internal"}), 1)}},
+	["account.id"] = text, ["account.name"] = text, match = choice({"any", "all"}),
+	["name.contains"] = text, ["name.startswith"] = text, ["name.endswith"] = text, content = text, ["content.contains"] = text,
+	proxied = flag, ["comment.contains"] = text, tag = text, search = text, tags = {anyOf = {text, list(text, 1)}},
+	since = {type = "string", format = "date-time"}, ["until"] = {type = "string", format = "date-time"}, deployable = flag,
+	env = choice({"production", "preview"}), name_contains = text, start_after = text, cursor = text,
+}
+local orders: Options = {listZones = {"name", "status", "account.id", "account.name", "plan.id"},
+	listDnsRecords = {"type", "name", "content", "ttl", "proxied"}, listR2Buckets = {"name"}}
+local docs: Options = {}
+for name, endpoint in endpoints do
+	local properties: Options, required: {string} = {}, {}
+	for field in string.gmatch(endpoint.path, "{([%w_]+)}") do
+		properties[field] = segment
+		table.insert(required, field)
+	end
+	for _, field in endpoint.query or NONE do
+		local schema = queries[field]
+		if field == "order" then schema = choice(orders[name])
+		elseif field == "type" and name == "listDnsRecords" then schema = choice(dnsTypes)
+		elseif field == "per_page" then
+			local maximum = endpoint.perPage or (if name == "listR2Buckets" then 1000 elseif name == "listAccounts" or name == "listZones" then 50 elseif name == "listWorkerDeployments" then 100 else nil)
+			schema = {type = "integer", minimum = if name == "listAccounts" or name == "listZones" then 5 else 1, maximum = maximum}
+		end
+		assert(schema, "missing query schema for " .. name .. "." .. field)
+		properties[field] = schema
+	end
+	for _, field in endpoint.fields or NONE do
+		properties[field] = if field == "tags" and name == "purgeCache" then {type = "array", minItems = 1, maxItems = 100, items = nonempty} else fields[field]
+		assert(properties[field], "missing body schema for " .. name .. "." .. field)
+	end
+	for _, field in endpoint.required or NONE do table.insert(required, field) end
+	if table.find(endpoint.extra or NONE, "jurisdiction") then
+		properties.jurisdiction = {type = "string", pattern = "^[A-Za-z-]+$", description = "R2 jurisdiction header, such as eu, us, fedramp or fedramp-high."}
+	end
+	local schema: any = {type = "object", properties = properties, required = if #required > 0 then required else nil, additionalProperties = false, examples = {endpoint.example}}
+	if hasBody(endpoint) then schema.minProperties = #required + (if #required == 0 or name == "updateDnsRecord" or name == "purgeCache" then 1 else 0) end
+	if name == "purgeCache" then
+		schema.oneOf = {}
+		for _, field in endpoint.fields :: {string} do table.insert(schema.oneOf, {required = {field}}) end
+	elseif name == "getZoneAnalytics" then
+		properties.zone_id = {type = "string", pattern = "^[0-9A-Fa-f]+$", description = "Hex zone ID returned by listZones."}
+		properties.granularity = {type = "string", enum = keys(GRANULARITIES), default = "day"}
+		properties.since, properties["until"] = text, text
+		properties.breakdowns = list(choice(keys(BREAKDOWNS)))
+		local date = {type = "string", format = "date", pattern = "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"}
+		local hour = {type = "string", format = "date-time", pattern = "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:00:00Z$"}
+		schema["if"] = {properties = {granularity = {const = "hour"}}, required = {"granularity"}}
+		schema["then"] = {properties = {since = hour, ["until"] = hour}}
+		schema["else"] = {properties = {since = date, ["until"] = date}}
+		schema.description = "Use real calendar dates. Day ranges include both endpoints; hour ranges exclude until. Request 1.." .. MAX_GROUPS
+			.. " groups, or at most " .. MAX_BREAKDOWN_GROUPS .. " with breakdowns; provider plan limits may be lower."
+	end
+	local output = if name == "getZoneAnalytics" then objectSchema({data = {type = {"object", "null"}}, errors = {type = {"array", "null"}, items = objectSchema({message = text})}}, {"data"})
+		else objectSchema({success = flag, errors = list(objectSchema({code = {type = "integer"}, message = text})), messages = {type = "array"},
+			result = {description = "Native Cloudflare result; the operation description gives its shape."},
+			result_info = objectSchema({page = {type = "integer"}, per_page = {type = "integer"}, count = {type = "integer"},
+				total_count = {type = "integer"}, total_pages = {type = "integer"}, cursor = text})}, {"result"})
+	-- Successful writes may legitimately return nil for an empty response body.
+	docs[name] = {inputSchema = schema, outputSchema = if writes(endpoint) then nil else output,
+		description = if writes(endpoint) then intro[6] .. " An empty successful response returns nil." else nil,
+		annotations = {readOnlyHint = not writes(endpoint), destructiveHint = writes(endpoint), idempotentHint = not writes(endpoint)}}
+end
+table.insert(docs.getZoneAnalytics.inputSchema.examples, {zone_id = "023e105f4ecef8ad9ca31a8372d0c353", granularity = "hour",
+	since = "2026-10-29T00:00:00Z", ["until"] = "2026-10-30T00:00:00Z"})
+table.insert(docs.createDnsRecord.inputSchema.examples, {zone_id = "023e105f4ecef8ad9ca31a8372d0c353", type = "MX", name = "example.com", content = "mx.example.net", priority = 10, tags = {"owner:mail"}})
+table.insert(docs.createDnsRecord.inputSchema.examples, {zone_id = "023e105f4ecef8ad9ca31a8372d0c353", type = "SRV", name = "_sip._tcp.example.com",
+	data = {priority = 10, weight = 5, port = 5060, target = "sip.example.com"}})
+table.insert(docs.purgeCache.inputSchema.examples, {zone_id = "023e105f4ecef8ad9ca31a8372d0c353", purge_everything = true})
+table.insert(docs.purgeCache.inputSchema.examples, {zone_id = "023e105f4ecef8ad9ca31a8372d0c353",
+	files = {{url = "https://www.example.com/app.css", headers = {["CF-Device-Type"] = "desktop"}}}})
+local exports = operations(endpoints, request, {intro[1], intro[6]}, docs)
+local help = exports.help
+help.sections = {paging = intro[2], identifiers = intro[3], workflow = intro[4], errors = intro[5]}
+exports.help = help
+return exports

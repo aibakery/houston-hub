@@ -258,48 +258,22 @@ local function object(name: string, endpoint: Endpoint, response: HttpResponse, 
 	return value, list
 end
 
--- name({path fields, query fields?, extra fields?, required body fields, ...body}) built from the
--- endpoint itself.
--- Extra fields are options the connector's own request consumes, such as a request header.
-local function signature(endpoint: Endpoint): string
-	local fields: {string} = {}
-	for field in string.gmatch(endpoint.path, "{([%w_]+)}") do table.insert(fields, field) end
-	for _, group in {endpoint.query or NONE, endpoint.extra or NONE} do
-		for _, field in group do
-			table.insert(fields, if table.find(endpoint.required or NONE, field) then field else field .. "?")
-		end
-	end
-	if type(endpoint.body) == "string" then
-		table.insert(fields, endpoint.body)
-	elseif hasBody(endpoint) then
-		for _, field in endpoint.required or NONE do
-			if not table.find(fields, field) then table.insert(fields, field) end
-		end
-		table.insert(fields, "...body")
-	end
-	return "({" .. table.concat(fields, ", ") .. "})"
-end
-
--- A function for each endpoint the connection's access allows, and help listing them after intro.
-local function operations(endpoints: {[string]: Endpoint}, request: (string, Endpoint, Options?) -> any, intro: {string}): {[string]: any}
-	local exports: {[string]: any} = {}
+-- Export and document exactly the operations enabled for this connection.
+local function operations(endpoints: {[string]: Endpoint}, request: (string, Endpoint, Options?) -> any, intro: {string}, documentation: {[string]: any}): {[string]: any}
+	local exports: {[string]: any}, docs: {[string]: any} = {}, {}
+	for name in documentation do assert(endpoints[name], "documentation without endpoint: " .. name) end
 	for name, endpoint in endpoints do
+		assert(documentation[name], "missing documentation for " .. name)
 		if not writes(endpoint) or config.access == "read-write" then
 			exports[name] = function(args: Options?): any return request(name, endpoint, args) end
+			local record = table.clone(documentation[name])
+			record.description = endpoint.about .. " " .. endpoint.method .. " " .. endpoint.path .. ". Reference: " .. DOCS .. endpoint.doc
+				.. (if record.description then "\n\n" .. record.description else "")
+			if record.annotations == nil then record.annotations = {readOnlyHint = not writes(endpoint)} end
+			docs[name] = record
 		end
 	end
-	exports.help = function(): string
-		local names: {string} = {}
-		for name in exports do if name ~= "help" then table.insert(names, name) end end
-		table.sort(names)
-		local lines = table.clone(intro)
-		table.insert(lines, "Each function below names its route and reference page, " .. DOCS .. "<page>.")
-		for _, name in names do
-			local endpoint = endpoints[name]
-			table.insert(lines, name .. signature(endpoint) .. ": " .. endpoint.about .. " " .. endpoint.method .. " " .. endpoint.path .. " (" .. endpoint.doc .. ")")
-		end
-		return table.concat(lines, "\n")
-	end
+	exports.help = {text = table.concat(intro, "\n\n"), functions = docs}
 	return exports
 end
 -- End of the shared request layer.
@@ -421,4 +395,4 @@ return operations(endpoints, request, {
 	"Responses include personal and pay data (birth dates, home addresses, pay rates, garnishments); share only what the task needs. Gusto's scopes for the app decide what is visible: pay rates need the compensations scope, and a missing scope fails with 403 missing_oauth_scopes.",
 	"Errors report the HTTP status and Gusto's category, error_key and message, with per-item nested errors (for example 422 invalid_attribute_value or 404 not_found). Gusto allows 200 requests per minute per connection.",
 	if config.access == "read-write" then WRITES else "Read-only connections omit writes.",
-})
+}, require("lib/help.luau"))

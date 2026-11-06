@@ -239,33 +239,48 @@ local function getStudy(id: any, input: Options?)
 	return (fetch("getStudy", target, MAX_BYTES, id))
 end
 
-local function help(): string
-	return [[ClinicalTrials.gov: search and read the public registry of clinical studies (data API v2, https://clinicaltrials.gov/data-api/api). No account or credentials. Read-only. Calls return completed values; do not wrap them in await(). Records keep ClinicalTrials.gov's JSON unchanged: protocolSection (identification, status, sponsor, description, conditions, design, arms and interventions, outcomes, eligibility, contacts and locations), resultsSection (participant flow, baseline, outcome measures, adverse events), derivedSection (MeSH terms) and hasResults. Data refreshes Monday to Friday. Credit "Source: ClinicalTrials.gov, U.S. National Library of Medicine" when presenting results.
-
-## searchStudies(opts?)
-
-GET /api/v2/studies. Returns `{studies, totalCount?, nextPageToken?}`. Options use the API's own names (quote dotted keys: `["query.cond"] = "..."`); unknown options are rejected.
-- Essie text queries, which also rank by relevance: query.cond (condition or disease), query.intr (intervention or treatment), query.locn (city, state, country or facility), query.term (any field), query.titles, query.outc (outcome measures), query.spons (any sponsor), query.lead (lead sponsor), query.id (NCT and other study IDs), query.patient (patient-oriented search). Essie supports AND, OR, NOT, quotes and AREA[Field]value, for example `["query.cond"] = "lung cancer AND NOT small cell"`.
-- filter.overallStatus: array or comma-separated string of RECRUITING, NOT_YET_RECRUITING, ENROLLING_BY_INVITATION, ACTIVE_NOT_RECRUITING, COMPLETED, SUSPENDED, TERMINATED, WITHDRAWN, UNKNOWN, and for expanded access AVAILABLE, NO_LONGER_AVAILABLE, TEMPORARILY_NOT_AVAILABLE, APPROVED_FOR_MARKETING, WITHHELD.
-- filter.advanced: an Essie expression. There is no phase parameter: filter phases with `["filter.advanced"] = "AREA[Phase](PHASE2 OR PHASE3)"` (NA, EARLY_PHASE1, PHASE1, PHASE2, PHASE3, PHASE4). Other examples: `AREA[StudyType]INTERVENTIONAL`, `AREA[HasResults]true`, `AREA[LastUpdatePostDate]RANGE[2025-01-01,MAX]`, `AREA[MinimumAge]RANGE[MIN, 16 years]`; combine with AND.
-- filter.geo: `distance(42.36,-71.06,25mi)` (km also accepted). filter.ids: up to 500 NCT IDs (aliases match too). A query.* value made only of NCT IDs makes ClinicalTrials.gov ignore every filter, so look IDs up with filter.ids.
-- sort: up to 2 keys such as `LastUpdatePostDate:desc`, `EnrollmentCount:desc` or `@relevance`; only date and numeric fields sort. Without sort and without a text query, order is unspecified.
-- fields: array or comma-separated names of fields, modules or sections, such as `NCTId`, `BriefSummary`, `EligibilityModule`, `ContactsLocationsModule`, `ProtocolSection`, or `@query` (the fields the query matched). Default: NCTId, BriefTitle, OverallStatus, Phase, StudyType, Condition, InterventionName, LeadSponsorName, EnrollmentCount, StartDate, PrimaryCompletionDate, HasResults. Selected fields keep their nested position, for example Phase is protocolSection.designModule.phases.
-- countTotal: true adds totalCount, the number of matching studies.
-- limit: studies to return, 1 to 2000 (default 50). The call pages internally: 50 studies first, then pages of up to 1000 sized to fit.
-- pageToken: pass an earlier result's nextPageToken, with only limit, to continue that same search. nextPageToken is present while more matches may remain: when the last matches exactly fill limit it is still returned, and continuing then returns no studies and no token. A call may return fewer than limit studies when they would exceed one call's size budget; continue with nextPageToken.
-
-## getStudy(nctId, opts?)
-
-GET /api/v2/studies/{nctId}. Returns one full study record. nctId is NCT plus 8 digits, such as NCT04368728; shorter forms are rejected rather than padded. Also accepts one table `{nctId = ..., fields = ...}`. opts.fields selects parts, like searchStudies fields (without @query): for posted results use `{"ResultsSection"}` or modules such as `OutcomeMeasuresModule`, `AdverseEventsModule`, `ParticipantFlowModule`, `BaselineCharacteristicsModule`. A study without results returns {} for ResultsSection; check hasResults first. Most records are 10 to 50 KB, but some with results exceed 3 MB, so select modules when only part is needed. An unknown ID fails with HTTP 404. An old ID that became an alias fails with HTTP 301 and names the current NCT ID to use.
-
-## Errors and limits
-
-Invalid options fail before any request, including search criteria or fields over 8 KB once URL-encoded. ClinicalTrials.gov errors (plain text, such as an Essie syntax error or an invalid field name) come back as upstream errors with the HTTP status; HTTP 429 and 5xx are retryable. The API publishes no rate limit: keep calls few and use limit and fields rather than many small requests. Each call reads at most 4 MiB.
-
-## Example
-
-Here trials is the configured ClinicalTrials.gov connection.
+-- Documentation reuses the accepted query keys and status values above.
+local function help()
+	local nct: any = {type = "string", pattern = "^NCT[0-9]{8}$"}
+	local function listSchema(item: any, maximum: number, description: string): any
+		local alternatives: {any} = {{type = "array", items = item, minItems = 1, maxItems = maximum}, {type = "string", minLength = 1}}
+		return {description = description .. " Accepts an array or a comma/pipe-separated string; whitespace around string entries is trimmed.",
+			anyOf = alternatives}
+	end
+	local field: any = {type = "string", maxLength = 200, pattern = "^[A-Za-z][A-Za-z0-9_. -]*$"}
+	local fields = listSchema(field, 200, "ClinicalTrials.gov field, module or section names. Selected fields retain their nested positions. Encoded fields must fit within 8192 bytes.")
+	local limit = {type = "integer", minimum = 1, maximum = MAX_LIMIT, default = DEFAULT_LIMIT}
+	local criteria: {[string]: any} = {
+		limit = limit, countTotal = {type = "boolean", default = false, description = "Include totalCount for a new search."},
+		fields = listSchema({anyOf = {field, {const = "@query"}}}, 200, "Fields to retrieve; @query selects fields matched by the query. Defaults to " .. table.concat(SUMMARY_FIELDS, ", ") .. "."),
+		["filter.overallStatus"] = listSchema({type = "string", enum = STATUSES}, #STATUSES, "Recruitment or expanded-access statuses."),
+		["filter.ids"] = listSchema(nct, MAX_IDS, "NCT IDs, including aliases. Use this rather than query.* for ID-only searches that must respect other filters."),
+		sort = listSchema({type = "string", maxLength = 200, pattern = "^(@relevance|[A-Za-z][A-Za-z0-9_.]*)(:(asc|desc))?$"}, 2, "Date/numeric fields or @relevance, optionally followed by :asc or :desc."),
+	}
+	local descriptions = {
+		["query.cond"] = "Condition or disease", ["query.term"] = "Any field", ["query.intr"] = "Intervention or treatment",
+		["query.locn"] = "City, state, country or facility", ["query.titles"] = "Study titles", ["query.outc"] = "Outcome measures",
+		["query.spons"] = "Any sponsor", ["query.lead"] = "Lead sponsor", ["query.id"] = "NCT or other study IDs", ["query.patient"] = "Patient-oriented search",
+		["filter.geo"] = "Geographic distance, for example distance(42.36,-71.06,25mi); km also accepted",
+		["filter.advanced"] = "Essie filter, for example AREA[Phase](PHASE2 OR PHASE3); there is no separate phase option",
+	}
+	for _, name in TEXT_PARAMS do
+		criteria[name] = {type = "string", minLength = 1, description = descriptions[name] .. ". At most " .. tostring(MAX_TEXT) .. " UTF-8 bytes; Essie supports AND, OR, NOT, quotes and AREA[Field]value."}
+	end
+	local study = {type = "object", description = "Native study JSON; every section is optional when fields selects only part of a record.", properties = {
+		protocolSection = {type = "object", description = "Identification, status, sponsor, description, conditions, design, interventions, outcomes, eligibility and locations.", properties = {
+			identificationModule = {type = "object", properties = {nctId = nct, briefTitle = {type = "string"}, officialTitle = {type = "string"}}},
+			statusModule = {type = "object", properties = {overallStatus = {type = "string"}}},
+			designModule = {type = "object", properties = {phases = {type = "array", items = {type = "string"}}, studyType = {type = "string"}}},
+		}},
+		resultsSection = {type = "object", description = "Posted participant flow, baseline, outcome measures and adverse events; may be empty when no results are posted."},
+		derivedSection = {type = "object", description = "Derived MeSH terms and other registry metadata."}, hasResults = {type = "boolean"},
+	}}
+	local options = {type = "object", properties = {fields = fields}, additionalProperties = false}
+	local studyExamples: {any} = {{nctId = "NCT04368728", options = {fields = {"OutcomeMeasuresModule", "AdverseEventsModule"}}}, {nctId = {nctId = "NCT00587795", fields = "ResultsSection"}}}
+	return {
+		text = [=[ClinicalTrials.gov: search and read the public registry of clinical studies (data API v2, https://clinicaltrials.gov/data-api/api). No account or credentials. Read-only. Calls return completed values; do not wrap them in await(). Records keep ClinicalTrials.gov's JSON unchanged: protocolSection (identification, status, sponsor, description, conditions, design, arms and interventions, outcomes, eligibility, contacts and locations), resultsSection (participant flow, baseline, outcome measures, adverse events), derivedSection (MeSH terms) and hasResults. Data refreshes Monday to Friday. Credit "Source: ClinicalTrials.gov, U.S. National Library of Medicine" when presenting results.]=],
+		sections = {limits = [=[Invalid options fail before any request, including search criteria or fields over 8 KB once URL-encoded. ClinicalTrials.gov errors (plain text, such as an Essie syntax error or an invalid field name) come back as upstream errors with the HTTP status; HTTP 429 and 5xx are retryable. The API publishes no rate limit: keep calls few and use limit and fields rather than many small requests. Each call reads at most 4 MiB.]=], workflow = [=[Here trials is the configured ClinicalTrials.gov connection.
 
 ```lua
 local found = trials.searchStudies({
@@ -283,7 +298,38 @@ end
 -- More: trials.searchStudies({pageToken = found.nextPageToken, limit = 50}) while found.nextPageToken.
 local record = trials.getStudy(found.studies[1].protocolSection.identificationModule.nctId,
 	{fields = {"EligibilityModule", "ContactsLocationsModule"}})
-```]]
+```]=]},
+		functions = {
+			searchStudies = {
+				description = [=[GET /api/v2/studies. Returns `{studies, totalCount?, nextPageToken?}`. Options use the API's own names (quote dotted keys: `["query.cond"] = "..."`); unknown options are rejected.
+- Essie text queries, which also rank by relevance: query.cond (condition or disease), query.intr (intervention or treatment), query.locn (city, state, country or facility), query.term (any field), query.titles, query.outc (outcome measures), query.spons (any sponsor), query.lead (lead sponsor), query.id (NCT and other study IDs), query.patient (patient-oriented search). Essie supports AND, OR, NOT, quotes and AREA[Field]value, for example `["query.cond"] = "lung cancer AND NOT small cell"`.
+- filter.overallStatus: array or comma-separated string of RECRUITING, NOT_YET_RECRUITING, ENROLLING_BY_INVITATION, ACTIVE_NOT_RECRUITING, COMPLETED, SUSPENDED, TERMINATED, WITHDRAWN, UNKNOWN, and for expanded access AVAILABLE, NO_LONGER_AVAILABLE, TEMPORARILY_NOT_AVAILABLE, APPROVED_FOR_MARKETING, WITHHELD.
+- filter.advanced: an Essie expression. There is no phase parameter: filter phases with `["filter.advanced"] = "AREA[Phase](PHASE2 OR PHASE3)"` (NA, EARLY_PHASE1, PHASE1, PHASE2, PHASE3, PHASE4). Other examples: `AREA[StudyType]INTERVENTIONAL`, `AREA[HasResults]true`, `AREA[LastUpdatePostDate]RANGE[2025-01-01,MAX]`, `AREA[MinimumAge]RANGE[MIN, 16 years]`; combine with AND.
+- filter.geo: `distance(42.36,-71.06,25mi)` (km also accepted). filter.ids: up to 500 NCT IDs (aliases match too). A query.* value made only of NCT IDs makes ClinicalTrials.gov ignore every filter, so look IDs up with filter.ids.
+- sort: up to 2 keys such as `LastUpdatePostDate:desc`, `EnrollmentCount:desc` or `@relevance`; only date and numeric fields sort. Without sort and without a text query, order is unspecified.
+- fields: array or comma-separated names of fields, modules or sections, such as `NCTId`, `BriefSummary`, `EligibilityModule`, `ContactsLocationsModule`, `ProtocolSection`, or `@query` (the fields the query matched). Default: NCTId, BriefTitle, OverallStatus, Phase, StudyType, Condition, InterventionName, LeadSponsorName, EnrollmentCount, StartDate, PrimaryCompletionDate, HasResults. Selected fields keep their nested position, for example Phase is protocolSection.designModule.phases.
+- countTotal: true adds totalCount, the number of matching studies.
+- limit: studies to return, 1 to 2000 (default 50). The call pages internally: 50 studies first, then pages of up to 1000 sized to fit.
+- pageToken: pass an earlier result's nextPageToken, with only limit, to continue that same search. nextPageToken is present while more matches may remain: when the last matches exactly fill limit it is still returned, and continuing then returns no studies and no token. A call may return fewer than limit studies when they would exceed one call's size budget; continue with nextPageToken.]=],
+				inputSchema = {type = "object", oneOf = {
+					{properties = criteria, additionalProperties = false},
+					{properties = {pageToken = {type = "string", minLength = 1, description = "Opaque nextPageToken from an earlier search; retains its criteria."}, limit = limit}, required = {"pageToken"}, additionalProperties = false},
+				}, examples = {{["query.cond"] = "type 2 diabetes", ["filter.overallStatus"] = {"RECRUITING"}, countTotal = true, limit = 50}}},
+				outputSchema = {type = "object", properties = {studies = {type = "array", items = study}, totalCount = {type = "integer", minimum = 0}, nextPageToken = {type = "string"}}, required = {"studies"}, additionalProperties = false},
+				annotations = {readOnlyHint = true, idempotentHint = true},
+			},
+			getStudy = {
+				description = [=[GET /api/v2/studies/{nctId}. Returns one full study record. nctId is NCT plus 8 digits, such as NCT04368728; shorter forms are rejected rather than padded. Also accepts one table `{nctId = ..., fields = ...}`. opts.fields selects parts, like searchStudies fields (without @query): for posted results use `{"ResultsSection"}` or modules such as `OutcomeMeasuresModule`, `AdverseEventsModule`, `ParticipantFlowModule`, `BaselineCharacteristicsModule`. A study without results returns {} for ResultsSection; check hasResults first. Most records are 10 to 50 KB, but some with results exceed 3 MB, so select modules when only part is needed. An unknown ID fails with HTTP 404. An old ID that became an alias fails with HTTP 301 and names the current NCT ID to use.]=],
+				args = {"nctId", "options"},
+				inputSchema = {type = "object", properties = {
+					nctId = {oneOf = {nct, {type = "object", properties = {nctId = nct, fields = fields}, required = {"nctId"}, additionalProperties = false}}}, options = options,
+				}, required = {"nctId"}, additionalProperties = false,
+					["if"] = {properties = {nctId = {type = "object"}}}, ["then"] = {["not"] = {required = {"options"}}},
+					examples = studyExamples,
+				}, outputSchema = study, annotations = {readOnlyHint = true, idempotentHint = true},
+			},
+		},
+	}
 end
 
 return {searchStudies = searchStudies, getStudy = getStudy, help = help}

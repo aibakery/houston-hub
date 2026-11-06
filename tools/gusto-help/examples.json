@@ -1,0 +1,816 @@
+{
+  "addDepartmentPeople": [
+    {
+      "department_uuid": "123e4567-e89b-42d3-a456-426614174000",
+      "employees": [
+        {
+          "uuid": "123e4567-e89b-42d3-a456-426614174000"
+        }
+      ],
+      "version": "d41d8cd98f00b204e9800998ecf8427e"
+    }
+  ],
+  "addTimeOffPolicyEmployees": [
+    {
+      "employees": [
+        {
+          "balance": "16.000",
+          "uuid": "123e4567-e89b-42d3-a456-426614174000"
+        }
+      ],
+      "time_off_policy_uuid": "123e4567-e89b-42d3-a456-426614174000"
+    }
+  ],
+  "calculateAccruingTimeOffHours": [
+    {
+      "employee_id": "123e4567-e89b-42d3-a456-426614174000",
+      "payroll_id": "123e4567-e89b-42d3-a456-426614174000",
+      "pto_hours_used": "8.000",
+      "regular_hours_worked": "80.000"
+    }
+  ],
+  "createCompanyBenefit": [
+    {
+      "active": true,
+      "benefit_type": 1,
+      "company_id": "123e4567-e89b-42d3-a456-426614174000",
+      "description": "Medical insurance"
+    }
+  ],
+  "createCompensation": [
+    {
+      "effective_date": "2026-11-01",
+      "flsa_status": "Nonexempt",
+      "job_id": "123e4567-e89b-42d3-a456-426614174000",
+      "payment_unit": "Hour",
+      "rate": "35.00"
+    }
+  ],
+  "createContractor": [
+    {
+      "company_id": "123e4567-e89b-42d3-a456-426614174000",
+      "email": "bo@example.com",
+      "first_name": "Bo",
+      "hourly_rate": "50.00",
+      "last_name": "Example",
+      "self_onboarding": true,
+      "start_date": "2026-11-01",
+      "type": "Individual",
+      "wage_type": "Hourly"
+    }
+  ],
+  "createDepartment": [
+    {
+      "company_id": "123e4567-e89b-42d3-a456-426614174000",
+      "title": "Engineering"
+    }
+  ],
+  "createEarningType": [
+    {
+      "company_id": "123e4567-e89b-42d3-a456-426614174000",
+      "name": "Project bonus"
+    }
+  ],
+  "createEmployee": [
+    {
+      "company_id": "123e4567-e89b-42d3-a456-426614174000",
+      "email": "ana@example.com",
+      "first_name": "Ana",
+      "last_name": "Example",
+      "self_onboarding": true
+    }
+  ],
+  "createEmployeeBenefit": [
+    {
+      "active": true,
+      "company_benefit_uuid": "123e4567-e89b-42d3-a456-426614174000",
+      "company_contribution": "100.00",
+      "contribute_as_percentage": false,
+      "deduct_as_percentage": false,
+      "employee_deduction": "50.00",
+      "employee_id": "123e4567-e89b-42d3-a456-426614174000"
+    }
+  ],
+  "createGarnishment": [
+    {
+      "amount": "25.00",
+      "court_ordered": false,
+      "deduct_as_percentage": false,
+      "description": "Voluntary deduction",
+      "employee_id": "123e4567-e89b-42d3-a456-426614174000",
+      "recurring": true
+    }
+  ],
+  "createGeneralLedgerReport": [
+    {
+      "aggregation": "department",
+      "payroll_uuid": "123e4567-e89b-42d3-a456-426614174000"
+    }
+  ],
+  "createHomeAddress": [
+    {
+      "city": "San Francisco",
+      "effective_date": "2026-11-01",
+      "employee_id": "123e4567-e89b-42d3-a456-426614174000",
+      "state": "CA",
+      "street_1": "100 Main St",
+      "zip": "94105"
+    }
+  ],
+  "createLocation": [
+    {
+      "city": "San Francisco",
+      "company_id": "123e4567-e89b-42d3-a456-426614174000",
+      "mailing_address": true,
+      "phone_number": "4155550123",
+      "state": "CA",
+      "street_1": "100 Main St",
+      "zip": "94105"
+    }
+  ],
+  "createPayrollSync": [
+    {
+      "company_id": "123e4567-e89b-42d3-a456-426614174000",
+      "kind": "regular",
+      "pay_period_end_date": "2026-11-15",
+      "pay_period_start_date": "2026-11-01",
+      "pay_schedule_uuid": "123e4567-e89b-42d3-a456-426614174000"
+    }
+  ],
+  "createRecurringReimbursement": [
+    {
+      "amount": 50,
+      "description": "Internet allowance",
+      "employee_id": "123e4567-e89b-42d3-a456-426614174000"
+    }
+  ],
+  "createRehire": [
+    {
+      "effective_date": "2027-01-04",
+      "employee_id": "123e4567-e89b-42d3-a456-426614174000",
+      "file_new_hire_report": true,
+      "work_location_uuid": "123e4567-e89b-42d3-a456-426614174000"
+    }
+  ],
+  "createSection603HighEarnerStatus": [
+    {
+      "effective_year": 2027,
+      "employee_id": "123e4567-e89b-42d3-a456-426614174000",
+      "is_high_earner": true
+    }
+  ],
+  "createTermination": [
+    {
+      "effective_date": "2026-12-31",
+      "employee_id": "123e4567-e89b-42d3-a456-426614174000",
+      "run_termination_payroll": false
+    }
+  ],
+  "createTimeSheet": [
+    {
+      "company_id": "123e4567-e89b-42d3-a456-426614174000",
+      "entity_type": "Employee",
+      "entity_uuid": "123e4567-e89b-42d3-a456-426614174000",
+      "entries": [
+        {
+          "hours_worked": 8,
+          "pay_classification": "Regular"
+        }
+      ],
+      "metadata": {
+        "source": "houston"
+      },
+      "shift_ended_at": "2026-11-16T17:00:00-08:00",
+      "shift_started_at": "2026-11-16T09:00:00-08:00",
+      "time_zone": "America/Los_Angeles"
+    }
+  ],
+  "createWorkAddress": [
+    {
+      "effective_date": "2026-11-01",
+      "employee_id": "123e4567-e89b-42d3-a456-426614174000",
+      "location_uuid": "123e4567-e89b-42d3-a456-426614174000"
+    }
+  ],
+  "createYtdBenefitAmountsFromDifferentCompany": [
+    {
+      "benefit_type": 1,
+      "employee_id": "123e4567-e89b-42d3-a456-426614174000",
+      "tax_year": 2026,
+      "ytd_company_contribution_amount": "200.00",
+      "ytd_employee_deduction_amount": "100.00"
+    }
+  ],
+  "deleteCompanyBenefit": [
+    {
+      "company_benefit_id": "123e4567-e89b-42d3-a456-426614174000"
+    }
+  ],
+  "deleteCompensation": [
+    {
+      "compensation_id": "123e4567-e89b-42d3-a456-426614174000"
+    }
+  ],
+  "deleteDepartment": [
+    {
+      "department_uuid": "123e4567-e89b-42d3-a456-426614174000"
+    }
+  ],
+  "deleteEarningType": [
+    {
+      "company_id": "123e4567-e89b-42d3-a456-426614174000",
+      "earning_type_uuid": "123e4567-e89b-42d3-a456-426614174000"
+    }
+  ],
+  "deleteEmployee": [
+    {
+      "employee_id": "123e4567-e89b-42d3-a456-426614174000"
+    }
+  ],
+  "deleteEmployeeBenefit": [
+    {
+      "employee_benefit_id": "123e4567-e89b-42d3-a456-426614174000"
+    }
+  ],
+  "deleteHomeAddress": [
+    {
+      "home_address_uuid": "123e4567-e89b-42d3-a456-426614174000"
+    }
+  ],
+  "deleteRecurringReimbursement": [
+    {
+      "id": "123e4567-e89b-42d3-a456-426614174000"
+    }
+  ],
+  "deleteRehire": [
+    {
+      "employee_id": "123e4567-e89b-42d3-a456-426614174000"
+    }
+  ],
+  "deleteTermination": [
+    {
+      "employee_id": "123e4567-e89b-42d3-a456-426614174000"
+    }
+  ],
+  "deleteTimeSheet": [
+    {
+      "time_sheet_uuid": "123e4567-e89b-42d3-a456-426614174000",
+      "version": "d41d8cd98f00b204e9800998ecf8427e"
+    }
+  ],
+  "deleteWorkAddress": [
+    {
+      "work_address_uuid": "123e4567-e89b-42d3-a456-426614174000"
+    }
+  ],
+  "getBenefit": [
+    {
+      "benefit_id": 1
+    }
+  ],
+  "getBenefitRequirements": [
+    {
+      "benefit_id": 1
+    }
+  ],
+  "getChildSupportData": [
+    {}
+  ],
+  "getCompany": [
+    {
+      "company_id": "123e4567-e89b-42d3-a456-426614174000"
+    }
+  ],
+  "getCompanyBenefit": [
+    {
+      "company_benefit_id": "123e4567-e89b-42d3-a456-426614174000"
+    }
+  ],
+  "getCompanyBenefitSummary": [
+    {
+      "company_benefit_id": "123e4567-e89b-42d3-a456-426614174000"
+    }
+  ],
+  "getCompensation": [
+    {
+      "compensation_id": "123e4567-e89b-42d3-a456-426614174000"
+    }
+  ],
+  "getContractor": [
+    {
+      "contractor_uuid": "123e4567-e89b-42d3-a456-426614174000"
+    }
+  ],
+  "getContractorPayment": [
+    {
+      "company_id": "123e4567-e89b-42d3-a456-426614174000",
+      "contractor_payment_id": "123e4567-e89b-42d3-a456-426614174000"
+    }
+  ],
+  "getContributionExclusions": [
+    {
+      "company_benefit_id": "123e4567-e89b-42d3-a456-426614174000"
+    }
+  ],
+  "getDepartment": [
+    {
+      "department_uuid": "123e4567-e89b-42d3-a456-426614174000"
+    }
+  ],
+  "getEmployee": [
+    {
+      "employee_id": "123e4567-e89b-42d3-a456-426614174000"
+    }
+  ],
+  "getEmployeeBenefit": [
+    {
+      "employee_benefit_id": "123e4567-e89b-42d3-a456-426614174000"
+    }
+  ],
+  "getEmploymentHistory": [
+    {
+      "employee_id": "123e4567-e89b-42d3-a456-426614174000"
+    }
+  ],
+  "getGarnishment": [
+    {
+      "garnishment_id": "123e4567-e89b-42d3-a456-426614174000"
+    }
+  ],
+  "getHomeAddress": [
+    {
+      "home_address_uuid": "123e4567-e89b-42d3-a456-426614174000"
+    }
+  ],
+  "getLocation": [
+    {
+      "location_id": "123e4567-e89b-42d3-a456-426614174000"
+    }
+  ],
+  "getPaySchedule": [
+    {
+      "company_id": "123e4567-e89b-42d3-a456-426614174000",
+      "pay_schedule_id": "123e4567-e89b-42d3-a456-426614174000"
+    }
+  ],
+  "getPayScheduleAssignments": [
+    {
+      "company_id": "123e4567-e89b-42d3-a456-426614174000"
+    }
+  ],
+  "getPayroll": [
+    {
+      "company_id": "123e4567-e89b-42d3-a456-426614174000",
+      "include": [
+        "taxes",
+        "deductions"
+      ],
+      "page": 1,
+      "payroll_id": "123e4567-e89b-42d3-a456-426614174000",
+      "per": 25
+    }
+  ],
+  "getPayrollSync": [
+    {
+      "payroll_sync_uuid": "123e4567-e89b-42d3-a456-426614174000"
+    }
+  ],
+  "getRecurringReimbursement": [
+    {
+      "id": "123e4567-e89b-42d3-a456-426614174000"
+    }
+  ],
+  "getRehire": [
+    {
+      "employee_id": "123e4567-e89b-42d3-a456-426614174000"
+    }
+  ],
+  "getReport": [
+    {
+      "request_uuid": "123e4567-e89b-42d3-a456-426614174000"
+    }
+  ],
+  "getSection603HighEarnerStatus": [
+    {
+      "effective_year": 2026,
+      "employee_id": "123e4567-e89b-42d3-a456-426614174000"
+    }
+  ],
+  "getTimeOffPolicy": [
+    {
+      "time_off_policy_uuid": "123e4567-e89b-42d3-a456-426614174000"
+    }
+  ],
+  "getTimeSheet": [
+    {
+      "time_sheet_uuid": "123e4567-e89b-42d3-a456-426614174000"
+    }
+  ],
+  "getTokenInfo": [
+    {}
+  ],
+  "getWorkAddress": [
+    {
+      "work_address_uuid": "123e4567-e89b-42d3-a456-426614174000"
+    }
+  ],
+  "getYtdBenefitAmountsFromDifferentCompany": [
+    {
+      "employee_id": "123e4567-e89b-42d3-a456-426614174000"
+    }
+  ],
+  "listBenefits": [
+    {}
+  ],
+  "listCompanyAdmins": [
+    {
+      "company_id": "123e4567-e89b-42d3-a456-426614174000"
+    }
+  ],
+  "listCompanyBenefitEmployeeBenefits": [
+    {
+      "company_benefit_id": "123e4567-e89b-42d3-a456-426614174000"
+    }
+  ],
+  "listCompanyBenefits": [
+    {
+      "active": true,
+      "benefit_type": [
+        1
+      ],
+      "company_id": "123e4567-e89b-42d3-a456-426614174000"
+    }
+  ],
+  "listCompanyCustomFields": [
+    {
+      "company_id": "123e4567-e89b-42d3-a456-426614174000"
+    }
+  ],
+  "listCompensations": [
+    {
+      "include": "all_compensations",
+      "job_id": "123e4567-e89b-42d3-a456-426614174000",
+      "page": 1,
+      "per": 25
+    }
+  ],
+  "listContractorPayments": [
+    {
+      "company_id": "123e4567-e89b-42d3-a456-426614174000",
+      "end_date": "2026-11-30",
+      "group_by_date": true,
+      "start_date": "2026-11-01"
+    }
+  ],
+  "listContractors": [
+    {
+      "company_id": "123e4567-e89b-42d3-a456-426614174000"
+    }
+  ],
+  "listDepartments": [
+    {
+      "company_id": "123e4567-e89b-42d3-a456-426614174000"
+    }
+  ],
+  "listEarningTypes": [
+    {
+      "company_id": "123e4567-e89b-42d3-a456-426614174000"
+    }
+  ],
+  "listEmployeeBenefits": [
+    {
+      "employee_id": "123e4567-e89b-42d3-a456-426614174000"
+    }
+  ],
+  "listEmployeeCustomFields": [
+    {
+      "employee_id": "123e4567-e89b-42d3-a456-426614174000"
+    }
+  ],
+  "listEmployees": [
+    {
+      "company_id": "123e4567-e89b-42d3-a456-426614174000",
+      "include": [
+        "custom_fields"
+      ],
+      "page": 1,
+      "per": 25,
+      "terminated": false
+    }
+  ],
+  "listGarnishments": [
+    {
+      "employee_id": "123e4567-e89b-42d3-a456-426614174000"
+    }
+  ],
+  "listHomeAddresses": [
+    {
+      "employee_id": "123e4567-e89b-42d3-a456-426614174000"
+    }
+  ],
+  "listLocations": [
+    {
+      "company_id": "123e4567-e89b-42d3-a456-426614174000"
+    }
+  ],
+  "listMinimumWages": [
+    {
+      "effective_date": "2026-11-01",
+      "location_id": "123e4567-e89b-42d3-a456-426614174000"
+    }
+  ],
+  "listNotifications": [
+    {
+      "company_id": "123e4567-e89b-42d3-a456-426614174000",
+      "page": 1,
+      "per": 25,
+      "status": "open"
+    }
+  ],
+  "listPayPeriods": [
+    {
+      "company_id": "123e4567-e89b-42d3-a456-426614174000",
+      "end_date": "2026-11-30",
+      "payroll_types": [
+        "regular"
+      ],
+      "start_date": "2026-11-01"
+    }
+  ],
+  "listPaySchedules": [
+    {
+      "company_id": "123e4567-e89b-42d3-a456-426614174000"
+    }
+  ],
+  "listPayrolls": [
+    {
+      "company_id": "123e4567-e89b-42d3-a456-426614174000",
+      "end_date": "2026-11-30",
+      "include": [
+        "totals"
+      ],
+      "page": 1,
+      "per": 25,
+      "processing_statuses": [
+        "unprocessed"
+      ],
+      "start_date": "2026-11-01"
+    }
+  ],
+  "listRecurringReimbursements": [
+    {
+      "employee_id": "123e4567-e89b-42d3-a456-426614174000"
+    }
+  ],
+  "listSection603HighEarnerStatuses": [
+    {
+      "employee_id": "123e4567-e89b-42d3-a456-426614174000"
+    }
+  ],
+  "listTerminations": [
+    {
+      "employee_id": "123e4567-e89b-42d3-a456-426614174000"
+    }
+  ],
+  "listTimeOffActivities": [
+    {
+      "employee_id": "123e4567-e89b-42d3-a456-426614174000",
+      "time_off_type": "vacation"
+    }
+  ],
+  "listTimeOffPolicies": [
+    {
+      "company_id": "123e4567-e89b-42d3-a456-426614174000"
+    }
+  ],
+  "listTimeOffRequests": [
+    {
+      "company_id": "123e4567-e89b-42d3-a456-426614174000",
+      "end_date": "2026-11-30",
+      "start_date": "2026-11-01"
+    }
+  ],
+  "listTimeSheets": [
+    {
+      "company_id": "123e4567-e89b-42d3-a456-426614174000",
+      "entity_type": "Employee",
+      "page": 1,
+      "per": 25,
+      "status": "approved"
+    }
+  ],
+  "listUnprocessedTerminationPayPeriods": [
+    {
+      "company_id": "123e4567-e89b-42d3-a456-426614174000"
+    }
+  ],
+  "listWorkAddresses": [
+    {
+      "employee_id": "123e4567-e89b-42d3-a456-426614174000"
+    }
+  ],
+  "preparePayroll": [
+    {
+      "company_id": "123e4567-e89b-42d3-a456-426614174000",
+      "employee_uuids": [
+        "123e4567-e89b-42d3-a456-426614174000"
+      ],
+      "page": 1,
+      "payroll_id": "123e4567-e89b-42d3-a456-426614174000",
+      "per": 25
+    }
+  ],
+  "removeDepartmentPeople": [
+    {
+      "department_uuid": "123e4567-e89b-42d3-a456-426614174000",
+      "employees": [
+        {
+          "uuid": "123e4567-e89b-42d3-a456-426614174000"
+        }
+      ],
+      "version": "d41d8cd98f00b204e9800998ecf8427e"
+    }
+  ],
+  "updateCompanyBenefit": [
+    {
+      "company_benefit_id": "123e4567-e89b-42d3-a456-426614174000",
+      "description": "Health insurance",
+      "version": "d41d8cd98f00b204e9800998ecf8427e"
+    }
+  ],
+  "updateCompanyBenefitEmployeeBenefits": [
+    {
+      "company_benefit_id": "123e4567-e89b-42d3-a456-426614174000",
+      "employee_benefits": [
+        {
+          "company_contribution": "100.00",
+          "employee_deduction": "50.00",
+          "employee_uuid": "123e4567-e89b-42d3-a456-426614174000"
+        }
+      ]
+    }
+  ],
+  "updateCompensation": [
+    {
+      "compensation_id": "123e4567-e89b-42d3-a456-426614174000",
+      "rate": "36.00",
+      "version": "d41d8cd98f00b204e9800998ecf8427e"
+    }
+  ],
+  "updateContractor": [
+    {
+      "contractor_uuid": "123e4567-e89b-42d3-a456-426614174000",
+      "hourly_rate": "55.00",
+      "version": "d41d8cd98f00b204e9800998ecf8427e"
+    }
+  ],
+  "updateContributionExclusions": [
+    {
+      "company_benefit_id": "123e4567-e89b-42d3-a456-426614174000",
+      "contribution_exclusions": [
+        {
+          "contribution_type": "Bonus",
+          "contribution_uuid": "123e4567-e89b-42d3-a456-426614174000",
+          "excluded": true
+        }
+      ]
+    }
+  ],
+  "updateDepartment": [
+    {
+      "department_uuid": "123e4567-e89b-42d3-a456-426614174000",
+      "title": "Product engineering",
+      "version": "d41d8cd98f00b204e9800998ecf8427e"
+    }
+  ],
+  "updateEarningType": [
+    {
+      "company_id": "123e4567-e89b-42d3-a456-426614174000",
+      "earning_type_uuid": "123e4567-e89b-42d3-a456-426614174000",
+      "name": "Completion bonus"
+    }
+  ],
+  "updateEmployee": [
+    {
+      "employee_id": "123e4567-e89b-42d3-a456-426614174000",
+      "preferred_first_name": "Ana",
+      "version": "d41d8cd98f00b204e9800998ecf8427e"
+    }
+  ],
+  "updateEmployeeBenefit": [
+    {
+      "employee_benefit_id": "123e4567-e89b-42d3-a456-426614174000",
+      "employee_deduction": "60.00",
+      "employee_deduction_annual_maximum": null,
+      "version": "d41d8cd98f00b204e9800998ecf8427e"
+    }
+  ],
+  "updateGarnishment": [
+    {
+      "amount": "30.00",
+      "garnishment_id": "123e4567-e89b-42d3-a456-426614174000",
+      "version": "d41d8cd98f00b204e9800998ecf8427e"
+    }
+  ],
+  "updateHomeAddress": [
+    {
+      "home_address_uuid": "123e4567-e89b-42d3-a456-426614174000",
+      "street_2": null,
+      "version": "d41d8cd98f00b204e9800998ecf8427e"
+    }
+  ],
+  "updateLocation": [
+    {
+      "location_id": "123e4567-e89b-42d3-a456-426614174000",
+      "street_2": "Suite 200",
+      "version": "d41d8cd98f00b204e9800998ecf8427e"
+    }
+  ],
+  "updatePayroll": [
+    {
+      "company_id": "123e4567-e89b-42d3-a456-426614174000",
+      "employee_compensations": [
+        {
+          "employee_uuid": "123e4567-e89b-42d3-a456-426614174000",
+          "fixed_compensations": [
+            {
+              "amount": "100.00",
+              "job_uuid": "123e4567-e89b-42d3-a456-426614174000",
+              "name": "Bonus"
+            }
+          ],
+          "hourly_compensations": [
+            {
+              "hours": "80.000",
+              "job_uuid": "123e4567-e89b-42d3-a456-426614174000",
+              "name": "Regular Hours"
+            }
+          ],
+          "paid_time_off": [
+            {
+              "hours": "8.000",
+              "name": "Vacation Hours"
+            }
+          ],
+          "version": "d41d8cd98f00b204e9800998ecf8427e"
+        }
+      ],
+      "payroll_id": "123e4567-e89b-42d3-a456-426614174000"
+    }
+  ],
+  "updateRecurringReimbursement": [
+    {
+      "amount": 60,
+      "id": "123e4567-e89b-42d3-a456-426614174000",
+      "version": "d41d8cd98f00b204e9800998ecf8427e"
+    }
+  ],
+  "updateRehire": [
+    {
+      "effective_date": "2027-01-04",
+      "employee_id": "123e4567-e89b-42d3-a456-426614174000",
+      "file_new_hire_report": true,
+      "version": "d41d8cd98f00b204e9800998ecf8427e",
+      "work_location_uuid": "123e4567-e89b-42d3-a456-426614174000"
+    }
+  ],
+  "updateSection603HighEarnerStatus": [
+    {
+      "effective_year": 2026,
+      "employee_id": "123e4567-e89b-42d3-a456-426614174000",
+      "is_high_earner": false
+    }
+  ],
+  "updateTermination": [
+    {
+      "effective_date": "2026-12-31",
+      "employee_id": "123e4567-e89b-42d3-a456-426614174000",
+      "run_termination_payroll": false,
+      "version": "d41d8cd98f00b204e9800998ecf8427e"
+    }
+  ],
+  "updateTimeSheet": [
+    {
+      "entries": [
+        {
+          "hours_worked": 8,
+          "pay_classification": "Regular"
+        },
+        {
+          "hours_worked": 1,
+          "pay_classification": "Overtime"
+        }
+      ],
+      "shift_ended_at": "2026-11-16T18:00:00-08:00",
+      "time_sheet_uuid": "123e4567-e89b-42d3-a456-426614174000",
+      "version": "d41d8cd98f00b204e9800998ecf8427e"
+    }
+  ],
+  "updateWorkAddress": [
+    {
+      "location_uuid": "123e4567-e89b-42d3-a456-426614174000",
+      "version": "d41d8cd98f00b204e9800998ecf8427e",
+      "work_address_uuid": "123e4567-e89b-42d3-a456-426614174000"
+    }
+  ]
+}

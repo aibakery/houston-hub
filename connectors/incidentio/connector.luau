@@ -1,7 +1,7 @@
 -- incident.io REST API (v1, v2 and v3 routes). Arguments and results keep incident.io's native snake_case field names.
 type Options = {[string]: any}
 type Endpoint = {method: string, path: string, query: {string}?, extra: {string}?, required: {string}?, write: boolean?, body: (boolean | string)?,
-	fields: {string}?, page_max: number?, doc: string, about: string}
+	example: Options, fields: {string}?, page_max: number?, doc: string, about: string}
 
 local PROVIDER = "incident.io"
 local API = "https://api.incident.io"
@@ -20,79 +20,81 @@ end
 -- options and the key's identity exist only in v1. Path {fields} are required; listed query
 -- fields are taken from the options and the other fields form the JSON body.
 local endpoints: {[string]: Endpoint} = {
-	getIdentity = {method = "GET", path = "/v1/identity", doc = "utilities-v1/show-identity",
+	getIdentity = {method = "GET", path = "/v1/identity", example = {}, doc = "utilities-v1/show-identity",
 		about = "The API key's {identity={name, roles, team_roles, teams, dashboard_url}}: roles lists the permissions it was created with, such as viewer, global_access, incident_creator, incident_editor, catalog_viewer or on_call_viewer."},
 
-	listIncidents = {method = "GET", path = "/v2/incidents",
+	listIncidents = {method = "GET", path = "/v2/incidents", example = {sort_by = "created_at_oldest_first", status = {not_in = "01HZST"}},
 		query = with({"status", "status_category", "severity", "incident_type", "incident_role", "custom_field", "mode", "filter_mode", "sort_by"}, CHANGED, PAGE),
 		doc = "incidents-v2/list",
 		about = "Incidents, newest first unless sort_by='created_at_oldest_first': {incidents, pagination_meta={after, page_size, total_record_count}}. Each has id, reference (INC-123), name, summary, permalink, visibility, mode, incident_status {id, name, category}, severity {id, name, rank}, incident_type, created_at, updated_at, incident_role_assignments [{role {id, name, role_type}, assignee {id, name, email}}], incident_timestamp_values [{incident_timestamp {id, name}, value {value}}], duration_metrics, custom_field_entries, slack_channel_url and call_url. Filters are objects of operator to values, sent as status[one_of]=...: status={one_of={id}} or not_in; status_category={one_of={'live'}} with triage, live (shown as Active), learning (Post-incident), paused, closed, declined, canceled or merged; severity with one_of, not_in, gte or lte a severity id; incident_type with one_of or not_in; created_at and updated_at with gte, lte or date_range='2026-10-01~2026-10-31'; incident_role={[role_id]={one_of={user_id}}} or {[role_id]={is_blank={'true'}}}; custom_field={[field_id]={one_of={option_id}}}; mode={one_of={'test'}} (test and tutorial incidents are left out by default). filter_mode='any' ORs the filters. incident.io answers at most 60 incident lists a minute."},
-	getIncident = {method = "GET", path = "/v2/incidents/{id}", doc = "incidents-v2/show",
+	getIncident = {method = "GET", path = "/v2/incidents/{id}", example = {id = 42}, doc = "incidents-v2/show",
 		about = "One incident, {incident}, by id or by the number of its reference (123 for INC-123), with the fields of listIncidents."},
-	listIncidentUpdates = {method = "GET", path = "/v2/incident_updates", query = with({"incident_id"}, PAGE), doc = "incident-updates-v2/list",
+	listIncidentUpdates = {method = "GET", path = "/v2/incident_updates", example = {incident_id = "01HZINC"}, query = with({"incident_id"}, PAGE), doc = "incident-updates-v2/list",
 		about = "Updates shared on incidents: {incident_updates=[{id, incident_id, message, new_incident_status, new_severity, updater, created_at}], pagination_meta}. Without incident_id, updates across all incidents."},
-	listIncidentTimelineItems = {method = "GET", path = "/v2/incident_timeline_items", query = with({"incident_id"}, PAGE), required = {"incident_id"},
+	listIncidentTimelineItems = {method = "GET", path = "/v2/incident_timeline_items", example = {incident_id = "01HZINC", page_size = 250, after = "01HZTL"}, query = with({"incident_id"}, PAGE), required = {"incident_id"},
 		doc = "incident-timeline-items-v2/list", about = "An incident's timeline as the dashboard shows it, oldest first: {incident_timeline_items=[{id, title, description, timestamp, creator}], pagination_meta}."},
-	listIncidentAlerts = {method = "GET", path = "/v2/incident_alerts", query = with({"incident_id", "alert_id"}, PAGE), page_max = 50, doc = "incident-alerts-v2/list",
+	listIncidentAlerts = {method = "GET", path = "/v2/incident_alerts", example = {alert_id = "01HZAL", page_size = 50}, query = with({"incident_id", "alert_id"}, PAGE), page_max = 50, doc = "incident-alerts-v2/list",
 		about = "Links between alerts and incidents, {incident_alerts=[{id, alert {id, title, status}, incident {id, reference, name}, alert_route_id}], pagination_meta}; page_size at most 50."},
-	listFollowUps = {method = "GET", path = "/v3/follow_ups", query = with({"incident_id", "incident_mode", "assignee_team_id"}, CHANGED, PAGE), doc = "follow-ups-v3/list",
+	listFollowUps = {method = "GET", path = "/v3/follow_ups", example = {incident_id = "01HZINC", incident_mode = "standard", updated_at = {gte = {"2026-10-01"}}}, query = with({"incident_id", "incident_mode", "assignee_team_id"}, CHANGED, PAGE), doc = "follow-ups-v3/list",
 		about = "Follow-ups, {follow_ups=[{id, incident_id, title, description, status (outstanding, completed, not_doing or deleted), assignee, assignee_team, priority, category, labels, external_issue_reference, created_at, completed_at}], pagination_meta}. created_at and updated_at filter like listIncidents; incident_mode: standard, retrospective, test, tutorial or stream (default standard and retrospective)."},
-	getFollowUp = {method = "GET", path = "/v3/follow_ups/{id}", doc = "follow-ups-v3/show", about = "One follow-up, {follow_up}."},
+	getFollowUp = {method = "GET", path = "/v3/follow_ups/{id}", example = {id = "01HZFU"}, doc = "follow-ups-v3/show", about = "One follow-up, {follow_up}."},
 
-	listAlerts = {method = "GET", path = "/v2/alerts",
+	listAlerts = {method = "GET", path = "/v2/alerts", example = {status = {one_of = {"firing"}}, tags = {one_of = {"known issue"}}, attributes = {["01HZAT"] = {one_of = {"api"}}}, page_size = 10},
 		query = with({"status", "alert_source", "alert_group_id", "deduplication_key", "attributes", "tags", "has_notes", "include_maintenance_window"}, CHANGED, PAGE),
 		page_max = 50,
 		doc = "alerts-v2/list",
 		about = "Alerts from your alert sources: {alerts=[{id, title, description, status (firing or resolved), alert_source_id, deduplication_key, source_url, attributes, tags, created_at, resolved_at}], pagination_meta}; page_size at most 50. Filters work like listIncidents: status={one_of={'firing'}}, alert_source={one_of={source_id}}, deduplication_key={is={key}}, tags={one_of={'known issue'}}, attributes={[attribute_id]={one_of={value}}}, has_notes={is={'true'}}, include_maintenance_window={is={'true'}}, created_at={gte={'2026-10-01'}}."},
-	getAlert = {method = "GET", path = "/v2/alerts/{id}", doc = "alerts-v2/show", about = "One alert, {alert}."},
+	getAlert = {method = "GET", path = "/v2/alerts/{id}", example = {id = "01HZAL"}, doc = "alerts-v2/show", about = "One alert, {alert}."},
 
-	listSchedules = {method = "GET", path = "/v2/schedules", query = PAGE, doc = "schedules-v2/list",
+	listSchedules = {method = "GET", path = "/v2/schedules", example = {}, query = PAGE, doc = "schedules-v2/list",
 		about = "On-call schedules, {schedules=[{id, name, timezone, team_ids, current_shifts, next_shifts, config {rotations}}], pagination_meta}; current_shifts lists who is on call now, [{user {id, name, email}, start_at, end_at, rotation_id}]. next_shifts is filled only when page_size is 25 or less."},
-	getSchedule = {method = "GET", path = "/v2/schedules/{id}", doc = "schedules-v2/show", about = "One schedule, {schedule}, with its current_shifts, next_shifts and rotations."},
-	listScheduleEntries = {method = "GET", path = "/v2/schedule_entries", query = {"schedule_id", "entry_window_start", "entry_window_end"}, required = {"schedule_id"},
+	getSchedule = {method = "GET", path = "/v2/schedules/{id}", example = {id = "01HZSC"}, doc = "schedules-v2/show", about = "One schedule, {schedule}, with its current_shifts, next_shifts and rotations."},
+	listScheduleEntries = {method = "GET", path = "/v2/schedule_entries", example = {schedule_id = "01HZSC", entry_window_start = "2026-11-02T00:00:00Z", entry_window_end = "2026-11-09T00:00:00Z"}, query = {"schedule_id", "entry_window_start", "entry_window_end"}, required = {"schedule_id"},
 		doc = "schedule-entries-v2/list",
 		about = "Who is on call on a schedule over a window (ISO 8601 times; by default from now): {schedule_entries={final, scheduled, overrides}, pagination_meta?}. final is the effective rota after overrides, [{user, start_at, end_at, rotation_id}]. When pagination_meta.after is set, call again with entry_window_start=pagination_meta.after and the same entry_window_end."},
 
-	listUsers = {method = "GET", path = "/v2/users", query = with({"email", "slack_user_id", "include_inactive"}, PAGE), doc = "users-v2/list",
+	listUsers = {method = "GET", path = "/v2/users", example = {email = "ada@example.com", include_inactive = true}, query = with({"email", "slack_user_id", "include_inactive"}, PAGE), doc = "users-v2/list",
 		about = "Users, {users=[{id, name, email, role, slack_user_id}], pagination_meta}; email or slack_user_id finds one person."},
-	getUser = {method = "GET", path = "/v2/users/{id}", doc = "users-v2/show", about = "One user, {user}."},
-	listTeams = {method = "GET", path = "/v3/teams", query = PAGE, doc = "teams-v3/list", about = "Teams, {teams=[{id, name, members, catalog_entry}], pagination_meta}."},
+	getUser = {method = "GET", path = "/v2/users/{id}", example = {id = "01HZU"}, doc = "users-v2/show", about = "One user, {user}."},
+	listTeams = {method = "GET", path = "/v3/teams", example = {page_size = 100}, query = PAGE, doc = "teams-v3/list", about = "Teams, {teams=[{id, name, members, catalog_entry}], pagination_meta}."},
 
-	listSeverities = {method = "GET", path = "/v1/severities", doc = "severities-v1/list",
+	listSeverities = {method = "GET", path = "/v1/severities", example = {}, doc = "severities-v1/list",
 		about = "Severities, {severities=[{id, name, description, rank}]}; a higher rank is more severe."},
-	listIncidentStatuses = {method = "GET", path = "/v1/incident_statuses", doc = "incident-statuses-v1/list",
+	listIncidentStatuses = {method = "GET", path = "/v1/incident_statuses", example = {}, doc = "incident-statuses-v1/list",
 		about = "Incident statuses, {incident_statuses=[{id, name, description, rank, category}]}; category is triage, live, learning, paused, closed, declined, canceled or merged."},
-	listIncidentTypes = {method = "GET", path = "/v1/incident_types", doc = "incident-types-v1/list",
+	listIncidentTypes = {method = "GET", path = "/v1/incident_types", example = {}, doc = "incident-types-v1/list",
 		about = "Incident types, {incident_types=[{id, name, description, is_default, private_incidents_only}]}."},
-	listIncidentRoles = {method = "GET", path = "/v2/incident_roles", doc = "incident-roles-v2/list",
+	listIncidentRoles = {method = "GET", path = "/v2/incident_roles", example = {}, doc = "incident-roles-v2/list",
 		about = "Incident roles, {incident_roles=[{id, name, shortform, description, instructions, role_type (lead, reporter or custom)}]}."},
-	listIncidentTimestamps = {method = "GET", path = "/v2/incident_timestamps", doc = "incident-timestamps-v2/list",
+	listIncidentTimestamps = {method = "GET", path = "/v2/incident_timestamps", example = {}, doc = "incident-timestamps-v2/list",
 		about = "Incident timestamps, such as when an incident was reported, accepted or resolved: {incident_timestamps=[{id, name, rank}]}."},
-	listCustomFields = {method = "GET", path = "/v2/custom_fields", doc = "custom-fields-v2/list",
+	listCustomFields = {method = "GET", path = "/v2/custom_fields", example = {}, doc = "custom-fields-v2/list",
 		about = "Incident custom fields, {custom_fields=[{id, name, description, field_type (single_select, multi_select, text, link or numeric), catalog_type_id}]}."},
-	listCustomFieldOptions = {method = "GET", path = "/v1/custom_field_options", query = with({"custom_field_id"}, PAGE), required = {"custom_field_id"},
+	listCustomFieldOptions = {method = "GET", path = "/v1/custom_field_options", example = {custom_field_id = "01HZCF"}, query = with({"custom_field_id"}, PAGE), required = {"custom_field_id"},
 		doc = "custom-field-options-v1/list", about = "A select custom field's options, {custom_field_options=[{id, value, sort_key}], pagination_meta}."},
 
-	listCatalogTypes = {method = "GET", path = "/v3/catalog_types", doc = "catalog-types-v3/list-types",
+	listCatalogTypes = {method = "GET", path = "/v3/catalog_types", example = {}, doc = "catalog-types-v3/list-types",
 		about = "Catalog types, such as services, teams or features, {catalog_types=[{id, name, description, type_name, schema {attributes}, categories, is_editable}]}."},
-	listCatalogEntries = {method = "GET", path = "/v3/catalog_entries", query = with({"catalog_type_id", "identifier"}, PAGE), required = {"catalog_type_id"},
+	listCatalogEntries = {method = "GET", path = "/v3/catalog_entries", example = {catalog_type_id = "01HZCT", identifier = "checkout"}, query = with({"catalog_type_id", "identifier"}, PAGE), required = {"catalog_type_id"},
 		doc = "catalog-entries-v3/list-entries",
 		about = "A catalog type's entries, {catalog_entries=[{id, name, external_id, aliases, rank, attribute_values {[attribute_id]={value or array_value}}}], catalog_type, pagination_meta}. identifier matches an entry's id, external id or alias."},
-	getCatalogEntry = {method = "GET", path = "/v3/catalog_entries/{id}", query = {"expand"}, doc = "catalog-entries-v3/show-entry",
+	getCatalogEntry = {method = "GET", path = "/v3/catalog_entries/{id}", example = {id = "01HZCE", expand = true}, query = {"expand"}, doc = "catalog-entries-v3/show-entry",
 		about = "One catalog entry, {catalog_entry, catalog_type}; expand=true adds the entries that link to it."},
 
-	createIncident = {method = "POST", path = "/v2/incidents", required = {"idempotency_key", "visibility"},
+	createIncident = {method = "POST", path = "/v2/incidents", example = {idempotency_key = "houston-checkout-2026-10-30", visibility = "public", name = "Checkout down", severity_id = "01HZSEV",
+			incident_role_assignments = {{incident_role_id = "01HZLEAD", assignee = {email = "ada@example.com"}}},
+			custom_field_entries = {{custom_field_id = "01HZCF", values = {{value_option_id = "01HZOPT"}}}}}, required = {"idempotency_key", "visibility"},
 		fields = {"idempotency_key", "visibility", "name", "summary", "severity_id", "incident_type_id", "incident_status_id", "mode", "incident_role_assignments",
 			"incident_timestamp_values", "custom_field_entries", "slack_team_id", "slack_channel_name_override", "retrospective_incident_options"},
 		doc = "incidents-v2/create",
-		about = "Declares an incident and returns {incident}; read PAGING above first. visibility: public or private. mode: standard (default), retrospective, test or tutorial. Most accounts require name and severity_id, and the incident type's required custom fields. incident_role_assignments=[{incident_role_id, assignee={id or email or slack_user_id}}], incident_timestamp_values=[{incident_timestamp_id, value}], custom_field_entries=[{custom_field_id, values=[{value_option_id or value_text or value_link or value_numeric or value_catalog_entry_id}]}]. incident.io de-duplicates requests by idempotency_key, so repeating one with the same key cannot declare a second incident; list incidents to see what the first call did."},
-	editIncident = {method = "POST", path = "/v2/incidents/{id}/actions/edit", required = {"incident", "notify_incident_channel"}, fields = {"incident", "notify_incident_channel"},
+		about = "Declares an incident and returns {incident}; read connector.help('notifications') first. visibility: public or private. mode: standard (default), retrospective, test or tutorial. Most accounts require name and severity_id, and the incident type's required custom fields. incident_role_assignments=[{incident_role_id, assignee={id or email or slack_user_id}}], incident_timestamp_values=[{incident_timestamp_id, value}], custom_field_entries=[{custom_field_id, values=[{value_option_id or value_text or value_link or value_numeric or value_catalog_entry_id}]}]. incident.io de-duplicates requests by idempotency_key, so repeating one with the same key cannot declare a second incident; list incidents to see what the first call did."},
+	editIncident = {method = "POST", path = "/v2/incidents/{id}/actions/edit", example = {id = "01HZINC2", incident = {severity_id = "01HZSEV2"}, notify_incident_channel = true}, required = {"incident", "notify_incident_channel"}, fields = {"incident", "notify_incident_channel"},
 		doc = "incidents-v2/edit",
 		about = "Changes only the fields given in incident={name, summary, severity_id, incident_status_id, custom_field_entries, incident_role_assignments, incident_timestamp_values, call_url, slack_channel_name_override} and returns {incident}; notify_incident_channel=true posts the change in the incident's channel. Statuses move within their category, from triage or live to learning or closed (resolving), or from learning to closed; resolving to learning starts the post-incident flow, and closing directly needs the key's post-incident opt-out permission."},
-	createIncidentUpdate = {method = "POST", path = "/v2/incident_updates", required = {"incident_id", "idempotency_key"},
+	createIncidentUpdate = {method = "POST", path = "/v2/incident_updates", example = {incident_id = "01HZINC", idempotency_key = "houston-update-1", message = "Monitoring the fix", to_incident_status_id = "01HZMON"}, required = {"incident_id", "idempotency_key"},
 		fields = {"incident_id", "idempotency_key", "message", "to_incident_status_id", "to_severity_id"}, doc = "incident-updates-v2/create",
 		about = "Shares an update in the incident's channel and returns {incident_update}: a Markdown message, a new status, a new severity, or a combination (at least one). Retrying with the same idempotency_key returns the update already shared."},
-	createFollowUp = {method = "POST", path = "/v3/follow_ups", required = {"incident_id", "title"},
+	createFollowUp = {method = "POST", path = "/v3/follow_ups", example = {incident_id = "01HZINC", title = "Add a canary", description = "Gate deploys on **error rate**.", assignee_id = "01HZU", labels = {"deploys"}}, required = {"incident_id", "title"},
 		fields = {"incident_id", "title", "description", "assignee_id", "assignee_team_id", "follow_up_priority_option_id", "follow_up_category_id", "labels", "external_issue_reference_id"},
 		doc = "follow-ups-v3/create",
 		about = "Adds a follow-up to an incident and returns {follow_up}; description is Markdown, assignee_id a user id and assignee_team_id a team id. Each call creates another follow-up."},
@@ -159,48 +161,22 @@ local function object(name: string, endpoint: Endpoint, response: HttpResponse, 
 	return value, list
 end
 
--- name({path fields, query fields?, extra fields?, required body fields, ...body}) built from the
--- endpoint itself.
--- Extra fields are options the connector's own request consumes, such as a request header.
-local function signature(endpoint: Endpoint): string
-	local fields: {string} = {}
-	for field in string.gmatch(endpoint.path, "{([%w_]+)}") do table.insert(fields, field) end
-	for _, group in {endpoint.query or NONE, endpoint.extra or NONE} do
-		for _, field in group do
-			table.insert(fields, if table.find(endpoint.required or NONE, field) then field else field .. "?")
-		end
-	end
-	if type(endpoint.body) == "string" then
-		table.insert(fields, endpoint.body)
-	elseif hasBody(endpoint) then
-		for _, field in endpoint.required or NONE do
-			if not table.find(fields, field) then table.insert(fields, field) end
-		end
-		table.insert(fields, "...body")
-	end
-	return "({" .. table.concat(fields, ", ") .. "})"
-end
-
--- A function for each endpoint the connection's access allows, and help listing them after intro.
-local function operations(endpoints: {[string]: Endpoint}, request: (string, Endpoint, Options?) -> any, intro: {string}): {[string]: any}
-	local exports: {[string]: any} = {}
+-- Export and document exactly the operations enabled for this connection.
+local function operations(endpoints: {[string]: Endpoint}, request: (string, Endpoint, Options?) -> any, intro: {string}, documentation: {[string]: any}): {[string]: any}
+	local exports: {[string]: any}, docs: {[string]: any} = {}, {}
+	for name in documentation do assert(endpoints[name], "documentation without endpoint: " .. name) end
 	for name, endpoint in endpoints do
+		assert(documentation[name], "missing documentation for " .. name)
 		if not writes(endpoint) or config.access == "read-write" then
 			exports[name] = function(args: Options?): any return request(name, endpoint, args) end
+			local record = table.clone(documentation[name])
+			record.description = endpoint.about .. " " .. endpoint.method .. " " .. endpoint.path .. ". Reference: " .. DOCS .. endpoint.doc
+				.. (if record.description then "\n\n" .. record.description else "")
+			if record.annotations == nil then record.annotations = {readOnlyHint = not writes(endpoint)} end
+			docs[name] = record
 		end
 	end
-	exports.help = function(): string
-		local names: {string} = {}
-		for name in exports do if name ~= "help" then table.insert(names, name) end end
-		table.sort(names)
-		local lines = table.clone(intro)
-		table.insert(lines, "Each function below names its route and reference page, " .. DOCS .. "<page>.")
-		for _, name in names do
-			local endpoint = endpoints[name]
-			table.insert(lines, name .. signature(endpoint) .. ": " .. endpoint.about .. " " .. endpoint.method .. " " .. endpoint.path .. " (" .. endpoint.doc .. ")")
-		end
-		return table.concat(lines, "\n")
-	end
+	exports.help = {text = table.concat(intro, "\n\n"), functions = docs}
 	return exports
 end
 -- End of the shared request layer.
@@ -347,7 +323,7 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 end
 
 local intro = {
-	"incident.io API on " .. API .. ", with the connection's API key. Every function takes one named options object with incident.io's native names; ? marks optional fields and ...body the JSON body fields. Results are incident.io's JSON unchanged, wrapped as incident.io wraps them ({incidents}, {incident}...). Connector calls return completed values: use them directly, without await.",
+	"incident.io API on " .. API .. ", with the connection's API key. Every function takes one named options object with incident.io's native names. Results are incident.io's JSON unchanged, using the provider's envelopes such as {incidents} or {incident}. Connector calls return completed values: use them directly, without await.",
 	"Ids are ULIDs such as 01FDAG4SAP5TYPT98WGR2N7W91; getIncident also takes an incident's number (123 for INC-123). Times are ISO 8601. Send an empty list as json.decode('[]'), since an empty Lua table is sent as {}. Severities, statuses, incident types, roles, timestamps and custom fields are your account's own: list them to find their ids before filtering or writing.",
 	"Lists return one page with pagination_meta.after: while it is a string, pass it as after for the next page, even after a short page. page_size is 1 to " .. MAX_PAGE .. " (default 25; at most 50 for alerts and incident alerts). Configuration lists (severities, statuses, types, roles, timestamps, custom fields, catalog types) return everything at once.",
 	"Examples: local live = incidentio.listIncidents({status_category={one_of={'live'}}, page_size=10}); local inc = incidentio.getIncident({id=live.incidents[1].id}).incident; local ups = incidentio.listIncidentUpdates({incident_id=inc.id}).incident_updates; local s = incidentio.listSchedules({}).schedules[1]; local now = s.current_shifts; local rota = incidentio.listScheduleEntries({schedule_id=s.id, entry_window_start='2026-11-02T00:00:00Z', entry_window_end='2026-11-09T00:00:00Z'}).schedule_entries.final.",
@@ -355,10 +331,117 @@ local intro = {
 }
 
 if config.access == "read-write" then
-	table.insert(intro, "PAGING: createIncident declares an incident, and incident.io acts on it at once. A standard incident is announced in your announcement channels, gets its own Slack or Microsoft Teams channel, and runs your workflows, which can escalate to on-call responders and page them by phone, SMS or app notification at any hour. Declare one only when the person explicitly asks for it, with the name, severity and visibility they confirmed. mode='retrospective' records a past incident without announcing it; mode='test' runs a practice incident that is not announced, stays out of dashboards and runs only workflows set to include test incidents. incident.io lets a key declare 10 incidents an hour that open a channel and 300 that do not.")
+	table.insert(intro, "Declaring incidents: createIncident declares an incident, and incident.io acts on it at once. A standard incident is announced in your announcement channels, gets its own Slack or Microsoft Teams channel, and runs your workflows, which can escalate to on-call responders and page them by phone, SMS or app notification at any hour. Declare one only when the person explicitly asks for it, with the name, severity and visibility they confirmed. mode='retrospective' records a past incident without announcing it; mode='test' runs a practice incident that is not announced, stays out of dashboards and runs only workflows set to include test incidents. incident.io lets a key declare 10 incidents an hour that open a channel and 300 that do not.")
 	table.insert(intro, "Other side effects: editIncident with notify_incident_channel=true, and createIncidentUpdate, post in the incident channel, and a status or severity change can run workflows and escalations; createFollowUp may be exported to your issue tracker. Apart from Houston's 429 retries, writes are not retried. After a timeout or 5xx, read the incident, its updates or its follow-ups before repeating a write; incident.io de-duplicates createIncident and createIncidentUpdate by idempotency_key, so repeat those only with the same key: their timeouts and 5xx errors are marked retryable on that basis, while editIncident and createFollowUp failures are not.")
 else
 	table.insert(intro, "This read-only connection omits writes: declaring and editing incidents, sharing updates and creating follow-ups.")
 end
 
-return operations(endpoints, request, intro)
+-- Reuse the route's field lists, page bounds and repeatability policy. Nested payloads
+-- retain provider extensions, while the connector rejects unknown top-level arguments.
+local text: any = {type = "string"}
+local nullableText: any = {type = {"string", "null"}}
+local boolean: any = {type = "boolean"}
+local pathId: any = {anyOf = {({type = "string", minLength = 1, pattern = "^[^/\\\\%\\x00-\\x1f\\x7f]+$"} :: any), {type = "integer"}},
+	description = "Incident.io ID; getIncident also accepts the incident number. Dot segments, separators and their Unicode look-alikes, controls/invisible characters and percent-encoded IDs are rejected."}
+local function repeated(item: any): any return {anyOf = {item, {type = "array", minItems = 1, items = item}}} end
+local filterValue = repeated({type = {"string", "number", "boolean"}})
+local filter: any = {type = "object", minProperties = 1, propertyNames = {pattern = "^[^\\[\\]]+$"},
+	properties = {one_of = filterValue, not_in = filterValue, is = filterValue, is_not = filterValue,
+		gte = filterValue, lte = filterValue, date_range = filterValue, is_blank = filterValue},
+	additionalProperties = {anyOf = {filterValue, {["$ref"] = "#/$defs/filter"}}},
+	description = "Operator map: one_of/not_in for sets; is/is_not for equality; gte/lte for bounds; date_range for date~date; is_blank for true/false. Values may be scalars or nonempty arrays. ID-keyed filters contain another operator map. Additional provider operators pass through."}
+local filterDescriptions: {[string]: string} = {
+	status = "Incident status IDs, or firing/resolved for alerts, using one_of/not_in.",
+	status_category = "one_of/not_in: triage, live, learning, paused, closed, declined, canceled or merged.",
+	severity = "one_of/not_in severity IDs, or gte/lte a severity ID.", incident_type = "one_of/not_in incident type IDs.",
+	incident_role = "Map role IDs to user-ID one_of/not_in or is_blank operators.", custom_field = "Map custom-field IDs to option-ID operators.",
+	mode = "one_of/not_in standard, retrospective, test, tutorial or stream; test/tutorial are excluded by default.",
+	created_at = "gte/lte ISO dates or timestamps, or date_range='YYYY-MM-DD~YYYY-MM-DD'.",
+	updated_at = "gte/lte ISO dates or timestamps, or date_range='YYYY-MM-DD~YYYY-MM-DD'.",
+	alert_source = "one_of/not_in alert source IDs.", alert_group_id = "one_of/not_in alert group IDs.",
+	deduplication_key = "is/not_in alert deduplication keys.", attributes = "Map alert-attribute IDs to value operators.",
+	tags = "one_of/not_in alert tags.", has_notes = "is={'true'} or is={'false'}.", include_maintenance_window = "is={'true'} includes alerts in maintenance windows.",
+}
+local customValues: any = {type = "array", items = {type = "object", properties = {id = text, value_option_id = text, value_text = text,
+	value_link = text, value_numeric = {type = "string", description = "Decimal number encoded as a string."}, value_catalog_entry_id = text,
+	value_timestamp = {type = "string", deprecated = true}}}, description = "Use the value field matching the custom-field type. An empty JSON array clears the field."}
+local roleAssignments: any = {type = "array", items = {type = "object", properties = {incident_role_id = text,
+	assignee = {type = {"object", "null"}, properties = {id = text, email = text, slack_user_id = text}, description = "Identify the user by id, email or slack_user_id; omit to clear the role."}}, required = {"incident_role_id"}}}
+local timestamps: any = {type = "array", items = {type = "object", properties = {incident_timestamp_id = text,
+	value = {type = {"string", "null"}, description = "ISO 8601 timestamp; omission clears the value."}}, required = {"incident_timestamp_id"}}}
+local customFields: any = {type = "array", items = {type = "object", properties = {custom_field_id = text, values = customValues}, required = {"custom_field_id", "values"}}}
+local incidentFields: {[string]: any} = {name = text, summary = nullableText, severity_id = text, incident_status_id = text,
+	custom_field_entries = customFields, incident_role_assignments = roleAssignments, incident_timestamp_values = timestamps,
+	call_url = nullableText, slack_channel_name_override = text}
+local fields: {[string]: any} = {
+	after = {type = "string", description = "pagination_meta.after from the previous page, even when the previous page was short."},
+	incident_id = text, alert_id = text, incident_mode = {type = "string", enum = {"standard", "retrospective", "test", "tutorial", "stream"}},
+	filter_mode = {type = "string", enum = {"all", "any"}, default = "all"},
+	sort_by = {type = "string", enum = {"created_at_newest_first", "created_at_oldest_first"}, default = "created_at_newest_first"},
+	schedule_id = text, entry_window_start = {type = "string", description = "ISO 8601 start, or the preceding page's pagination_meta.after; defaults to now."},
+	entry_window_end = {type = "string", description = "ISO 8601 end; keep it unchanged while following pages."},
+	email = text, slack_user_id = text, include_inactive = boolean, custom_field_id = text, catalog_type_id = text, identifier = text, expand = boolean,
+	idempotency_key = {type = "string", minLength = 1, description = "Unique key for this intended action; preserve it when retrying the same action."},
+	visibility = {type = "string", enum = {"public", "private"}},
+	mode = {type = "string", enum = {"standard", "retrospective", "test", "tutorial"}, default = "standard"},
+	incident_type_id = text, slack_team_id = text,
+	retrospective_incident_options = {type = "object", properties = {external_id = {type = "integer", description = "Import incident number; requires provider enablement."},
+		postmortem_document_url = text, slack_channel_id = text}, description = "For retrospective incidents; no channel is created unless an existing channel is supplied."},
+	incident = {type = "object", properties = incidentFields, description = "Only supplied fields change. Nested provider extensions are forwarded; explicit JSON null is preserved."},
+	notify_incident_channel = {type = "boolean", description = "Announce changes in the incident channel."},
+	message = {type = "string", description = "Markdown update to share with responders."}, to_incident_status_id = text, to_severity_id = text,
+	title = text, description = text, assignee_id = text, assignee_team_id = text, follow_up_priority_option_id = text, follow_up_category_id = text,
+	labels = {type = "array", items = text}, external_issue_reference_id = text,
+}
+for field, schema in incidentFields do fields[field] = schema end
+local singleFields = {getIdentity = "identity", getIncident = "incident", getFollowUp = "follow_up", getAlert = "alert", getSchedule = "schedule", getUser = "user",
+	getCatalogEntry = "catalog_entry", createIncident = "incident", editIncident = "incident", createIncidentUpdate = "incident_update", createFollowUp = "follow_up"}
+local item: any = {type = "object", properties = {id = text, name = text, created_at = text, updated_at = text}}
+local pagination: any = {type = "object", properties = {after = nullableText, page_size = {type = "integer"}, total_record_count = {type = "integer"}}}
+local docs: {[string]: any} = {}
+for name, endpoint in endpoints do
+	local properties: {[string]: any}, required: {string} = {}, {}
+	local hasFilters = false
+	for field in string.gmatch(endpoint.path, "{([%w_]+)}") do properties[field] = pathId; table.insert(required, field) end
+	for _, field in endpoint.query or NONE do
+		if field == "page_size" then
+			properties[field] = {type = "integer", minimum = 1, maximum = endpoint.page_max or MAX_PAGE, default = 25}
+		elseif table.find(FILTERS, field) then
+			hasFilters = true
+			properties[field] = {["$ref"] = "#/$defs/filter", description = filterDescriptions[field]}
+		else
+			assert(fields[field], "missing query schema: " .. field)
+			properties[field] = fields[field]
+		end
+	end
+	for _, field in endpoint.fields or NONE do
+		assert(fields[field], "missing body schema: " .. field)
+		properties[field] = fields[field]
+	end
+	for _, field in endpoint.required or NONE do table.insert(required, field) end
+	local input: any = {type = "object", properties = properties, required = if #required > 0 then required else nil,
+		additionalProperties = false, examples = {endpoint.example}}
+	if hasFilters then input["$defs"] = {filter = filter} end
+	if name == "createIncidentUpdate" then input.anyOf = {{required = {"message"}}, {required = {"to_incident_status_id"}}, {required = {"to_severity_id"}}} end
+	local outputProperties: {[string]: any} = {pagination_meta = pagination}
+	if singleFields[name] then
+		outputProperties[singleFields[name]] = item
+	elseif name == "listScheduleEntries" then
+		local shifts = {type = "array", items = {type = "object", properties = {user = item, start_at = text, end_at = text, rotation_id = text}}}
+		outputProperties.schedule_entries = {type = "object", properties = {final = shifts, scheduled = shifts, overrides = shifts}}
+	else
+		local field = string.match(endpoint.path, "/([^/]+)$") :: string
+		outputProperties[field] = {type = "array", items = item}
+	end
+	if name == "listCatalogEntries" or name == "getCatalogEntry" then outputProperties.catalog_type = item end
+	docs[name] = {inputSchema = input, outputSchema = {type = "object", properties = outputProperties},
+		description = if writes(endpoint) and config.access == "read-write" then (if name == "createIncident" then intro[6] .. "\n\n" else "") .. intro[7] else nil,
+		annotations = {readOnlyHint = not writes(endpoint), idempotentHint = repeatable(endpoint)}}
+end
+local exports = operations(endpoints, request, {intro[1], if config.access == "read-write" then "This connection can declare and change incidents, share updates and create follow-ups. See help('notifications') before declaring an incident." else intro[6]}, docs)
+local help = exports.help
+help.sections = {identifiers = intro[2], paging = intro[3], workflow = intro[4], errors = intro[5]}
+if config.access == "read-write" then help.sections.notifications = intro[6] .. "\n\n" .. intro[7] end
+exports.help = help
+return exports

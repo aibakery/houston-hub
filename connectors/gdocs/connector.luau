@@ -132,17 +132,6 @@ local function exportEndpoints(endpoints: {[string]: Endpoint})
 	end
 end
 
--- help() introduces the API, then documents exactly the configured operations.
-local function helpWith(overview: {string}): () -> string
-	return function(): string
-		local names: {string} = {}
-		for name in help do table.insert(names, name) end
-		table.sort(names)
-		local lines = table.clone(overview)
-		for _, name in names do table.insert(lines, help[name]) end
-		return table.concat(lines, "\n")
-	end
-end
 -- End of the shared request layer.
 
 local endpoints: {[string]: Endpoint} = {
@@ -245,5 +234,30 @@ local overview = {
 if config.access == "read-write" then
 	table.insert(overview, "Writes change a document's text, styles, tabs, comments and suggestions. An empty Luau table encodes as a JSON object: write an empty array as json.decode('[]'). Documents cannot be deleted, renamed, moved or shared here: use the Google Drive connector. A failed or timed-out write may already have succeeded: check with getDocument before repeating it (getDocumentText hides suggestions; add suggestionsViewMode='SUGGESTIONS_INLINE' and commentsViewMode='COMMENTS_VIEW_MODE_INCLUDED' after comment writes), or pass writeControl={requiredRevisionId=doc.revisionId}, with doc read by getDocument, so a repeat fails with HTTP 400 instead of applying twice.")
 end
-exports.help = helpWith(overview)
+local str = {type = "string"}
+local documentId = {type = "string", minLength = 1, description = "Document ID or a https://docs.google.com/document/d/<id>/edit URL; published /d/e/ links are not document IDs."}
+local documentOutput = {type = "object", properties = {documentId = str, title = str, revisionId = str}, additionalProperties = true}
+local previews: {string} = {}
+for mode in PREVIEWS :: {[string]: boolean} do table.insert(previews, mode) end
+table.sort(previews)
+exports.help = require("lib/help.luau").build(require("lib/discovery-schemas.luau"), endpoints, help, {
+	getDocument = {properties = {documentId = documentId}, examples = {{documentId = "1DoC_x-9"}}, outputSchema = documentOutput},
+	createDocument = {inputSchema = {type = "object", properties = {title = str}, additionalProperties = false},
+		examples = {{title = "Minutes"}}, outputSchema = documentOutput},
+	batchUpdate = {properties = {documentId = documentId}, examples = {
+		{documentId = "https://docs.google.com/document/d/d1/edit?tab=t.1", requests = {
+			{replaceAllText = {containsText = {text = "{{client}}", matchCase = true}, replaceText = "Acme"}} :: any,
+			{insertText = {endOfSegmentLocation = {tabId = "t.1"}, text = "\nNext steps"}},
+		}, writeControl = {requiredRevisionId = "r1"}} :: any,
+		{documentId = "d1", requests = {{insertComment = {content = "Check this figure", range = {startIndex = 5, endIndex = 9}}}}, writeControl = {writeMode = "SUGGEST"}},
+	}, outputSchema = {type = "object", properties = {documentId = str, replies = {type = "array", items = {type = "object"}},
+		writeControl = {type = "object"}, commentUpdateState = str}, additionalProperties = true}},
+	getDocumentText = {inputSchema = {type = "object", properties = {documentId = documentId, tabId = {type = "string", minLength = 1},
+		suggestionsViewMode = {type = "string", enum = previews, default = "PREVIEW_WITHOUT_SUGGESTIONS"}}, required = {"documentId"}, additionalProperties = false},
+		examples = {{documentId = "https://docs.google.com/document/d/1DoC_x-9/edit?tab=t.0#heading=h.1"}},
+		annotations = {readOnlyHint = true, destructiveHint = false, idempotentHint = true},
+		outputSchema = {type = "object", properties = {documentId = str, title = str, revisionId = str, tabs = {type = "array", items = {
+			type = "object", properties = {tabId = str, title = str, parentTabId = str, nestingLevel = {type = "integer", minimum = 0}, text = str},
+			required = {"tabId", "title", "nestingLevel", "text"}, additionalProperties = false}}}, required = {"documentId", "title", "tabs"}, additionalProperties = false}},
+}, overview)
 return exports

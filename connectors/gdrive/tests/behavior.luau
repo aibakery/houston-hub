@@ -15,7 +15,7 @@ return {
 	run = function(c)
 		local API = "https://www.googleapis.com/drive/v3"
 		responses = {{body = '{"files":[{"id":"f1"}],"nextPageToken":"next+1"}'}, {body = '{"files":[]}'}}
-		local page = c.listFiles({q = "name contains 'a b'", pageToken = "start+1"})
+		local page = fixture.example("listFiles")
 		assert(page.nextPageToken == "next+1" and page.files[1].id == "f1")
 		local url = requests[1].url
 		assert(string.sub(url, 1, #API + 7) == API .. "/files?" and string.find(url, "q=name%20contains%20%27a%20b%27", 1, true) and string.find(url, "pageToken=start%2B1", 1, true), url)
@@ -29,7 +29,7 @@ return {
 		assert(not pcall(c.statFile))
 		assert(#requests == 2, "bad arguments reached Google")
 		responses = {{body = '{"id":"f1","name":"Report","mimeType":"text/plain","size":"42"}'}, {body = '{"id":"dir","name":"Folder","mimeType":"application/vnd.google-apps.folder"}'}}
-		local file = c.statFile("f1")
+		local file = fixture.example("statFile")
 		assert(file.id == "f1" and file.name == "Report" and file.size == 42 and file.isFolder == false)
 		assert(requests[3].url == API .. "/files/f1?fields=id%2Cname%2CmimeType%2Csize&supportsAllDrives=true", requests[3].url)
 		local folder = c.statFile("dir")
@@ -41,13 +41,13 @@ return {
 
 		local bytes = string.char(0, 255, 13, 10) .. "binary payload"
 		responses = {{body = bytes}, {body = "# Notes"}}
-		local saved = c.downloadFile({fileId = "f:1", path = "downloads/report.bin"})
+		local saved = fixture.example("downloadFile")
 		assert(requests[#requests].url == API .. "/files/f%3A1?alt=media&supportsAllDrives=true", requests[#requests].url)
 		assert(saved.path == "downloads/report.bin" and saved.url == "https://houston.test/downloads/report.bin" and saved.size == #bytes)
 		local fd = fs.open("downloads/report.bin", "r")
 		assert(await(fd:readAll()) == bytes)
 		await(fd:close())
-		local exported = c.exportFile({fileId = "doc", mimeType = "text/markdown", path = "notes.md"})
+		local exported = fixture.example("exportFile")
 		assert(requests[#requests].url == API .. "/files/doc/export?mimeType=text%2Fmarkdown" and exported.size == 7)
 		responses = {{status = 403, body = '{"error":{"code":403,"message":"Only files with binary content can be downloaded.","errors":[{"reason":"fileNotDownloadable"}]}}'}}
 		local ok, err = pcall(c.downloadFile, {fileId = "doc", path = "doc.bin"})
@@ -66,7 +66,7 @@ return {
 		await(upload:close())
 		local session = "https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&upload_id=xyz"
 		responses = {{headers = {location = {session}}}, {body = '{"id":"up","name":"report.pdf"}'}}
-		local created = c.uploadFile({path = "uploads/report.pdf", parents = {"dir"}, contentType = "application/pdf"})
+		local created = fixture.example("uploadFile")
 		assert(created.id == "up")
 		local start, put = requests[#requests - 1], requests[#requests]
 		assert(start.method == "POST" and string.find(start.url, "https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&supportsAllDrives=true&fields=", 1, true) == 1, start.url)
@@ -86,11 +86,29 @@ return {
 		assert(#requests == sent, "invalid file IDs must not reach Google")
 
 		responses = {{body = '{"id":"moved"}'}, {status = 204}}
-		c.updateFile({fileId = "f1", addParents = "dir", name = "Renamed"})
+		fixture.example("updateFile")
 		local update = requests[#requests]
 		assert(update.method == "PATCH" and string.find(update.url, API .. "/files/f1?addParents=dir", 1, true) and json.decode(update.body).name == "Renamed")
-		assert(c.deletePermission({fileId = "f1", permissionId = "p1"}).success)
+		assert(fixture.example("deletePermission").success)
 		assert(requests[#requests].url == API .. "/files/f1/permissions/p1?supportsAllDrives=true")
+		local fields = "id%2Cname%2CmimeType%2Csize%2CcreatedTime%2CmodifiedTime%2Cparents%2CwebViewLink%2Ctrashed%2Cdescription%2Cowners%28displayName%2CemailAddress%29"
+		local cases = {
+			{name = "getAbout", method = "GET", path = "/about?fields=user%2CstorageQuota", response = '{"user":{"displayName":"Ana"}}'},
+			{name = "getFile", method = "GET", path = "/files/f1?fields=" .. fields .. "&supportsAllDrives=true", response = '{"id":"f1","name":"Report"}'},
+			{name = "listDrives", method = "GET", path = "/drives?pageSize=10", response = '{"drives":[{"id":"team"}]}'},
+			{name = "listPermissions", method = "GET", path = "/files/f1/permissions?pageSize=20&fields=nextPageToken%2Cpermissions%28id%2Ctype%2Crole%2CemailAddress%2Cdomain%2CdisplayName%29&supportsAllDrives=true", response = '{"permissions":[{"id":"p1"}]}'},
+			{name = "createFile", method = "POST", path = "/files?fields=" .. fields .. "&supportsAllDrives=true", body = '{"mimeType":"application/vnd.google-apps.folder","name":"Reports"}', response = '{"id":"dir","name":"Reports"}'},
+			{name = "copyFile", method = "POST", path = "/files/f1/copy?fields=" .. fields .. "&supportsAllDrives=true", body = '{"name":"Report copy","parents":["dir"]}', response = '{"id":"copy","name":"Report copy"}'},
+			{name = "deleteFile", method = "DELETE", path = "/files/f1?supportsAllDrives=true", status = 204},
+			{name = "createPermission", method = "POST", path = "/files/f1/permissions?sendNotificationEmail=false&supportsAllDrives=true", body = '{"emailAddress":"ana@example.com","role":"reader","type":"user"}', response = '{"id":"p2","type":"user","role":"reader"}'},
+		}
+		for _, case in cases do
+			responses = {{body = case.response, status = case.status}}
+			fixture.example(case.name)
+			local req = requests[#requests]
+			assert(req.method == case.method and req.url == API .. case.path, case.name .. ": " .. req.method .. " " .. req.url)
+			assert(req.body == case.body, case.name .. ": " .. tostring(req.body))
+		end
 		assert(#responses == 0)
 	end,
 }

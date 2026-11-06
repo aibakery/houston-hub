@@ -132,17 +132,6 @@ local function exportEndpoints(endpoints: {[string]: Endpoint})
 	end
 end
 
--- help() introduces the API, then documents exactly the configured operations.
-local function helpWith(overview: {string}): () -> string
-	return function(): string
-		local names: {string} = {}
-		for name in help do table.insert(names, name) end
-		table.sort(names)
-		local lines = table.clone(overview)
-		for _, name in names do table.insert(lines, help[name]) end
-		return table.concat(lines, "\n")
-	end
-end
 -- End of the shared request layer.
 
 local PRIMARY = {calendarId = "primary"}
@@ -188,5 +177,26 @@ local overview = {
 if config.access == "read-write" then
 	table.insert(overview, "Writes can change only events, not calendars or their sharing. Events on calendars the user can only read fail with HTTP 403. A failed or timed-out write may already have succeeded: check with getEvent or listEvents before repeating it, or give insertEvent an id and check it with getEvent({eventId=id}).")
 end
-exports.help = helpWith(overview)
+local eventTime = {allOf = {{["$ref"] = "#/$defs/EventDateTime"} :: any,
+	{oneOf = {{required = {"date"}}, {required = {"dateTime"}}}}}}
+exports.help = require("lib/help.luau").build(require("lib/discovery-schemas.luau"), endpoints, help, {
+	listCalendars = {examples = {{maxResults = 250, minAccessRole = "writer", pageToken = "p+1"}}},
+	getCalendar = {examples = {{}}},
+	getColors = {examples = {{}}},
+	listEvents = {examples = {{timeMin = "2026-10-12T00:00:00Z", singleEvents = true, orderBy = "startTime", pageToken = "start+1", eventTypes = {"default", "focusTime"}}}},
+	getEvent = {examples = {{eventId = "e1_20261013T090000Z", timeZone = "Europe/Paris"}}},
+	listEventInstances = {examples = {{calendarId = "team@group.calendar.google.com", eventId = "e1", timeMax = "2026-11-01T00:00:00+02:00"}}},
+	queryFreeBusy = {examples = {{timeMin = "2026-10-13T00:00:00Z", timeMax = "2026-10-14T00:00:00Z", items = {{id = "primary"}}}}},
+	insertEvent = {properties = {start = eventTime, ["end"] = eventTime}, examples = {
+		{summary = "Planning", start = {dateTime = "2026-10-13T09:00:00Z"}, ["end"] = {dateTime = "2026-10-13T10:00:00Z"},
+			attendees = {{email = "ana@example.com"}}, sendUpdates = "all", conferenceDataVersion = 1} :: any,
+		{calendarId = "team@group.calendar.google.com", id = "planning20261013", summary = "Planning", start = {date = "2026-10-13"}, ["end"] = {date = "2026-10-14"}},
+		{summary = "Local time", start = {dateTime = "2026-10-13T09:00:00", timeZone = "Europe/Paris"}, ["end"] = {dateTime = "2026-10-13T10:00:00", timeZone = "Europe/Paris"}},
+	}},
+	patchEvent = {examples = {{eventId = "new", summary = "Moved", sendUpdates = "none"}}},
+	moveEvent = {examples = {{eventId = "new", destination = "team@group.calendar.google.com"}}},
+	quickAddEvent = {examples = {{text = "Lunch with Ana tomorrow 12pm", sendUpdates = "all"}}},
+	deleteEvent = {examples = {{calendarId = "team@group.calendar.google.com", eventId = "new", sendUpdates = "all"}},
+		outputSchema = {type = "object", properties = {success = {const = true}}, required = {"success"}, additionalProperties = false}},
+}, overview)
 return exports

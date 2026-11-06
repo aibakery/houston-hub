@@ -38,7 +38,7 @@ return {
 			.. '"media_types":["application/vnd.oci.image.index.v1+json"],"categories":[{"name":"Operating systems","slug":"operating-systems"}],'
 			.. '"storage_size":489508503351,"source":null,"registry_region":{"name":"us-east-1","label":"US"}},'
 			.. '{"name":"whalesay","namespace":"docker","repository_type":null,"pull_count":145616122,"categories":[],"storage_size":103666708}]}')
-		local page = dockerhub.listRepositories({namespace = "docker", page_size = 2})
+		local page = fixture.example("listRepositories")
 		got("/namespaces/docker/repositories?page_size=2")
 		assert(page.count == 420 and #page.results == 2 and page.previous == NULL and page.next == "https://hub.docker.com/v2/namespaces/docker/repositories?page=2&page_size=2")
 		assert(page.results[1].storage_size == 489508503351 and page.results[1].source == NULL and page.results[2].repository_type == NULL)
@@ -67,7 +67,7 @@ return {
 			.. '"is_private":false,"star_count":21414,"pull_count":13533095179,"last_updated":"2026-10-29T01:52:06.381447Z","affiliation":null,'
 			.. '"hub_user":"stackbrew","full_description":"# Quick reference\\n","permissions":{"read":true,"write":false,"admin":false},'
 			.. '"immutable_tags_settings":{"enabled":false,"rules":[".*"]},"storage_size":258813768582,"source":null}')
-		local repo = dockerhub.getRepository({namespace = "library", repository = "nginx"})
+		local repo = fixture.example("getRepository")
 		got("/namespaces/library/repositories/nginx")
 		assert(repo.pull_count == 13533095179 and repo.affiliation == NULL and repo.full_description == "# Quick reference\n")
 		assert(repo.immutable_tags_settings.rules[1] == ".*")
@@ -89,7 +89,7 @@ return {
 			.. '"digest":"sha256:600f7cd45e27aa13e9304c834ab7c1b0ff39df85ee1dcc5087955455d77bc83b"}'
 		respond('{"count":795,"next":"https://hub.docker.com/v2/namespaces/library/repositories/nginx/tags?name=alpine&page=2&page_size=1",'
 			.. '"previous":null,"results":[' .. tag .. ']}')
-		local tags = dockerhub.listTags({namespace = "library", repository = "nginx", name = "alpine", page_size = 1})
+		local tags = fixture.example("listTags")
 		got("/namespaces/library/repositories/nginx/tags?name=alpine&page_size=1")
 		local first = tags.results[1]
 		assert(tags.count == 795 and first.digest == "sha256:600f7cd45e27aa13e9304c834ab7c1b0ff39df85ee1dcc5087955455d77bc83b")
@@ -117,7 +117,7 @@ return {
 		assert(old.images == NULL and old.full_size == 0)
 
 		respond(tag)
-		local latest = dockerhub.getTag({namespace = "library", repository = "nginx", tag = "latest"})
+		local latest = fixture.example("getTag")
 		got("/namespaces/library/repositories/nginx/tags/latest")
 		assert(latest.name == "latest" and #latest.images == 2 and latest.images[1].os_version == NULL)
 		respond('{"name":"1.27.5-alpine3.21-perl"}')

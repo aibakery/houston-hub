@@ -254,7 +254,8 @@ local endpoints: {[string]: Endpoint} = {
 }
 
 local exports: {[string]: any} = {}
-local help: {[string]: string} = {}
+local help: {[string]: any} = {}
+local docs = require("lib/help.luau")
 local policy: any = nil
 if config.access == "custom" then
 	policy = require("lib/policy.luau")(config.path_access, function(path: string): Options?
@@ -281,17 +282,16 @@ local function invoke(name: string, endpoint: Endpoint, input: any): any
 end
 
 -- Exposes an operation when it only reads or the connection allows writes.
-local function export(name: string, endpoint: Endpoint, fn: (...any) -> any, doc: string)
+local function export(name: string, endpoint: Endpoint, fn: (...any) -> any)
 	local supported = policy == nil or (policy.supports(if name == "statFile" then "getMetadata" else name)
 		and (auth.scopes == nil or table.find(auth.scopes, "files.metadata.read") ~= nil))
 	if supported and (endpoint.read or config.access == "read-write" or (policy and policy.writable)) and (auth.scopes == nil or table.find(auth.scopes, endpoint.scope) ~= nil) then
-		exports[name], help[name] = fn, if policy then policy.documentation(name, doc) else doc
+		exports[name], help[name] = fn, if name == "statFile" then docs.statFile(policy) else docs.build(name, endpoint, policy)
 	end
 end
 
 for name, endpoint in endpoints do
-	export(name, endpoint, function(args: Options?): any return invoke(name, endpoint, args) end,
-		name .. endpoint.help .. " [" .. endpoint.route .. "]")
+	export(name, endpoint, function(args: Options?): any return invoke(name, endpoint, args) end)
 end
 
 -- Fixed-signature file lookup shared with other storage connectors.
@@ -305,15 +305,11 @@ export("statFile", endpoints.getMetadata, function(...: any): {id: string, name:
 		houston.fail({operation = "statFile", layer = "upstream", retryable = false, message = "Dropbox returned invalid file metadata"})
 	end
 	return {id = file.id, name = file.name, isFolder = isFolder, size = size}
-end, if policy then "statFile(path) -> {id, name, isFolder, size?}. One positional absolute path; size is absent for folders."
-	else "statFile(id) -> {id, name, isFolder, size?}. One positional 'id:...' or path; size is absent for folders.")
+end)
 
-exports.help = function(): string
-	local names: {string} = {}
-	for name in help do table.insert(names, name) end
-	table.sort(names)
+exports.help = function(): any
 	local lines = {
-		"Dropbox API v2. Each operation takes one options table with Dropbox's snake_case arguments, calls the route in brackets and returns Dropbox's JSON unchanged; routes without a result return {success=true}. Required top-level argument types are checked before requests; Dropbox validates nested values and provider-specific constraints. Read-only connections omit changes, and known OAuth scopes further restrict the operations listed below.",
+		"Dropbox API v2. Native operations take one options table with Dropbox's snake_case arguments and return Dropbox's JSON unchanged; routes without a result return {success=true}. statFile takes one positional ID or path. Required top-level argument types are checked before requests; Dropbox validates nested values and provider-specific constraints. Read-only connections omit changes, and known OAuth scopes further restrict the operations listed below.",
 		"Every argument and result is documented by route under User endpoints at https://docs.dropboxapi.com/dropbox-api/api-reference/overview. Union values are a tag string or a table, e.g. mode='overwrite' or mode={['.tag']='update', update='<rev>'}. Pass json.decode('[]') for an empty list.",
 		"Paths start with '/', are case-insensitive and use '' for the root folder (not '/'). Most routes also accept 'id:...' from metadata and 'ns:<namespace_id>/...' for accessible namespaces. Ordinary paths remain rooted in the member's folder. This connector does not set Dropbox-API-Path-Root; full team-space traversal is not supported.",
 		"Lists return one page. While has_more is true, or a sharing list returns a cursor, pass cursor to the matching ...Continue operation; listSharedLinks takes its cursor back and listRevisions pages with before_rev.",
@@ -321,12 +317,12 @@ exports.help = function(): string
 		"No hidden paging, polling or retries. Batch, URL-saving and sharing jobs may return an async_job_id: poll the status operation their help names. Errors report the HTTP status and Dropbox's error_summary, e.g. 'Dropbox HTTP 409: path/not_found/..'. A failed or timed-out change may already have happened; check before repeating.",
 		"Connector calls return completed values; do not await them. Example: local page = dropbox.listFolder({path='/Reports', limit=100}); local file = dropbox.download({path=page.entries[1].path_lower, session_path='report.pdf'}); return file.url.",
 	}
+	local access = "Operations are restricted by connection access and known OAuth scopes."
 	if policy then
 		lines[3] = "Paths are relative to the member's folder. Use an explicitly granted folder to start browsing; path='' requires a '/' rule. This connector does not set Dropbox-API-Path-Root, so full team-space traversal is unsupported."
 		lines[6] = "No hidden paging or retries. Authorization resolves folder rules and operation paths through Dropbox metadata. A failed or timed-out change may already have happened; check before repeating."
-		table.insert(lines, 1, policy.help())
+		access = policy.help()
 	end
-	for _, name in names do table.insert(lines, help[name]) end
-	return table.concat(lines, "\n")
+	return {text = table.concat(lines, "\n\n"), functions = help, sections = {access = access, paths = lines[3], paging = lines[4], files = lines[5], errors = lines[6], workflow = lines[7]}}
 end
 return exports

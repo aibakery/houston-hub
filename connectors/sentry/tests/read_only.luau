@@ -32,7 +32,7 @@ return {
 		payload = '[{"id":"1","slug":"acme-corp","name":"Acme","links":{"regionUrl":"https://us.sentry.io"}}]'
 		responseHeaders = {link = {'<https://us.sentry.io/api/0/organizations/?cursor=0:0:1>; rel="previous"; results="false"; cursor="0:0:1", '
 			.. '<https://us.sentry.io/api/0/organizations/?cursor=0:100:0>; rel="next"; results="true"; cursor="0:100:0"'}}
-		local orgs = sentry.listOrganizations({owner = true, per_page = 50})
+		local orgs = fixture.example("listOrganizations")
 		assert(last().method == "GET" and last().url == API .. "/organizations/?owner=true&per_page=50" and last().body == nil, last().url)
 		assert(last().headers.Accept[1] == "application/json" and last().headers.Authorization == nil)
 		assert(orgs.results[1].slug == "acme-corp" and orgs.next == "0:100:0" and orgs.hits == nil, json.encode(orgs))
@@ -41,25 +41,25 @@ return {
 		payload = "[]"
 		responseHeaders = {link = {'<https://us.sentry.io/api/0/organizations/acme-corp/projects/?cursor=0:200:0>; rel="previous"; results="true"; cursor="0:100:1", '
 			.. '<https://us.sentry.io/api/0/organizations/acme-corp/projects/?cursor=0:300:0>; rel="next"; results="false"; cursor="0:300:0"'}}
-		local projects = sentry.listProjects({query = "web", cursor = "0:200:0"})
+		local projects = fixture.example("listProjects")
 		assert(last().url == ORG .. "/projects/?query=web&cursor=0%3A200%3A0", last().url)
 		assert(json.encode(projects.results) == "[]" and projects.next == NULL and json.encode(projects) == '{"next":null,"results":[]}', json.encode(projects))
 		responseHeaders = {}
 		-- Projects keep their public fields only: no security token, symbol servers or scrubbing rules.
 		payload = '{"id":"42","slug":"web","platform":"javascript","teams":[],"latestRelease":null,"securityToken":"token-secret","securityTokenHeader":"X-Sentry-Token",'
 			.. '"symbolSources":"[{\\"password\\":{\\"hidden-secret\\":true}}]","relayPiiConfig":"{}","sensitiveFields":["password"],"options":{"sentry:token":"token-secret"}}'
-		local found = sentry.getProject({project_id_or_slug = "web"})
+		local found = fixture.example("getProject")
 		assert(last().url == API .. "/projects/acme-corp/web/" and found.platform == "javascript" and found.latestRelease == NULL and json.encode(found.teams) == "[]")
 		local encoded = json.encode(found)
 		for _, leaked in {"secret", "Token", "symbol", "relay", "sensitive", "options"} do
 			assert(not string.find(encoded, leaked, 1, true), "project leaked " .. leaked .. ": " .. encoded)
 		end
-		sentry.getOrganization({detailed = "0"})
+		fixture.example("getOrganization")
 		assert(last().url == ORG .. "/?detailed=0", last().url)
 		payload = '[{"id":"7","slug":"backend","name":"Backend"}]'
-		assert(sentry.listTeams({query = "back"}).results[1].id == "7" and last().url == ORG .. "/teams/?query=back")
+		assert(fixture.example("listTeams").results[1].id == "7" and last().url == ORG .. "/teams/?query=back")
 		payload = '[{"id":"9","email":"ada@example.com","user":{"id":"3"}}]'
-		assert(sentry.listMembers({query = "email:ada@example.com"}).results[1].user.id == "3")
+		assert(fixture.example("listMembers").results[1].user.id == "3")
 		assert(last().url == ORG .. "/members/?query=email%3Aada%40example.com", last().url)
 
 		-- Issue searches keep Sentry's query syntax and repeat array keys; hits reports the total.
@@ -72,19 +72,19 @@ return {
 		assert(issues.hits == 37 and issues.next == "1730000000000:0:0" and issues.results[1].shortId == "WEB-1A" and issues.results[1].assignedTo == NULL)
 		payload = "[]"
 		responseHeaders = {["x-hits"] = {"0"}}
-		issues = sentry.listIssues({query = ""})
+		issues = fixture.example("listIssues")
 		assert(last().url == ORG .. "/issues/?query=" and json.encode(issues.results) == "[]" and issues.hits == 0, last().url)
 		responseHeaders = {}
 
 		payload = '{"id":"1001","shortId":"WEB-1A","tags":[{"key":"browser","totalValues":3}]}'
-		assert(sentry.getIssue({issue_id = "WEB-1A"}).id == "1001" and last().url == ORG .. "/issues/WEB-1A/")
+		assert(fixture.example("getIssue").id == "1001" and last().url == ORG .. "/issues/WEB-1A/")
 		sentry.getIssue({issue_id = 1001, environment = {"production", "staging"}})
 		assert(last().url == ORG .. "/issues/1001/?environment=production&environment=staging", last().url)
 		payload = '{"key":"browser","totalValues":3,"topValues":[{"value":"Chrome","count":2}]}'
-		assert(sentry.getIssueTag({issue_id = "1001", key = "browser"}).topValues[1].value == "Chrome")
+		assert(fixture.example("getIssueTag").topValues[1].value == "Chrome")
 		assert(last().url == ORG .. "/issues/1001/tags/browser/")
 		payload = '[{"id":"5","type":"note","data":{"text":"Looking"}}]'
-		assert(sentry.listIssueComments({issue_id = "1001"}).results[1].data.text == "Looking" and last().url == ORG .. "/issues/1001/comments/")
+		assert(fixture.example("listIssueComments").results[1].data.text == "Looking" and last().url == ORG .. "/issues/1001/comments/")
 
 		-- Events keep the innermost frames, latest breadcrumbs and the crashed thread's stack.
 		local frames = {}
@@ -112,7 +112,7 @@ return {
 			tags = {{key = "release", value = "web@1.2.0"}},
 		}
 		payload = json.encode(big)
-		local e = sentry.getIssueEvent({issue_id = "1001", event_id = "latest"})
+		local e = fixture.example("getIssueEvent")
 		assert(last().url == ORG .. "/issues/1001/events/latest/", last().url)
 		local exception = e.entries[1].data.values
 		assert(#exception == 5 and exception[1].type == "Error1" and exception[2].type == "Error4" and exception[5].type == "Error7" and exception[5].rawStacktrace == nil)
@@ -144,7 +144,7 @@ return {
 			{type = "threads", data = {values = {{id = 1, current = true, stacktrace = {frames = {{["function"] = "main"}}}}, {id = 2, stacktrace = {frames = {}}}}}},
 			{type = "threads", data = {values = {{id = 3, stacktrace = {frames = {{["function"] = "run"}}}}, {id = 4, stacktrace = {frames = {}}}}}},
 		}})
-		e = sentry.getEvent({project_id_or_slug = "web", event_id = "ab13"})
+		e = fixture.example("getEvent")
 		assert(#e.entries[1].data == 50 and e.entries[1].data[1].span_id == "s1" and e.entries[1].data[50].span_id == "s50")
 		local frames2 = e.entries[2].data.frames
 		assert(#frames2 == 30 and frames2[1]["function"] == "g6" and #frames2[1].context == 23)
@@ -165,7 +165,7 @@ return {
 
 		payload = "[" .. json.encode(big) .. ',{"id":"ab12","eventID":"ab12"}]'
 		responseHeaders = {link = {'<https://us.sentry.io/x>; rel="next"; results="true"; cursor="0:10:0"'}}
-		local events = sentry.listIssueEvents({issue_id = "WEB-1A", full = true, query = "user.email:ada@example.com", per_page = 10})
+		local events = fixture.example("listIssueEvents")
 		assert(last().url == ORG .. "/issues/WEB-1A/events/?query=user.email%3Aada%40example.com&full=true&per_page=10", last().url)
 		assert(#events.results == 2 and events.next == "0:10:0" and #events.results[1].entries[2].data.values == 50 and events.results[2].houstonTrimmed == nil)
 		responseHeaders = {}
@@ -173,14 +173,14 @@ return {
 		assert(json.encode(sentry.listIssueEvents({issue_id = "1001"}).results) == "[]")
 
 		payload = '[{"version":"web@1.2.0","projects":[{"slug":"web","healthData":{"crashFreeSessions":99.5}}]}]'
-		local releases = sentry.listReleases({project = "42", health = "1", healthStatsPeriod = "7d", per_page = 5})
+		local releases = fixture.example("listReleases")
 		assert(last().url == ORG .. "/releases/?project=42&health=1&healthStatsPeriod=7d&per_page=5", last().url)
 		assert(releases.results[1].projects[1].healthData.crashFreeSessions == 99.5)
 		payload = '{"version":"web@1.2.0+45","dateReleased":null}'
-		assert(sentry.getRelease({version = "web@1.2.0+45", health = "1"}).dateReleased == NULL)
+		assert(fixture.example("getRelease").dateReleased == NULL)
 		assert(last().url == ORG .. "/releases/web%401.2.0%2B45/?health=1", last().url)
 		payload = '{"start":"2026-10-29T00:00:00Z","intervals":[],"groups":[]}'
-		assert(json.encode(sentry.getSessions({field = {"sum(session)", "crash_free_rate(session)"}, groupBy = "release", statsPeriod = "7d", interval = "1d"}).groups) == "[]")
+		assert(json.encode(fixture.example("getSessions").groups) == "[]")
 		assert(last().url == ORG .. "/sessions/?field=sum%28session%29&field=crash_free_rate%28session%29&groupBy=release&interval=1d&statsPeriod=7d", last().url)
 		assert(#requests == 20)
 

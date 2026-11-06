@@ -20,7 +20,7 @@ return {
 			'{"formId":"1FaB_c-9","info":{"title":"Lunch"},"revisionId":"r1","items":[{"itemId":"i1","title":"Which day?","questionItem":{"question":{"questionId":"q1","choiceQuestion":{"type":"RADIO"}}}}]}',
 			'{"formId":"f1","info":{"title":"Draft"}}',
 		}
-		local form = c.getForm({formId = "https://docs.google.com/forms/d/1FaB_c-9/edit#responses"})
+		local form = fixture.example("getForm")
 		assert(form.items[1].questionItem.question.questionId == "q1" and form.revisionId == "r1")
 		assert(requests[1].url == API .. "1FaB_c-9", requests[1].url)
 		local empty = c.getForm({formId = "f1"})
@@ -31,12 +31,12 @@ return {
 			'{}',
 			'{"responseId":"ACYD","formId":"f1","answers":{}}',
 		}
-		local page = c.listResponses({formId = "https://docs.google.com/forms/u/1/d/f1/edit", filter = "timestamp > 2026-10-01T00:00:00Z", pageSize = 50})
+		local page = fixture.example("listResponses")
 		assert(page.responses[1].answers.q1.textAnswers.answers[1].value == "Tuesday" and page.nextPageToken == "p2")
 		assert(requests[3].url == API .. "f1/responses?filter=timestamp%20%3E%202026-10-01T00%3A00%3A00Z&pageSize=50", requests[3].url)
 		local none = c.listResponses({formId = "https://docs.google.com/a/example.com/forms/d/f1/edit", pageToken = "p2"})
 		assert(json.encode(none.responses) == "[]" and requests[4].url == API .. "f1/responses?pageToken=p2", requests[4].url)
-		assert(c.getResponse({formId = "f1", responseId = "ACYD"}).responseId == "ACYD")
+		assert(fixture.example("getResponse").responseId == "ACYD")
 		assert(requests[5].url == API .. "f1/responses/ACYD", requests[5].url)
 		for _, req in requests do
 			assert(req.method == "GET" and req.body == nil, req.method .. " " .. req.url)

@@ -1,7 +1,7 @@
 -- Sentry REST API v0. Arguments and results keep Sentry's native camelCase field names.
 type Options = {[string]: any}
 type Endpoint = {method: string, path: string, query: {string}?, extra: {string}?, required: {string}?, write: boolean?, body: (boolean | string)?,
-	fields: {string}?, shape: string?, doc: string, about: string}
+	example: Options, fields: {string}?, shape: string?, doc: string, about: string}
 
 local PROVIDER = "Sentry"
 local DOCS = "https://docs.sentry.io/api/"
@@ -19,58 +19,58 @@ end
 -- the connection's organization and path {fields} are required; listed query fields are taken
 -- from the options and the other fields form the JSON body. Lists answer with one page.
 local endpoints: {[string]: Endpoint} = {
-	listOrganizations = {method = "GET", path = "/organizations/", query = with({"owner", "query", "sortBy"}, PAGE), shape = "list",
+	listOrganizations = {method = "GET", path = "/organizations/", example = {owner = true, per_page = 50}, query = with({"owner", "query", "sortBy"}, PAGE), shape = "list",
 		doc = "users/list-your-organizations/", about = "Organizations the token can reach in this region: {id, slug, name, dateCreated, status, links}."},
-	getOrganization = {method = "GET", path = "/organizations/:org/", query = {"detailed"}, doc = "organizations/retrieve-an-organization/",
+	getOrganization = {method = "GET", path = "/organizations/:org/", example = {detailed = "0"}, query = {"detailed"}, doc = "organizations/retrieve-an-organization/",
 		about = "The connection's organization, with its projects and teams unless detailed='0'."},
 
-	listProjects = {method = "GET", path = "/organizations/:org/projects/", query = with({"query"}, PAGE), shape = "list",
+	listProjects = {method = "GET", path = "/organizations/:org/projects/", example = {query = "web", cursor = "0:200:0"}, query = with({"query"}, PAGE), shape = "list",
 		doc = "organizations/list-an-organizations-projects/", about = "Projects: {id, slug, name, platform, dateCreated, isMember, hasAccess, teams, latestRelease}."},
-	getProject = {method = "GET", path = "/projects/:org/{project_id_or_slug}/", shape = "project", doc = "projects/retrieve-a-project/",
+	getProject = {method = "GET", path = "/projects/:org/{project_id_or_slug}/", example = {project_id_or_slug = "web"}, shape = "project", doc = "projects/retrieve-a-project/",
 		about = "A project by id or slug: {id, slug, name, platform, status, dateCreated, firstEvent, teams, latestRelease, features, defaultEnvironment, resolveAge, isMember, hasAccess, access, hasSessions, hasReplays, hasProfiles, hasLogs}."},
-	listTeams = {method = "GET", path = "/organizations/:org/teams/", query = with({"query", "detailed"}, PAGE), shape = "list",
+	listTeams = {method = "GET", path = "/organizations/:org/teams/", example = {query = "back"}, query = with({"query", "detailed"}, PAGE), shape = "list",
 		doc = "teams/list-an-organizations-teams/", about = "Teams: {id, slug, name, memberCount, isMember, projects}. Assign an issue to one with assignedTo='team:<id>'."},
-	listMembers = {method = "GET", path = "/organizations/:org/members/", query = with({"query"}, PAGE), shape = "list",
+	listMembers = {method = "GET", path = "/organizations/:org/members/", example = {query = "email:ada@example.com"}, query = with({"query"}, PAGE), shape = "list",
 		doc = "organizations/list-an-organizations-members/",
 		about = "Members: {id, email, name, role, user={id, username, email}}. query matches names and emails, or filters with email:, role: or user.id:. Assign an issue with assignedTo='user:<user.id>'."},
 
-	listIssues = {method = "GET", path = "/organizations/:org/issues/",
+	listIssues = {method = "GET", path = "/organizations/:org/issues/", example = {query = ""},
 		query = with({"query", "project", "environment", "sort", "limit", "shortIdLookup", "groupStatsPeriod", "viewId", "expand", "collapse", "cursor"}, PERIOD),
 		shape = "list", doc = "events/list-an-organizations-issues/",
 		about = "Issues: {id, shortId, title, culprit, level, status, substatus, priority, count, userCount, firstSeen, lastSeen, project, assignedTo, permalink, metadata}. query uses Sentry's search syntax, such as 'is:unresolved level:error release:1.2.0 assigned:me'; without it Sentry applies its default 'is:unresolved' view, and query='' lists all. project and environment take an id/slug or name, or an array. sort: date (last seen, default), new, freq, user, trends or inbox. limit is at most 100. statsPeriod such as 24h or 14d (default), or start and end in ISO 8601. shortIdLookup='1' finds a short id such as WEB-1A in query. hits gives the total match count."},
-	getIssue = {method = "GET", path = "/organizations/:org/issues/{issue_id}/", query = {"environment", "expand", "collapse"},
+	getIssue = {method = "GET", path = "/organizations/:org/issues/{issue_id}/", example = {issue_id = "WEB-1A"}, query = {"environment", "expand", "collapse"},
 		doc = "events/retrieve-an-issue/",
 		about = "An issue by numeric id or short id such as WEB-1A, with its stats, tags (top values), activity, participants and first and last release."},
-	getIssueTag = {method = "GET", path = "/organizations/:org/issues/{issue_id}/tags/{key}/", query = {"environment"},
+	getIssueTag = {method = "GET", path = "/organizations/:org/issues/{issue_id}/tags/{key}/", example = {issue_id = "1001", key = "browser"}, query = {"environment"},
 		doc = "events/retrieve-tag-details/", about = "One tag of an issue's events, such as browser, release, environment or user, with {totalValues, topValues: [{value, count, firstSeen, lastSeen}]}."},
-	listIssueEvents = {method = "GET", path = "/organizations/:org/issues/{issue_id}/events/",
+	listIssueEvents = {method = "GET", path = "/organizations/:org/issues/{issue_id}/events/", example = {issue_id = "WEB-1A", full = true, query = "user.email:ada@example.com", per_page = 10},
 		query = with({"query", "environment", "full", "sample"}, PERIOD, PAGE), shape = "events", doc = "events/list-an-issues-events/",
-		about = "An issue's events, newest first: {id (the event id), eventID, groupID, title, message, dateCreated, platform, tags, user}. full=true adds entries, contexts and stack traces, at most 10 per page, trimmed as described above."},
-	getIssueEvent = {method = "GET", path = "/organizations/:org/issues/{issue_id}/events/{event_id}/", query = {"environment", "collapse"},
+		about = "An issue's events, newest first: {id (the event id), eventID, groupID, title, message, dateCreated, platform, tags, user}. full=true adds entries, contexts and stack traces, at most 10 per page. See help('events') for trimming details."},
+	getIssueEvent = {method = "GET", path = "/organizations/:org/issues/{issue_id}/events/{event_id}/", example = {issue_id = "1001", event_id = "latest"}, query = {"environment", "collapse"},
 		shape = "event", doc = "events/retrieve-an-issue-event/",
-		about = "One event of an issue, trimmed as described above; event_id is a 32-character hex id, 'latest', 'oldest' or 'recommended' (the most helpful one Sentry picks). nextEventID and previousEventID walk the issue's events."},
-	getEvent = {method = "GET", path = "/projects/:org/{project_id_or_slug}/events/{event_id}/", query = {"environment", "collapse"},
-		shape = "event", doc = "events/retrieve-an-event-for-a-project/", about = "An event by its 32-character hex id, trimmed as described above."},
-	listIssueComments = {method = "GET", path = "/organizations/:org/issues/{issue_id}/comments/", query = PAGE, shape = "list",
+		about = "One event of an issue; event_id is a 32-character hex id, 'latest', 'oldest' or 'recommended' (the most helpful one Sentry picks). nextEventID and previousEventID walk the issue's events. See help('events') for trimming details."},
+	getEvent = {method = "GET", path = "/projects/:org/{project_id_or_slug}/events/{event_id}/", example = {project_id_or_slug = "web", event_id = "ab130000000000000000000000000000"}, query = {"environment", "collapse"},
+		shape = "event", doc = "events/retrieve-an-event-for-a-project/", about = "An event by its 32-character hex id. See help('events') for trimming details."},
+	listIssueComments = {method = "GET", path = "/organizations/:org/issues/{issue_id}/comments/", example = {issue_id = "1001"}, query = PAGE, shape = "list",
 		doc = "events/", about = "Comments on an issue, newest first: {id, type='note', dateCreated, user, data={text}}. Sentry doesn't document this route."},
 
-	listReleases = {method = "GET", path = "/organizations/:org/releases/",
+	listReleases = {method = "GET", path = "/organizations/:org/releases/", example = {project = "42", health = "1", healthStatsPeriod = "7d", per_page = 5},
 		query = with({"query", "project", "environment", "health", "healthStat", "healthStatsPeriod", "summaryStatsPeriod", "adoptionStages", "status", "sort", "flatten"}, PAGE),
 		shape = "list", doc = "releases/list-an-organizations-releases/",
 		about = "Releases, newest first: {version, shortVersion, dateCreated, dateReleased, firstEvent, lastEvent, newGroups, projects, lastDeploy}. query matches part of the version. health='1' adds each project's healthData {crashFreeSessions, crashFreeUsers, sessionsCrashed, sessionsErrored, totalSessions, totalUsers, adoption, stats}; healthStatsPeriod (default 24h) and summaryStatsPeriod (default 14d) are 1h, 24h, 1d, 48h, 2d, 7d, 14d, 30d or 90d. status: open (default) or archived. sort: date (default), semver, build or adoption, or crash_free_sessions, crash_free_users, sessions or users with flatten='1' and one project."},
-	getRelease = {method = "GET", path = "/organizations/:org/releases/{version}/",
+	getRelease = {method = "GET", path = "/organizations/:org/releases/{version}/", example = {version = "web@1.2.0+45", health = "1"},
 		query = {"project", "health", "adoptionStages", "healthStatsPeriod", "summaryStatsPeriod", "sort", "status", "query"},
 		doc = "releases/retrieve-an-organizations-release/",
 		about = "A release by version, such as 'web@1.2.0', with its commits, deploys and authors; health='1' adds each project's health as in listReleases."},
-	getSessions = {method = "GET", path = "/organizations/:org/sessions/",
+	getSessions = {method = "GET", path = "/organizations/:org/sessions/", example = {field = {"sum(session)", "crash_free_rate(session)"}, groupBy = "release", statsPeriod = "7d", interval = "1d"},
 		query = with({"field", "groupBy", "project", "environment", "interval", "query", "orderBy", "per_page", "includeTotals", "includeSeries"}, PERIOD),
 		required = {"field"}, doc = "releases/retrieve-release-health-session-statistics/",
 		about = "Release health time series, {start, end, intervals, groups: [{by, totals, series}]}. field (one or an array): sum(session), count_unique(user), crash_free_rate(session), crash_free_rate(user), crash_rate(session), crash_rate(user) or avg, p50 to p99 or max of session.duration. groupBy: project, release, environment or session.status. query filters, such as 'release:web@1.2.0'. interval is at least 1h."},
 
-	updateIssue = {method = "PUT", path = "/organizations/:org/issues/{issue_id}/",
+	updateIssue = {method = "PUT", path = "/organizations/:org/issues/{issue_id}/", example = {issue_id = "1001", status = "resolved", statusDetails = {inNextRelease = true}},
 		fields = {"status", "statusDetails", "substatus", "assignedTo", "priority", "hasSeen", "isBookmarked", "isSubscribed", "inbox"}, doc = "events/update-an-issue/",
 		about = "Changes an issue and returns it. Resolve with status='resolved', optionally with statusDetails={inNextRelease=true} or {inRelease='web@1.2.0'} (or 'latest'); reopen with status='unresolved'. Ignore (archive) with status='ignored' and substatus 'archived_forever', 'archived_until_escalating', or 'archived_until_condition_met' with statusDetails such as {ignoreDuration=minutes}, {ignoreCount=n, ignoreWindow=minutes} or {ignoreUserCount=n, ignoreUserWindow=minutes}. assignedTo: 'user:<id>', 'team:<id>', a username or an email, or '' to unassign. priority: low, medium or high. hasSeen, isBookmarked and isSubscribed apply to the token's user."},
-	addIssueComment = {method = "POST", path = "/organizations/:org/issues/{issue_id}/comments/", required = {"text"}, fields = {"text"},
+	addIssueComment = {method = "POST", path = "/organizations/:org/issues/{issue_id}/comments/", example = {issue_id = "1001", text = "Fixed in #42"}, required = {"text"}, fields = {"text"},
 		doc = "events/", about = "Comments on an issue in Markdown, {id, type='note', data={text}}; Sentry notifies the issue's subscribers and refuses an identical comment twice. Sentry doesn't document this route."},
 }
 
@@ -135,48 +135,22 @@ local function object(name: string, endpoint: Endpoint, response: HttpResponse, 
 	return value, list
 end
 
--- name({path fields, query fields?, extra fields?, required body fields, ...body}) built from the
--- endpoint itself.
--- Extra fields are options the connector's own request consumes, such as a request header.
-local function signature(endpoint: Endpoint): string
-	local fields: {string} = {}
-	for field in string.gmatch(endpoint.path, "{([%w_]+)}") do table.insert(fields, field) end
-	for _, group in {endpoint.query or NONE, endpoint.extra or NONE} do
-		for _, field in group do
-			table.insert(fields, if table.find(endpoint.required or NONE, field) then field else field .. "?")
-		end
-	end
-	if type(endpoint.body) == "string" then
-		table.insert(fields, endpoint.body)
-	elseif hasBody(endpoint) then
-		for _, field in endpoint.required or NONE do
-			if not table.find(fields, field) then table.insert(fields, field) end
-		end
-		table.insert(fields, "...body")
-	end
-	return "({" .. table.concat(fields, ", ") .. "})"
-end
-
--- A function for each endpoint the connection's access allows, and help listing them after intro.
-local function operations(endpoints: {[string]: Endpoint}, request: (string, Endpoint, Options?) -> any, intro: {string}): {[string]: any}
-	local exports: {[string]: any} = {}
+-- Export and document exactly the operations enabled for this connection.
+local function operations(endpoints: {[string]: Endpoint}, request: (string, Endpoint, Options?) -> any, intro: {string}, documentation: {[string]: any}): {[string]: any}
+	local exports: {[string]: any}, docs: {[string]: any} = {}, {}
+	for name in documentation do assert(endpoints[name], "documentation without endpoint: " .. name) end
 	for name, endpoint in endpoints do
+		assert(documentation[name], "missing documentation for " .. name)
 		if not writes(endpoint) or config.access == "read-write" then
 			exports[name] = function(args: Options?): any return request(name, endpoint, args) end
+			local record = table.clone(documentation[name])
+			record.description = endpoint.about .. " " .. endpoint.method .. " " .. endpoint.path .. ". Reference: " .. DOCS .. endpoint.doc
+				.. (if record.description then "\n\n" .. record.description else "")
+			if record.annotations == nil then record.annotations = {readOnlyHint = not writes(endpoint)} end
+			docs[name] = record
 		end
 	end
-	exports.help = function(): string
-		local names: {string} = {}
-		for name in exports do if name ~= "help" then table.insert(names, name) end end
-		table.sort(names)
-		local lines = table.clone(intro)
-		table.insert(lines, "Each function below names its route and reference page, " .. DOCS .. "<page>.")
-		for _, name in names do
-			local endpoint = endpoints[name]
-			table.insert(lines, name .. signature(endpoint) .. ": " .. endpoint.about .. " " .. endpoint.method .. " " .. endpoint.path .. " (" .. endpoint.doc .. ")")
-		end
-		return table.concat(lines, "\n")
-	end
+	exports.help = {text = table.concat(intro, "\n\n"), functions = docs}
 	return exports
 end
 -- End of the shared request layer.
@@ -450,9 +424,9 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 end
 
 local intro = {
-	"Sentry REST API v0 on " .. API .. ", for the organization " .. ORG .. ". Every function takes one named options object with Sentry's native names; ? marks optional fields and ...body the JSON body fields. Results are Sentry's JSON unchanged, except as noted. Connector calls return completed values: use them directly, without await.",
+	"Sentry REST API v0 on " .. API .. ", for the organization " .. ORG .. ". Every function takes one named options object with Sentry's native names. Lists are wrapped with pagination, project details retain public fields, and events are trimmed as described in help('events'). Connector calls return completed values: use them directly, without await.",
 	"Routes are relative to " .. API .. " and :org is the connection's organization. Project, team and issue ids are numeric strings; projects also take their slug and issues their short id, such as WEB-1A. Release versions are strings such as 'web@1.2.0'. Times are ISO 8601.",
-	"Lists return one page, {results, next, hits?}: while next is not null, pass it as cursor for the next page. per_page (or limit for issues) is at most 100.",
+	"Lists return one page, {results, next, hits?}: while type(page.next) == 'string', pass page.next as cursor with the same filters for the next page. JSON null is truthy in Luau. per_page (or limit for issues) is at most 100; full issue events are capped at 10. hits, when present, is the provider's total match count.",
 	"Events are trimmed to fit a call: each stack trace keeps its " .. MAX_FRAMES .. " innermost frames (the last ones) and up to " .. MAX_IN_APP .. " more in-app frames, with " .. MAX_CONTEXT .. " source lines around each, exceptions the first (the root cause) and the last " .. MAX_EXCEPTIONS - 1 .. " of a chain, breadcrumbs the latest " .. MAX_BREADCRUMBS .. ", spans the first " .. MAX_SPANS .. ", and only the crashed or current thread (else the first) keeps a stack trace; raw stack traces, debug images and Sentry's _meta are dropped and strings stop at " .. MAX_STRING .. " bytes. houstonTrimmed counts what was left out, by kind. Read the stack trace in entries[type='exception'].data.values[i].stacktrace.frames (filename, function, lineNo, inApp, context, vars) and breadcrumbs in entries[type='breadcrumbs'].data.values (timestamp, category, message, level, data). Responses over " .. MAX_EVENT_BYTES // (1024 * 1024) .. " MiB fail.",
 	"Examples: local page = sentry.listIssues({query='is:unresolved level:error', project='web', statsPeriod='24h', limit=10}); local issue = page.results[1]; local e = sentry.getIssueEvent({issue_id=issue.id, event_id='recommended'}); sentry.listReleases({project='web', health='1', per_page=5}).",
 	"The token's scopes and your Sentry role still apply: an HTTP 403 means a missing scope or role, and organization auth tokens (sntrys_...) reach releases only. Sentry limits requests per caller and endpoint over short windows; Houston retries an HTTP 429 twice, then reports when the limit resets. Errors report the HTTP status and Sentry's detail.",
@@ -463,4 +437,97 @@ else
 	table.insert(intro, "This read-only connection omits writes.")
 end
 
-return operations(endpoints, request, intro)
+local text: any = {type = "string"}
+local nullableText: any = {type = {"string", "null"}}
+local boolean: any = {type = "boolean"}
+local flag: any = {enum = {"0" :: any, "1", 0, 1}, description = "0 disables; 1 enables."}
+local pathValue: any = {anyOf = {({type = "string", minLength = 1, pattern = "^[^/\\\\%\\x00-\\x1f\\x7f]+$"} :: any), {type = "integer"}},
+	description = "Sentry ID, slug or version, sent as one URL path segment. Strings preserve large IDs. Dot segments, separators and their Unicode look-alikes, control/invisible characters and percent-encoded values are rejected."}
+local function repeated(item: any): any
+	return {anyOf = {item, {type = "array", minItems = 1, items = item}}, description = "One value or a nonempty array, sent as repeated query parameters."}
+end
+local function choices(values: {string}): any return {type = "string", enum = values} end
+local healthPeriod = choices({"1h", "24h", "1d", "48h", "2d", "7d", "14d", "30d", "90d"})
+local fields: {[string]: any} = {
+	owner = boolean, query = {type = "string", description = "Sentry search expression. Empty query lists all issues; omission uses the provider's default query."},
+	sortBy = {type = "string", description = "Descending organization sort: members or events (last 24 hours); omit for creation-date order."}, cursor = {type = "string", description = "Opaque page.next from the previous response."},
+	per_page = {type = "integer", minimum = 1, maximum = 100}, limit = {type = "integer", minimum = 1, maximum = 100}, detailed = flag,
+	project = repeated({type = {"string", "integer"}}), environment = repeated(text),
+	statsPeriod = {type = "string", pattern = "^[0-9]+[dhmsw]$", description = "Relative time window, such as 24h; overrides start/end."},
+	start = {type = "string", description = "ISO 8601 start; use with end for an absolute time window."},
+	["end"] = {type = "string", description = "ISO 8601 end of the absolute time window."},
+	shortIdLookup = flag, groupStatsPeriod = choices({"14d", "24h", "auto"}), viewId = {type = {"string", "integer"}},
+	expand = repeated(text), collapse = repeated(text), full = {type = "boolean", default = false}, sample = {type = "boolean", default = false},
+	health = flag, healthStat = text, healthStatsPeriod = healthPeriod, summaryStatsPeriod = healthPeriod,
+	adoptionStages = repeated(text), flatten = flag,
+	field = repeated({type = "string", pattern = "^(?:sum\\(session\\)|count_unique\\(user\\)|crash_(?:free_)?rate\\((?:session|user)\\)|(?:avg|p50|p75|p90|p95|p99|max)\\(session\\.duration\\))$",
+		description = "Session aggregate. Duration recording stopped in 2023; duration aggregates may be incomplete."}),
+	groupBy = repeated(choices({"project", "release", "environment", "session.status"})),
+	interval = {type = "string", description = "Time-series bucket, at least 1 hour and at most 1 day; must divide one day exactly. Default 1h."},
+	orderBy = {type = "string", description = "One aggregate present in field, prefixed with - for descending order."}, includeTotals = flag, includeSeries = flag,
+	statusDetails = {type = "object", properties = {
+		inNextRelease = boolean, inRelease = {type = "string", description = "Release version or latest."},
+		inCommit = {type = "object", properties = {commit = text, repository = text}, required = {"commit", "repository"}},
+		ignoreDuration = {type = "integer", minimum = 0, description = "Minutes to ignore."},
+		ignoreCount = {type = "integer", minimum = 0}, ignoreWindow = {type = "integer", minimum = 0, maximum = 10080, description = "Minutes over which to count events."},
+		ignoreUserCount = {type = "integer", minimum = 0}, ignoreUserWindow = {type = "integer", minimum = 0, maximum = 10080, description = "Minutes over which to count affected users."},
+	}, description = "Resolution or archive condition. Send only the fields to change; nested provider extensions pass through."},
+	substatus = choices({"archived_forever", "archived_until_escalating", "archived_until_condition_met", "escalating", "ongoing", "regressed", "new"}),
+	assignedTo = {type = {"string", "null"}, description = "user:<id>, team:<id>, username or email; empty string unassigns."},
+	priority = choices({"low", "medium", "high"}), hasSeen = boolean, isBookmarked = boolean, isSubscribed = boolean, inbox = boolean,
+	text = {type = "string", minLength = 1, description = "Markdown comment. Subscribers are notified; identical duplicate comments are rejected."},
+}
+local result: any = {type = "object", properties = {id = {type = {"string", "integer"}}, slug = text, name = text, title = text, status = text}}
+local eventResult: any = {type = "object", properties = {id = text, eventID = text, groupID = text, title = text, message = text,
+	nextEventID = nullableText, previousEventID = nullableText, entries = {type = "array", items = {type = "object"}},
+	houstonTrimmed = {type = "object", additionalProperties = {type = "integer", minimum = 1}}}}
+local docs: {[string]: any} = {}
+for name, endpoint in endpoints do
+	local properties: {[string]: any}, required: {string} = {}, {}
+	for field in string.gmatch(endpoint.path, "{([%w_]+)}") do
+		properties[field] = pathValue
+		table.insert(required, field)
+	end
+	for _, group in {endpoint.query or NONE, endpoint.fields or NONE} do
+		for _, field in group do
+			if field == "sort" then
+				properties[field] = if name == "listIssues" then choices({"date", "new", "freq", "user", "trends", "inbox", "recommended"})
+					else choices({"date", "semver", "build", "adoption", "crash_free_sessions", "crash_free_users", "sessions", "users"})
+			elseif field == "status" then
+				properties[field] = if name == "updateIssue" then choices({"resolved", "unresolved", "ignored", "resolvedInNextRelease", "muted"}) else choices({"open", "archived"})
+			else
+				assert(fields[field], "missing field schema: " .. field)
+				properties[field] = fields[field]
+			end
+		end
+	end
+	for _, field in endpoint.required or NONE do table.insert(required, field) end
+	if name == "getIssue" or name == "listIssues" then
+		properties.expand = repeated(choices(if name == "getIssue" then {"forecast", "inbox", "integrationIssues", "latestEventHasAttachments", "owners", "sentryAppIssues"}
+			else {"inbox", "integrationIssues", "latestEventHasAttachments", "owners", "sentryAppIssues", "sessions"}))
+		properties.collapse = repeated(choices(if name == "getIssue" then {"release", "stats", "tags"} else {"base", "filtered", "lifetime", "stats", "unhandled"}))
+	end
+	if name == "getEvent" or name == "getIssueEvent" then
+		properties.event_id = {type = "string", pattern = if name == "getIssueEvent" then "^(?:[A-Fa-f0-9]{32}|latest|oldest|recommended)$" else "^[A-Fa-f0-9]{32}$"}
+		properties.collapse = {anyOf = {text, {type = "array", minItems = 1, items = text}}, description = "adjacentEvents skips neighboring-event lookup. Unknown values are ignored by Sentry."}
+	end
+	local input: any = {type = "object", properties = properties, required = if #required > 0 then required else nil, additionalProperties = false, examples = {endpoint.example}}
+	local output: any = result
+	if endpoint.shape == "event" then
+		output = eventResult
+	elseif endpoint.shape == "list" or endpoint.shape == "events" then
+		output = {type = "object", properties = {results = {type = "array", items = if endpoint.shape == "events" then eventResult else result}, next = nullableText,
+			hits = {type = "number"}}, required = {"results", "next"}, additionalProperties = false}
+	elseif name == "getSessions" then
+		output = {type = "object", properties = {start = text, ["end"] = text, intervals = {type = "array", items = text},
+			groups = {type = "array", items = {type = "object", properties = {by = {type = "object"}, totals = {type = "object"}, series = {type = "object"}}}}}}
+	end
+	if name == "listIssueEvents" then input.description = "With full=true the provider caps per_page at 10. Responses over 4 MiB fail; request fewer events." end
+	if name == "getSessions" then input.description = "At most 10,000 data points. Reduce statsPeriod or groupBy cardinality for more complete series." end
+	docs[name] = {inputSchema = input, outputSchema = output, annotations = {readOnlyHint = not writes(endpoint), idempotentHint = endpoint.method ~= "POST"}}
+end
+local exports = operations(endpoints, request, {intro[1], intro[7]}, docs)
+local help = exports.help
+help.sections = {identifiers = intro[2], paging = intro[3], events = intro[4], workflow = intro[5], errors = intro[6]}
+exports.help = help
+return exports

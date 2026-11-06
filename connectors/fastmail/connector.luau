@@ -1006,19 +1006,17 @@ local operationHelp: {[string]: string} = {
 	trashMessage = [==[trashMessage(id) -> {id}. Moves a single message to Trash; does not permanently destroy. ID accepts a string or {id}.]==],
 }
 
-function functions.help(): string
-	local names: {string} = {}
-	for name in (functions :: {[string]: any}) do
-		if name ~= "help" then names[#names + 1] = name end
-	end
-	table.sort(names)
-	local sections = {"fastmail: configured connection help. Operations are synchronous: they return completed results or raise errors; no wait call is needed. Credentials stay on Houston. Use only the functions listed below. Provider scopes are enforced by real calls; help makes no network requests."}
-	for _, name in names do
-		local text = operationHelp[name]
-		assert(text, "missing help for configured function " .. name)
-		sections[#sections + 1] = text
-	end
-	return table.concat(sections, "\n\n")
+function functions.help(): any
+	return {
+		text = "Fastmail operations return completed results or raise errors; no wait call is needed. Credentials stay on Houston. Provider scopes are enforced by real calls; help makes no network requests. Named options and established positional forms are both supported; the function examples show the exact call forms.",
+		functions = require("lib/help.luau")(operationHelp, functions, BATCH_SIZE, DEFAULT_BODY_BYTES, DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE),
+		sections = {
+			paging = "listMessages and listThreads return one page. Keep filters unchanged and pass nextPageToken as pageToken until nextPageToken is absent, including a possibly empty final page. Arrays of filters combine with AND. Spam and Trash are excluded unless selected explicitly or includeSpamTrash=true.",
+			bodies = "getMessage, getMessages and getThread accept bodyFormat auto, text or html. Auto selects nonblank text-preferred rendering, then HTML-preferred rendering, then preview; renderings may mix MIME types. Explicit text/html preserves whitespace and returns empty text when that MIME type is missing. The per-part cap defaults to 64 KiB; maxBodyValueBytes=0 disables it. bodyTruncated flags truncation. Read smaller batches/bodies when the proxy response is too large.",
+			files = "Attachment downloads stream into private session files and return signed Houston URLs. Default paths use attachments/<encoded-message-id>/<encoded-attachment-id>. URLs expire; files remain scoped to the caller and execution workspace. Sending attachments uploads existing session paths; no inline base64 is accepted.",
+			writes = "Read-only connections omit write operations. Email submission scope is required to send or reply, but not for marking read/unread or moving messages. Batch mutations process at most 50 IDs per request and may partially complete. Sends create a draft before submitting it. After an ambiguous failure, inspect existing messages, Drafts and Sent before retrying; never automatically replay a partial write.",
+		},
+	}
 end
 
 if config.access == "read-write" then

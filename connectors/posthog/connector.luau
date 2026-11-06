@@ -325,28 +325,13 @@ for name, spec in lists do
 	end
 end
 
-function functions.help(): string
-	local sections = {"PostHog (" .. string.sub(API, 9) .. "): read-only access to the organizations, projects, events, persons, insights and feature flags this personal API key can read, and HogQL queries. Credentials stay on Houston. Calls return completed values; do not wrap them in await(). Results keep PostHog's field names. Invalid input and unknown options fail before any request.",
+local overview = {"PostHog (" .. string.sub(API, 9) .. "): read-only access to the organizations, projects, events, persons, insights and feature flags this personal API key can read, and HogQL queries. Credentials stay on Houston. Calls return completed values; do not wrap them in await(). Results keep PostHog's field names. Invalid input and unknown options fail before any request.",
 		"project is a numeric project id (from listProjects, or the number after /project/ in PostHog's address) or \"@current\", the project last opened in PostHog.",
 		"Lists take opts.limit (default " .. tostring(DEFAULT_LIMIT) .. ", at most " .. tostring(MAX_LIMIT) .. " rows) and return `{results, next, count?}`; a call follows PostHog's pages until it has limit rows, making at most " .. tostring(#PAGE_TIMES) .. " requests; when the second fails, the first page comes back with its next link. While next is not null, pass `{next = page.next, limit?}` to continue (for listProjects, with the same organization): next keeps the other options, and a link from another list, project or organization is refused. Rows are compact; created_by is `{id, first_name, last_name, email}`.",
 		"Errors carry the HTTP status, PostHog's code and detail. HTTP 403 usually means the key lacks the function's read scope, or is limited to other projects; keys limited to projects cannot list organizations or projects. HTTP 429 and 5xx are retryable. PostHog allows a personal API key 240 analytics requests a minute and 1,200 an hour (events, persons, insights), and queries draw on the project's hourly read budget (HTTP 429 api_queries_budget_exceeded): make few calls with filters rather than many. Each call reads at most " .. tostring(MAX_BYTES // 1048576) .. " MiB in all and gives PostHog " .. tostring((QUERY_TIME[1] + QUERY_TIME[2]) // 1000) .. " s in all; a call that runs out of time fails as retryable."}
-	local names: {string} = {}
-	for name in lists do table.insert(names, name) end
-	table.sort(names)
-	for _, name in names do
-		local spec = lists[name]
-		local signature = if string.find(spec.path, "{project}", 1, true) then "(project, opts?)" else "(opts?)"
-		local fields: {string} = {}
-		for field in spec.query do table.insert(fields, field) end
-		if name == "listProjects" then table.insert(fields, "organization") end
-		table.sort(fields)
-		table.insert(fields, "limit")
-		table.insert(fields, "next")
-		table.insert(sections, "## " .. name .. signature .. "\n\nGET " .. spec.path .. ". " .. spec.about .. " opts: " .. table.concat(fields, ", ") .. ".")
-	end
-	table.insert(sections, "## getInsight(project, id, opts?)\n\nGET /api/projects/{project}/insights/{id}/. One insight by numeric id or 8-character short_id (the code in its PostHog address): `{id, short_id, name, derived_name, description, query, result, columns, types, hasMore, timezone, last_refresh, is_cached, query_status, saved, favorited, tags, created_at, created_by, last_modified_at}`; result holds the calculated data. opts.refresh: \"force_cache\" (default, never calculates; result is null when nothing is cached) or \"blocking\" (calculates unless fresh results exist, drawing on the read budget). Needs insight:read.")
-	table.insert(sections, "## query(project, hogql, opts?)\n\nPOST /api/projects/{project}/query/ with kind HogQLQuery: one HogQL (PostHog SQL) SELECT, run synchronously. Returns `{columns, types, results, hasMore, truncated}`: results is an array of rows, each an array in columns order. PostHog returns 100 rows unless the query has its own LIMIT; this connector keeps at most " .. tostring(MAX_ROWS) .. " rows (truncated = true when it cut more). opts.values maps `{placeholder}` names in the query to values, for example `query(p, \"select count() from events where event = {name}\", {values = {name = \"$pageview\"}})`; opts.name labels the query in PostHog's query_log (default \"houston\"). Tables include events (event, timestamp, distinct_id, properties.$browser, person.properties.email), persons, sessions and groups. Always filter on timestamp and aggregate in SQL; this is for analysis, not exports, and OFFSET is refused for API keys: page on timestamp instead. Queries run for at most 10 s. Needs query:read.")
-	table.insert(sections, [[## Example
+local insightDescription = "Read a saved insight and its calculated or cached results. GET /api/projects/{project}/insights/{id}/. One insight by numeric id or 8-character short_id (the code in its PostHog address): `{id, short_id, name, derived_name, description, query, result, columns, types, hasMore, timezone, last_refresh, is_cached, query_status, saved, favorited, tags, created_at, created_by, last_modified_at}`; result holds the calculated data. opts.refresh: \"force_cache\" (default, never calculates; result is null when nothing is cached) or \"blocking\" (calculates unless fresh results exist, drawing on the read budget). Needs insight:read."
+local queryDescription = "Run one synchronous HogQL SELECT for analysis. POST /api/projects/{project}/query/ with kind HogQLQuery: one HogQL (PostHog SQL) SELECT, run synchronously. Returns `{columns, types, results, hasMore, truncated}`: results is an array of rows, each an array in columns order. PostHog returns 100 rows unless the query has its own LIMIT; this connector keeps at most " .. tostring(MAX_ROWS) .. " rows (truncated = true when it cut more). opts.values maps `{placeholder}` names in the query to values, for example `query(p, \"select count() from events where event = {name}\", {values = {name = \"$pageview\"}})`; opts.name labels the query in PostHog's query_log (default \"houston\"). Tables include events (event, timestamp, distinct_id, properties.$browser, person.properties.email), persons, sessions and groups. Always filter on timestamp and aggregate in SQL; this is for analysis, not exports, and OFFSET is refused for API keys: page on timestamp instead. Queries run for at most 10 s. Needs query:read."
+local workflow = [[## Example
 
 Here posthog is the configured PostHog connection.
 
@@ -363,8 +348,64 @@ if type(events.next) == "string" then
 end
 ```
 
-Reference: https://posthog.com/docs/api and https://posthog.com/docs/sql]])
-	return table.concat(sections, "\n\n")
+Reference: https://posthog.com/docs/api and https://posthog.com/docs/sql]]
+local numberID = {anyOf = {{type = "integer", minimum = 1, maximum = 999999999999999} :: any, {type = "string", pattern = "^[1-9][0-9]{0,14}$"}}}
+local projectSchema = {anyOf = {numberID :: any, {const = "@current"}}}
+local scalar = {type = {"string", "number", "boolean"}}
+local filter = {type = "object", required = {"key"}, properties = {
+	key = {type = "string", minLength = 1}, type = {type = "string", description = "Native filter scope, commonly event, person, cohort or group. Unsupported scopes are rejected by PostHog."},
+	operator = {type = "string", default = "exact", description = "Native comparison operator; for example exact, is_not, icontains, regex, gt, gte, lt, lte, is_set or is_not_set. Presence checks need no value."},
+	value = {anyOf = {scalar :: any, {type = "null"}, {type = "array", items = scalar}}},
+	group_type_index = {type = {"integer", "null"}, minimum = 0}, label = {type = "string"}},
+	["if"] = {required = {"type"}, properties = {type = {const = "cohort"}}},
+	["then"] = {required = {"value"}, properties = {key = {const = "id"}, value = {type = "integer"}}},
+	additionalProperties = true}
+local annotations = {readOnlyHint = true, destructiveHint = false, idempotentHint = true}
+local pageOutput = {type = "object", properties = {results = {type = "array", items = {}}, next = {type = {"string", "null"}}, count = {type = "number"}}, required = {"results", "next"}, additionalProperties = false}
+local examples = {
+	listOrganizations = {}, listProjects = {},
+	listEvents = {project = 12345, opts = {event = "$pageview", after = "2026-10-29T00:00:00Z", before = "2026-10-30T00:00:00Z", distinct_id = "d1", person_id = "00000000-0000-4000-8000-000000000001", properties = {{key = "$browser", value = "Firefox", operator = "exact", type = "event"}}, include_person = true, limit = 2}},
+	listPersons = {project = 12345, opts = {search = "ana", email = "ana@example.com", distinct_id = "d1", properties = {{key = "plan", value = "pro", type = "person"}}, limit = 1}},
+	listInsights = {project = 12345, opts = {search = "signup", saved = true, insight = "TRENDS"}},
+	listFeatureFlags = {project = 12345, opts = {active = true, search = "nav", key = "new-nav", type = "boolean", limit = 50}},
+}
+local docs: {[string]: any} = {}
+for name, spec in lists do
+	local optsProperties: {[string]: any} = {
+		limit = {type = "integer", minimum = 1, maximum = MAX_LIMIT, default = DEFAULT_LIMIT, description = "Maximum rows to collect across at most two provider requests."},
+		next = {type = "string", minLength = 1, maxLength = 8192, description = "The previous result's next link for this exact list and project/organization. Keeps its filters; combine only with limit (and the same organization for listProjects)."},
+	}
+	local forbidden: {[string]: any} = {}
+	for field, kind in spec.query do
+		if type(kind) == "table" then
+			local values: {any} = {}
+			for _, value in kind do table.insert(values, value); if value == "true" then table.insert(values, true) elseif value == "false" then table.insert(values, false) end end
+			optsProperties[field] = {enum = values}
+		elseif kind == "filters" then optsProperties[field] = {type = "array", minItems = 1, items = filter, description = "PostHog property filters, encoded as one JSON query parameter. See https://posthog.com/docs/api/persons."}
+		else optsProperties[field] = {anyOf = {{type = "string", pattern = "\\S", maxLength = 1000} :: any, {type = "number", exclusiveMinimum = -(2^53), exclusiveMaximum = 2^53}}, description = "Nonempty text, at most 1000 UTF-8 bytes; finite numbers are formatted as text."} end
+		forbidden[field] = false
+	end
+	if name == "listProjects" then optsProperties.organization = {anyOf = {{const = "@current"} :: any, {type = "string", format = "uuid"}}, default = "@current"} end
+	local opts: any = {type = "object", properties = optsProperties, additionalProperties = false}
+	if next(forbidden) then opts["if"] = {required = {"next"}}; opts["then"] = {properties = forbidden} end
+	local hasProject = string.find(spec.path, "{project}", 1, true) ~= nil
+	local properties: {[string]: any} = {opts = opts}
+	if hasProject then properties.project = projectSchema end
+	local input: any = {type = "object", properties = properties, additionalProperties = false, examples = {examples[name]}}
+	if hasProject then input.required = {"project"} end
+	docs[name] = {description = spec.about .. " GET " .. spec.path .. ". Returns compact rows in {results, next, count?}. See help('paging') for two-request and continuation behavior.",
+		args = if hasProject then {"project", "opts"} else {"opts"}, inputSchema = input, outputSchema = pageOutput, annotations = annotations}
 end
-
+local function optionsSchema(properties: any): any return {type = "object", properties = properties, additionalProperties = false} end
+docs.getInsight = {description = insightDescription, args = {"project", "id", "opts"}, annotations = annotations,
+	inputSchema = {type = "object", properties = {project = projectSchema, id = {anyOf = {numberID :: any, {type = "string", pattern = "^[A-Za-z0-9]{8}$"}}},
+	opts = optionsSchema({refresh = {type = "string", enum = REFRESH, default = "force_cache"}})}, required = {"project", "id"}, additionalProperties = false, examples = {{project = 12345, id = 7}}}}
+docs.query = {description = queryDescription, args = {"project", "hogql", "opts"}, annotations = annotations,
+	inputSchema = {type = "object", properties = {project = projectSchema,
+	hogql = {type = "string", pattern = "\\S", maxLength = MAX_HOGQL, description = "One HogQL SELECT, at most 32 KiB in UTF-8. Use time filters and LIMIT; placeholders use {name}. PostHog validates the SQL and forbids OFFSET for API keys."},
+	opts = optionsSchema({values = {type = "object", additionalProperties = true, description = "Placeholder names mapped to native JSON values; the query determines the required names and types."}, name = {type = "string", maxLength = 128, default = "houston"}})},
+	required = {"project", "hogql"}, additionalProperties = false,
+	examples = {{project = 12345, hogql = "select toDate(timestamp) as day, count() as pageviews from events where event = {name} and timestamp > now() - interval 7 day group by day", opts = {values = {name = "$pageview"}, name = "daily pageviews"}}}},
+	outputSchema = {type = "object", properties = {columns = {type = "array", items = {type = "string"}}, types = {type = "array", items = {}}, results = {type = "array", items = {type = "array", items = {}}}, hasMore = {type = "boolean"}, truncated = {type = "boolean"}}, required = {"results", "truncated"}, additionalProperties = false}}
+functions.help = {text = table.concat(overview, "\n\n"), functions = docs, sections = {paging = overview[3], limits = overview[4], workflow = workflow}}
 return functions

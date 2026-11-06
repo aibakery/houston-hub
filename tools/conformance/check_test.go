@@ -155,8 +155,11 @@ func TestConfiguredLuaHelpIsOfflineAndMatchesExports(t *testing.T) {
 		var result struct {
 			Type    string   `json:"type"`
 			Exports []string `json:"exports"`
-			Help    string   `json:"help"`
-			Returns []any    `json:"returns"`
+			Help    struct {
+				Text     string            `json:"text"`
+				Sections map[string]string `json:"sections"`
+			} `json:"help"`
+			Returns []any `json:"returns"`
 		}
 		input := map[string]any{"files": m.Files, "modules": map[string]string{"main.lua": source}, "config": resolved.PublicConfig, "protocol": "http", "args": []any{}}
 		if err = call(context.Background(), fixtureHost(t), "connector-host", input, &result); err != nil {
@@ -166,7 +169,7 @@ func TestConfiguredLuaHelpIsOfflineAndMatchesExports(t *testing.T) {
 		if access == "read-write" {
 			want += " write()"
 		}
-		if result.Help != want || strings.Contains(strings.Join(result.Exports, " "), "help") {
+		if result.Help.Text != want || strings.Contains(strings.Join(result.Exports, " "), "help") {
 			t.Fatalf("%s result %+v", access, result)
 		}
 	}
@@ -194,5 +197,43 @@ func TestFixturesResolveDatabaseConnectionsAndExpectedSettingsErrors(t *testing.
 		if want == "" && err != nil || want != "" && (err == nil || !strings.Contains(err.Error(), want)) {
 			t.Fatalf("%s: want %q, got %v", fixture, want, err)
 		}
+	}
+}
+
+func TestStructuredCatalogPolicyPreservesPublicationCompatibility(t *testing.T) {
+	m, err := manifest.Parse([]byte(`{"schema_version":1,"name":"Notebook","files":["main.lua"],"proxy":[{"match":{"protocol":"http","host":["example.com"]},"action":{}}]}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	binary := fixtureHost(t)
+	fixtures := map[string]string{"read.lua": `return {scenario={},run=function(c) assert(c.read().id=="note-example") end}`}
+	for _, help := range []string{`"Full legacy reference."`, `{text="Full legacy reference."}`, `function() return "Full legacy reference." end`, `function() return {text="Full legacy reference."} end`} {
+		modules := map[string]string{"main.lua": `return {read=function() return {id="note-example"} end,help=` + help + `}`}
+		if err := Check(context.Background(), binary, *m, modules, fixtures); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := CheckCatalog(context.Background(), binary, *m, modules, fixtures); err == nil || !strings.Contains(err.Error(), "structured help.functions") {
+			t.Fatalf("catalog accepted text-only source: %v", err)
+		}
+	}
+	metadata := `{text="Notebook.",functions={read={description="Read one note.",args={},inputSchema={type="object",additionalProperties=false,examples={{}}},outputSchema={type="object",properties={id={type="string"}},required={"id"},additionalProperties=false}}}}`
+	fixtures["read.lua"] = `return {scenario={},run=function() assert(fixture.example("read").id=="note-example") end}`
+	for _, help := range []string{metadata, `function(...) assert(select("#",...)==0); return ` + metadata + ` end`} {
+		modules := map[string]string{"main.lua": `return {read=function() return {id="note-example"} end,help=` + help + `}`}
+		coverage, err := CheckCatalog(context.Background(), binary, *m, modules, fixtures)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(coverage) != 1 || coverage[0].Fixture != "read.lua" || len(coverage[0].Exports) != 1 || coverage[0].Exports[0] != "read" {
+			t.Fatalf("wrong coverage: %+v", coverage)
+		}
+		modules["main.lua"] = strings.Replace(modules["main.lua"], `return {id="note-example"}`, `return {id=42}`, 1)
+		if _, err := CheckCatalog(context.Background(), binary, *m, modules, fixtures); err == nil || !strings.Contains(err.Error(), "help.functions.read.outputSchema") {
+			t.Fatalf("invalid documented output accepted: %v", err)
+		}
+	}
+	modules := map[string]string{"main.lua": `return {read=function() return {} end, help=function() return {text="Notebook",functions={}} end}`}
+	if err := Check(context.Background(), binary, *m, modules, fixtures); err == nil || !strings.Contains(err.Error(), "help.functions.read") {
+		t.Fatalf("missing record diagnostic: %v", err)
 	}
 }

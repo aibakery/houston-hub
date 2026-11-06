@@ -46,35 +46,41 @@ return {
 		payload = '{"notes":[],"hasMore":false,"cursor":null}'
 		local empty = granola.listNotes()
 		assert(last() == API .. "/notes" and json.encode(empty.notes) == "[]" and empty.cursor == NULL)
+		assert(#fixture.example("listNotes").notes == 0)
+		assert(last() == API .. "/notes?created_after=2026-10-01T00%3A00%3A00Z&page_size=30")
 
 		payload = '{"id":"' .. NOTE .. '","title":"Weekly sync","attendees":[],"summary_markdown":"## Decisions","transcript":null,"calendar_event":{"organiser":"ana@example.com","invitees":[{"email":"bo@example.com"}]}}'
 		local note = granola.getNote(NOTE)
 		assert(last() == API .. "/notes/" .. NOTE)
 		assert(note.summary_markdown == "## Decisions" and note.transcript == NULL and json.encode(note.attendees) == "[]")
 		assert(note.calendar_event.invitees[1].email == "bo@example.com")
-		granola.getNote(NOTE, {include = "transcript"})
+		fixture.example("getNote")
 		assert(last() == API .. "/notes/" .. NOTE .. "?include=transcript")
+		assert(fixture.example("getNote", 2).summary_markdown == "## Decisions")
+		assert(last() == API .. "/notes/" .. NOTE)
 		local named = {id = "NOT_1d3tmYTlCICgjy", include = "transcript"}
 		granola.getNote(named)
 		assert(named.id == "NOT_1d3tmYTlCICgjy" and named.include == "transcript", "caller table was modified")
 		assert(last() == API .. "/notes/NOT_1d3tmYTlCICgjy?include=transcript", "IDs are case-insensitive")
 
 		payload = '{"transcript":[{"speaker":{"source":"microphone","attribution":"me"},"text":"Hello","start_time":"2026-10-24T10:00:00Z","end_time":"2026-10-24T10:00:02Z"}],"hasMore":true,"cursor":"t2"}'
-		local lines = granola.getTranscript(NOTE, {page_size = 100})
+		local lines = fixture.example("getTranscript")
 		assert(last() == API .. "/notes/" .. NOTE .. "/transcript?page_size=100")
 		assert(lines.transcript[1].speaker.source == "microphone" and lines.cursor == "t2")
 		payload = '{"transcript":[],"hasMore":false,"cursor":null}'
+		assert(#fixture.example("getTranscript", 2).transcript == 0)
+		assert(last() == API .. "/notes/" .. NOTE .. "/transcript")
 		assert(json.encode(granola.getTranscript({id = NOTE, cursor = "t2"}).transcript) == "[]")
 		assert(last() == API .. "/notes/" .. NOTE .. "/transcript?cursor=t2")
 
 		payload = '{"folders":[{"id":"' .. FOLDER .. '","object":"folder","name":"Customers","parent_folder_id":null,"space_id":"' .. SPACE .. '"}],"hasMore":false,"cursor":null}'
-		local folders = granola.listFolders({page_size = 1})
+		local folders = fixture.example("listFolders")
 		assert(last() == API .. "/folders?page_size=1" and folders.folders[1].parent_folder_id == NULL)
 		payload = '{"folders":[],"hasMore":false,"cursor":null}'
 		assert(json.encode(granola.listFolders().folders) == "[]" and last() == API .. "/folders")
 
 		payload = '{"spaces":[{"id":"' .. SPACE .. '","object":"space","name":"Team"}],"hasMore":false,"cursor":null}'
-		assert(granola.listSpaces().spaces[1].name == "Team" and last() == API .. "/spaces")
+		assert(fixture.example("listSpaces").spaces[1].name == "Team" and last() == API .. "/spaces")
 		payload = '{"spaces":[],"hasMore":false,"cursor":null}'
 		assert(json.encode(granola.listSpaces({cursor = "s2"}).spaces) == "[]" and last() == API .. "/spaces?cursor=s2")
 

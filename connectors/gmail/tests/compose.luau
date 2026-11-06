@@ -46,8 +46,7 @@ return {
 		await(file:close())
 
 		responses = {{body = '{"id":"s1","threadId":"t1","labelIds":["SENT"]}'}}
-		local sent = c.sendMessage({to = {"Ana <ana@example.com>", "bo@example.com"}, subject = "Résumé", text = "Hi Ana", html = "<p>Hi Ana</p>", bcc = "boss@example.com",
-			attachments = {"files/report.bin", {path = "files/report.bin", filename = "naïve.bin", mimeType = "application/x-test"}}})
+		local sent = fixture.example("sendMessage")
 		assert(sent.id == "s1")
 		local req = requests[#requests]
 		assert(req.method == "POST" and req.url == UPLOAD .. "/messages/send?uploadType=multipart", req.url)
@@ -77,7 +76,7 @@ return {
 			{name = "Subject", value = "Plans"}, {name = "Message-ID", value = "<o1@example.com>"}, {name = "References", value = "<o0@example.com>"},
 		}}}
 		responses = {{body = json.encode(original)}, {body = '{"emailAddress":"Me@example.com"}'}, {body = '{"id":"d1","message":{"id":"m","threadId":"t9"}}'}}
-		local draft = c.createDraft({inReplyTo = "o1", replyAll = true, text = "Sounds good", attachments = {}})
+		local draft = fixture.example("createDraft", 2)
 		assert(draft.id == "d1")
 		assert(string.find(requests[#requests - 2].url, API .. "/messages/o1?format=metadata&metadataHeaders=From&metadataHeaders=Reply-To", 1, true), requests[#requests - 2].url)
 		assert(requests[#requests - 1].url == API .. "/profile" and requests[#requests].url == UPLOAD .. "/drafts?uploadType=multipart")
@@ -91,13 +90,13 @@ return {
 
 		original.payload.headers[4] = {name = "Subject", value = "RE: Plans"}
 		responses = {{body = json.encode(original)}, {body = '{"id":"d1"}'}}
-		c.updateDraft({id = "d1", inReplyTo = "o1", html = "<p>Updated</p>"})
+		fixture.example("updateDraft", 2)
 		assert(requests[#requests].method == "PUT" and requests[#requests].url == UPLOAD .. "/drafts/d1?uploadType=multipart")
 		head = entity(select(2, uploaded(requests[#requests])))
 		assert(string.find(head, "Subject: RE: Plans\r\n", 1, true) and not string.find(head, "Cc:", 1, true) and string.find(head, "text/html", 1, true))
 
 		responses = {{body = '{"id":"s2"}'}}
-		c.sendDraft({id = "d1"})
+		fixture.example("sendDraft")
 		assert(requests[#requests].url == API .. "/drafts/send" and json.decode(requests[#requests].body).id == "d1")
 
 		local count = #requests

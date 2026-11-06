@@ -209,40 +209,20 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 	return decode(name, await(http.request({method = endpoint.method, url = API .. path, headers = headers, body = body})))
 end
 
-local function signature(endpoint: Endpoint): string
-	local fields: {string} = {}
-	for field in string.gmatch(endpoint.path, "{([%w_]+)}") do table.insert(fields, field) end
-	if endpoint.signature then
-		table.insert(fields, endpoint.signature)
-	elseif endpoint.method == "GET" or endpoint.method == "DELETE" then
-		table.insert(fields, "...query?")
-	else
-		table.insert(fields, "...fields")
-	end
-	return "({" .. table.concat(fields, ", ") .. "})"
-end
-
--- Reads, plus writes and sensitive reads on read-write connections, and help listing them
--- after intro.
-local function operations(endpoints: {[string]: Endpoint}, call: (string, Endpoint, Options?) -> any, intro: {string}): {[string]: any}
+-- Register the configured surface once; the same selection owns its documentation.
+local function operations(endpoints: {[string]: Endpoint}, call: (string, Endpoint, Options?) -> any, intro: {string}, documentation: any): {[string]: any}
 	local exports: {[string]: any} = {}
+	local configured: {[string]: Endpoint} = {}
 	for name, endpoint in endpoints do
 		if (endpoint.method == "GET" and not endpoint.sensitive) or config.access == "read-write" then
 			exports[name] = function(args: Options?): any return call(name, endpoint, args) end
+			configured[name] = endpoint
 		end
 	end
-	exports.help = function(): string
-		local names: {string} = {}
-		for name in exports do if name ~= "help" then table.insert(names, name) end end
-		table.sort(names)
-		local lines = table.clone(intro)
-		table.insert(lines, "Each function below names its route and its reference page, " .. DOCS .. "<page>/, which lists fields, filters and response shapes.")
-		for _, name in names do
-			local endpoint = endpoints[name]
-			table.insert(lines, name .. signature(endpoint) .. ": " .. endpoint.method .. " " .. endpoint.path .. " (" .. endpoint.doc .. ")")
-		end
-		return table.concat(lines, "\n")
-	end
+	local docs = require("lib/help.luau").build(PROVIDER, DOCS, configured, require("lib/route-schemas.luau"), require("lib/examples.luau"), META_QUERY, documentation)
+	exports.help = {text = table.concat(intro, "\n\n"), functions = docs, sections = {
+		schemas = "Fields follow the provider's public reference-site schema. WordPress/WooCommerce versions and installed extensions can add fields or change availability; the connected site's validation and permissions still apply. Query values are scalars or nonempty scalar arrays. Pass nested objects only in JSON bodies. Unknown provider extension fields are forwarded where this connection permits them.",
+	}}
 	return exports
 end
 -- End of the shared request layer.
@@ -306,4 +286,23 @@ table.insert(intro, (if WRITE
 	else "Access: this connection is read-only. It refuses context='edit', which adds post passwords and users' and commenters' email and IP addresses, Users and comments accept only these options, because searches and email filters match those addresses: users " .. names(USER_OPTIONS) .. "; comments " .. names(COMMENT_OPTIONS) .. ". List authors with listUsers({who='authors'}) and look users up by slug or include.")
 	.. " Plugins, themes, application passwords, user changes and site settings changes are not available. The WordPress user's role still applies: an Author can only publish and edit their own posts, can add tags but not categories, and cannot manage pages or comments; an Editor manages everyone's content and comments. Houston waits and retries HTTP 429 at most twice unless Retry-After asks for more than 5 seconds; nothing else is retried: after a timeout or 5xx, read the item again before repeating a write. A remaining 429 usually comes from the site's host firewall or a security plugin: space calls out. Errors report the HTTP status, WordPress code (such as rest_forbidden or incorrect_password), message, invalid parameters, Retry-After, the Server header and the start of non-JSON bodies; a 401 usually means the application password is wrong or revoked, or the web server drops the Authorization header.")
 
-return operations(endpoints, call, intro)
+local documentation = {
+	uploadMedia = {description = "Stream a session file into the site's media library. The result is the native attachment, including its id and source_url. Other fields travel as scalar query parameters; set nested meta or long descriptions afterwards with updateMedia.",
+		properties = {path = {type = "string", minLength = 1},
+			content_type = {type = "string", pattern = "^[A-Za-z0-9!#$&^_.+\\-]+/[A-Za-z0-9!#$&^_.+\\-]+$",
+				["not"] = {pattern = "^([Mm][Uu][Ll][Tt][Ii][Pp][Aa][Rr][Tt]/|[Aa][Pp][Pp][Ll][Ii][Cc][Aa][Tt][Ii][Oo][Nn]/(.*[Jj][Ss][Oo][Nn]|[Xx]-[Ww][Ww][Ww]-[Ff][Oo][Rr][Mm]-[Uu][Rr][Ll][Ee][Nn][Cc][Oo][Dd][Ee][Dd]$))"},
+				description = "The file MIME type, such as image/jpeg. Multipart, application/x-www-form-urlencoded and application/*json types are refused. Case is normalized to lowercase."},
+			filename = {type = "string", pattern = "^[A-Za-z0-9 _.,()+@=%-]+\\.[A-Za-z0-9]+$", description = "ASCII file name with an extension; defaults to the session path's last component."}, url = false}, required = {"path", "content_type"}},
+	createPost = {description = "Create a post from HTML or block markup. Use status='draft' while preparing content, and categories/tags from their list operations."},
+	createPage = {description = "Create a page from HTML or block markup. Use status='draft' for an unpublished page; parent and menu_order control its hierarchy."},
+	updatePost = {description = "Change the supplied post fields. Read context='edit' for raw block markup before editing content. status='future' with a future date schedules publishing; a past date can publish immediately."},
+	updatePage = {description = "Change the supplied page fields. Read context='edit' for raw block markup before editing; parent and menu_order control hierarchy."},
+	createComment = {description = "Add a comment to post; parent replies to an existing comment. The site's comment permissions and moderation rules apply."},
+	updateComment = {description = "Edit or moderate a comment. status supports approved, hold, spam, unspam, trash and untrash as the site's permissions allow."},
+	search = {description = "Search site resources and return id, title, url, type and subtype references in items. Use a matching get operation for the full resource."},
+	getSettings = {description = "Read site settings, including title, timezone and the administrator email. Requires Read and write connection access and the site's administrator permissions."},
+}
+for _, name in {"deleteMedia", "deleteCategory", "deleteTag"} do
+	documentation[name] = {properties = {force = {const = true}}, required = {"force"}, description = "Permanently delete this resource. It cannot be moved to the trash, so force=true is required."}
+end
+return operations(endpoints, call, intro, documentation)

@@ -21,7 +21,7 @@ return {
 			"read-only exposes only reads: " .. table.concat(names, ","))
 
 		responses = {'{"ok":true,"channels":[],"response_metadata":{"next_cursor":""}}'}
-		local page = slack.listChannels()
+		local page = fixture.example("listChannels")
 		assert(json.encode(page.channels) == "[]" and page.nextCursor == nil)
 		assert(requests[1].method == "GET" and requests[1].body == nil and requests[1].headers == nil, "credentials stay in the proxy")
 		assert(requests[1].url == "https://slack.com/api/users.conversations?exclude_archived=true&types=public_channel%2Cprivate_channel%2Cim%2Cmpim")

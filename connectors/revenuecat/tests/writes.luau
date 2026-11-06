@@ -37,36 +37,36 @@ return {
 		assert(table.concat(names, ",") == "attachPackageProducts,createOffering,createPackage,deletePackage,detachPackageProducts,getApp,getCustomer,getEntitlement,getOffering,getOverviewMetrics,getPackage,getProduct,getPurchase,getSubscription,grantEntitlement,listApps,listCustomerActiveEntitlements,listCustomerPurchases,listCustomerSubscriptions,listCustomers,listEntitlementProducts,listEntitlements,listOfferings,listPackageProducts,listPackages,listProducts,listProjects,listSubscriptionEntitlements,revokeGrantedEntitlement,updateOffering,updatePackage",
 			"wrong read-write surface: " .. table.concat(names, ","))
 
-		status, payload = 201, '{"object":"customer","id":"user-1","active_entitlements":{"object":"list","items":[{"object":"customer.active_entitlement","entitlement_id":"entl1","expires_at":1793143768000}],"next_page":null,"url":"/v2/x"}}'
-		local granted = revenuecat.grantEntitlement({project_id = "proj1ab2c3d4", customer_id = "user-1", entitlement_id = "entl1", expires_at = 1793143768000})
-		sent("POST", P .. "/customers/user-1/actions/grant_entitlement", {entitlement_id = "entl1", expires_at = 1793143768000})
-		assert(string.find(last().body, "\"expires_at\":1793143768000", 1, true), "expires_at must be sent as an integer: " .. last().body)
-		assert(granted.active_entitlements.items[1].expires_at == 1793143768000)
+		status, payload = 201, '{"object":"customer","id":"user-1","active_entitlements":{"object":"list","items":[{"object":"customer.active_entitlement","entitlement_id":"entl1","expires_at":2051222400000}],"next_page":null,"url":"/v2/x"}}'
+		local granted = fixture.example("grantEntitlement")
+		sent("POST", P .. "/customers/user-1/actions/grant_entitlement", {entitlement_id = "entl1", expires_at = 2051222400000})
+		assert(string.find(last().body, "\"expires_at\":2051222400000", 1, true), "expires_at must be sent as an integer: " .. last().body)
+		assert(granted.active_entitlements.items[1].expires_at == 2051222400000)
 		status, payload = 200, '{"object":"customer","id":"user-1","active_entitlements":{"object":"list","items":[],"next_page":null,"url":"/v2/x"}}'
-		local revoked = revenuecat.revokeGrantedEntitlement({project_id = "proj1ab2c3d4", customer_id = "user-1", entitlement_id = "entl1"})
+		local revoked = fixture.example("revokeGrantedEntitlement")
 		sent("POST", P .. "/customers/user-1/actions/revoke_granted_entitlement", {entitlement_id = "entl1"})
 		assert(json.encode(revoked.active_entitlements.items) == "[]")
 
 		status, payload = 201, '{"object":"offering","id":"ofrng1","lookup_key":"spring","is_current":false,"metadata":null}'
-		local created = revenuecat.createOffering({project_id = "proj1ab2c3d4", lookup_key = "spring", display_name = "Spring sale", metadata = {color = "green"}})
+		local created = fixture.example("createOffering")
 		sent("POST", P .. "/offerings", {lookup_key = "spring", display_name = "Spring sale", metadata = {color = "green"}})
 		assert(created.id == "ofrng1" and created.metadata == NULL)
 		status, payload = 200, '{"object":"offering","id":"ofrng1","is_current":true}'
-		assert(revenuecat.updateOffering({project_id = "proj1ab2c3d4", offering_id = "ofrng1", is_current = true}).is_current == true)
+		assert(fixture.example("updateOffering").is_current == true)
 		sent("POST", P .. "/offerings/ofrng1", {is_current = true})
 
 		status, payload = 201, '{"object":"package","id":"pkge1","lookup_key":"$rc_monthly","position":1}'
-		revenuecat.createPackage({project_id = "proj1ab2c3d4", offering_id = "ofrng1", lookup_key = "$rc_monthly", display_name = "Monthly", position = 1})
+		fixture.example("createPackage")
 		sent("POST", P .. "/offerings/ofrng1/packages", {lookup_key = "$rc_monthly", display_name = "Monthly", position = 1})
 		status, payload = 200, '{"object":"package","id":"pkge1","position":2}'
-		revenuecat.updatePackage({project_id = "proj1ab2c3d4", package_id = "pkge1", position = 2})
+		fixture.example("updatePackage")
 		sent("POST", P .. "/packages/pkge1", {position = 2})
-		revenuecat.attachPackageProducts({project_id = "proj1ab2c3d4", package_id = "pkge1", products = {{product_id = "prod1", eligibility_criteria = "all"}}})
+		fixture.example("attachPackageProducts")
 		sent("POST", P .. "/packages/pkge1/actions/attach_products", {products = {{product_id = "prod1", eligibility_criteria = "all"}}})
-		revenuecat.detachPackageProducts({project_id = "proj1ab2c3d4", package_id = "pkge1", product_ids = {"prod1"}})
+		fixture.example("detachPackageProducts")
 		sent("POST", P .. "/packages/pkge1/actions/detach_products", {product_ids = {"prod1"}})
 		payload = '{"object":"package","id":"pkge1","deleted_at":1658399423658}'
-		assert(revenuecat.deletePackage({project_id = "proj1ab2c3d4", package_id = "pkge1"}).deleted_at == 1658399423658)
+		assert(fixture.example("deletePackage").deleted_at == 1658399423658)
 		sent("DELETE", P .. "/packages/pkge1", nil)
 		status, payload = 204, ""
 		assert(revenuecat.deletePackage({project_id = "proj1ab2c3d4", package_id = "pkge2"}).success == true)

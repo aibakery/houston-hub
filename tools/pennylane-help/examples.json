@@ -1,0 +1,1248 @@
+{
+  "createCustomerInvoiceEInvoiceImport": [
+    {
+      "file": "invoice.pdf",
+      "invoice_options": {
+        "customer_id": 12
+      },
+      "send_to_pa": false
+    }
+  ],
+  "createCustomerInvoiceFromQuote": [
+    {
+      "draft": true,
+      "quote_id": 42
+    }
+  ],
+  "createPurchaseRequestImport": [
+    {
+      "currency_amount": "120.00",
+      "currency_amount_before_tax": "100.00",
+      "currency_tax": "20.00",
+      "delivery_address": {
+        "address": "8 rue de la paix",
+        "city": "Paris",
+        "country_alpha2": "FR",
+        "postal_code": "75002"
+      },
+      "file_attachment_id": 42,
+      "purchase_order_number": "PR20230001",
+      "purchase_request_lines": [
+        {
+          "currency_amount": "120.00",
+          "currency_tax": "20.00",
+          "label": "Office monitor",
+          "quantity": 1,
+          "unit": "piece",
+          "unit_price": "100.00",
+          "vat_rate": "FR_200"
+        }
+      ],
+      "reason": "Replace the office monitor",
+      "supplier_id": 42
+    }
+  ],
+  "createSupplierInvoiceEInvoiceImport": [
+    {
+      "file": "invoice.pdf"
+    }
+  ],
+  "createTransaction": [
+    {
+      "amount": "120.00",
+      "bank_account_id": 42,
+      "date": "2026-11-01",
+      "label": "Customer invoice payment"
+    }
+  ],
+  "deleteCustomerContact": [
+    {
+      "customer_id": 42,
+      "id": 42
+    }
+  ],
+  "deleteCustomerInvoiceMatchedTransactions": [
+    {
+      "customer_invoice_id": 42,
+      "id": 42
+    }
+  ],
+  "deleteCustomerInvoices": [
+    {
+      "id": 42
+    }
+  ],
+  "deleteLedgerEntryLinesUnletter": [
+    {
+      "ledger_entry_lines": [
+        {
+          "id": 3455
+        },
+        {
+          "id": 3456
+        }
+      ],
+      "unbalanced_lettering_strategy": "none"
+    }
+  ],
+  "deleteSepaMandate": [
+    {
+      "id": 42
+    }
+  ],
+  "deleteSupplierInvoiceMatchedTransactions": [
+    {
+      "id": 42,
+      "supplier_invoice_id": 42
+    }
+  ],
+  "deleteWebhookSubscription": [
+    {
+      "id": 42
+    }
+  ],
+  "exportAnalyticalGeneralLedger": [
+    {
+      "period_end": "2026-10-31",
+      "period_start": "2026-01-01"
+    }
+  ],
+  "exportFec": [
+    {
+      "period_end": "2026-10-31",
+      "period_start": "2026-01-01"
+    }
+  ],
+  "exportGeneralLedger": [
+    {
+      "period_end": "2026-10-31",
+      "period_start": "2026-01-01"
+    }
+  ],
+  "finalizeCustomerInvoice": [
+    {
+      "id": 42
+    }
+  ],
+  "getAnalyticalGeneralLedgerExport": [
+    {
+      "id": 42
+    }
+  ],
+  "getBankAccount": [
+    {
+      "id": 42
+    }
+  ],
+  "getBankAccounts": [
+    {
+      "limit": 20
+    }
+  ],
+  "getBankEstablishments": [
+    {
+      "limit": 20
+    }
+  ],
+  "getBillingEmailTemplates": [
+    {
+      "limit": 20
+    }
+  ],
+  "getBillingSubscription": [
+    {
+      "id": 42
+    }
+  ],
+  "getBillingSubscriptionInvoiceLineSections": [
+    {
+      "billing_subscription_id": 42,
+      "limit": 20
+    }
+  ],
+  "getBillingSubscriptionInvoiceLines": [
+    {
+      "billing_subscription_id": 42,
+      "limit": 20
+    }
+  ],
+  "getBillingSubscriptions": [
+    {
+      "limit": 20
+    }
+  ],
+  "getCategories": [
+    {
+      "limit": 20
+    }
+  ],
+  "getCategory": [
+    {
+      "id": 42
+    }
+  ],
+  "getCategoryGroup": [
+    {
+      "id": 42
+    }
+  ],
+  "getCategoryGroupCategories": [
+    {
+      "category_group_id": 42,
+      "limit": 20
+    }
+  ],
+  "getCategoryGroups": [
+    {
+      "limit": 20
+    }
+  ],
+  "getCommercialDocument": [
+    {
+      "id": 42
+    }
+  ],
+  "getCommercialDocumentAppendices": [
+    {
+      "commercial_document_id": 42,
+      "limit": 20
+    }
+  ],
+  "getCommercialDocumentInvoiceLineSections": [
+    {
+      "commercial_document_id": 42,
+      "limit": 20
+    }
+  ],
+  "getCommercialDocumentInvoiceLines": [
+    {
+      "commercial_document_id": 42,
+      "limit": 20
+    }
+  ],
+  "getCompanyCustomer": [
+    {
+      "id": 42
+    }
+  ],
+  "getCompanyFeatures": [
+    {}
+  ],
+  "getCustomer": [
+    {
+      "id": 42
+    }
+  ],
+  "getCustomerCategories": [
+    {
+      "customer_id": 42,
+      "limit": 20
+    }
+  ],
+  "getCustomerChanges": [
+    {
+      "limit": 20
+    }
+  ],
+  "getCustomerContact": [
+    {
+      "customer_id": 42,
+      "id": 42
+    }
+  ],
+  "getCustomerContacts": [
+    {
+      "customer_id": 42,
+      "limit": 20
+    }
+  ],
+  "getCustomerElectronicBillingAddresses": [
+    {
+      "customer_id": 42
+    }
+  ],
+  "getCustomerInvoice": [
+    {
+      "id": 42
+    }
+  ],
+  "getCustomerInvoiceAppendices": [
+    {
+      "customer_invoice_id": 42,
+      "limit": 20
+    }
+  ],
+  "getCustomerInvoiceCategories": [
+    {
+      "customer_invoice_id": 42,
+      "limit": 20
+    }
+  ],
+  "getCustomerInvoiceCustomHeaderFields": [
+    {
+      "customer_invoice_id": 42,
+      "limit": 20
+    }
+  ],
+  "getCustomerInvoiceInvoiceLineSections": [
+    {
+      "customer_invoice_id": 42,
+      "limit": 20
+    }
+  ],
+  "getCustomerInvoiceInvoiceLines": [
+    {
+      "customer_invoice_id": 42,
+      "limit": 20
+    }
+  ],
+  "getCustomerInvoiceMatchedTransactions": [
+    {
+      "customer_invoice_id": 42,
+      "limit": 20
+    }
+  ],
+  "getCustomerInvoicePayments": [
+    {
+      "customer_invoice_id": 42,
+      "limit": 20
+    }
+  ],
+  "getCustomerInvoiceTemplates": [
+    {
+      "limit": 20
+    }
+  ],
+  "getCustomerInvoices": [
+    {
+      "filter": [
+        {
+          "field": "date",
+          "operator": "gteq",
+          "value": "2026-11-01"
+        },
+        {
+          "field": "customer_id",
+          "operator": "in",
+          "value": [
+            12,
+            34
+          ]
+        }
+      ],
+      "include": "invoice_lines",
+      "limit": 20,
+      "sort": "-date"
+    },
+    {
+      "filter": "[{\"field\":\"id\",\"operator\":\"eq\",\"value\":42}]",
+      "limit": 20
+    }
+  ],
+  "getCustomerInvoicesChanges": [
+    {
+      "limit": 20
+    }
+  ],
+  "getCustomers": [
+    {
+      "limit": 20
+    }
+  ],
+  "getFecExport": [
+    {
+      "id": 42
+    }
+  ],
+  "getFiscalYears": [
+    {
+      "limit": 20
+    }
+  ],
+  "getGeneralLedgerExport": [
+    {
+      "id": 42
+    }
+  ],
+  "getGocardlessMandate": [
+    {
+      "id": 42
+    }
+  ],
+  "getGocardlessMandates": [
+    {
+      "limit": 20
+    }
+  ],
+  "getIndividualCustomer": [
+    {
+      "id": 42
+    }
+  ],
+  "getJournal": [
+    {
+      "id": 42
+    }
+  ],
+  "getJournals": [
+    {
+      "limit": 20
+    }
+  ],
+  "getLedgerAccount": [
+    {
+      "id": 42
+    }
+  ],
+  "getLedgerAccounts": [
+    {
+      "limit": 20
+    }
+  ],
+  "getLedgerEntries": [
+    {
+      "limit": 20
+    }
+  ],
+  "getLedgerEntriesCategoryChanges": [
+    {
+      "limit": 20
+    }
+  ],
+  "getLedgerEntriesChanges": [
+    {
+      "limit": 20
+    }
+  ],
+  "getLedgerEntriesDmsFiles": [
+    {
+      "ledger_entry_id": 42,
+      "limit": 20
+    }
+  ],
+  "getLedgerEntriesLedgerEntryLines": [
+    {
+      "ledger_entry_id": 42,
+      "limit": 20
+    }
+  ],
+  "getLedgerEntry": [
+    {
+      "id": 42
+    }
+  ],
+  "getLedgerEntryLine": [
+    {
+      "id": 42
+    }
+  ],
+  "getLedgerEntryLineChanges": [
+    {
+      "limit": 20
+    }
+  ],
+  "getLedgerEntryLines": [
+    {
+      "limit": 20
+    }
+  ],
+  "getLedgerEntryLinesCategories": [
+    {
+      "ledger_entry_line_id": 42,
+      "limit": 20
+    }
+  ],
+  "getLedgerEntryLinesCategoryChanges": [
+    {
+      "limit": 20
+    }
+  ],
+  "getLedgerEntryLinesLetteredLedgerEntryLines": [
+    {
+      "ledger_entry_line_id": 42,
+      "limit": 20
+    }
+  ],
+  "getMe": [
+    {}
+  ],
+  "getNumberings": [
+    {
+      "limit": 20
+    }
+  ],
+  "getPaRegistrations": [
+    {}
+  ],
+  "getProAccountMandateMigrations": [
+    {
+      "limit": 20
+    }
+  ],
+  "getProAccountMandates": [
+    {
+      "limit": 20
+    }
+  ],
+  "getProduct": [
+    {
+      "id": 42
+    }
+  ],
+  "getProductChanges": [
+    {
+      "limit": 20
+    }
+  ],
+  "getProducts": [
+    {
+      "limit": 20
+    }
+  ],
+  "getPurchaseRequest": [
+    {
+      "id": 42
+    }
+  ],
+  "getPurchaseRequests": [
+    {
+      "limit": 20
+    }
+  ],
+  "getQuote": [
+    {
+      "id": 42
+    }
+  ],
+  "getQuoteAppendices": [
+    {
+      "limit": 20,
+      "quote_id": 42
+    }
+  ],
+  "getQuoteChanges": [
+    {
+      "limit": 20
+    }
+  ],
+  "getQuoteInvoiceLineSections": [
+    {
+      "limit": 20,
+      "quote_id": 42
+    }
+  ],
+  "getQuoteInvoiceLines": [
+    {
+      "limit": 20,
+      "quote_id": 42
+    }
+  ],
+  "getSepaMandate": [
+    {
+      "id": 42
+    }
+  ],
+  "getSepaMandates": [
+    {
+      "limit": 20
+    }
+  ],
+  "getSupplier": [
+    {
+      "id": 42
+    }
+  ],
+  "getSupplierCategories": [
+    {
+      "limit": 20,
+      "supplier_id": 42
+    }
+  ],
+  "getSupplierChanges": [
+    {
+      "limit": 20
+    }
+  ],
+  "getSupplierInvoice": [
+    {
+      "id": 42
+    }
+  ],
+  "getSupplierInvoiceCategories": [
+    {
+      "limit": 20,
+      "supplier_invoice_id": 42
+    }
+  ],
+  "getSupplierInvoiceLines": [
+    {
+      "limit": 20,
+      "supplier_invoice_id": 42
+    }
+  ],
+  "getSupplierInvoiceMatchedTransactions": [
+    {
+      "limit": 20,
+      "supplier_invoice_id": 42
+    }
+  ],
+  "getSupplierInvoicePayments": [
+    {
+      "limit": 20,
+      "supplier_invoice_id": 42
+    }
+  ],
+  "getSupplierInvoices": [
+    {
+      "limit": 20
+    }
+  ],
+  "getSupplierInvoicesChanges": [
+    {
+      "limit": 20
+    }
+  ],
+  "getSuppliers": [
+    {
+      "limit": 20
+    }
+  ],
+  "getTransaction": [
+    {
+      "id": 42
+    }
+  ],
+  "getTransactionCategories": [
+    {
+      "limit": 20,
+      "transaction_id": 42
+    }
+  ],
+  "getTransactionChanges": [
+    {
+      "limit": 20
+    }
+  ],
+  "getTransactionMatchedInvoices": [
+    {
+      "limit": 20,
+      "transaction_id": 42
+    }
+  ],
+  "getTransactions": [
+    {
+      "limit": 20
+    }
+  ],
+  "getTrialBalance": [
+    {
+      "limit": 20,
+      "period_end": "2026-10-31",
+      "period_start": "2026-01-01"
+    }
+  ],
+  "getWebhookSubscription": [
+    {
+      "id": 42
+    }
+  ],
+  "getWebhookSubscriptions": [
+    {
+      "limit": 20
+    }
+  ],
+  "importCustomerInvoices": [
+    {
+      "currency_amount": "120.00",
+      "currency_amount_before_tax": "100.00",
+      "currency_tax": "20.00",
+      "customer_id": 42,
+      "date": "2026-11-01",
+      "deadline": "2026-11-30",
+      "file_attachment_id": 42,
+      "invoice_lines": [
+        {
+          "currency_amount": "120.00",
+          "currency_tax": "20.00",
+          "label": "Consulting",
+          "quantity": 1,
+          "raw_currency_unit_price": "100.00",
+          "unit": "piece",
+          "vat_rate": "FR_200"
+        }
+      ]
+    }
+  ],
+  "importSupplierInvoice": [
+    {
+      "currency_amount": "120.00",
+      "currency_amount_before_tax": "100.00",
+      "currency_tax": "20.00",
+      "date": "2026-11-01",
+      "deadline": "2026-11-30",
+      "file_attachment_id": 123,
+      "invoice_lines": [
+        {
+          "currency_amount": "120.00",
+          "currency_tax": "20.00",
+          "label": "Consulting",
+          "vat_rate": "FR_200"
+        }
+      ],
+      "supplier_id": 456
+    }
+  ],
+  "linkCreditNote": [
+    {
+      "credit_note_id": 42,
+      "id": 42
+    }
+  ],
+  "listCommercialDocuments": [
+    {
+      "limit": 20
+    }
+  ],
+  "listQuotes": [
+    {
+      "limit": 20
+    }
+  ],
+  "markAsPaidCustomerInvoice": [
+    {
+      "id": 42
+    }
+  ],
+  "postBankAccount": [
+    {
+      "name": "Main Account"
+    }
+  ],
+  "postBillingSubscriptions": [
+    {
+      "customer_id": 42,
+      "customer_invoice_data": {
+        "invoice_lines": [
+          {
+            "label": "Monthly support",
+            "quantity": 1,
+            "raw_currency_unit_price": "100.00",
+            "unit": "piece",
+            "vat_rate": "FR_200"
+          }
+        ]
+      },
+      "label": "Monthly support",
+      "mode": {
+        "type": "awaiting_validation"
+      },
+      "payment_conditions": "upon_receipt",
+      "payment_method": "offline",
+      "recurring_rule": {
+        "day_of_month": 1,
+        "interval": 1,
+        "type": "monthly"
+      },
+      "start": "2026-12-01"
+    }
+  ],
+  "postCategories": [
+    {
+      "category_group_id": 23,
+      "label": "Loyers"
+    }
+  ],
+  "postCategoryGroups": [
+    {
+      "label": "Types de depenses / revenus"
+    }
+  ],
+  "postCommercialDocumentAppendices": [
+    {
+      "commercial_document_id": 42,
+      "file": "invoice.pdf"
+    }
+  ],
+  "postCommercialDocuments": [
+    {
+      "customer_id": 42,
+      "date": "2026-11-01",
+      "deadline": "2026-11-30",
+      "document_type": "proforma",
+      "invoice_lines": [
+        {
+          "product_id": 42,
+          "quantity": 2
+        }
+      ]
+    }
+  ],
+  "postCompanyCustomer": [
+    {
+      "billing_address": {
+        "address": "8 rue de la paix",
+        "city": "Paris",
+        "country_alpha2": "FR",
+        "postal_code": "75002"
+      },
+      "name": "My company"
+    }
+  ],
+  "postCustomer": [
+    {
+      "billing_address": {
+        "address": "8 rue de la paix",
+        "city": "Paris",
+        "country_alpha2": "FR",
+        "postal_code": "75002"
+      },
+      "customer_type": "company",
+      "name": "My company"
+    }
+  ],
+  "postCustomerContact": [
+    {
+      "customer_id": 42,
+      "email": "jane.doe@example.com",
+      "first_name": "Jane",
+      "last_name": "Doe"
+    }
+  ],
+  "postCustomerInvoiceAppendices": [
+    {
+      "customer_invoice_id": 42,
+      "file": "invoice.pdf"
+    }
+  ],
+  "postCustomerInvoiceMatchedTransactions": [
+    {
+      "customer_invoice_id": 42,
+      "transaction_id": 42
+    }
+  ],
+  "postCustomerInvoices": [
+    {
+      "customer_id": 42,
+      "date": "2026-11-01",
+      "deadline": "2026-11-30",
+      "draft": true,
+      "invoice_lines": [
+        {
+          "label": "Consulting",
+          "quantity": 1,
+          "raw_currency_unit_price": "100.00",
+          "unit": "piece",
+          "vat_rate": "FR_200"
+        }
+      ]
+    },
+    {
+      "customer_id": 42,
+      "date": "2026-11-01",
+      "deadline": "2026-11-30",
+      "draft": true,
+      "invoice_lines": [
+        {
+          "product_id": 7,
+          "quantity": 2
+        }
+      ]
+    }
+  ],
+  "postFileAttachments": [
+    {
+      "file": "invoice.pdf"
+    }
+  ],
+  "postGocardlessMandateAssociations": [
+    {
+      "customer_id": 42,
+      "gocardless_mandate_id": 42
+    }
+  ],
+  "postGocardlessMandateCancellations": [
+    {
+      "gocardless_mandate_id": 42
+    }
+  ],
+  "postGocardlessMandateMailRequests": [
+    {
+      "customer_id": 42,
+      "email": {
+        "recipients": [
+          "customer@example.com"
+        ]
+      }
+    }
+  ],
+  "postIndividualCustomer": [
+    {
+      "billing_address": {
+        "address": "8 rue de la paix",
+        "city": "Paris",
+        "country_alpha2": "FR",
+        "postal_code": "75002"
+      },
+      "first_name": "John",
+      "last_name": "Doe"
+    }
+  ],
+  "postJournals": [
+    {
+      "code": "RB",
+      "label": "Journal de Reprise Balance"
+    }
+  ],
+  "postLedgerAccounts": [
+    {
+      "label": "Secondary Account",
+      "number": "512"
+    }
+  ],
+  "postLedgerEntries": [
+    {
+      "date": "2026-11-01",
+      "journal_id": 12,
+      "label": "Invoice payment",
+      "ledger_entry_lines": [
+        {
+          "credit": "0.00",
+          "debit": "120.00",
+          "ledger_account_id": 34
+        },
+        {
+          "credit": "120.00",
+          "debit": "0.00",
+          "ledger_account_id": 35
+        }
+      ]
+    }
+  ],
+  "postLedgerEntryLinesLetter": [
+    {
+      "ledger_entry_lines": [
+        {
+          "id": 3455
+        },
+        {
+          "id": 3456
+        }
+      ],
+      "unbalanced_lettering_strategy": "none"
+    }
+  ],
+  "postProAccountMandateMailRequests": [
+    {
+      "customer_id": 42
+    }
+  ],
+  "postProAccountMandateMigrations": [
+    {
+      "mandate_id": 12345,
+      "mandate_type": "Mandate"
+    }
+  ],
+  "postProducts": [
+    {
+      "label": "Product 1",
+      "price_before_tax": "100.00",
+      "vat_rate": "FR_200"
+    }
+  ],
+  "postQuoteAppendices": [
+    {
+      "file": "invoice.pdf",
+      "quote_id": 42
+    }
+  ],
+  "postQuotes": [
+    {
+      "customer_id": 42,
+      "date": "2026-11-01",
+      "deadline": "2026-11-30",
+      "invoice_lines": [
+        {
+          "product_id": 42,
+          "quantity": 2
+        }
+      ]
+    }
+  ],
+  "postSepaMandates": [
+    {
+      "bic": "BNPAFRPP",
+      "customer_id": 47334785,
+      "iban": "FR3612739000506556687647Z31",
+      "identifier": "K-02-2025-12345",
+      "signed_at": "2025-04-24"
+    }
+  ],
+  "postSupplier": [
+    {
+      "name": "Pennylane"
+    }
+  ],
+  "postSupplierInvoiceLinkedPurchaseRequests": [
+    {
+      "purchase_request_id": 42,
+      "supplier_invoice_id": 42
+    }
+  ],
+  "postSupplierInvoiceMatchedTransactions": [
+    {
+      "supplier_invoice_id": 42,
+      "transaction_id": 42
+    }
+  ],
+  "postWebhookSubscriptions": [
+    {
+      "callback_url": "https://example.com/webhooks",
+      "events": [
+        "dms_file.created",
+        "customer_invoice.e_invoicing_status_updated",
+        "supplier_invoice.e_invoicing_received"
+      ]
+    }
+  ],
+  "putBillingSubscriptions": [
+    {
+      "id": 42,
+      "label": "Updated support plan"
+    }
+  ],
+  "putCategoryGroup": [
+    {
+      "id": 42,
+      "label": "Types de depenses / revenus"
+    }
+  ],
+  "putCompanyCustomer": [
+    {
+      "id": 42,
+      "name": "Example Studio"
+    }
+  ],
+  "putCustomer": [
+    {
+      "id": 42,
+      "notes": "Invoices reviewed by the finance team."
+    }
+  ],
+  "putCustomerCategories": [
+    {
+      "categories": [
+        {
+          "id": 7,
+          "weight": "1"
+        }
+      ],
+      "customer_id": 42
+    }
+  ],
+  "putCustomerContact": [
+    {
+      "customer_id": 42,
+      "id": 42,
+      "role": "Accounting"
+    }
+  ],
+  "putCustomerInvoiceCategories": [
+    {
+      "categories": [
+        {
+          "id": 7,
+          "weight": "1"
+        }
+      ],
+      "customer_invoice_id": 42
+    },
+    {
+      "categories": [],
+      "customer_invoice_id": 42
+    }
+  ],
+  "putIndividualCustomer": [
+    {
+      "first_name": "Jane",
+      "id": 42,
+      "last_name": "Doe"
+    }
+  ],
+  "putLedgerEntries": [
+    {
+      "id": 42,
+      "label": "Invoice payment correction"
+    }
+  ],
+  "putLedgerEntryLinesCategories": [
+    {
+      "categories": [
+        {
+          "id": 7,
+          "weight": "1"
+        }
+      ],
+      "ledger_entry_line_id": 42
+    }
+  ],
+  "putProduct": [
+    {
+      "id": 42,
+      "label": "Monthly support",
+      "price_before_tax": "125.00"
+    }
+  ],
+  "putSepaMandate": [
+    {
+      "id": 42,
+      "sequence_type": "RCUR"
+    }
+  ],
+  "putSupplier": [
+    {
+      "id": 42,
+      "name": "Example Supplier"
+    }
+  ],
+  "putSupplierCategories": [
+    {
+      "categories": [
+        {
+          "id": 7,
+          "weight": "1"
+        }
+      ],
+      "supplier_id": 42
+    }
+  ],
+  "putSupplierInvoice": [
+    {
+      "id": 42,
+      "label": "Office supplies"
+    }
+  ],
+  "putSupplierInvoiceCategories": [
+    {
+      "categories": [
+        {
+          "id": 7,
+          "weight": "1"
+        }
+      ],
+      "supplier_invoice_id": 42
+    }
+  ],
+  "putSupplierInvoiceEInvoiceStatus": [
+    {
+      "reason": "incorrect_vat_rate",
+      "status": "disputed",
+      "supplier_invoice_id": 42
+    }
+  ],
+  "putTransactionCategories": [
+    {
+      "categories": [
+        {
+          "id": 7,
+          "weight": "1"
+        }
+      ],
+      "transaction_id": 42
+    }
+  ],
+  "putWebhookSubscription": [
+    {
+      "enabled": false,
+      "id": 42
+    }
+  ],
+  "sendByEmailCommercialDocument": [
+    {
+      "id": 42,
+      "recipients": [
+        "billing@example.com"
+      ]
+    }
+  ],
+  "sendByEmailCustomerInvoice": [
+    {
+      "id": 42,
+      "recipients": [
+        "billing@example.com"
+      ]
+    }
+  ],
+  "sendByEmailQuote": [
+    {
+      "id": 42,
+      "recipients": [
+        "billing@example.com"
+      ]
+    }
+  ],
+  "sendToPaCustomerInvoice": [
+    {
+      "id": 42
+    }
+  ],
+  "updateCategory": [
+    {
+      "id": 42,
+      "label": "Office equipment"
+    }
+  ],
+  "updateCommercialDocument": [
+    {
+      "id": 42,
+      "pdf_invoice_subject": "Updated proposal"
+    }
+  ],
+  "updateCustomerInvoice": [
+    {
+      "id": 42,
+      "pdf_invoice_subject": "November consulting"
+    }
+  ],
+  "updateImportedCustomerInvoice": [
+    {
+      "deadline": "2026-12-15",
+      "id": 42
+    }
+  ],
+  "updateLedgerAccount": [
+    {
+      "id": 42,
+      "label": "Main bank account",
+      "letterable": true
+    }
+  ],
+  "updateQuote": [
+    {
+      "deadline": "2026-12-15",
+      "id": 42
+    }
+  ],
+  "updateStatusQuote": [
+    {
+      "id": 42,
+      "status": "pending"
+    }
+  ],
+  "updateSupplierInvoicePaymentStatus": [
+    {
+      "payment_status": "paid",
+      "supplier_invoice_id": 42
+    }
+  ],
+  "updateTransaction": [
+    {
+      "customer_id": 42,
+      "id": 42
+    }
+  ],
+  "validateAccountingSupplierInvoice": [
+    {
+      "id": 42
+    }
+  ]
+}

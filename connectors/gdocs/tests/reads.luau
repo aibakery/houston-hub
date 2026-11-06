@@ -45,7 +45,7 @@ return {
 		}}
 		local fields = url.encode("documentId,title,revisionId,tabs(tabProperties,documentTab.body.content(paragraph.elements(textRun.content,person.personProperties,richLink.richLinkProperties,dateElement.dateElementProperties.displayText,dropdown.dropdownProperties.displayValue),table.tableRows.tableCells.content(paragraph.elements(textRun.content,person.personProperties,richLink.richLinkProperties,dateElement.dateElementProperties.displayText,dropdown.dropdownProperties.displayValue),table)),childTabs(tabProperties,documentTab.body.content(paragraph.elements(textRun.content,person.personProperties,richLink.richLinkProperties,dateElement.dateElementProperties.displayText,dropdown.dropdownProperties.displayValue),table.tableRows.tableCells.content(paragraph.elements(textRun.content,person.personProperties,richLink.richLinkProperties,dateElement.dateElementProperties.displayText,dropdown.dropdownProperties.displayValue),table)),childTabs(tabProperties,documentTab.body.content(paragraph.elements(textRun.content,person.personProperties,richLink.richLinkProperties,dateElement.dateElementProperties.displayText,dropdown.dropdownProperties.displayValue),table.tableRows.tableCells.content(paragraph.elements(textRun.content,person.personProperties,richLink.richLinkProperties,dateElement.dateElementProperties.displayText,dropdown.dropdownProperties.displayValue),table)))))")
 		responses = {json.encode(document), json.encode(document), json.encode(document), '{"documentId":"d1","title":"Empty"}'}
-		local all = c.getDocumentText({documentId = "https://docs.google.com/document/d/1DoC_x-9/edit?tab=t.0#heading=h.1"})
+		local all = fixture.example("getDocumentText")
 		assert(requests[1].url == API .. "1DoC_x-9?includeTabsContent=true&suggestionsViewMode=PREVIEW_WITHOUT_SUGGESTIONS&fields=" .. fields, requests[1].url)
 		assert(all.documentId == "1DoC_x-9" and all.title == "Plan" and all.revisionId == "r1" and #all.tabs == 3)
 		assert(all.tabs[1].text == "Plan\nCall Ana on Oct 21, 2026 about Budgetbo@example.com is Done\nLine\nbreak chart\nItem\tCost USD line 2\n\n", all.tabs[1].text)
@@ -61,7 +61,7 @@ return {
 		assert(empty.title == "Empty" and json.encode(empty.tabs) == "[]" and requests[4].url == API .. "d1?includeTabsContent=true&suggestionsViewMode=PREVIEW_WITHOUT_SUGGESTIONS&fields=" .. fields, requests[4].url)
 
 		responses = {json.encode(document), '{"documentId":"d1","title":"Legacy","body":{"content":[]}}', '{"documentId":"d1","comments":[{"commentId":"c1"}]}'}
-		local full = c.getDocument({documentId = "1DoC_x-9"})
+		local full = fixture.example("getDocument")
 		assert(full.tabs[1].childTabs[1].tabProperties.tabId == "t.1" and requests[5].url == API .. "1DoC_x-9?includeTabsContent=true", requests[5].url)
 		local legacy = c.getDocument({documentId = "d1", includeTabsContent = false, fields = "title,body"})
 		assert(legacy.title == "Legacy" and legacy.tabs == nil, "getDocument changed Google's JSON")

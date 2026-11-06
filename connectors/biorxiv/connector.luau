@@ -557,60 +557,72 @@ local function downloadPdf(input: any): Options
 	return {session_path = path, url = await(fs.signedGetUrl(path)), size = await(fs.stat(path)).size, pdf_url = target}
 end
 
-local function help(): string
+local function help()
 	local categories: {string} = {}
+	local categoryRules: {any} = {}
+	local serverNames: {string} = {}
 	for _, key in {"biorxiv", "medrxiv"} do
+		table.insert(serverNames, key)
 		table.insert(categories, "- " .. key .. ": " .. table.concat(SERVERS[key].categories, ", ") .. ".")
+		local patterns: {string} = {}
+		for _, name in SERVERS[key].categories do
+			local pattern = string.gsub(name, "%a", function(letter) return "[" .. letter .. string.upper(letter) .. "]" end)
+			table.insert(patterns, (string.gsub(pattern, " ", "[ _]")))
+		end
+		table.insert(categoryRules, {["if"] = {properties = {server = {const = key}}}, ["then"] = {properties = {category = {pattern = "^(" .. table.concat(patterns, "|") .. ")$"}}}})
 	end
 	local details = tostring(DETAILS_PAGE * MAX_PAGES)
 	local pubs = tostring(PUBS_PAGE * MAX_PAGES)
-	return [[bioRxiv and medRxiv: search and read preprints in biology (bioRxiv) and health sciences (medRxiv) through the servers' public API (https://api.biorxiv.org), with keyword search powered by Europe PMC (https://europepmc.org, EMBL-EBI), and download their PDFs. No account or credentials. Read-only. Calls return completed values; do not wrap them in await(). Every function takes one options table; unknown options are rejected. Results keep the providers' field names and values. Preprints are not peer reviewed; each carries its own license (the license field, such as cc_by or cc_no). Credit bioRxiv or medRxiv, and Europe PMC for search results.
+	local text: any = {type = "string"}
+	local serverSchema = {type = "string", enum = serverNames, description = "Server hosting the preprint. Both share DOI prefixes; the prefix does not identify the server."}
+	local doiSchema = {type = "string", pattern = "^10\\.(1101|64898)/[0-9]([0-9.]{0,38}[0-9])?$", description = "Bare preprint DOI, without doi:, a URL or a version suffix."}
+	local dateSchema = {type = "string", format = "date", pattern = "^[0-9]{4}-[0-9]{2}-[0-9]{2}$", description = "Real YYYY-MM-DD calendar date; from and to are inclusive and from must not follow to."}
+	local function input(properties: {[string]: any}, required: {string}, example: any): any
+		return {type = "object", properties = properties, required = required, additionalProperties = false, examples = {example}}
+	end
+	local function rangeProperties(size: number): {[string]: any}
+		return {server = serverSchema, from = dateSchema, to = dateSchema, cursor = {type = "integer", minimum = 0, maximum = MAX_CURSOR, default = 0, description = "Rows to skip. Continue with next_cursor and repeat the same filters."},
+			limit = {type = "integer", minimum = 1, maximum = size * MAX_PAGES, default = size}}
+	end
+	local preprintFields: {[string]: any} = {}
+	for _, name in {"doi", "title", "authors", "author_corresponding", "author_corresponding_institution", "date", "version", "type", "license", "category", "abstract", "jatsxml", "published", "server", "pdf_url"} do preprintFields[name] = text end
+	preprintFields.funder = {type = "array", items = {type = "object", properties = {name = text, id = text, ["id-type"] = text, award = text}}}
+	local preprint = {type = "object", properties = preprintFields, description = "One preprint version. Provider strings remain unchanged; date may lack zero padding. Houston adds pdf_url only when the row has a valid DOI and version."}
+	local publicationFields: {[string]: any} = {}
+	for _, name in {"preprint_doi", "published_doi", "published_journal", "preprint_platform", "preprint_title", "preprint_authors", "preprint_category", "preprint_date", "published_date", "preprint_abstract", "preprint_author_corresponding", "preprint_author_corresponding_institution"} do publicationFields[name] = text end
+	local publication = {type = "object", properties = publicationFields}
+	local function collection(item: any, paged: boolean): any
+		local properties: {[string]: any} = {collection = {type = "array", items = item}}
+		if paged then
+			properties.total = {type = "integer", minimum = 0}
+			properties.count_new_papers = {type = "integer", minimum = 0, description = "Number of first versions, when reported by the provider."}
+			properties.next_cursor = {type = "integer", minimum = 0}
+		end
+		return {type = "object", properties = properties, required = {"collection"}, additionalProperties = false}
+	end
+	local listing = rangeProperties(DETAILS_PAGE)
+	listing.category = {type = "string", description = "One of the selected server's categories listed in limits. Case-insensitive; underscores also stand for spaces."}
+	listing.funder = {type = "string", pattern = "^(https://ror\\.org/)?0[a-z0-9]{6}[0-9]{2}$", description = "ROR ID or URL, for example 00k4n6c32. Funder data starts on 2025-04-10."}
+	local listInput = input(listing, {"server", "from", "to"}, {server = "biorxiv", from = "2025-03-01", to = "2025-03-07"})
+	listInput.allOf = categoryRules
+	local search = input({query = {type = "string", pattern = "\\S", description = "Europe PMC query, at most " .. tostring(MAX_QUERY) .. " UTF-8 bytes; balance parentheses and double quotes. Capitalize AND, OR and NOT."},
+		server = serverSchema, from = dateSchema, to = dateSchema, sort = {type = "string", enum = SORTS, default = "relevance"},
+		resultType = {type = "string", enum = RESULT_TYPES, default = "core"}, limit = {type = "integer", minimum = 1, maximum = MAX_SEARCH.lite, default = DEFAULT_SEARCH},
+		cursorMark = {type = "string", minLength = 1, maxLength = 256, pattern = "^[A-Za-z0-9+/=*]+$", description = "Prior nextCursorMark; repeat every search option."},
+	}, {"query"}, {query = 'TITLE:"base editing"', server = "biorxiv", sort = "FIRST_PDATE_D desc", limit = 10})
+	search.dependentRequired = {from = {"to"}, to = {"from"}}
+	search["if"] = {properties = {resultType = {const = "lite"}}, required = {"resultType"}}
+	search["then"] = {properties = {limit = {maximum = MAX_SEARCH.lite}}}
+	search["else"] = {properties = {limit = {maximum = MAX_SEARCH.core}}}
+	return {
+		text = [[bioRxiv and medRxiv: search and read preprints in biology (bioRxiv) and health sciences (medRxiv) through the servers' public API (https://api.biorxiv.org), with keyword search powered by Europe PMC (https://europepmc.org, EMBL-EBI), and download their PDFs. No account or credentials. Read-only. Calls return completed values; do not wrap them in await(). Every function takes one options table; unknown options are rejected. Results keep the providers' field names and values. Preprints are not peer reviewed; each carries its own license (the license field, such as cc_by or cc_no). Credit bioRxiv or medRxiv, and Europe PMC for search results.
 
-server is "biorxiv" or "medrxiv"; both servers share the 10.1101 DOI prefix, and recent preprints use 10.64898. doi is a bare preprint DOI such as 10.1101/339747 or 10.64898/2026.10.15.759504, without a version suffix, doi: or https://doi.org/. Dates are real YYYY-MM-DD dates, with from not after to.
-
-## searchPreprints({query, server?, from?, to?, sort?, resultType?, limit?, cursorMark?})
-
-Europe PMC search, restricted to bioRxiv and medRxiv preprints (both unless server is given); the API itself has no search. Europe PMC is current to about a day ago. Returns `{hitCount, results, nextCursorMark?}`. Each result has id (a Europe PMC PPR ID), doi, title, authorString, pubYear, firstPublicationDate, bookOrReportDetails.publisher ("bioRxiv" or "medRxiv"; lowercased it is the server for the other functions) and, with resultType "core" (the default), abstractText, authorList, license, citedByCount and more; "lite" leaves out abstracts and author details.
-- query: Europe PMC syntax, at most ]] .. tostring(MAX_QUERY) .. [[ bytes with balanced parentheses and quotes, for example `crispr AND "base editing"`, `TITLE:"single-cell" AND AUTH:"Smith J"`, `ABSTRACT:zebrafish` or `DOI:"10.1101/2021.10.22.465130"`. AND, OR and NOT must be capitalized.
-- from and to together filter firstPublicationDate, when Europe PMC first listed the preprint.
-- sort: ]] .. table.concat(SORTS, ", ") .. [[ (relevance by default; CITED desc puts the most cited first).
-- limit: results to return, 1 to ]] .. tostring(MAX_SEARCH.core) .. [[ with resultType core and 1 to ]] .. tostring(MAX_SEARCH.lite) .. [[ with lite, which fit one call (default ]] .. tostring(DEFAULT_SEARCH) .. [[). For the next page, call again with the same options and cursorMark = nextCursorMark. nextCursorMark is present after every full page while results may remain: when the last results exactly fill limit, continuing returns no results and no nextCursorMark.
-Europe PMC lists one record per preprint and names no version, so results have no pdf_url: read the versions, their abstracts and pdf_url with getPreprint.
-
-## listPreprints({server, from, to, category?, funder?, limit?, cursor?})
-
-Preprint versions posted from from to to, inclusive. A revised version of an older preprint appears on the date it was posted. Returns `{collection, total?, count_new_papers?, next_cursor?}`: total counts the versions in the range, count_new_papers its first versions. When the API finds no posts from cursor on (an empty range, or a cursor at or past its end) it reports no total, so collection is empty and total absent. Each version has doi, title, authors ("Last, F.; ..."), author_corresponding, author_corresponding_institution, date, version (a string), type, license, category, abstract, jatsxml (the JATS XML address on the server's website), published (the journal DOI, or "NA") and server, plus pdf_url, the address of its PDF, added by Houston. date may lack zero padding, as in 2026-8-17.
-- category: one of the server's categories below (underscores accepted for spaces); the API would silently ignore any other.
-- funder: a ROR ID such as 00k4n6c32 (European Commission) or https://ror.org/00k4n6c32, to list only preprints declaring that funder; versions then also carry funder, an array of {name, id, id-type, award}. Funder data starts on 2025-04-10.
-- limit: versions to return, 1 to ]] .. details .. [[ (default ]] .. tostring(DETAILS_PAGE) .. [[). The API serves pages of ]] .. tostring(DETAILS_PAGE) .. [[: a call reads the first, then up to ]] .. tostring(MAX_PAGES - 1) .. [[ more at once. cursor: versions to skip (default 0). For the next page, call again with the same options and cursor = next_cursor. next_cursor is present while cursor plus the versions returned is below total; a call can return fewer than limit versions when a later page is slow, too large or fails, and next_cursor then continues after them. A month of bioRxiv holds about 7,000 versions, so narrow with category or a short range, or use searchPreprints.
-
-## getPreprint({server, doi})
-
-Every version of one preprint, oldest first: `{collection}` with the fields of listPreprints. A DOI unknown to that server fails as not found; check the server.
-
-## getPublication({server, doi})
-
-The journal article a preprint became: `{collection}` with at most one link {preprint_doi, published_doi, published_journal, preprint_platform, preprint_title, preprint_authors, preprint_category, preprint_date, published_date, preprint_abstract, preprint_author_corresponding, preprint_author_corresponding_institution} (no pdf_url, since a link names no version), or an empty collection when there is none. The API answers alike when the preprint is not published yet, when no preprint matches an article DOI, and when a preprint DOI belongs to the other server (both share 10.1101), so check the server with getPreprint before reading an empty collection as unpublished. doi is the preprint's DOI or the article's own DOI (such as 10.1016/S0140-6736(20)30183-5), which finds the preprint of an article; the API cannot look up DOIs with several slashes, such as 10.1093/nar/gkaf118.
-
-## listPublications({server, from, to, limit?, cursor?})
-
-Preprints whose journal article was recorded from from to to: `{collection, total?, next_cursor?}` of the links getPublication returns. limit: 1 to ]] .. pubs .. [[ (default ]] .. tostring(PUBS_PAGE) .. [[), in pages of ]] .. tostring(PUBS_PAGE) .. [[; cursor and next_cursor work as in listPreprints.
-
-## downloadPdf({server, doi, version, session_path})
-
-Saves the PDF of one version (an integer, or listPreprints' version string) to the session file session_path and returns `{session_path, url, size, pdf_url}`: url is a signed link to the saved file, pdf_url the PDF's address on the server's website. The website is behind Cloudflare, which limits and blocks automated downloads: HTTP 429 fails as retryable with the wait it asks (often one or two minutes), and HTTP 403, which medRxiv answers to automated PDF downloads, fails as not retryable. Either way, give people pdf_url to open in a browser. A refused download, or one that breaks while the PDF streams, leaves session_path unchanged.
-
-## Errors and limits
-
-Invalid input fails before any request. Provider errors come back as upstream errors with the HTTP status and message; HTTP 429 and 5xx are retryable. The API answers HTTP 200 even to errors and reports them as a status, which comes back as the message. Each call reads at most ]] .. tostring(MAX_BYTES // 1048576) .. [[ MiB of JSON and has ]] .. seconds(CALL[1]) .. [[: a call reading one answer or file gives its headers ]] .. seconds(CALL[1] - CALL[2]) .. [[ and its body ]] .. seconds(CALL[2]) .. [[. A date range gives its first page ]] .. seconds(FIRST[1]) .. [[ whatever the limit (]] .. seconds(FIRST[1] - FIRST[2]) .. [[ for headers), so a larger limit never fails a call that one page would complete, and reads the later pages at once in the remaining ]] .. seconds(LATER[1]) .. [[. A call that runs out of time before it has any result fails as retryable; the API's page sizes are fixed, so a lower limit does not help then.
+server is "biorxiv" or "medrxiv"; both servers share the 10.1101 DOI prefix, and recent preprints use 10.64898. doi is a bare preprint DOI such as 10.1101/339747 or 10.64898/2026.10.15.759504, without a version suffix, doi: or https://doi.org/. Dates are real YYYY-MM-DD dates, with from not after to.]],
+		sections = {limits = [[Invalid input fails before any request. Provider errors come back as upstream errors with the HTTP status and message; HTTP 429 and 5xx are retryable. The API answers HTTP 200 even to errors and reports them as a status, which comes back as the message. Each call reads at most ]] .. tostring(MAX_BYTES // 1048576) .. [[ MiB of JSON and has ]] .. seconds(CALL[1]) .. [[: a call reading one answer or file gives its headers ]] .. seconds(CALL[1] - CALL[2]) .. [[ and its body ]] .. seconds(CALL[2]) .. [[. A date range gives its first page ]] .. seconds(FIRST[1]) .. [[ whatever the limit (]] .. seconds(FIRST[1] - FIRST[2]) .. [[ for headers), so a larger limit never fails a call that one page would complete, and reads the later pages at once in the remaining ]] .. seconds(LATER[1]) .. [[. A call that runs out of time before it has any result fails as retryable; the API's page sizes are fixed, so a lower limit does not help then.
 
 Categories:
 ]] .. table.concat(categories, "\n") .. [[
-
-
-## Example
-
-Here rxiv is the configured bioRxiv and medRxiv connection.
+]], workflow = [[Here rxiv is the configured bioRxiv and medRxiv connection.
 
 ```lua
 local found = rxiv.searchPreprints({query = 'TITLE:"base editing"', server = "biorxiv", sort = "FIRST_PDATE_D desc", limit = 10})
@@ -629,7 +641,35 @@ for _, preprint in page.collection do print(preprint.doi, preprint.version, prep
 
 local ok, saved = pcall(rxiv.downloadPdf, {server = "biorxiv", doi = latest.doi, version = latest.version, session_path = "preprint.pdf"})
 print(if ok then saved.url else "Open " .. latest.pdf_url)
-```]]
+```]]},
+		functions = {
+			searchPreprints = {description = [[Europe PMC search, restricted to bioRxiv and medRxiv preprints (both unless server is given); the API itself has no search. Europe PMC is current to about a day ago. Returns `{hitCount, results, nextCursorMark?}`. Each result has id (a Europe PMC PPR ID), doi, title, authorString, pubYear, firstPublicationDate, bookOrReportDetails.publisher ("bioRxiv" or "medRxiv"; lowercased it is the server for the other functions) and, with resultType "core" (the default), abstractText, authorList, license, citedByCount and more; "lite" leaves out abstracts and author details.
+- query: Europe PMC syntax, at most ]] .. tostring(MAX_QUERY) .. [[ bytes with balanced parentheses and quotes, for example `crispr AND "base editing"`, `TITLE:"single-cell" AND AUTH:"Smith J"`, `ABSTRACT:zebrafish` or `DOI:"10.1101/2021.10.22.465130"`. AND, OR and NOT must be capitalized.
+- from and to together filter firstPublicationDate, when Europe PMC first listed the preprint.
+- sort: ]] .. table.concat(SORTS, ", ") .. [[ (relevance by default; CITED desc puts the most cited first).
+- limit: results to return, 1 to ]] .. tostring(MAX_SEARCH.core) .. [[ with resultType core and 1 to ]] .. tostring(MAX_SEARCH.lite) .. [[ with lite, which fit one call (default ]] .. tostring(DEFAULT_SEARCH) .. [[). For the next page, call again with the same options and cursorMark = nextCursorMark. nextCursorMark is present after every full page while results may remain: when the last results exactly fill limit, continuing returns no results and no nextCursorMark.
+Europe PMC lists one record per preprint and names no version, so results have no pdf_url: read the versions, their abstracts and pdf_url with getPreprint.]], inputSchema = search,
+				outputSchema = {type = "object", properties = {hitCount = {type = "integer", minimum = 0}, nextCursorMark = text, results = {type = "array", items = {type = "object", properties = {
+					id = text, doi = text, title = text, authorString = text, pubYear = text, firstPublicationDate = text, abstractText = text, license = text, citedByCount = {type = "integer"},
+					bookOrReportDetails = {type = "object", properties = {publisher = text}}, authorList = {type = "object", properties = {author = {type = "array", items = {type = "object", properties = {fullName = text, firstName = text, lastName = text, initials = text}}}}},
+				}}}}, required = {"hitCount", "results"}, additionalProperties = false}, annotations = {readOnlyHint = true, idempotentHint = true}},
+			listPreprints = {description = [[Preprint versions posted from from to to, inclusive. A revised version of an older preprint appears on the date it was posted. Returns `{collection, total?, count_new_papers?, next_cursor?}`: total counts the versions in the range, count_new_papers its first versions. When the API finds no posts from cursor on (an empty range, or a cursor at or past its end) it reports no total, so collection is empty and total absent. Each version has doi, title, authors ("Last, F.; ..."), author_corresponding, author_corresponding_institution, date, version (a string), type, license, category, abstract, jatsxml (the JATS XML address on the server's website), published (the journal DOI, or "NA") and server, plus pdf_url, the address of its PDF, added by Houston. date may lack zero padding, as in 2026-8-17.
+- category: one of the server's categories below (underscores accepted for spaces); the API would silently ignore any other.
+- funder: a ROR ID such as 00k4n6c32 (European Commission) or https://ror.org/00k4n6c32, to list only preprints declaring that funder; versions then also carry funder, an array of {name, id, id-type, award}. Funder data starts on 2025-04-10.
+- limit: versions to return, 1 to ]] .. details .. [[ (default ]] .. tostring(DETAILS_PAGE) .. [[). The API serves pages of ]] .. tostring(DETAILS_PAGE) .. [[: a call reads the first, then up to ]] .. tostring(MAX_PAGES - 1) .. [[ more at once. cursor: versions to skip (default 0). For the next page, call again with the same options and cursor = next_cursor. next_cursor is present while cursor plus the versions returned is below total; a call can return fewer than limit versions when a later page is slow, too large or fails, and next_cursor then continues after them. A month of bioRxiv holds about 7,000 versions, so narrow with category or a short range, or use searchPreprints.]], inputSchema = listInput, outputSchema = collection(preprint, true), annotations = {readOnlyHint = true, idempotentHint = true}},
+			getPreprint = {description = [[Every version of one preprint, oldest first: `{collection}` with the fields of listPreprints. A DOI unknown to that server fails as not found; check the server.]], inputSchema = input({server = serverSchema, doi = doiSchema}, {"server", "doi"}, {server = "biorxiv", doi = "10.1101/339747"}), outputSchema = collection(preprint, false), annotations = {readOnlyHint = true, idempotentHint = true}},
+			getPublication = {description = [[The journal article a preprint became: `{collection}` with at most one link {preprint_doi, published_doi, published_journal, preprint_platform, preprint_title, preprint_authors, preprint_category, preprint_date, published_date, preprint_abstract, preprint_author_corresponding, preprint_author_corresponding_institution} (no pdf_url, since a link names no version), or an empty collection when there is none. The API answers alike when the preprint is not published yet, when no preprint matches an article DOI, and when a preprint DOI belongs to the other server (both share 10.1101), so check the server with getPreprint before reading an empty collection as unpublished. doi is the preprint's DOI or the article's own DOI (such as 10.1016/S0140-6736(20)30183-5), which finds the preprint of an article; the API cannot look up DOIs with several slashes, such as 10.1093/nar/gkaf118.]], inputSchema = input({server = serverSchema, doi = {type = "string", maxLength = 200,
+				pattern = "^10\\.[0-9]{4,}/[A-Za-z0-9_.;:()<>\\[\\]+-]+$", ["not"] = {pattern = "^10\\.[0-9]+/\\.+$"}, description = "Bare preprint or journal DOI with exactly one slash. Journal DOI suffixes containing further slashes cannot be looked up."}},
+				{"server", "doi"}, {server = "medrxiv", doi = "10.1371/journal.pone.0256482"}), outputSchema = collection(publication, false), annotations = {readOnlyHint = true, idempotentHint = true}},
+			listPublications = {description = [[Preprints whose journal article was recorded from from to to: `{collection, total?, next_cursor?}` of the links getPublication returns. limit: 1 to ]] .. pubs .. [[ (default ]] .. tostring(PUBS_PAGE) .. [[), in pages of ]] .. tostring(PUBS_PAGE) .. [[; cursor and next_cursor work as in listPreprints.]], inputSchema = input(rangeProperties(PUBS_PAGE), {"server", "from", "to"}, {server = "medrxiv", from = "2025-03-01", to = "2025-03-07"}), outputSchema = collection(publication, true), annotations = {readOnlyHint = true, idempotentHint = true}},
+			downloadPdf = {description = [[Saves the PDF of one version (an integer, or listPreprints' version string) to the session file session_path and returns `{session_path, url, size, pdf_url}`: url is a signed link to the saved file, pdf_url the PDF's address on the server's website. The website is behind Cloudflare, which limits and blocks automated downloads: HTTP 429 fails as retryable with the wait it asks (often one or two minutes), and HTTP 403, which medRxiv answers to automated PDF downloads, fails as not retryable. Either way, give people pdf_url to open in a browser. A refused download, or one that breaks while the PDF streams, leaves session_path unchanged.]], inputSchema = input({server = serverSchema, doi = doiSchema,
+				version = {anyOf = {{type = "integer", minimum = 1, maximum = 999} :: any, {type = "string", pattern = "^0*[1-9][0-9]{0,2}$"}}},
+				session_path = {type = "string", minLength = 1, description = "Destination in the current session. Replaces the existing file after a successful download."}},
+				{"server", "doi", "version", "session_path"}, {server = "biorxiv", doi = "10.1101/339747", version = "4", session_path = "papers/339747.pdf"}),
+				outputSchema = {type = "object", properties = {session_path = text, url = text, size = {type = "integer", minimum = 0}, pdf_url = text}, required = {"session_path", "url", "size", "pdf_url"}, additionalProperties = false},
+				annotations = {readOnlyHint = false, destructiveHint = true, idempotentHint = true}},
+		},
+	}
 end
 
 return {searchPreprints = searchPreprints, listPreprints = listPreprints, getPreprint = getPreprint,

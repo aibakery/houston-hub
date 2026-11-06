@@ -6,6 +6,8 @@ local NULL = json.decode("null")
 local ADMIN = auth.method == "admin"
 local VERSION = if ADMIN then "2026-06-01" else "2026-03-11"
 local endpoints: {[string]: Endpoint} = if ADMIN then require("lib/admin.luau") else require("lib/endpoints.luau")
+local schemas = if ADMIN then require("lib/admin-schemas.luau") else require("lib/endpoints-schemas.luau")
+local customHelp = require("lib/custom-schemas.luau")
 
 local function text(value: any, field: string): string
 	assert(type(value) == "string" and value ~= "", field .. " must be a nonempty string")
@@ -176,10 +178,21 @@ local EMPTY_SEARCH = if auth.method == "oauth" then " An empty search usually me
 	elseif auth.method == "token" then " An empty search usually means no pages are shared: for an internal connection, ask the user to add it to pages from their Connections menu in Notion; a personal access token sees what its owner can access."
 	else ""
 
-exports.help = function(): string
-	local names: {string} = {}
-	for name in exports do if name ~= "help" then table.insert(names, name) end end
-	table.sort(names)
+exports.help = function()
+	local docs: {[string]: any} = {}
+	for name in exports do
+		if name == "help" then continue end
+		local record: {[string]: any} = if customHelp[name] then table.clone(customHelp[name]) else {}
+		record.inputSchema = schemas[name] or record.inputSchema
+		assert(record.inputSchema, "missing schema for " .. name)
+		local endpoint = endpoints[name]
+		record.description = help[name] or endpoint.help
+		if endpoint then
+			record.description ..= " Returns the complete native Notion JSON response; lists include their continuation fields. HTTP 204 returns {success=true}."
+			record.annotations = record.annotations or {readOnlyHint = endpoint.read}
+		end
+		docs[name] = record
+	end
 	local lines = {
 		"Notion " .. VERSION .. (if ADMIN then " Admin API (Enterprise organization bot)." else " Data, Agents and Skills API."),
 		"Every operation takes one named options object using Notion's snake_case fields. Path/query fields are separated automatically; all remaining fields are the unmodified JSON body. Returns the complete Notion JSON object, preserving nulls, arrays, pagination and future fields; HTTP 204 returns {success=true}.",
@@ -187,9 +200,8 @@ exports.help = function(): string
 		"Capabilities and shared-page permissions are enforced by Notion; 403/404 may require granting the connection access." .. EMPTY_SEARCH .. " Some Agent/Skills/meeting features require a PAT or additional Notion entitlements. Search searches shared titles, not full content. Use data sources for schema/query operations, databases for containers. To trash/restore a page use updatePage({page_id=..., in_trash=true/false}).",
 		"No hidden paging, polling or retries. Inspect getAsyncTask/getSession after asynchronous writes. Errors report status, provider code/message, request ID and Retry-After when available. A failed/timeout write may already have succeeded; verify before repeating. Read-only connections omit mutations; createViewQuery is a read query that creates a temporary results cache.",
 		"OAuth exchange/refresh are managed by Houston; credentials never enter Lua. OAuth token creation/introspection/revocation are credential administration, not callable data operations. Webhook subscriptions are configured in Notion's developer portal, not through a REST endpoint. Legacy pre-2025 database endpoints are superseded by data sources.",
-		"Example: search({query='Roadmap',page_size=10}); getPage({page_id='...'}); queryDataSource({data_source_id='...',filter={property='Status',status={equals='Done'}},filter_properties={'title'}}). Read the endpoint documentation linked below for complete nested body types and provider limits.",
+		"Each function's help includes its nested input schema and runnable examples. Replace example IDs with IDs returned by this connection. The linked provider references explain feature eligibility and provider limits. For updatePageMarkdown, type selects update_content, replace_content, insert_content or replace_content_range and requires the matching payload; prefer markdown_version='v2'.",
 	}
-	for _, name in names do table.insert(lines, name .. "(opts): " .. help[name]) end
-	return table.concat(lines, "\n")
+	return {text = table.concat(lines, "\n"), functions = docs}
 end
 return exports

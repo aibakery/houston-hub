@@ -49,6 +49,10 @@ return {
 		local found = exa.search({query = "zzqx nothing matches"})
 		posted("/search", {query = "zzqx nothing matches"})
 		assert(json.encode(found.results) == "[]" and found.costDollars.total == 0.007 and found.requestId == "r0")
+		respond('{"results":[]}')
+		fixture.example("search")
+		posted("/search", {query = "open-source vector databases benchmarked in 2026", numResults = 5,
+			startPublishedDate = "2026-01-01T00:00:00.000Z", contents = {highlights = {query = "benchmark results"}}})
 
 		-- Every search option, checked and copied; the caller's table is left unchanged.
 		local opts = {query = "open-source vector databases", type = "auto", numResults = 25, category = "news",
@@ -99,8 +103,7 @@ return {
 
 		-- Similar pages keep Exa's scores.
 		respond('{"requestId":"r3","results":[{"id":"https://b.example","url":"https://b.example","title":"B","score":0.91}],"costDollars":{"total":0.005}}')
-		found = exa.findSimilar({url = "https://exa.ai/blog/dynamic-highlights", numResults = 3, excludeSourceDomain = true,
-			category = "company", contents = {highlights = true}})
+		found = fixture.example("findSimilar")
 		posted("/findSimilar", {url = "https://exa.ai/blog/dynamic-highlights", numResults = 3, excludeSourceDomain = true,
 			category = "company", contents = {highlights = true}})
 		assert(found.results[1].score == 0.91)
@@ -113,8 +116,7 @@ return {
 		respond('{"requestId":"r4","results":[{"id":"https://a.example","url":"https://a.example","title":"A","text":"Hello"}],'
 			.. '"statuses":[{"id":"https://a.example","status":"success","source":"cached"},'
 			.. '{"id":"https://gone.example","status":"error","error":{"tag":"CRAWL_NOT_FOUND","httpStatusCode":404}}],"costDollars":{"total":0.002}}')
-		local pages = exa.getContents({urls = {"https://a.example", "https://gone.example"}, text = true, maxAgeHours = 0,
-			snapshotAsOf = "2026-01-15"})
+		local pages = fixture.example("getContents")
 		posted("/contents", {urls = {"https://a.example", "https://gone.example"}, text = {maxCharacters = 10000}, maxAgeHours = 0,
 			snapshotAsOf = "2026-01-15"})
 		assert(pages.results[1].text == "Hello" and pages.statuses[2].error.tag == "CRAWL_NOT_FOUND")
@@ -128,7 +130,7 @@ return {
 		-- Answers can be text or structured, with or without citations.
 		respond('{"requestId":"r5","answer":"Exa Labs.","citations":[{"id":"https://exa.ai","url":"https://exa.ai","title":"Exa"}],'
 			.. '"costDollars":{"total":0.005}}')
-		local reply = exa.answer({query = "Who makes Exa?"})
+		local reply = fixture.example("answer")
 		posted("/answer", {query = "Who makes Exa?"})
 		assert(reply.answer == "Exa Labs." and reply.citations[1].url == "https://exa.ai")
 		respond('{"answer":{"leader":"Qdrant"},"citations":[]}')

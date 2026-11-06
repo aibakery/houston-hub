@@ -30,5 +30,16 @@ return {
   assert(downloaded.size==12 and await(fs.open(downloaded.path,"r"):readAll())==string.char(0,255).."attachment")
   assert(#requests==8 and requests[8].headers==nil)
   assert(not pcall(c.downloadFile,{url="http://example.com/file",path="bad"}))
+  local example=fixture.example("streamSession")
+  assert(example.path=="session.sse" and example.size>0)
+  local body=json.decode(requests[#requests].body)
+  assert(body.agent_id=="notion_ai" and body.message=="Summarize the project roadmap." and body.path==nil)
+  example=fixture.example("streamSession",2)
+  assert(example.path=="continued.sse" and example.size>0)
+  body=json.decode(requests[#requests].body)
+  assert(body.session_id=="b55c9c91-384d-452b-81db-d1ef79372b75" and body.continue_from==body.session_id and body.path==nil)
+  example=fixture.example("downloadFile")
+  assert(example.path=="guide.pdf" and example.size==12)
+  assert(await(fs.open(example.path,"r"):readAll())==string.char(0,255).."attachment")
  end,
 }

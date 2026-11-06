@@ -57,23 +57,24 @@ return {
 			effectiveDate = {value = "2026-09-30"}, deltas = {{interestId = "I1", amount = {value = "-5.00"}}, {interestId = "I2", amount = {value = "5.00"}}}})
 		assert(last().url == FUND .. "/carriedInterestAllocations" and sent().deltas[1].amount.value == "-5.00")
 
-		carta.updateExerciseMoneyMovement({issuerId = "7", exerciseId = "EX1", moneyMovement = {completionDate = {value = "2026-10-19"}}})
-		assert(last().url == API .. "/issuers/7/optionExercises/EX1:updateMoneyMovement" and sent().moneyMovement.completionDate.value == "2026-10-19")
+		carta.updateExerciseMoneyMovement({issuerId = "7", exerciseId = "EX1", moneyMovement = {completionDate = {value = "2026-10-19T12:00:00Z"}}})
+		assert(last().url == API .. "/issuers/7/optionExercises/EX1:updateMoneyMovement" and sent().moneyMovement.completionDate.value == "2026-10-19T12:00:00Z")
 		carta.updateExerciseTaxWithholding({issuerId = "7", exerciseId = "EX1", taxWithholdings = json.decode("[]")})
 		assert(last().url == API .. "/issuers/7/optionExercises/EX1:updateTaxWithholding" and last().body == '{"taxWithholdings":[]}')
 		carta.createDraftOptionGrant({issuerId = "7", draftOptionGrantSetId = "S1", draftOptionGrant = {quantity = {value = "1000"}}})
 		assert(last().url == API .. "/issuers/7/draftOptionGrantSets/S1/draftOptionGrants" and sent().draftOptionGrant.quantity.value == "1000")
 
 		status = 202
-		payload = '{"secondaryTransactionId":"0b8e6f5a-1c2d-4e3f-8a9b-0c1d2e3f4a5b","transactionState":"PENDING_ISSUER_OPTION_COST_REVIEW"}'
-		local trade = carta.initiateSecondarySettlement({issuerId = "7", externalReferenceId = "trade-1", rightOfFirstRefusalOutcome = "WAIVED",
+		payload = '{"secondaryTransaction":{"secondaryTransactionId":"0b8e6f5a-1c2d-4e3f-8a9b-0c1d2e3f4a5b","state":"PENDING_SETTLEMENT"}}'
+		local trade = carta.initiateSecondarySettlement({issuerId = "7", externalReferenceId = "trade-1", rightOfFirstRefusal = {outcome = "WAIVED", decidedAt = "2026-10-20T15:00:00Z", decidedByName = "Issuer General Counsel"},
 			pricePerShare = usd("4.20"), buyerInformation = {entityName = "Buyer LLC", email = "buyer@example.com"},
 			securities = {{securityType = "option_grant", securityId = "S1", stockOptionType = "ISO", quantity = {value = "10"}}}})
-		assert(last().url == API .. "/issuers/7/secondaryTransactions" and trade.secondaryTransactionId ~= nil)
+		assert(last().url == API .. "/issuers/7/secondaryTransactions" and trade.secondaryTransaction.secondaryTransactionId ~= nil)
 		assert(sent().securities[1].quantity.value == "10" and sent().pricePerShare.amount.value == "4.20")
+		assert(sent().rightOfFirstRefusal.outcome == "WAIVED" and sent().rightOfFirstRefusal.decidedByName == "Issuer General Counsel")
 		payload = ""
-		local final = carta.finalizeSecondarySettlement({issuerId = "7", secondaryTransactionId = trade.secondaryTransactionId})
-		assert(last().url == API .. "/issuers/7/secondaryTransactions/" .. trade.secondaryTransactionId .. ":finalize" and last().body == "{}")
+		local final = carta.finalizeSecondarySettlement({issuerId = "7", secondaryTransactionId = trade.secondaryTransaction.secondaryTransactionId})
+		assert(last().url == API .. "/issuers/7/secondaryTransactions/" .. trade.secondaryTransaction.secondaryTransactionId .. ":finalize" and last().body == "{}")
 		assert(final.success == true, "an accepted write without a body reports success")
 
 		status = 200

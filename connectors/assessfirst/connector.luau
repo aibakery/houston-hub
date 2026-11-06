@@ -1,6 +1,6 @@
 -- AssessFirst API v2 (open beta). Arguments and results keep AssessFirst's native snake_case field names.
 type Options = {[string]: any}
-type Endpoint = {method: string, path: string, query: {string}?, body: {string}?, required: {string}?, array: boolean?, pdf: boolean?, custom: {string}?, about: string}
+type Endpoint = {method: string, path: string, query: {string}?, body: {string}?, required: {string}?, array: boolean?, pdf: boolean?, custom: {string}?, about: string, examples: {Options}}
 
 local API = "https://" .. config.api_host .. "/betty-V2"
 -- Completion status only has no writes.
@@ -12,6 +12,7 @@ local EVENTS = {"assessment.finished", "user.linked", "user.completed", "user.de
 local PREDICTIVE_REPORTS = {17, 18, 35}
 local PAGE = {"page", "per_page"}
 local CANDIDATE = {"email", "first_name", "last_name", "gender", "recruiter_email"}
+local MAX_REPORT = 9999
 
 local function list(...: {string}): {string}
 	local fields: {string} = {}
@@ -22,56 +23,56 @@ end
 -- Paths are relative to API. Only GET reads; path {fields}, query and body fields come from one options object.
 -- custom lists the record fields a Completion status only connection (config.access "custom") keeps; it has no other endpoint.
 local endpoints: {[string]: Endpoint} = {
-	listLocales = {method = "GET", path = "/locales", array = true, about = "Languages the API speaks: {{name, iso_code_639, flag}}. Pass iso_code_639 as locale."},
-	listRecruiters = {method = "GET", path = "/recruiters", query = list({"uuid", "email"}, PAGE),
+	listLocales = {method = "GET", path = "/locales", examples = {{}}, array = true, about = "Languages the API speaks: {{name, iso_code_639, flag}}. Pass iso_code_639 as locale."},
+	listRecruiters = {method = "GET", path = "/recruiters", examples = {{uuid="ab4699c9169d469c81082accfbe91584",email="rh@example.com",page=1,per_page=1}}, query = list({"uuid", "email"}, PAGE),
 		about = "Recruiters of your company: {data={{uuid, first_name, last_name, email, created_at}}, meta}. email matches partially."},
-	listCandidates = {method = "GET", path = "/candidates", query = list({"uuid", "email"}, PAGE), custom = {"uuid", "first_name", "last_name", "email", "created_at"},
+	listCandidates = {method = "GET", path = "/candidates", examples = {{email="ana+job@example.com",page=2,per_page=50,locale="fr-FR"}}, query = list({"uuid", "email"}, PAGE), custom = {"uuid", "first_name", "last_name", "email", "created_at"},
 		about = "Candidates available to your company: {data={{uuid, first_name, last_name, email, created_at}}, meta}. email matches partially: pick the entry whose email equals the address."},
-	getCandidate = {method = "GET", path = "/candidate/{candidate_uuid}",
+	getCandidate = {method = "GET", path = "/candidate/{candidate_uuid}", examples = {{candidate_uuid="ab4699c9169d469c81082accfbe91584"}},
 		about = "A candidate: {uuid, email, first_name, last_name, locale, status, aplayer_score, remote_score, candidate_url, assessments={{id, name, status, end_date}}}. Assessment ids are not report_ids."},
-	listCandidateReports = {method = "GET", path = "/candidate/{candidate_uuid}/reports", array = true,
+	listCandidateReports = {method = "GET", path = "/candidate/{candidate_uuid}/reports", examples = {{candidate_uuid="ab4699c9169d469c81082accfbe91584"}}, array = true,
 		about = "Reports available for the candidate: {{id, name, assessment, web_link}}; web_link opens the report on AssessFirst's report site."},
-	downloadCandidateReport = {method = "GET", path = "/candidate/{candidate_uuid}/report/{report_id}", query = {"pm_uuid"}, pdf = true,
+	downloadCandidateReport = {method = "GET", path = "/candidate/{candidate_uuid}/report/{report_id}", examples = {{candidate_uuid="ab4699c9169d469c81082accfbe91584",report_id=20,path="reports/ana.pdf",locale="fr-FR"}, {candidate_uuid="ab4699c9169d469c81082accfbe91584",report_id=17,pm_uuid="1d9c92277e264fe49a4ce330e51e6ac7",path="fit.pdf"}}, query = {"pm_uuid"}, pdf = true,
 		about = "Saves a report PDF to the session file path and returns {path, size, url, contentType}; url is Houston's signed download link. report_id: 1, 2, 3 personality (Swipe) in-depth, summary, key behaviors; 13, 15 motivations (Drive) in-depth, summary; 8, 10 reasoning (Brain) in-depth, summary; 20 complete summary; 50 HR report; 51 report for recruiters and managers; 17, 18 fit with a predictive model, full and short; 35 voice. 17, 18 and 35 require pm_uuid."},
-	getCandidateAdequacies = {method = "GET", path = "/candidate/{candidate_uuid}/adequacies/{pm_uuid}",
+	getCandidateAdequacies = {method = "GET", path = "/candidate/{candidate_uuid}/adequacies/{pm_uuid}", examples = {{candidate_uuid="ab4699c9169d469c81082accfbe91584",pm_uuid="1d9c92277e264fe49a4ce330e51e6ac7",locale="en-GB"}},
 		about = "Fit with a predictive model: {adequacies={global_adequacy, success_adequacy, fulfillment_adequacy, adequacy_shape, adequacy_drive, adequacy_brain} (percentages), reports={{id, name, web_link}}, voice={{score, status, skill_label, skill_definition, skill_type, skill_level, user_level, web_link}}, predict_success_url}. predict_success_url opens the fit in AssessFirst for signed-in recruiters."},
-	getCandidateCompletion = {method = "GET", path = "/candidate/{candidate_uuid}/completion", query = {"pm_uuid"}, custom = {"assessments", "is_completed"},
+	getCandidateCompletion = {method = "GET", path = "/candidate/{candidate_uuid}/completion", examples = {{candidate_uuid="ab4699c9169d469c81082accfbe91584"}, {candidate_uuid="ab4699c9169d469c81082accfbe91584",pm_uuid="1d9c92277e264fe49a4ce330e51e6ac7"}}, query = {"pm_uuid"}, custom = {"assessments", "is_completed"},
 		about = "Which assessments are done: {assessments={swipe='finish', drive='finish', voice='todo', ...}, is_completed}. Checked against pm_uuid's assessments, or your company's default set without it. Check each assessment's status: is_completed can be true while voice is still todo."},
-	getCandidateScores = {method = "GET", path = "/candidate/{candidate_uuid}/scores", array = true,
+	getCandidateScores = {method = "GET", path = "/candidate/{candidate_uuid}/scores", examples = {{candidate_uuid="ab4699c9169d469c81082accfbe91584"}}, array = true,
 		about = "Scores for every AssessFirst dimension: {{id, label, name, score, min, max}}. Scales differ by dimension (1..10, 0..100, -4..4, ...), so read each item's min and max; name can be null and scores decimal."},
-	getCandidateSynthesis = {method = "GET", path = "/candidate/{candidate_uuid}/synthesis",
+	getCandidateSynthesis = {method = "GET", path = "/candidate/{candidate_uuid}/synthesis", examples = {{candidate_uuid="ab4699c9169d469c81082accfbe91584"}},
 		about = "Written synthesis of the Swipe (as shape), Drive and Brain results: categories and behaviours with labels, descriptions, scores, success and fulfillment tips. Large."},
-	getCandidateTopCareers = {method = "GET", path = "/candidate/{candidate_uuid}/career/top", query = {"type"},
+	getCandidateTopCareers = {method = "GET", path = "/candidate/{candidate_uuid}/career/top", examples = {{candidate_uuid="ab4699c9169d469c81082accfbe91584",type="full"}}, query = {"type"},
 		about = "The 10 jobs that best match the candidate. type='full' is the only documented value."},
-	getCandidateOnePager = {method = "GET", path = "/onepager/candidate/{candidate_uuid}/results", query = {"pm_uuid"},
+	getCandidateOnePager = {method = "GET", path = "/onepager/candidate/{candidate_uuid}/results", examples = {{candidate_uuid="ab4699c9169d469c81082accfbe91584",pm_uuid="1d9c92277e264fe49a4ce330e51e6ac7"}}, query = {"pm_uuid"},
 		about = "A OnePager library link whose token, valid for 15 minutes, lets anyone who has it open all the candidate's reports without signing in; share it only with people entitled to see them. AssessFirst enables OnePager per company."},
-	getVoiceStatus = {method = "GET", path = "/candidate/{candidate_uuid}/init-voice/{pm_uuid}",
+	getVoiceStatus = {method = "GET", path = "/candidate/{candidate_uuid}/init-voice/{pm_uuid}", examples = {{candidate_uuid="ab4699c9169d469c81082accfbe91584",pm_uuid="1d9c92277e264fe49a4ce330e51e6ac7"}},
 		about = "The candidate's voice assessment for a voice predictive model: {uuid, candidate_uuid, predictive_model_uuid}. Needs AssessFirst's Voice option."},
-	listPredictiveModels = {method = "GET", path = "/predictive-models", query = list({"name", "uuid", "is_public"}, PAGE), custom = {"uuid", "name", "assessments", "is_public", "created_at"},
+	listPredictiveModels = {method = "GET", path = "/predictive-models", examples = {{name="Sales & Ops",is_public=true}}, query = list({"name", "uuid", "is_public"}, PAGE), custom = {"uuid", "name", "assessments", "is_public", "created_at"},
 		about = "Your predictive models, the job profiles candidates are matched against: {data={{uuid, name, assessments={swipe, drive, brain, voice}, is_public, created_at}}, meta}. name matches partially. Create and edit them in AssessFirst."},
-	listBenchmarks = {method = "GET", path = "/benchmarks", query = {"name"},
+	listBenchmarks = {method = "GET", path = "/benchmarks", examples = {{name="Director"}}, query = {"name"},
 		about = "AssessFirst's library of benchmark predictive models by job title: {data={{uuid, name, assessments, created_at}}}. name matches partially."},
-	listWebhooks = {method = "GET", path = "/webhooks", query = list({"name", "url", "actions"}, PAGE),
+	listWebhooks = {method = "GET", path = "/webhooks", examples = {{name="ATS",url="https://hooks.example.com/af?x=1"}}, query = list({"name", "url", "actions"}, PAGE),
 		about = "Your webhooks: {data={{uuid, name, url, actions, created_at}}, meta}. name and url match partially; actions filters by an array of events."},
-	listGroups = {method = "GET", path = "/groups", query = PAGE, custom = {"uuid", "label", "color", "created_at"},
+	listGroups = {method = "GET", path = "/groups", examples = {{per_page=10}}, query = PAGE, custom = {"uuid", "label", "color", "created_at"},
 		about = "Candidate groups: {data={{uuid, label, color, created_at}}, meta}. Paging here is undocumented: stop if meta.current_page is not the page you asked for."},
-	listGroupUsers = {method = "GET", path = "/groups/{group_uuid}/users", query = PAGE, custom = {"uuid", "first_name", "last_name", "email"},
+	listGroupUsers = {method = "GET", path = "/groups/{group_uuid}/users", examples = {{group_uuid="786a70ccd1454e83bfae271ffa721c0d"}}, query = PAGE, custom = {"uuid", "first_name", "last_name", "email"},
 		about = "Candidates in a group: {data={{uuid, first_name, last_name, email}}, meta}. Paging here is undocumented: stop if meta.current_page is not the page you asked for."},
 
-	sendInvitation = {method = "POST", path = "/candidate/send-invitation", body = list(CANDIDATE, {"message", "predictive_model_uuid"}), required = {"email"},
+	sendInvitation = {method = "POST", path = "/candidate/send-invitation", examples = {{email="ana@example.com",first_name="Ana",last_name="Silva",gender="f",recruiter_email="rh@example.com",message="Bonjour Ana",predictive_model_uuid="ae5d8fe1546e45569a6364455e9f8bbb",locale="fr-FR"}}, body = list(CANDIDATE, {"message", "predictive_model_uuid"}), required = {"email"},
 		about = "AssessFirst emails the candidate an invitation to take the assessments, or to share existing results with your company. gender is 'f', 'n' (default) or 'm'; recruiter_email defaults to your company's ATS recruiter; message is added to the email; predictive_model_uuid (recommended) picks the assessments and starts voice when the model has it. Returns {uuid, last_invited_at, status}: invitation_sent, ask_share, reminder_sent, assessment_reminder, already_completed, added_to_network, or user_already_invited_24_hours_ago (one invitation per email address a day)."},
-	createCandidate = {method = "POST", path = "/candidate", body = CANDIDATE, required = {"email"},
+	createCandidate = {method = "POST", path = "/candidate", examples = {{email="ana@example.com",gender="n"}}, body = CANDIDATE, required = {"email"},
 		about = "Adds a candidate to your company without asking them; you are responsible for their GDPR consent. Returns {uuid, status}: added_to_network or already_in_sharepool."},
-	startVoiceAssessment = {method = "POST", path = "/candidate/{candidate_uuid}/init-voice/{pm_uuid}",
+	startVoiceAssessment = {method = "POST", path = "/candidate/{candidate_uuid}/init-voice/{pm_uuid}", examples = {{candidate_uuid="dad17c50ff5d44e7a5b772fe636291a0",pm_uuid="ae5d8fe1546e45569a6364455e9f8bbb"}},
 		about = "Creates the candidate's voice assessment for a voice predictive model; sendInvitation with predictive_model_uuid already does this. Returns {uuid, candidate_uuid, predictive_model_uuid}."},
-	createWebhook = {method = "POST", path = "/webhooks", body = {"name", "url", "actions"}, required = {"name", "url", "actions"},
+	createWebhook = {method = "POST", path = "/webhooks", examples = {{name="ATS",url="https://hooks.example.com/af",actions={"assessment.finished","user.linked"}}}, body = {"name", "url", "actions"}, required = {"name", "url", "actions"},
 		about = "actions is an array of assessment.finished, user.linked, user.completed and user.deleted. AssessFirst then POSTs {data={user={uuid, email, assessment?}}, webhook={uuid, name, action}} to url, a receiver you control. AssessFirst documents no payload signature, so the receiver should read the candidate again rather than trust the payload. AssessFirst recommends assessment.finished and user.linked, then getCandidateCompletion on each event; candidates who were already_completed or added_to_network send none. Returns {uuid, name, url, actions}."},
-	deleteWebhook = {method = "DELETE", path = "/webhooks/{webhook_uuid}", about = "Deletes a webhook."},
-	createGroup = {method = "POST", path = "/groups", body = {"label", "color"}, required = {"label"},
+	deleteWebhook = {method = "DELETE", path = "/webhooks/{webhook_uuid}", examples = {{webhook_uuid="f4128a0183594722a58f9ccb96e7633d"}}, about = "Deletes a webhook."},
+	createGroup = {method = "POST", path = "/groups", examples = {{label="Finalists",color="#FF0088"}}, body = {"label", "color"}, required = {"label"},
 		about = "Creates a candidate group; color is hex such as '#000000'. Returns the group with its uuid."},
-	deleteGroup = {method = "DELETE", path = "/groups/{group_uuid}", about = "Deletes a group."},
-	addGroupUser = {method = "POST", path = "/groups/{group_uuid}/user/{user_uuid}", about = "Adds a candidate to a group. Returns {user, group}."},
-	removeGroupUser = {method = "DELETE", path = "/groups/{group_uuid}/user/{user_uuid}", about = "Removes a candidate from a group."},
+	deleteGroup = {method = "DELETE", path = "/groups/{group_uuid}", examples = {{group_uuid="786a70ccd1454e83bfae271ffa721c0d"}}, about = "Deletes a group."},
+	addGroupUser = {method = "POST", path = "/groups/{group_uuid}/user/{user_uuid}", examples = {{group_uuid="786a70ccd1454e83bfae271ffa721c0d",user_uuid="dad17c50ff5d44e7a5b772fe636291a0"}}, about = "Adds a candidate to a group. Returns {user, group}."},
+	removeGroupUser = {method = "DELETE", path = "/groups/{group_uuid}/user/{user_uuid}", examples = {{group_uuid="786a70ccd1454e83bfae271ffa721c0d",user_uuid="dad17c50ff5d44e7a5b772fe636291a0"}}, about = "Removes a candidate from a group."},
 }
 
 local function options(input: Options?): Options
@@ -109,28 +110,33 @@ local function events(value: any, field: string): {string}
 end
 
 -- Each query or body value as AssessFirst expects it; other fields are nonempty strings.
-local FIELDS: {[string]: (any, string) -> any} = {
-	uuid = uuid, pm_uuid = uuid, predictive_model_uuid = uuid, actions = events,
-	page = function(value: any, field: string): any return integer(value, field, 1e9) end,
-	per_page = function(value: any, field: string): any return integer(value, field, 50) end,
-	is_public = function(value: any, field: string): any
+type Rule = {validate: (any, string) -> any, schema: any}
+local TEXT_RULE: Rule = {validate = text, schema = {type = "string", minLength = 1}}
+local UUID_RULE: Rule = {validate = uuid, schema = {type = "string", maxLength = 64, pattern = "^[0-9a-fA-F-]+$", description = "AssessFirst UUID, usually 32 hexadecimal characters without dashes."}}
+local function integerRule(maximum: number): Rule
+	return {validate = function(value: any, field: string): any return integer(value, field, maximum) end,
+		schema = {type = "integer", minimum = 1, maximum = maximum}}
+end
+local FIELDS: {[string]: Rule} = {
+	uuid = UUID_RULE, pm_uuid = UUID_RULE, predictive_model_uuid = UUID_RULE,
+	actions = {validate = events, schema = {type = "array", minItems = 1, items = {type = "string", enum = EVENTS}}},
+	page = integerRule(1e9), per_page = integerRule(50), report_id = integerRule(MAX_REPORT),
+	is_public = {validate = function(value: any, field: string): any
 		assert(type(value) == "boolean", field .. " must be a boolean")
 		return if value then 1 else 0
-	end,
-	gender = function(value: any, field: string): any
+	end, schema = {type = "boolean", description = "Sent to AssessFirst as 1 or 0."}},
+	gender = {validate = function(value: any, field: string): any
 		assert(value == "f" or value == "n" or value == "m", field .. " must be 'f', 'n' or 'm'")
 		return value
-	end,
-	locale = function(value: any, field: string): any
+	end, schema = {type = "string", enum = {"f", "n", "m"}, default = "n"}},
+	locale = {validate = function(value: any, field: string): any
 		assert(type(value) == "string" and #value <= 16 and string.match(value, "^%a%a[%w%-]*$"), field .. " must be a locale such as 'fr-FR'")
 		return value
-	end,
+	end, schema = {type = "string", maxLength = 16, pattern = "^[A-Za-z]{2}[A-Za-z0-9-]*$", default = "en-US"}},
 }
 
 local function check(field: string, value: any): any
-	local validate = FIELDS[field]
-	if validate then return validate(value, field) end
-	return text(value, field)
+	return (FIELDS[field] or TEXT_RULE).validate(value, field)
 end
 
 -- Withheld from every response and error: the iframe token takes assessments as the candidate, and an
@@ -226,7 +232,7 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 		assert(args[field] ~= nil and args[field] ~= NULL, field .. " is required")
 	end
 	local path = string.gsub(endpoint.path, "{([%w_]+)}", function(field: string)
-		local value = if field == "report_id" then string.format("%d", integer(args[field], field, 9999)) else uuid(args[field], field)
+		local value = if field == "report_id" then string.format("%d", check(field, args[field])) else uuid(args[field], field)
 		args[field] = nil
 		return value
 	end)
@@ -268,31 +274,45 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 	return decode(name, endpoint, response)
 end
 
-local function signature(endpoint: Endpoint): string
-	local fields: {string} = {}
-	for field in string.gmatch(endpoint.path, "{([%w_]+)}") do table.insert(fields, field) end
-	if endpoint.pdf then table.insert(fields, "path") end
-	for _, field in list(endpoint.query or NONE, endpoint.body or NONE) do
-		table.insert(fields, if table.find(endpoint.required or NONE, field) then field else field .. "?")
-	end
-	return "({" .. table.concat(fields, ", ") .. "})"
-end
-
 local function exported(endpoint: Endpoint): boolean
 	if COMPLETION_ONLY then return endpoint.custom ~= nil and endpoint.method == "GET" end
 	return endpoint.method == "GET" or config.access == "read-write"
 end
 
 local exports: {[string]: any} = {}
+local docs: {[string]: any} = {}
 for name, endpoint in endpoints do
 	if exported(endpoint) then
 		exports[name] = function(args: Options?): any return request(name, endpoint, args) end
+		local properties: Options, required: {string} = {}, table.clone(endpoint.required or NONE)
+		for _, field in list(endpoint.query or NONE, endpoint.body or NONE, {"locale"}) do
+			local schema = (FIELDS[field] or TEXT_RULE).schema
+			properties[field] = if table.find(required, field) then schema else {anyOf = {schema, {type = "null"}}, description = "Optional; null is omitted before sending."}
+		end
+		for field in string.gmatch(endpoint.path, "{([%w_]+)}") do
+			properties[field] = if field == "report_id" then FIELDS.report_id.schema else UUID_RULE.schema
+			table.insert(required, field)
+		end
+		local input: any = {type = "object", properties = properties, additionalProperties = false, examples = endpoint.examples}
+		local record: any = {description = endpoint.about .. " " .. endpoint.method .. " " .. endpoint.path .. ".", inputSchema = input,
+			annotations = {readOnlyHint = endpoint.method == "GET" and not endpoint.pdf}}
+		if endpoint.pdf then
+			properties.path = {type = "string", minLength = 1, description = "Destination session path. An existing file is replaced."}
+			table.insert(required, "path")
+			input["if"] = {properties = {report_id = {enum = PREDICTIVE_REPORTS}}, required = {"report_id"}}
+			input["then"] = {required = {"pm_uuid"}, properties = {pm_uuid = UUID_RULE.schema}}
+			record.outputSchema = {type = "object", properties = {path = {type = "string"}, size = {type = "integer", minimum = 0}, url = {type = "string"}, contentType = {type = "string"}}, required = {"path", "size", "url", "contentType"}}
+			record.annotations.destructiveHint = true
+		elseif COMPLETION_ONLY then
+			record.description ..= " Completion-only access returns only these record fields: " .. table.concat(endpoint.custom or NONE, ", ") .. ". Paged results retain data and meta."
+		else
+			record.description ..= " Empty native objects may be encoded by AssessFirst as []; the connector preserves that representation."
+		end
+		if #required > 0 then input.required = required end
+		docs[name] = record
 	end
 end
-exports.help = function(): string
-	local names: {string} = {}
-	for name in exports do if name ~= "help" then table.insert(names, name) end end
-	table.sort(names)
+exports.help = function(): any
 	local lines = {
 		"AssessFirst API v2, an open beta AssessFirst may still change (" .. DOCS .. "). Every function takes one named options object with AssessFirst's snake_case names; ? marks optional fields. Every function also takes locale?, such as 'fr-FR' (default en-US" .. (if exports.listLocales then ", see listLocales" else "") .. "), for the language of returned text, reports and emails. Results are AssessFirst's JSON unchanged, except that the connector withholds iframe_candidate_token (it lets anyone take assessments as the candidate) and removes sso single sign-on parameters from links. Connector calls return completed values: use them directly, without await.",
 		"Candidates, predictive models (pm_uuid, predictive_model_uuid), groups, users and webhooks have 32-character hexadecimal UUIDs; report_id is a number. Lists date records as 'YYYY-MM-DD hh:mm:ss'; writes may answer with ISO 8601 or Unix seconds. Swipe measures personality, Drive motivations and Brain reasoning; a predictive model scores candidates against a job.",
@@ -305,16 +325,16 @@ exports.help = function(): string
 		table.insert(lines, "This connection uses AssessFirst's test environment, " .. config.api_host .. ": its candidates and results are test data, not the company's production AssessFirst account.")
 	end
 	if COMPLETION_ONLY then
-		table.insert(lines, 2, "This connection only follows assessment completion: it has just the functions below, and their records keep only the fields listed. Scores, synthesis, reports, fit with a predictive model and every change are out of reach, so do not offer them: they need another Access level, which a connection administrator sets. AssessFirst's API has no campaigns: follow candidates by group (listGroups, listGroupUsers({group_uuid=g}), then getCandidateCompletion for each candidate, one request each) or check them against a predictive model with pm_uuid.")
+		table.insert(lines, "This connection only follows assessment completion: it has just the documented functions, and their records keep only the fields listed. Scores, synthesis, reports, fit with a predictive model and every change are out of reach, so do not offer them: they need another Access level, which a connection administrator sets. AssessFirst's API has no campaigns: follow candidates by group (listGroups, listGroupUsers({group_uuid=g}), then getCandidateCompletion for each candidate, one request each) or check them against a predictive model with pm_uuid.")
 	elseif exports.sendInvitation then
 		table.insert(lines, "To invite: sendInvitation({email='ana@example.com', first_name='Ana', last_name='Silva', predictive_model_uuid=pm}) emails the candidate. Status ask_share means they already have an AssessFirst account and must accept to share their results with you; wait for that before reading them. createCandidate adds a person without asking them, so collect their consent first. Deletions return {}. After a timeout or 5xx, read the candidate, group or webhook again before repeating a write.")
 	else
 		table.insert(lines, "This connection is read-only: inviting candidates and managing groups and webhooks need read and write access.")
 	end
-	for _, name in names do
-		local endpoint = endpoints[name]
-		table.insert(lines, name .. signature(endpoint) .. ": " .. endpoint.about .. " " .. endpoint.method .. " " .. endpoint.path)
-	end
-	return table.concat(lines, "\n")
+	local sections = {identifiers = lines[2], paging = lines[3], workflow = lines[4], privacy = lines[5], errors = lines[6]}
+	-- Access/environment paragraphs are added above; keep the configured context in the overview.
+	local overview = {lines[1]}
+	for index = 7, #lines do table.insert(overview, lines[index]) end
+	return {text = table.concat(overview, "\n\n"), functions = docs, sections = sections}
 end
 return exports

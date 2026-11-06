@@ -23,10 +23,10 @@ return {
 		end
 
 		responses = {'{"spreadsheetId":"s1","updatedRange":"Sheet1!B2","updatedCells":1}'}
-		assert(c.updateValues({spreadsheetId = "https://docs.google.com/spreadsheets/d/s1/edit#gid=0", range = "Sheet1!B2", values = {{42}}}).updatedCells == 1)
+		assert(fixture.example("updateValues").updatedCells == 1)
 		sent("PUT", API .. "/s1/values/Sheet1%21B2?valueInputOption=RAW", '{"values":[[42]]}')
 		responses = {'{"spreadsheetId":"s1"}'}
-		c.updateValues({spreadsheetId = "s1", range = "B2:C2", values = {{json.decode("null"), ""}}, valueInputOption = "USER_ENTERED", includeValuesInResponse = true})
+		fixture.example("updateValues", 2)
 		sent("PUT", API .. "/s1/values/B2%3AC2?valueInputOption=USER_ENTERED&includeValuesInResponse=true", '{"values":[[null,""]]}')
 
 		-- Google's system parameters stay out of the URL; Google rejects them as unknown body fields.
@@ -37,7 +37,7 @@ return {
 		assert(smuggled.key == "k" and smuggled.access_token == "t" and smuggled.alt == "media" and smuggled.fields == "x")
 
 		responses = {'{"spreadsheetId":"s1","tableRange":"Log!A1:D3","updates":{"updatedRows":1}}'}
-		assert(c.appendValues({spreadsheetId = "s1", range = "Log!A:D", values = {{"2026-10-16", "paid", 120}}, insertDataOption = "INSERT_ROWS"}).updates.updatedRows == 1)
+		assert(fixture.example("appendValues").updates.updatedRows == 1)
 		sent("POST", API .. "/s1/values/Log%21A%3AD:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS", '{"values":[["2026-10-16","paid",120]]}')
 
 		responses = {'{"spreadsheetId":"s1"}'}
@@ -45,22 +45,22 @@ return {
 		sent("POST", API .. "/s1/values/%27Log%2F2026%27%21A%3AD:append?valueInputOption=RAW", '{"values":[[1]]}')
 
 		responses = {'{"spreadsheetId":"s1","clearedRange":"Sheet1!A2:D1000"}'}
-		assert(c.clearValues({spreadsheetId = "s1", range = "Sheet1!A2:D"}).clearedRange == "Sheet1!A2:D1000")
+		assert(fixture.example("clearValues").clearedRange == "Sheet1!A2:D1000")
 		sent("POST", API .. "/s1/values/Sheet1%21A2%3AD:clear", "{}")
 
 		responses = {'{"spreadsheetId":"s1","totalUpdatedCells":2}', '{"spreadsheetId":"s1","clearedRanges":["Q2/Q3!A1"]}'}
-		c.batchUpdateValues({spreadsheetId = "s1", data = {{range = "Q2/Q3!A1", values = {{1, 2}}}}})
+		fixture.example("batchUpdateValues")
 		local body = json.decode(requests[#requests].body)
 		assert(requests[#requests].url == API .. "/s1/values:batchUpdate" and body.valueInputOption == "RAW" and body.data[1].range == "Q2/Q3!A1" and json.encode(body.data[1].values) == "[[1,2]]")
 		body.data, body.valueInputOption = nil, nil
 		assert(next(body) == nil, "unexpected batchUpdateValues fields")
-		c.batchClearValues({spreadsheetId = "s1", ranges = {"Q2/Q3!A1"}})
+		fixture.example("batchClearValues")
 		sent("POST", API .. "/s1/values:batchClear", '{"ranges":["Q2/Q3!A1"]}')
 
 		responses = {'{"spreadsheetId":"new","spreadsheetUrl":"https://docs.google.com/spreadsheets/d/new/edit"}', '{"spreadsheetId":"s1","replies":[{"addSheet":{"properties":{"sheetId":7}}}]}'}
-		assert(c.createSpreadsheet({properties = {title = "Report"}}).spreadsheetId == "new")
+		assert(fixture.example("createSpreadsheet").spreadsheetId == "new")
 		sent("POST", API, '{"properties":{"title":"Report"}}')
-		assert(c.batchUpdate({spreadsheetId = "s1", requests = {{addSheet = {properties = {title = "Archive"}}}}}).replies[1].addSheet.properties.sheetId == 7)
+		assert(fixture.example("batchUpdate").replies[1].addSheet.properties.sheetId == 7)
 		sent("POST", API .. "/s1:batchUpdate", '{"requests":[{"addSheet":{"properties":{"title":"Archive"}}}]}')
 
 		local count = #requests

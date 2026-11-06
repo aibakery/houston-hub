@@ -104,5 +104,32 @@ return {
   end
   assert(#requests==#cases,"hidden network request or retry")
   assert(#cases==61,"official API coverage unexpectedly changed")
+
+  -- Execute the validated documentation example through the same real request
+  -- builder. Route expectations still come from the independent matrix above.
+  for _,case in cases do
+   local before=#requests
+   local result=fixture.example(case.name)
+   assert(#requests==before+1,"documented example made unexpected requests: "..case.name)
+   local req=requests[#requests]
+   local path=string.match(case.url,"https://api%.notion%.com([^?]+)")
+   local pattern=string.gsub(path,"id%-%w[%w_]*","[^/?]+")
+   local actual=string.match(req.url,"https://api%.notion%.com([^?]+)")
+   assert(req.method==case.method and string.match(actual,"^"..pattern.."$"),"wrong documented route: "..case.name.." "..req.url)
+   assert(result.future.retained,"documented example changed the result envelope")
+  end
+
+  -- Every markdown discriminator has its own valid generated payload.
+  for index,kind in {"update_content","replace_content","insert_content","replace_content_range"} do
+   fixture.example("updatePageMarkdown",index)
+   local body=json.decode(requests[#requests].body)
+   assert(body.type==kind and body.markdown_version=="v2" and body.page_id==nil)
+   if kind=="update_content" then
+    assert(body.update_content.content_updates[1].old_str=="Previous roadmap")
+    assert(body.update_content.content_updates[1].new_str=="Current roadmap")
+   elseif kind=="replace_content" then assert(body.replace_content.new_str=="# Roadmap\n\nUpdated milestones.")
+   elseif kind=="insert_content" then assert(body.insert_content.content=="## Next steps\n\nReview the milestones.")
+   else assert(body.replace_content_range.content_range=="## Milestones...## Next steps") end
+  end
  end,
 }

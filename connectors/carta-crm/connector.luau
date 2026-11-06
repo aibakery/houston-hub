@@ -259,48 +259,22 @@ local function object(name: string, endpoint: Endpoint, response: HttpResponse, 
 	return value, list
 end
 
--- name({path fields, query fields?, extra fields?, required body fields, ...body}) built from the
--- endpoint itself.
--- Extra fields are options the connector's own request consumes, such as a request header.
-local function signature(endpoint: Endpoint): string
-	local fields: {string} = {}
-	for field in string.gmatch(endpoint.path, "{([%w_]+)}") do table.insert(fields, field) end
-	for _, group in {endpoint.query or NONE, endpoint.extra or NONE} do
-		for _, field in group do
-			table.insert(fields, if table.find(endpoint.required or NONE, field) then field else field .. "?")
-		end
-	end
-	if type(endpoint.body) == "string" then
-		table.insert(fields, endpoint.body)
-	elseif hasBody(endpoint) then
-		for _, field in endpoint.required or NONE do
-			if not table.find(fields, field) then table.insert(fields, field) end
-		end
-		table.insert(fields, "...body")
-	end
-	return "({" .. table.concat(fields, ", ") .. "})"
-end
-
--- A function for each endpoint the connection's access allows, and help listing them after intro.
-local function operations(endpoints: {[string]: Endpoint}, request: (string, Endpoint, Options?) -> any, intro: {string}): {[string]: any}
-	local exports: {[string]: any} = {}
+-- Export and document exactly the operations enabled for this connection.
+local function operations(endpoints: {[string]: Endpoint}, request: (string, Endpoint, Options?) -> any, intro: {string}, documentation: {[string]: any}): {[string]: any}
+	local exports: {[string]: any}, docs: {[string]: any} = {}, {}
+	for name in documentation do assert(endpoints[name], "documentation without endpoint: " .. name) end
 	for name, endpoint in endpoints do
+		assert(documentation[name], "missing documentation for " .. name)
 		if not writes(endpoint) or config.access == "read-write" then
 			exports[name] = function(args: Options?): any return request(name, endpoint, args) end
+			local record = table.clone(documentation[name])
+			record.description = endpoint.about .. " " .. endpoint.method .. " " .. endpoint.path .. ". Reference: " .. DOCS .. endpoint.doc
+				.. (if record.description then "\n\n" .. record.description else "")
+			if record.annotations == nil then record.annotations = {readOnlyHint = not writes(endpoint)} end
+			docs[name] = record
 		end
 	end
-	exports.help = function(): string
-		local names: {string} = {}
-		for name in exports do if name ~= "help" then table.insert(names, name) end end
-		table.sort(names)
-		local lines = table.clone(intro)
-		table.insert(lines, "Each function below names its route and reference page, " .. DOCS .. "<page>.")
-		for _, name in names do
-			local endpoint = endpoints[name]
-			table.insert(lines, name .. signature(endpoint) .. ": " .. endpoint.about .. " " .. endpoint.method .. " " .. endpoint.path .. " (" .. endpoint.doc .. ")")
-		end
-		return table.concat(lines, "\n")
-	end
+	exports.help = {text = table.concat(intro, "\n\n"), functions = docs}
 	return exports
 end
 -- End of the shared request layer.
@@ -375,11 +349,11 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 end
 
 return operations(endpoints, request, {
-	"Carta CRM public API v1. Every function takes one named options object with Carta CRM's field names; ? marks optional fields and ...body the JSON body fields. Results are Carta CRM's JSON unchanged: lists as {<records>, total?}, records as objects, deletes and note links as {success}; list membership changes return the record. In bodies, pass json.decode('[]') for empty arrays and json.decode('null') to clear a field. Connector calls return completed values: use them directly, without await.",
+	"Carta CRM public API v1. Every function takes one named options object with Carta CRM's field names; ? marks optional fields and ...body the JSON body fields. Results are Carta CRM's JSON unchanged: lists as {<records>, total?}, records as objects, deletes and note links as {success}; list membership changes return the record. In bodies, pass json.decode('[]') for empty arrays; json.decode('null') clears fields documented as nullable. Connector calls return completed values: use them directly, without await.",
 	"Start with getMe(): the user and organization the key acts as. IDs are usually ObjectIds; company note routes also take a domain such as acme.com. Custom field values go in fields keyed by fieldId: read the record type's list*Fields first.",
 	"Lists return one page: limit 1..100 (default 100) and offset (default 0); fetch offset + limit until fewer than limit return. Array query filters repeat the parameter and match any value; fundCartaIds and prospectPublicIds are sent comma-separated.",
-	"Search and aggregate bodies take filters {{field_id, operator, value}}: eq, neq, gt, gte, lt, lte, contains, in (array), between ({from, to} as a two-element array), last_x ('12 months'). group_by is a one-element array holding a field ID.",
+	"Search and aggregate bodies take filters {{field_id, operator, value}}: eq, neq, gt, gte, lt, lte, contains, in (array), between (a two-element array), last_x ('12 months'), blank and not_blank (no value). group_by is a one-element array holding a field ID; optional metric={field_id, agg_func='sum'} aggregates a NUMBER or FORMULA field. Discover field IDs through list*Fields before constructing filters or custom field values.",
 	"Examples: crm.listDeals({search='acme', limit=25}); crm.searchCompanies({filters={{field_id='lists', operator='in', value={listId}}}}); crm.getReportData({id=reportId, entityType='deal', offset=100}); crm.createTask({entityId=dealId, entityType='DEAL', title='Send memo', dueDate='2026-11-01'}).",
 	"Read-only connections omit writes; search and aggregate still work. Each record type needs its module enabled (deals, fundraising, investors, fees, themes, companies, contacts, Interactions); Fund Admin reads need Fund Admin access; the key acts as its user and organization.",
 	"Side effects: creating contacts, or records with a website, can start Carta's enrichment; deletes are permanent, except fees (moved to the trash) and IC meetings and requests (archived; an unknown ID also succeeds). No automatic retries: after a timeout or 5xx, check whether the write took effect (search or list for the record) before repeating it; createTheme and the LP catalogue adds are safe to repeat. Errors report the HTTP status, Carta CRM's code and message.",
-})
+}, require("lib/help.luau"))

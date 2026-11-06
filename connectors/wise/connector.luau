@@ -291,13 +291,16 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 end
 
 local exports: {[string]: any} = {}
+local docs: {[string]: any} = {}
+local help = require("lib/help.luau")
 for name, endpoint in endpoints do
 	if endpoint.method == "GET" or config.access == "read-write" then
 		exports[name] = function(opts: Options?): any return request(name, endpoint, opts) end
+		docs[name] = help.build(name, endpoint, FORMATS, UUID_FIELDS)
 	end
 end
 
-exports.help = function(): string
+exports.help = function(): any
 	local lines = {
 		"Wise Platform API (legacy v1-v4 paths) on " .. config.api_host .. ". Call functions directly, e.g. wise.listProfiles(); do not await connector calls. Each takes one options object with Wise's native names: {placeholders} in the route are required, query options are listed per function, and remaining options of POST/PATCH calls form the JSON body unchanged. Results are Wise's JSON unchanged (some are arrays). Reference: https://docs.wise.com/api-reference .",
 		"Start with listProfiles() and pick the PERSONAL or BUSINESS profile id. Ids for profiles, balances, transfers and recipients are integers; quote and batch group ids are UUID strings. Amounts are decimal major units (12.5 = 12.50), not cents. Dates are ISO-8601, e.g. '2026-10-01T00:00:00Z'.",
@@ -314,26 +317,9 @@ exports.help = function(): string
 		table.insert(lines, "Idempotency: createTransfer and createBatchTransfer require customerTransactionId, and createBalance and createBalanceMovement require idempotenceUuid (sent as X-idempotence-uuid). Each must be a new UUID kept with the intended action; reuse it only to retry that same action after a timeout, never for a different payment. Inspect listTransfers or getTransfer before retrying an ambiguous write.")
 	end
 	table.insert(lines, "Errors report HTTP status, Wise's errors (code, message, path), Retry-After and x-trace-id. A 429 means Wise did not process the request and is retryable after Retry-After, as is a 5xx on a read. Wise rate-limits each user to about 100 requests per second and 900 per minute.")
-	local names: {string} = {}
-	for name in exports do if name ~= "help" then table.insert(names, name) end end
-	table.sort(names)
-	for _, name in names do
-		local endpoint = endpoints[name]
-		local options: {string} = {}
-		for field in string.gmatch(endpoint.path, "{(%w+)}") do table.insert(options, field) end
-		for _, field in endpoint.required or NONE do table.insert(options, field) end
-		if endpoint.oneOf then table.insert(options, table.concat(endpoint.oneOf, "|")) end
-		if endpoint.kind == "download" then table.insert(options, "path") end
-		local optional: {string} = {}
-		for field in endpoint.query or NO_QUERY do
-			if not table.find(options, field) then table.insert(optional, field .. "?") end
-		end
-		table.sort(optional)
-		for _, field in optional do table.insert(options, field) end
-		if sendsBody(endpoint) then table.insert(options, "...body") end
-		local signature = if #options > 0 then "{" .. table.concat(options, ", ") .. "}" else ""
-		table.insert(lines, name .. "(" .. signature .. "): " .. endpoint.method .. " " .. endpoint.path .. ". " .. endpoint.about)
-	end
-	return table.concat(lines, "\n")
+	local sections = {paging = lines[3], files = lines[4], authentication = lines[5], errors = lines[#lines],
+		requirements = "Recipient and transfer requirements depend on the quote's currencies, recipient type, legal entity and supplied answers. getAccountRequirements returns forms with type and fields; use their keys, validation limits and allowed values to build details. If an answer has refreshRequirementsOnChange, call refreshAccountRequirements with the partial recipient body, then use the updated form. Before creating a transfer, call validateTransferRequirements with targetAccount and quoteUuid for additional details such as reference, transferPurpose and sourceOfFunds. Common fields in the schemas are illustrative; the provider's returned form is authoritative for the route. Do not guess banking fields or required values. Reference: https://docs.wise.com/api-reference/legacy/recipient ."}
+	if config.access == "read-write" then sections.workflow = lines[6]; sections.idempotency = lines[8] end
+	return {text = table.concat(lines, "\n\n"), functions = docs, sections = sections}
 end
 return exports

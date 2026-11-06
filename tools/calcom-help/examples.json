@@ -1,0 +1,671 @@
+{
+  "addBookingAttendee": [
+    {
+      "bookingUid": "booking-demo",
+      "email": "bo@example.com",
+      "name": "Bo",
+      "timeZone": "Europe/Paris"
+    }
+  ],
+  "addBookingFields": [
+    {
+      "bookingFields": [
+        {
+          "field": "custom",
+          "label": "What should we discuss?",
+          "required": true,
+          "slug": "agenda",
+          "type": "shortText"
+        }
+      ],
+      "eventTypeId": 123
+    }
+  ],
+  "addBookingGuests": [
+    {
+      "bookingUid": "booking-demo",
+      "guests": [
+        {
+          "email": "guest@example.com",
+          "name": "Guest"
+        }
+      ]
+    }
+  ],
+  "calculateRoutingFormSlots": [
+    {
+      "answers": {
+        "companySize": "small",
+        "email": "ana@example.com"
+      },
+      "end": "2026-11-20",
+      "routingFormId": "form-demo",
+      "start": "2026-11-16"
+    }
+  ],
+  "cancelBooking": [
+    {
+      "bookingUid": "booking-demo",
+      "cancellationReason": "Schedule conflict"
+    },
+    {
+      "bookingUid": "booking-demo",
+      "cancellationReason": "Unavailable",
+      "seatUid": "seat-demo"
+    }
+  ],
+  "confirmBooking": [
+    {
+      "bookingUid": "booking-demo"
+    }
+  ],
+  "createBooking": [
+    {
+      "attendee": {
+        "email": "ana@example.com",
+        "name": "Ana",
+        "timeZone": "Europe/Paris"
+      },
+      "eventTypeId": 123,
+      "metadata": {
+        "source": "houston"
+      },
+      "start": "2026-11-16T09:00:00Z"
+    },
+    {
+      "attendee": {
+        "email": "bo@example.com",
+        "name": "Bo",
+        "timeZone": "Europe/Paris"
+      },
+      "eventTypeSlug": "intro",
+      "recurrenceCount": 3,
+      "start": "2026-11-16T09:00:00Z",
+      "username": "ana"
+    }
+  ],
+  "createEventType": [
+    {
+      "description": "Meet the team",
+      "lengthInMinutes": 30,
+      "locations": [
+        {
+          "integration": "cal-video",
+          "type": "integration"
+        }
+      ],
+      "slug": "intro",
+      "title": "Introduction"
+    }
+  ],
+  "createEventTypeWebhook": [
+    {
+      "active": true,
+      "eventTypeId": 123,
+      "subscriberUrl": "https://example.com/cal-webhook",
+      "triggers": [
+        "BOOKING_CREATED",
+        "BOOKING_CANCELLED"
+      ]
+    }
+  ],
+  "createOutOfOffice": [
+    {
+      "end": "2026-11-22",
+      "notes": "Away",
+      "reason": "vacation",
+      "start": "2026-11-20"
+    }
+  ],
+  "createPrivateLink": [
+    {
+      "eventTypeId": 123,
+      "expiresAt": "2026-12-01T00:00:00Z",
+      "maxUsageCount": 5
+    }
+  ],
+  "createSchedule": [
+    {
+      "availability": [
+        {
+          "days": [
+            "Monday",
+            "Tuesday"
+          ],
+          "endTime": "17:00",
+          "startTime": "09:00"
+        }
+      ],
+      "isDefault": false,
+      "name": "Office hours",
+      "timeZone": "Europe/Paris"
+    }
+  ],
+  "createWebhook": [
+    {
+      "active": true,
+      "subscriberUrl": "https://example.com/cal-webhook",
+      "triggers": [
+        "BOOKING_CREATED",
+        "BOOKING_CANCELLED"
+      ]
+    }
+  ],
+  "createWorkflow": [
+    {
+      "activation": {
+        "activeOnEventTypeIds": [
+          123
+        ],
+        "isActiveOnAllEventTypes": false
+      },
+      "name": "Meeting reminder",
+      "steps": [
+        {
+          "action": "email_attendee",
+          "includeCalendarEvent": true,
+          "message": {
+            "html": "\u003cp\u003eSee you at {START_TIME_h:mma}.\u003c/p\u003e",
+            "subject": "Your upcoming meeting"
+          },
+          "recipient": "attendee",
+          "sender": "Team",
+          "stepNumber": 1,
+          "template": "custom"
+        }
+      ],
+      "trigger": {
+        "offset": {
+          "unit": "hour",
+          "value": 1
+        },
+        "type": "beforeEvent"
+      }
+    }
+  ],
+  "declineBooking": [
+    {
+      "bookingUid": "booking-demo",
+      "reason": "Unavailable"
+    }
+  ],
+  "deleteBookingField": [
+    {
+      "eventTypeId": 123,
+      "slug": "agenda"
+    }
+  ],
+  "deleteEventType": [
+    {
+      "eventTypeId": 123
+    }
+  ],
+  "deleteEventTypeWebhook": [
+    {
+      "eventTypeId": 123,
+      "webhookId": "webhook-demo"
+    }
+  ],
+  "deleteOutOfOffice": [
+    {
+      "oooId": 11
+    }
+  ],
+  "deletePrivateLink": [
+    {
+      "eventTypeId": 123,
+      "linkId": "link-demo"
+    }
+  ],
+  "deleteSchedule": [
+    {
+      "scheduleId": 9
+    }
+  ],
+  "deleteSlotReservation": [
+    {
+      "reservationUid": "reservation-demo"
+    }
+  ],
+  "deleteWebhook": [
+    {
+      "webhookId": "webhook-demo"
+    }
+  ],
+  "deleteWorkflow": [
+    {
+      "workflowId": 15
+    }
+  ],
+  "getBooking": [
+    {
+      "bookingUid": "booking-demo"
+    }
+  ],
+  "getBookingAttendee": [
+    {
+      "attendeeId": 21,
+      "bookingUid": "booking-demo"
+    }
+  ],
+  "getBookingBySeat": [
+    {
+      "seatUid": "seat-demo"
+    }
+  ],
+  "getBookingCalendarLinks": [
+    {
+      "bookingUid": "booking-demo"
+    }
+  ],
+  "getBookingConferencingSessions": [
+    {
+      "bookingUid": "booking-demo"
+    }
+  ],
+  "getBookingFields": [
+    {
+      "eventTypeId": 123
+    }
+  ],
+  "getBookingRecordings": [
+    {
+      "bookingUid": "booking-demo"
+    }
+  ],
+  "getBookingReferences": [
+    {
+      "bookingUid": "booking-demo"
+    }
+  ],
+  "getBookingRoutingTrace": [
+    {
+      "bookingUid": "booking-demo"
+    }
+  ],
+  "getBookingTranscripts": [
+    {
+      "bookingUid": "booking-demo"
+    }
+  ],
+  "getBusyTimes": [
+    {
+      "calendar": [
+        "42,ana@example.com",
+        "43,team@example.com"
+      ],
+      "dateFrom": "2026-11-16",
+      "dateTo": "2026-11-20"
+    },
+    {
+      "calendar": "42,ana@example.com",
+      "dateFrom": "2026-11-16",
+      "dateTo": "2026-11-20"
+    }
+  ],
+  "getDefaultConferencingApp": [
+    {}
+  ],
+  "getDefaultSchedule": [
+    {}
+  ],
+  "getEventType": [
+    {
+      "eventTypeId": 123
+    }
+  ],
+  "getEventTypeHistory": [
+    {
+      "eventTypeId": 123,
+      "limit": 20
+    }
+  ],
+  "getEventTypeSchedulingConfig": [
+    {
+      "eventTypeId": 123
+    }
+  ],
+  "getEventTypeWebhook": [
+    {
+      "eventTypeId": 123,
+      "webhookId": "webhook-demo"
+    }
+  ],
+  "getMe": [
+    {}
+  ],
+  "getSchedule": [
+    {
+      "scheduleId": 9
+    }
+  ],
+  "getSlotReservation": [
+    {
+      "reservationUid": "reservation-demo"
+    }
+  ],
+  "getSlots": [
+    {
+      "end": "2026-11-20",
+      "eventTypeId": 123,
+      "start": "2026-11-16",
+      "timeZone": "Europe/Paris"
+    }
+  ],
+  "getTeam": [
+    {
+      "teamId": 42
+    }
+  ],
+  "getTeamEventType": [
+    {
+      "eventTypeId": 123,
+      "teamId": 42
+    }
+  ],
+  "getVerifiedEmail": [
+    {
+      "id": 5
+    }
+  ],
+  "getVerifiedPhone": [
+    {
+      "id": 5
+    }
+  ],
+  "getWebhook": [
+    {
+      "webhookId": "webhook-demo"
+    }
+  ],
+  "getWorkflow": [
+    {
+      "workflowId": 15
+    }
+  ],
+  "getWorkflowConditionFields": [
+    {
+      "workflowId": 15
+    }
+  ],
+  "listBookingAttendees": [
+    {
+      "bookingUid": "booking-demo"
+    }
+  ],
+  "listBookings": [
+    {
+      "afterStart": "2026-11-15T00:00:00Z",
+      "limit": 20,
+      "status": "upcoming"
+    }
+  ],
+  "listCalendars": [
+    {}
+  ],
+  "listConferencingApps": [
+    {}
+  ],
+  "listEventTypeWebhooks": [
+    {
+      "eventTypeId": 123
+    }
+  ],
+  "listEventTypes": [
+    {
+      "username": "ana"
+    }
+  ],
+  "listOutOfOffice": [
+    {
+      "skip": 0,
+      "sortStart": "asc",
+      "take": 20
+    }
+  ],
+  "listPrivateLinks": [
+    {
+      "eventTypeId": 123
+    }
+  ],
+  "listSchedules": [
+    {}
+  ],
+  "listTeamBookings": [
+    {
+      "skip": 0,
+      "status": "upcoming,past",
+      "take": 20,
+      "teamId": 42
+    }
+  ],
+  "listTeamEventTypes": [
+    {
+      "teamId": 42
+    }
+  ],
+  "listTeamMemberships": [
+    {
+      "emails": "ana@example.com,bo@example.com",
+      "skip": 0,
+      "take": 20,
+      "teamId": 42
+    }
+  ],
+  "listTeamSchedules": [
+    {
+      "teamId": 42
+    }
+  ],
+  "listTeams": [
+    {}
+  ],
+  "listTimezones": [
+    {
+      "limit": 10,
+      "search": "Europe"
+    }
+  ],
+  "listVerifiedEmails": [
+    {}
+  ],
+  "listVerifiedPhones": [
+    {}
+  ],
+  "listWebhooks": [
+    {}
+  ],
+  "listWorkflows": [
+    {}
+  ],
+  "markBookingAbsence": [
+    {
+      "attendees": [
+        {
+          "absent": true,
+          "email": "ana@example.com"
+        }
+      ],
+      "bookingUid": "booking-demo",
+      "host": false
+    }
+  ],
+  "reassignBooking": [
+    {
+      "bookingUid": "booking-demo"
+    }
+  ],
+  "reassignBookingToUser": [
+    {
+      "bookingUid": "booking-demo",
+      "reason": "Host coverage",
+      "userId": 7
+    }
+  ],
+  "replaceBookingFields": [
+    {
+      "bookingFields": [
+        {
+          "field": "name",
+          "variant": "fullName"
+        },
+        {
+          "field": "email",
+          "hidden": false,
+          "required": true
+        },
+        {
+          "field": "custom",
+          "label": "Agenda",
+          "slug": "agenda",
+          "type": "shortText"
+        }
+      ],
+      "eventTypeId": 123
+    }
+  ],
+  "requestBookingReschedule": [
+    {
+      "bookingUid": "booking-demo",
+      "rescheduleReason": "Please choose another time"
+    }
+  ],
+  "requestEmailVerificationCode": [
+    {
+      "email": "ana@example.com"
+    }
+  ],
+  "requestPhoneVerificationCode": [
+    {
+      "phone": "+12025550123"
+    }
+  ],
+  "rescheduleBooking": [
+    {
+      "bookingUid": "booking-demo",
+      "reschedulingReason": "New time",
+      "start": "2026-11-17T09:00:00Z"
+    },
+    {
+      "bookingUid": "booking-demo",
+      "seatUid": "seat-demo",
+      "start": "2026-11-17T09:00:00Z"
+    }
+  ],
+  "reserveSlot": [
+    {
+      "eventTypeId": 123,
+      "reservationDuration": 5,
+      "slotDuration": 30,
+      "slotStart": "2026-11-16T09:00:00Z"
+    }
+  ],
+  "setDefaultConferencingApp": [
+    {
+      "app": "google-meet"
+    }
+  ],
+  "updateBookingFields": [
+    {
+      "bookingFields": [
+        {
+          "label": "Meeting agenda",
+          "slug": "agenda"
+        }
+      ],
+      "eventTypeId": 123
+    }
+  ],
+  "updateBookingLocation": [
+    {
+      "bookingUid": "booking-demo",
+      "location": {
+        "address": "1 Main St",
+        "type": "address"
+      },
+      "notifyHosts": true
+    }
+  ],
+  "updateEventType": [
+    {
+      "eventTypeId": 123,
+      "hidden": false,
+      "lengthInMinutes": 45
+    }
+  ],
+  "updateEventTypeWebhook": [
+    {
+      "active": false,
+      "eventTypeId": 123,
+      "webhookId": "webhook-demo"
+    }
+  ],
+  "updateMe": [
+    {
+      "name": "Ana",
+      "timeFormat": 24,
+      "timeZone": "Europe/Paris"
+    }
+  ],
+  "updateOutOfOffice": [
+    {
+      "notes": "Returning Monday",
+      "oooId": 11
+    }
+  ],
+  "updatePrivateLink": [
+    {
+      "eventTypeId": 123,
+      "linkId": "link-demo",
+      "maxUsageCount": 10
+    }
+  ],
+  "updateSchedule": [
+    {
+      "availability": [
+        {
+          "days": [
+            "Monday"
+          ],
+          "endTime": "12:00",
+          "startTime": "09:00"
+        }
+      ],
+      "name": "Morning hours",
+      "scheduleId": 9
+    }
+  ],
+  "updateSlotReservation": [
+    {
+      "eventTypeId": 123,
+      "reservationDuration": 5,
+      "reservationUid": "reservation-demo",
+      "slotDuration": 30,
+      "slotStart": "2026-11-16T09:00:00Z"
+    }
+  ],
+  "updateWebhook": [
+    {
+      "active": false,
+      "webhookId": "webhook-demo"
+    }
+  ],
+  "updateWorkflow": [
+    {
+      "name": "Updated meeting reminder",
+      "workflowId": 15
+    }
+  ],
+  "verifyEmail": [
+    {
+      "code": "123456",
+      "email": "ana@example.com"
+    }
+  ],
+  "verifyPhone": [
+    {
+      "code": "123456",
+      "phone": "+12025550123"
+    }
+  ]
+}

@@ -437,34 +437,6 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 	return fail(name, endpoint, response, "Pennylane returned invalid JSON")
 end
 
-local function signature(endpoint: Endpoint): string
-	local fields: {string} = {}
-	for field in string.gmatch(endpoint.path, "{([%w_]+)}") do table.insert(fields, field) end
-	local paged = false
-	for _, field in endpoint.query or NONE do
-		if field == "cursor" or field == "limit" then
-			paged = true
-		else
-			table.insert(fields, if table.find(endpoint.required or NONE, field) then field else field .. "?")
-		end
-	end
-	if endpoint.body == "multipart" then
-		table.insert(fields, "file")
-		for _, field in endpoint.parts or NONE do table.insert(fields, field .. "?") end
-		table.insert(fields, "filename?")
-		table.insert(fields, "content_type?")
-	elseif type(endpoint.body) == "string" then
-		table.insert(fields, endpoint.body :: string)
-	elseif hasBody(endpoint) then
-		for _, field in endpoint.required or NONE do
-			if not table.find(fields, field) then table.insert(fields, field) end
-		end
-		table.insert(fields, "...body")
-	end
-	if paged then table.insert(fields, "...page") end
-	return "({" .. table.concat(fields, ", ") .. "})"
-end
-
 local exports: {[string]: any} = {}
 for name, endpoint in endpoints do
 	if not writes(endpoint) or config.access == "read-write" then
@@ -472,12 +444,9 @@ for name, endpoint in endpoints do
 	end
 end
 
-exports.help = function(): string
-	local names: {string} = {}
-	for name in exports do if name ~= "help" then table.insert(names, name) end end
-	table.sort(names)
+exports.help = function(): any
 	local lines = {
-		"Pennylane Company API v2 for the company that owns the API token. Each function takes one options object with Pennylane's snake_case names: {id} path fields are integer IDs, ? marks optional fields, ...body the other JSON body fields and ...page cursor? and limit?. Results are Pennylane's JSON unchanged; an action Pennylane answers without content returns {}. Connector calls return completed values: use them directly, without await. Functions without a method read with GET. Names are Pennylane's operationIds; each one's reference page is " .. DOCS .. "<name in lowercase> unless another page is noted.",
+		"Pennylane Company API v2 for the company that owns the API token. Each function takes one options object with Pennylane's snake_case names: path fields are integer IDs, and function help describes required fields, native bodies and runnable examples. Results are Pennylane's JSON unchanged; an action Pennylane answers without content returns {}. Connector calls return completed values: use them directly, without await. Names are Pennylane's operationIds; each one's reference page is " .. DOCS .. "<name in lowercase> unless another page is noted.",
 		"Paging: lists return {items, has_more, next_cursor}; pass cursor=next_cursor while has_more, re-sending the same filter and sort. limit is 1..100 (default 20), up to 1000 for getLedgerAccounts, getTrialBalance and the get...Changes functions. filter is an array of {field, operator, value} conditions combined with AND, using the fields each function lists; operators are eq, not_eq, lt, lteq, gt, gteq, in and not_in (with an array value) and start_with. sort is one field, '-' first for descending; most lists sort by id, newest first. get...Changes functions list {id, operation, processed_at} events of the last 4 weeks: pass start_date (RFC 3339) or cursor, not both.",
 		"Formats: IDs are integers, amounts strings such as '120.00' (send them as strings), dates 'YYYY-MM-DD'. Pass json.decode('[]') for an empty array, because a plain {} is sent as an object. Linked records come as {id, url} and nested lists such as invoice_lines as {url}; read them with the matching function. public_file_url, file url and export file_url values are signed links valid 30 minutes that need no credentials: anyone holding one can download the file, and this connector does not fetch them.",
 		"Examples: pennylane.getCustomerInvoices({filter={{field='date', operator='gteq', value='2026-01-01'}, {field='customer_id', operator='in', value={12, 34}}}, sort='-date', limit=50}); pennylane.getCustomerInvoiceInvoiceLines({customer_invoice_id=42}); pennylane.getTrialBalance({period_start='2026-01-01', period_end='2026-03-31'}); local job = pennylane.exportFec({period_start='2025-01-01', period_end='2025-12-31'}), then pennylane.getFecExport({id=job.id}) until file_url is set.",
@@ -489,14 +458,21 @@ exports.help = function(): string
 	else
 		table.insert(lines, "This connection is read-only: it lists no writes. The export functions only start report files.")
 	end
-	for _, name in names do
-		local endpoint = endpoints[name]
-		local line = name .. signature(endpoint) .. (if endpoint.method == "GET" then "" else " " .. endpoint.method)
-		if endpoint.about then line ..= ". " .. endpoint.about end
-		if endpoint.doc then line ..= " (page " .. endpoint.doc .. ")" end
-		table.insert(lines, line)
+	local native = require("lib/help.luau")
+	local functions = {}
+	for name in exports do
+		if name ~= "help" then
+			local endpoint = endpoints[name]
+			assert(native[name], "missing help " .. name)
+			local record: any = table.clone(native[name])
+			record.description ..= ". " .. (endpoint.about or "") .. " " .. endpoint.method .. " " .. endpoint.path .. ". Provider reference: " .. DOCS .. (endpoint.doc or string.lower(name))
+			record.annotations = {readOnlyHint = not writes(endpoint)}
+			functions[name] = record
+		end
 	end
-	return table.concat(lines, "\n")
+	local sections = {paging=lines[2],formats=lines[3],workflows=lines[4],errors=lines[5]}
+	if config.access == "read-write" then sections.files=lines[6];sections.writes=lines[7] else sections.access=lines[6] end
+	return {text=lines[1],functions=functions,sections=sections}
 end
 
 return exports

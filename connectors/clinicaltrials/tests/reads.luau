@@ -133,7 +133,7 @@ return {
 		assert(url(#requests) == API .. "/studies/NCT04368728", url(#requests))
 		assert(record.hasResults == true and record.protocolSection.identificationModule.nctId == "NCT04368728")
 		respond('{"resultsSection":{"outcomeMeasuresModule":{"outcomeMeasures":[]}}}')
-		record = trials.getStudy("NCT04368728", {fields = {"OutcomeMeasuresModule", "AdverseEventsModule"}})
+		record = fixture.example("getStudy")
 		assert(url(#requests) == API .. "/studies/NCT04368728?fields=OutcomeMeasuresModule%2CAdverseEventsModule", url(#requests))
 		assert(json.encode(record.resultsSection.outcomeMeasuresModule.outcomeMeasures) == "[]")
 		respond("{}")
@@ -141,6 +141,12 @@ return {
 		assert(next(trials.getStudy(args)) == nil)
 		assert(url(#requests) == API .. "/studies/NCT00587795?fields=ResultsSection", url(#requests))
 		assert(args.nctId == "NCT00587795" and args.fields == "ResultsSection", "caller table was modified")
+		respond("{}")
+		assert(next(fixture.example("getStudy", 2)) == nil)
+		respond('{"studies":[],"totalCount":0}')
+		local example = fixture.example("searchStudies")
+		assert(#example.studies == 0 and example.totalCount == 0)
+		assert(url(#requests) == API .. "/studies?" .. SUMMARY .. "&filter.overallStatus=RECRUITING&query.cond=type%202%20diabetes&pageSize=50&countTotal=true", url(#requests))
 		assert(#responses == 0, "unused responses")
 	end,
 }

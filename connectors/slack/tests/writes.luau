@@ -38,25 +38,25 @@ return {
 
 		responses = {'{"ok":true,"channel":"C1","ts":"1.000003"}', '{"ok":true,"channel":"C1","ts":"1.000003","text":"Edited"}',
 			'{"ok":true,"channel":"C1","ts":"1.000003"}', '{"ok":true,"channel":{"id":"G1"}}', '{"ok":true}', '{"ok":true}'}
-		slack.postMessage("C1", "Hi")
+		fixture.example("postMessage")
 		body = sent(2)
 		assert(requests[2].url == "https://slack.com/api/chat.postMessage" and body.channel == "C1" and body.text == "Hi" and body.thread_ts == nil)
-		slack.updateMessage("C1", "1.000003", "Edited")
+		fixture.example("updateMessage")
 		body = sent(3)
 		assert(requests[3].url == "https://slack.com/api/chat.update" and body.ts == "1.000003" and body.text == "Edited")
-		slack.deleteMessage("C1", "1.000003")
+		fixture.example("deleteMessage")
 		assert(requests[4].url == "https://slack.com/api/chat.delete" and sent(4).ts == "1.000003")
-		assert(slack.openConversation({"U1", "U2"}).id == "G1")
+		assert(fixture.example("openConversation").id == "G1")
 		assert(requests[5].url == "https://slack.com/api/conversations.open" and sent(5).users == "U1,U2")
-		slack.addReaction("C1", "1.000003", "thumbsup")
+		fixture.example("addReaction")
 		body = sent(6)
 		assert(requests[6].url == "https://slack.com/api/reactions.add" and body.timestamp == "1.000003" and body.name == "thumbsup")
-		slack.removeReaction("C1", "1.000003", "thumbsup")
+		fixture.example("removeReaction")
 		assert(requests[7].url == "https://slack.com/api/reactions.remove" and sent(7).name == "thumbsup")
 
 		responses = {'{"ok":true,"upload_url":"https://files.slack.com/upload/v1/signed","file_id":"F1"}', "OK - 11",
 			'{"ok":true,"files":[{"id":"F1","title":"Q3"}]}'}
-		local uploaded = slack.uploadFile("reports/q3.txt", {channel = "C1", thread_ts = "1.000001", text = "Q3 numbers", title = "Q3", alt_text = "Report"})
+		local uploaded = fixture.example("uploadFile")
 		assert(uploaded.files[1].id == "F1")
 		assert(requests[8].method == "POST" and requests[8].url == "https://slack.com/api/files.getUploadURLExternal")
 		assert(requests[8].headers["Content-Type"][1] == "application/x-www-form-urlencoded")
@@ -100,5 +100,19 @@ return {
 			assert(not ok and string.find(message, case[2], 1, true), message)
 		end
 		assert(#requests == before and #responses == 0, "invalid input reached Slack")
+
+		responses = {'{"ok":true,"channel":"C1","ts":"1.000002","message":{"text":"Hello"}}'}
+		assert(fixture.example("reply").ts == "1.000002")
+		body = sent(#requests)
+		assert(requests[#requests].url == "https://slack.com/api/chat.postMessage")
+		assert(body.channel == "C1" and body.thread_ts == "1.000001" and body.text == "Hello" and body.unfurl_links == false)
+		assert(body.blocks[1].type == "section" and body.blocks[1].text.type == "mrkdwn" and body.blocks[1].text.text == "*Hi*")
+		responses = {'{"ok":true,"channel":"C1","ts":"1.000004"}'}
+		fixture.example("postMessage", 2)
+		body = sent(#requests)
+		assert(body.text == "Review the release notes" and body.blocks[1].type == "rich_text")
+		local elements = body.blocks[1].elements[1].elements
+		assert(elements[1].style.bold == true and elements[2].url == "https://example.com/releases")
+		assert(body.blocks[2].elements[1].action_id == "review_release" and body.metadata.event_payload.release == "example")
 	end,
 }

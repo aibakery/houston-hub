@@ -47,19 +47,19 @@ local endpoints: {[string]: Endpoint} = {
 	getRestrictedStockUnit = {method = "GET", path = "/v1alpha1/issuers/{issuerId}/restrictedStockUnits/{id}", doc = "issuers-get-restricted-stock-unit", about = ""},
 	listOptionExercises = {method = "GET", path = "/v1alpha1/issuers/{issuerId}/optionExercises", query = PAGE, doc = "issuers-list-option-exercises", about = "pageSize up to 100."},
 	updateExerciseMoneyMovement = {method = "POST", path = "/v1alpha1/issuers/{issuerId}/optionExercises/{exerciseId}:updateMoneyMovement", doc = "issuers-update-money-movement",
-		about = "Body {moneyMovement={completionDate={value=date}}}: when the exercise funds were received."},
+		about = "Body {moneyMovement={completionDate={value=date-time}}}: when the exercise funds were received."},
 	updateExerciseTaxWithholding = {method = "POST", path = "/v1alpha1/issuers/{issuerId}/optionExercises/{exerciseId}:updateTaxWithholding", doc = "issuers-update-tax-withholding",
 		about = "Body {taxWithholdings={{name, rate={value}, taxes=money, jurisdiction={country={value}, countrySubdivision?={value}, city?}}}}."},
 	createDraftOptionGrant = {method = "POST", path = "/v1alpha1/issuers/{issuerId}/draftOptionGrantSets/{draftOptionGrantSetId}/draftOptionGrants", required = {"draftOptionGrant"},
 		doc = "issuers-draftsecurities-create-draft-option-grant", about = "Body {draftOptionGrant}; see the reference for its fields (dates are {year, month, day}). A grant awaiting board approval; vesting templates come from listVestingScheduleTemplates."},
 	getDraftOptionGrant = {method = "GET", path = "/v1alpha1/issuers/{issuerId}/draftOptionGrantSets/{draftOptionGrantSetId}/draftOptionGrants/{draftOptionGrantId}",
 		doc = "issuers-draftsecurities-get-draft-option-grant", about = ""},
-	initiateSecondarySettlement = {method = "POST", path = "/v1alpha1/issuers/{issuerId}/secondaryTransactions", required = {"externalReferenceId", "rightOfFirstRefusalOutcome", "pricePerShare", "securities"},
-		doc = "issuers-initiate-settlement", about = "Body {externalReferenceId, rightOfFirstRefusalOutcome, pricePerShare=money, securities={{securityType (option_grant or certificate), securityId, stockOptionType? (ISO or NSO), quantity={value}}}, buyerInformation?}; buyerInformation is required for WAIVED and EXERCISED_BY_STAKEHOLDER. Soft-locks the securities; keep secondaryTransactionId and follow transactionState."},
+	initiateSecondarySettlement = {method = "POST", path = "/v1alpha1/issuers/{issuerId}/secondaryTransactions", required = {"externalReferenceId", "rightOfFirstRefusal", "pricePerShare", "securities"},
+		doc = "issuers-create-secondary-transaction", about = "Create a secondary transaction with the issuer's rightOfFirstRefusal={outcome, decidedAt, decidedByName}, pricePerShare and securities. buyerInformation is required for WAIVED and EXERCISED_BY_STAKEHOLDER. Keep secondaryTransaction.secondaryTransactionId and follow its state."},
 	getSecondaryTransaction = {method = "GET", path = "/v1alpha1/issuers/{issuerId}/secondaryTransactions/{secondaryTransactionId}", write = true,
 		doc = "issuers-get-secondary-transaction", about = "State and per-security settlement outcome, including tax withholding."},
 	finalizeSecondarySettlement = {method = "POST", path = "/v1alpha1/issuers/{issuerId}/secondaryTransactions/{secondaryTransactionId}:finalize",
-		doc = "issuers-finalize-settlement", about = "Body {securities?={{securityId, stockOptionType?, taxLineItems?}}}. Confirms all money movement (irreversible) is complete; the issuer still approves before the cap table changes."},
+		doc = "issuers-finalize-secondary-transaction", about = "An empty body confirms that all money movement is complete. This step is irreversible; issuer approval still precedes cap-table changes."},
 
 	listCorporations = {method = "GET", path = "/v1alpha1/corporations", query = PAGE, doc = "corporations-list-corporations", about = "Corporations for Carta Total Compensation."},
 	getCompensationBenchmarkAttributes = {method = "GET", path = "/v1alpha1/corporations/{corporationId}/compensationBenchmarkAttributes",
@@ -211,48 +211,22 @@ local function object(name: string, endpoint: Endpoint, response: HttpResponse, 
 	return value, list
 end
 
--- name({path fields, query fields?, extra fields?, required body fields, ...body}) built from the
--- endpoint itself.
--- Extra fields are options the connector's own request consumes, such as a request header.
-local function signature(endpoint: Endpoint): string
-	local fields: {string} = {}
-	for field in string.gmatch(endpoint.path, "{([%w_]+)}") do table.insert(fields, field) end
-	for _, group in {endpoint.query or NONE, endpoint.extra or NONE} do
-		for _, field in group do
-			table.insert(fields, if table.find(endpoint.required or NONE, field) then field else field .. "?")
-		end
-	end
-	if type(endpoint.body) == "string" then
-		table.insert(fields, endpoint.body)
-	elseif hasBody(endpoint) then
-		for _, field in endpoint.required or NONE do
-			if not table.find(fields, field) then table.insert(fields, field) end
-		end
-		table.insert(fields, "...body")
-	end
-	return "({" .. table.concat(fields, ", ") .. "})"
-end
-
--- A function for each endpoint the connection's access allows, and help listing them after intro.
-local function operations(endpoints: {[string]: Endpoint}, request: (string, Endpoint, Options?) -> any, intro: {string}): {[string]: any}
-	local exports: {[string]: any} = {}
+-- Export and document exactly the operations enabled for this connection.
+local function operations(endpoints: {[string]: Endpoint}, request: (string, Endpoint, Options?) -> any, intro: {string}, documentation: {[string]: any}): {[string]: any}
+	local exports: {[string]: any}, docs: {[string]: any} = {}, {}
+	for name in documentation do assert(endpoints[name], "documentation without endpoint: " .. name) end
 	for name, endpoint in endpoints do
+		assert(documentation[name], "missing documentation for " .. name)
 		if not writes(endpoint) or config.access == "read-write" then
 			exports[name] = function(args: Options?): any return request(name, endpoint, args) end
+			local record = table.clone(documentation[name])
+			record.description = endpoint.about .. " " .. endpoint.method .. " " .. endpoint.path .. ". Reference: " .. DOCS .. endpoint.doc
+				.. (if record.description then "\n\n" .. record.description else "")
+			if record.annotations == nil then record.annotations = {readOnlyHint = not writes(endpoint)} end
+			docs[name] = record
 		end
 	end
-	exports.help = function(): string
-		local names: {string} = {}
-		for name in exports do if name ~= "help" then table.insert(names, name) end end
-		table.sort(names)
-		local lines = table.clone(intro)
-		table.insert(lines, "Each function below names its route and reference page, " .. DOCS .. "<page>.")
-		for _, name in names do
-			local endpoint = endpoints[name]
-			table.insert(lines, name .. signature(endpoint) .. ": " .. endpoint.about .. " " .. endpoint.method .. " " .. endpoint.path .. " (" .. endpoint.doc .. ")")
-		end
-		return table.concat(lines, "\n")
-	end
+	exports.help = {text = table.concat(intro, "\n\n"), functions = docs}
 	return exports
 end
 -- End of the shared request layer.
@@ -335,4 +309,4 @@ return operations(endpoints, request, {
 	"Examples: local issuer = carta.listIssuers({pageSize=50}).issuers[1]; carta.getIssuerCapitalizationTable({issuerId=issuer.id, asOfDate='2026-10-19'}); carta.listStakeholders({issuerId=issuer.id, pageSize=100}); carta.listTransactions({issuerId=issuer.id, type='option'}); carta.listFundPerformanceMetrics({firmId=firm.id, fundId='-', reportType='BY_FUND'}).",
 	"Read-only connections omit writes, getCapitalCall, getManagementFee and getSecondaryTransaction, which need write scopes, and getDraftIssuer, whose registration link is a credential. Fund accounting writes are idempotent on externalReferenceId and sourceSystem: repeating the same request returns the original with replayed=true, and a different payload under the same reference fails with 409. Other writes are not: after a timeout or 5xx, check whether the write took effect (read or list the resource, or look in Carta) before repeating it. Carta allows 10 requests per second and 300 per minute (half on the playground).",
 	"Errors report the HTTP status, Carta's reasons (INSUFFICIENT_SCOPE, ACCESS_TO_RESOURCE_RESTRICTED for a resource not shared at sign-in, MISSING_INTERNAL_PERMISSION for the user's Carta role) and message.",
-})
+}, require("lib/help.luau"))

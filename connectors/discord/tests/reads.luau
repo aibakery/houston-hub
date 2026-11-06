@@ -30,20 +30,20 @@ return {
 	end,
 	run = function(discord)
 		responses = {'{"id":"' .. G .. '","name":"Fixture"}', '{"id":"' .. G .. '","approximate_member_count":3}'}
-		assert(discord.getServer().name == "Fixture" and sent() == API .. "guilds/" .. G)
+		assert(fixture.example("getServer").name == "Fixture" and sent() == API .. "guilds/" .. G)
 		assert(discord.getServer({with_counts = true}).approximate_member_count == 3 and sent() == API .. "guilds/" .. G .. "?with_counts=true")
 
 		responses = {"[]", '[' .. CHANNEL .. ',{"id":"1300000000000000003","type":4,"guild_id":"' .. G .. '","name":"Info"}]'}
-		assert(json.encode(discord.listChannels()) == "[]" and sent() == API .. "guilds/" .. G .. "/channels")
+		assert(json.encode(fixture.example("listChannels")) == "[]" and sent() == API .. "guilds/" .. G .. "/channels")
 		local channels = discord.listChannels()
 		assert(#channels == 2 and channels[2].type == 4)
 
 		responses = {CHANNEL}
 		local before = #requests
-		assert(discord.getChannel(C).name == "general" and #requests == before + 1 and sent() == API .. "channels/" .. C)
+		assert(fixture.example("getChannel").name == "general" and #requests == before + 1 and sent() == API .. "channels/" .. C)
 
 		responses = {CHANNEL, "[]"}
-		assert(json.encode(discord.listMessages(C)) == "[]")
+		assert(json.encode(fixture.example("listMessages")) == "[]")
 		assert(sent(#requests - 1) == API .. "channels/" .. C, "the channel is checked first")
 		assert(sent() == API .. "channels/" .. C .. "/messages?limit=25")
 		local opts = {before = M, limit = 100}
@@ -53,11 +53,11 @@ return {
 		assert(sent() == API .. "channels/" .. C .. "/messages?before=" .. M .. "&limit=100")
 
 		responses = {CHANNEL, '{"id":"' .. M .. '","channel_id":"' .. C .. '","content":"hello","reactions":[]}'}
-		assert(discord.getMessage(C, M).content == "hello" and sent() == API .. "channels/" .. C .. "/messages/" .. M)
+		assert(fixture.example("getMessage").content == "hello" and sent() == API .. "channels/" .. C .. "/messages/" .. M)
 
 		local thread = '{"id":"' .. T .. '","type":11,"guild_id":"' .. G .. '","parent_id":"' .. C .. '"}'
 		responses = {'{"threads":[],"members":[]}', '{"threads":[' .. thread .. '],"members":[]}'}
-		local active = discord.listThreads()
+		local active = fixture.example("listThreads")
 		assert(json.encode(active.threads) == "[]" and sent() == API .. "guilds/" .. G .. "/threads/active")
 		assert(discord.listThreads().threads[1].parent_id == C)
 		responses = {thread, '[]'}
@@ -65,27 +65,26 @@ return {
 		assert(sent() == API .. "channels/" .. T .. "/messages?after=" .. M .. "&limit=1")
 
 		responses = {CHANNEL, '{"threads":[],"members":[],"has_more":false}', CHANNEL, '{"threads":[' .. thread .. '],"members":[],"has_more":true}'}
-		assert(discord.listArchivedThreads(C).has_more == false and sent() == API .. "channels/" .. C .. "/threads/archived/public?limit=25")
+		assert(fixture.example("listArchivedThreads").has_more == false and sent() == API .. "channels/" .. C .. "/threads/archived/public?limit=25")
 		assert(discord.listArchivedThreads(C, {before = "2026-01-31T12:00:00.000000+00:00", limit = 2}).has_more)
 		assert(sent() == API .. "channels/" .. C .. "/threads/archived/public?before=2026-01-31T12%3A00%3A00.000000%2B00%3A00&limit=2")
 
 		responses = {'{"total_results":0,"messages":[],"doing_deep_historical_index":false}',
 			'{"total_results":1,"messages":[[{"id":"' .. M .. '","content":"deploy done"}]],"doing_deep_historical_index":false}'}
-		assert(discord.searchMessages("deploy").total_results == 0 and sent() == API .. "guilds/" .. G .. "/messages/search?content=deploy")
-		local found = discord.searchMessages("", {channel_id = {C, T}, author_id = U, author_type = {"-bot"}, has = {"link"},
-			sort_by = "relevance", limit = 5, offset = 5, pinned = false})
+		assert(fixture.example("searchMessages").total_results == 0 and sent() == API .. "guilds/" .. G .. "/messages/search?content=deploy")
+		local found = fixture.example("searchMessages", 2)
 		assert(found.messages[1][1].content == "deploy done")
 		assert(sent() == API .. "guilds/" .. G .. "/messages/search?author_id=" .. U .. "&author_type=-bot&channel_id=" .. C
 			.. "&channel_id=" .. T .. "&has=link&limit=5&offset=5&pinned=false&sort_by=relevance")
 
 		responses = {"[]", '[{"user":{"id":"' .. U .. '","username":"ana"},"nick":"Ana","roles":[]}]', '{"user":{"id":"' .. U .. '"},"roles":["1"]}'}
-		assert(json.encode(discord.searchMembers("zz")) == "[]" and sent() == API .. "guilds/" .. G .. "/members/search?limit=25&query=zz")
+		assert(json.encode(fixture.example("searchMembers")) == "[]" and sent() == API .. "guilds/" .. G .. "/members/search?limit=25&query=zz")
 		assert(discord.searchMembers("an a", {limit = 1000})[1].nick == "Ana")
 		assert(sent() == API .. "guilds/" .. G .. "/members/search?limit=1000&query=an%20a")
-		assert(discord.getMember(U).user.id == U and sent() == API .. "guilds/" .. G .. "/members/" .. U)
+		assert(fixture.example("getMember").user.id == U and sent() == API .. "guilds/" .. G .. "/members/" .. U)
 
 		responses = {"[]", '[{"id":"' .. G .. '","name":"@everyone"}]'}
-		assert(json.encode(discord.listRoles()) == "[]" and sent() == API .. "guilds/" .. G .. "/roles")
+		assert(json.encode(fixture.example("listRoles")) == "[]" and sent() == API .. "guilds/" .. G .. "/roles")
 		assert(discord.listRoles()[1].name == "@everyone")
 
 		assert(string.find(rejected(discord.getChannel, 1300000000000000001), "must be a Discord ID string", 1, true))

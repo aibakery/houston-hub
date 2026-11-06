@@ -132,17 +132,6 @@ local function exportEndpoints(endpoints: {[string]: Endpoint})
 	end
 end
 
--- help() introduces the API, then documents exactly the configured operations.
-local function helpWith(overview: {string}): () -> string
-	return function(): string
-		local names: {string} = {}
-		for name in help do table.insert(names, name) end
-		table.sort(names)
-		local lines = table.clone(overview)
-		for _, name in names do table.insert(lines, help[name]) end
-		return table.concat(lines, "\n")
-	end
-end
 -- End of the shared request layer.
 
 local SPREADSHEET_FIELDS = "spreadsheetId,spreadsheetUrl,properties(title,locale,timeZone),sheets.properties,namedRanges"
@@ -214,5 +203,22 @@ local overview = {
 if config.access == "read-write" then
 	table.insert(overview, "Writes default to valueInputOption='RAW', storing values exactly as given, so '2026-10-16' stays text; pass 'USER_ENTERED' to parse numbers, dates and formulas as if typed. In values, json null leaves a cell unchanged and '' clears it. An empty Luau table encodes as a JSON object, which Google rejects: write an empty row or array as json.decode('[]'). Request bodies over 8 MiB fail: write large tables in row blocks. Google allows about 60 writes per minute per user. A failed or timed-out write may already have succeeded: read the range before repeating it.")
 end
-exports.help = helpWith(overview)
+local spreadsheetId = {type = "string", minLength = 1, description = "Spreadsheet ID or a https://docs.google.com/spreadsheets/d/<id>/edit URL. Published /d/e/ links do not carry an editable spreadsheet ID."}
+local records: {[string]: any} = {
+	getSpreadsheet = {examples = {{spreadsheetId = "s1"}}},
+	getValues = {examples = {{spreadsheetId = "https://docs.google.com/spreadsheets/d/1AbC_d-9/edit?gid=0#gid=0", range = "'Q1 Sales'!B2"}}},
+	batchGetValues = {examples = {{spreadsheetId = "s1", ranges = {"Sheet1!A1:B2", "Totals!C3"}, valueRenderOption = "FORMULA"}}},
+	updateValues = {examples = {{spreadsheetId = "https://docs.google.com/spreadsheets/d/s1/edit#gid=0", range = "Sheet1!B2", values = {{42}}} :: any,
+		{spreadsheetId = "s1", range = "B2:C2", values = {{json.decode("null"), ""}}, valueInputOption = "USER_ENTERED", includeValuesInResponse = true}}},
+	appendValues = {examples = {{spreadsheetId = "s1", range = "Log!A:D", values = {{"2026-10-16" :: any, "paid", 120}}, insertDataOption = "INSERT_ROWS"}}},
+	clearValues = {examples = {{spreadsheetId = "s1", range = "Sheet1!A2:D"}}},
+	batchUpdateValues = {examples = {{spreadsheetId = "s1", data = {{range = "Q2/Q3!A1", values = {{1, 2}}}}}}},
+	batchClearValues = {examples = {{spreadsheetId = "s1", ranges = {"Q2/Q3!A1"}}}},
+	createSpreadsheet = {examples = {{properties = {title = "Report"}}}},
+	batchUpdate = {examples = {{spreadsheetId = "s1", requests = {{addSheet = {properties = {title = "Archive"}}}}}}},
+}
+for name, record in records do
+	if string.find(endpoints[name].path, "{spreadsheetId}", 1, true) then record.properties = {spreadsheetId = spreadsheetId} end
+end
+exports.help = require("lib/help.luau").build(require("lib/discovery-schemas.luau"), endpoints, help, records, overview)
 return exports

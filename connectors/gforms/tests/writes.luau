@@ -29,7 +29,7 @@ return {
 		end
 
 		responses = {'{"formId":"new","info":{"title":"Lunch"},"responderUri":"https://docs.google.com/forms/d/e/1FAIpQL/viewform"}', '{"formId":"live"}'}
-		local created = c.createForm({info = {title = "Lunch"}})
+		local created = fixture.example("createForm")
 		assert(created.formId == "new" and json.encode(created.items) == "[]")
 		sent(API .. "?unpublished=true", {info = {title = "Lunch"}})
 		c.createForm({info = {title = "Live"}, unpublished = false})
@@ -37,12 +37,15 @@ return {
 
 		responses = {'{"replies":[{"createItem":{"itemId":"i1","questionId":["q1"]}}],"writeControl":{"requiredRevisionId":"r2"}}'}
 		local requestsBody = {{createItem = {item = {title = "Which day?", questionItem = {question = {required = true, choiceQuestion = {type = "RADIO", options = {{value = "Tuesday"}}}}}}, location = {index = 0}}}}
-		local reply = c.batchUpdate({formId = "https://docs.google.com/forms/d/f1/edit", requests = requestsBody, writeControl = {requiredRevisionId = "r1"}})
+		local reply = fixture.example("batchUpdate")
 		assert(reply.replies[1].createItem.questionId[1] == "q1")
 		sent(API .. "/f1:batchUpdate", {requests = requestsBody, writeControl = {requiredRevisionId = "r1"}})
+		responses = {'{"replies":[{}],"form":{"formId":"f1","items":[{"title":"Pick a day"}]}}'}
+		assert(fixture.example("batchUpdate", 2).form.items[1].title == "Pick a day")
+		sent(API .. "/f1:batchUpdate", {requests = {{updateItem = {item = {title = "Pick a day"}, location = {index = 0}, updateMask = "title"}}}, includeFormInResponse = true})
 
 		responses = {'{"formId":"f1","publishSettings":{"publishState":{"isPublished":true,"isAcceptingResponses":false}}}'}
-		local closed = c.setPublishSettings({formId = "f1", publishSettings = {publishState = {isPublished = true, isAcceptingResponses = false}}, updateMask = "publish_state"})
+		local closed = fixture.example("setPublishSettings")
 		assert(closed.publishSettings.publishState.isAcceptingResponses == false)
 		sent(API .. "/f1:setPublishSettings", {publishSettings = {publishState = {isPublished = true, isAcceptingResponses = false}}, updateMask = "publish_state"})
 

@@ -1,0 +1,435 @@
+{
+  "addFileMember": [
+    {
+      "file": "/Reports/report.pdf",
+      "members": [
+        {
+          ".tag": "email",
+          "email": "ana@example.com"
+        }
+      ],
+      "quiet": true
+    }
+  ],
+  "addFolderMember": [
+    {
+      "members": [
+        {
+          "access_level": "viewer",
+          "member": {
+            ".tag": "email",
+            "email": "ana@example.com"
+          }
+        }
+      ],
+      "quiet": true,
+      "shared_folder_id": "12345"
+    }
+  ],
+  "checkJobStatus": [
+    {
+      "async_job_id": "job-1"
+    }
+  ],
+  "checkRemoveMemberJobStatus": [
+    {
+      "async_job_id": "job-1"
+    }
+  ],
+  "checkShareJobStatus": [
+    {
+      "async_job_id": "job-1"
+    }
+  ],
+  "copy": [
+    {
+      "from_path": "/Reports/report.pdf",
+      "to_path": "/Archive/report.pdf"
+    }
+  ],
+  "copyBatch": [
+    {
+      "entries": [
+        {
+          "from_path": "/Reports/report.pdf",
+          "to_path": "/Archive/report.pdf"
+        }
+      ]
+    }
+  ],
+  "copyBatchCheck": [
+    {
+      "async_job_id": "job-1"
+    }
+  ],
+  "createFileRequest": [
+    {
+      "destination": "/Incoming",
+      "title": "Project documents"
+    }
+  ],
+  "createFolder": [
+    {
+      "path": "/Incoming/Project"
+    }
+  ],
+  "createSharedLinkWithSettings": [
+    {
+      "path": "/Reports/report.pdf",
+      "settings": {
+        "allow_download": true,
+        "requested_visibility": "public"
+      }
+    }
+  ],
+  "delete": [
+    {
+      "path": "/Reports/report.pdf"
+    }
+  ],
+  "deleteBatch": [
+    {
+      "entries": [
+        {
+          "path": "/Reports/report.pdf"
+        }
+      ]
+    }
+  ],
+  "deleteBatchCheck": [
+    {
+      "async_job_id": "job-1"
+    }
+  ],
+  "deleteFileRequest": [
+    {
+      "ids": [
+        "oaCAVmEyrqYnkZX9955Y"
+      ]
+    }
+  ],
+  "download": [
+    {
+      "path": "/Reports/report.pdf",
+      "session_path": "download.bin"
+    }
+  ],
+  "downloadZip": [
+    {
+      "path": "/Reports",
+      "session_path": "downloadZip.bin"
+    }
+  ],
+  "export": [
+    {
+      "path": "/Reports/report.pdf",
+      "session_path": "export.bin"
+    }
+  ],
+  "getAccount": [
+    {
+      "account_id": "dbid:AAEufNrMPSPe0dMQijRP0N_aZtBJRm26W4Q"
+    }
+  ],
+  "getCurrentAccount": [
+    {}
+  ],
+  "getFileRequest": [
+    {
+      "id": "oaCAVmEyrqYnkZX9955Y"
+    }
+  ],
+  "getMetadata": [
+    {
+      "path": "/Reports/report.pdf"
+    }
+  ],
+  "getPreview": [
+    {
+      "path": "/Reports/report.pdf",
+      "session_path": "getPreview.bin"
+    }
+  ],
+  "getSharedFileMetadata": [
+    {
+      "file": "/Reports/report.pdf"
+    }
+  ],
+  "getSharedFolderMetadata": [
+    {
+      "shared_folder_id": "12345"
+    }
+  ],
+  "getSharedLinkFile": [
+    {
+      "session_path": "getSharedLinkFile.bin",
+      "url": "https://www.dropbox.com/s/abc/report.pdf"
+    }
+  ],
+  "getSharedLinkMetadata": [
+    {
+      "url": "https://www.dropbox.com/s/abc/report.pdf"
+    }
+  ],
+  "getSpaceUsage": [
+    {}
+  ],
+  "getTemporaryLink": [
+    {
+      "path": "/Reports/report.pdf"
+    }
+  ],
+  "getThumbnail": [
+    {
+      "format": "png",
+      "path": "/Reports/report.pdf",
+      "session_path": "getThumbnail.bin",
+      "size": "w256h256"
+    }
+  ],
+  "listFileMembers": [
+    {
+      "file": "/Reports/report.pdf"
+    }
+  ],
+  "listFileMembersContinue": [
+    {
+      "cursor": "cursor-from-previous-page"
+    }
+  ],
+  "listFileRequests": [
+    {}
+  ],
+  "listFileRequestsContinue": [
+    {
+      "cursor": "cursor-from-previous-page"
+    }
+  ],
+  "listFolder": [
+    {
+      "limit": 100,
+      "path": "/Reports"
+    }
+  ],
+  "listFolderContinue": [
+    {
+      "cursor": "cursor-from-previous-page"
+    }
+  ],
+  "listFolderGetLatestCursor": [
+    {
+      "path": "/Reports"
+    }
+  ],
+  "listFolderMembers": [
+    {
+      "shared_folder_id": "12345"
+    }
+  ],
+  "listFolderMembersContinue": [
+    {
+      "cursor": "cursor-from-previous-page"
+    }
+  ],
+  "listMountableFolders": [
+    {}
+  ],
+  "listMountableFoldersContinue": [
+    {
+      "cursor": "cursor-from-previous-page"
+    }
+  ],
+  "listReceivedFiles": [
+    {}
+  ],
+  "listReceivedFilesContinue": [
+    {
+      "cursor": "cursor-from-previous-page"
+    }
+  ],
+  "listRevisions": [
+    {
+      "path": "/Reports/report.pdf"
+    }
+  ],
+  "listSharedFolders": [
+    {}
+  ],
+  "listSharedFoldersContinue": [
+    {
+      "cursor": "cursor-from-previous-page"
+    }
+  ],
+  "listSharedLinks": [
+    {}
+  ],
+  "modifySharedLinkSettings": [
+    {
+      "settings": {
+        "allow_download": false
+      },
+      "url": "https://www.dropbox.com/s/abc/report.pdf"
+    }
+  ],
+  "mountFolder": [
+    {
+      "shared_folder_id": "12345"
+    }
+  ],
+  "move": [
+    {
+      "from_path": "/Reports/report.pdf",
+      "to_path": "/Archive/report.pdf"
+    }
+  ],
+  "moveBatch": [
+    {
+      "entries": [
+        {
+          "from_path": "/Reports/report.pdf",
+          "to_path": "/Archive/report.pdf"
+        }
+      ]
+    }
+  ],
+  "moveBatchCheck": [
+    {
+      "async_job_id": "job-1"
+    }
+  ],
+  "relinquishFileMembership": [
+    {
+      "file": "/Reports/report.pdf"
+    }
+  ],
+  "relinquishFolderMembership": [
+    {
+      "shared_folder_id": "12345"
+    }
+  ],
+  "removeFileMember": [
+    {
+      "file": "/Reports/report.pdf",
+      "member": {
+        ".tag": "email",
+        "email": "ana@example.com"
+      }
+    }
+  ],
+  "removeFolderMember": [
+    {
+      "leave_a_copy": false,
+      "member": {
+        ".tag": "email",
+        "email": "ana@example.com"
+      },
+      "shared_folder_id": "12345"
+    }
+  ],
+  "restore": [
+    {
+      "path": "/Reports/report.pdf",
+      "rev": "015f000000001"
+    }
+  ],
+  "revokeSharedLink": [
+    {
+      "url": "https://www.dropbox.com/s/abc/report.pdf"
+    }
+  ],
+  "saveUrl": [
+    {
+      "path": "/Reports/report.pdf",
+      "url": "https://example.com/report.pdf"
+    }
+  ],
+  "saveUrlCheckJobStatus": [
+    {
+      "async_job_id": "job-1"
+    }
+  ],
+  "search": [
+    {
+      "options": {
+        "filename_only": true,
+        "max_results": 20,
+        "path": "/Reports"
+      },
+      "query": "report"
+    }
+  ],
+  "searchContinue": [
+    {
+      "cursor": "cursor-from-previous-page"
+    }
+  ],
+  "shareFolder": [
+    {
+      "path": "/Reports"
+    }
+  ],
+  "unmountFolder": [
+    {
+      "shared_folder_id": "12345"
+    }
+  ],
+  "unshareFile": [
+    {
+      "file": "/Reports/report.pdf"
+    }
+  ],
+  "unshareFolder": [
+    {
+      "shared_folder_id": "12345"
+    }
+  ],
+  "updateFileRequest": [
+    {
+      "id": "oaCAVmEyrqYnkZX9955Y",
+      "open": false
+    },
+    {
+      "id": "oaCAVmEyrqYnkZX9955Y",
+      "deadline": {".tag": "update", "deadline": "2026-12-01T12:00:00Z", "allow_late_uploads": "one_day"}
+    },
+    {
+      "id": "oaCAVmEyrqYnkZX9955Y",
+      "deadline": {".tag": "update"}
+    },
+    {
+      "id": "oaCAVmEyrqYnkZX9955Y",
+      "deadline": "no_update",
+      "description": "Upload the final project documents."
+    }
+  ],
+  "updateFolderMember": [
+    {
+      "access_level": "viewer",
+      "member": {
+        ".tag": "dropbox_id",
+        "dropbox_id": "dbid:AAEufNrMPSPe0dMQijRP0N_aZtBJRm26W4Q"
+      },
+      "shared_folder_id": "12345"
+    }
+  ],
+  "upload": [
+    {
+      "mode": {
+        ".tag": "update",
+        "update": "015f000000001"
+      },
+      "path": "/Reports/report.pdf",
+      "session_path": "report.pdf"
+    },
+    {
+      "mode": "add",
+      "path": "/Reports/report.pdf",
+      "session_path": "report.pdf"
+    },
+    {
+      "mode": "overwrite",
+      "path": "/Reports/report.pdf",
+      "session_path": "report.pdf"
+    }
+  ]
+}

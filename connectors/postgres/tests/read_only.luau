@@ -11,7 +11,7 @@ return {
 	end,
 	run = function(exports)
 		assert(exports.execute == nil, "read-only access must not expose execute")
-		local result = exports.query("SELECT id FROM users WHERE team = $1", {"core"})
+		local result = fixture.example("query")
 		assert(result.rows[1].id == 7 and result.truncated == false)
 		local request = requests[1]
 		assert(request.sql == "SELECT id FROM users WHERE team = $1" and request.params[1] == "core")

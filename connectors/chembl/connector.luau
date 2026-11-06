@@ -2,6 +2,7 @@
 type Options = {[string]: any}
 -- Each resource lists its fields as space-separated names; the loop after RESOURCES derives the rest.
 type Resource = {name: string, path: string, rows: string, label: string, search: boolean, id: string, about: string,
+	example: Options, exampleId: any,
 	compact: string, fields: string, sort: string, filters: {[string]: string}, only: string, compactSet: {[string]: boolean},
 	fieldSet: {[string]: boolean}, sortSet: {[string]: boolean}, filterKinds: {[string]: string}}
 
@@ -76,11 +77,13 @@ local MOLECULE_COMPACT = "molecule_chembl_id pref_name max_phase molecule_type f
 
 local RESOURCES: {Resource} = ({
 	{name = "Molecule", path = "molecule", rows = "molecules", label = "molecule", search = true, id = "molecule",
+		example = {q = "imatinib", fields = {"molecule_chembl_id", "pref_name", "max_phase"}, limit = 5}, exampleId = "CHEMBL25",
 		about = "Compounds, biologics and approved drugs. id is a ChEMBL ID such as CHEMBL25 or a standard InChIKey. q searches names and synonyms. Find an exact structure with filters `[\"molecule_structures__canonical_smiles__flexmatch\"] = smiles` (or `__connectivity` to ignore stereochemistry and salts), a trade name with `molecule_synonyms__molecule_synonym__iexact`. max_phase is the highest development phase, returned as a string such as \"4.0\" (approved); filter it as a number.",
 		compact = MOLECULE_COMPACT, fields = STRUCTURE_FIELDS .. " molecule_synonyms", sort = STRUCTURE_SORT,
 		filters = {text = STRUCTURE_TEXT .. " molecule_synonyms__molecule_synonym", number = STRUCTURE_FILTERS.number,
 			flag = STRUCTURE_FILTERS.flag, id = STRUCTURE_FILTERS.id, smiles = STRUCTURE_FILTERS.smiles}},
 	{name = "Target", path = "target", rows = "targets", label = "target", search = true, id = "chembl",
+		example = {filters = {target_components__accession = "P00533"}, fields = {"target_chembl_id"}}, exampleId = "CHEMBL203",
 		about = "Proteins, complexes, cell lines and organisms that compounds act on. id is a ChEMBL ID such as CHEMBL203. Find a protein by UniProt accession with `target_components__accession`.",
 		compact = "target_chembl_id pref_name target_type organism tax_id",
 		fields = "cross_references organism pref_name species_group_flag target_chembl_id target_components target_type tax_id",
@@ -88,6 +91,7 @@ local RESOURCES: {Resource} = ({
 		filters = {text = "pref_name organism target_type target_components__accession", number = "tax_id",
 			flag = "species_group_flag", id = "target_chembl_id"}},
 	{name = "Activity", path = "activity", rows = "activities", label = "activity", search = true, id = "integer",
+		example = {filters = {target_chembl_id = "CHEMBL203", standard_type__in = {"IC50", "Ki"}, pchembl_value__gte = 7, potential_duplicate = 0}, order_by = "-pchembl_value"}, exampleId = 31863,
 		about = "Measured bioactivities (IC50, Ki, EC50, inhibition...) of a molecule in an assay. id is the integer activity_id. Prefer standard_* fields; pchembl_value is -log10 of the molar potency, for comparable IC50/Ki/EC50/Kd values. Filter by molecule_chembl_id, target_chembl_id, assay_chembl_id or document_chembl_id rather than listing all 24 million.",
 		compact = "activity_id molecule_chembl_id molecule_pref_name target_chembl_id target_pref_name target_organism "
 			.. "assay_chembl_id assay_type document_chembl_id standard_type standard_relation standard_value standard_units pchembl_value",
@@ -107,6 +111,7 @@ local RESOURCES: {Resource} = ({
 			flag = "potential_duplicate standard_flag",
 			id = "molecule_chembl_id parent_molecule_chembl_id target_chembl_id assay_chembl_id document_chembl_id"}},
 	{name = "Assay", path = "assay", rows = "assays", label = "assay", search = true, id = "chembl",
+		example = {q = "EGFR kinase", fields = "all"}, exampleId = "CHEMBL1217643",
 		about = "Experiments that produced activities. id is a ChEMBL ID such as CHEMBL1217643. assay_type is B (binding), F (functional), A (ADME), T (toxicity), P (physicochemical) or U (unassigned); confidence_score 0 to 9 rates the target assignment (9: single protein, direct).",
 		compact = "assay_chembl_id description assay_type assay_organism target_chembl_id document_chembl_id confidence_score",
 		fields = "aidx assay_category assay_cell_type assay_chembl_id assay_classifications assay_group assay_organism "
@@ -120,6 +125,7 @@ local RESOURCES: {Resource} = ({
 			number = "confidence_score assay_tax_id src_id src_assay_id",
 			id = "assay_chembl_id target_chembl_id document_chembl_id"}},
 	{name = "Document", path = "document", rows = "documents", label = "document", search = true, id = "chembl",
+		example = {filters = {pubmed_id = 23028140}, fields = "all"}, exampleId = "CHEMBL1139451",
 		about = "Publications, patents and datasets ChEMBL extracted data from. id is a ChEMBL ID such as CHEMBL1139451. Look up a paper with `pubmed_id` or `doi`.",
 		compact = "document_chembl_id title journal year doi pubmed_id doc_type",
 		fields = "abstract authors chembl_release contact doc_type document_chembl_id doi doi_chembl first_page issue "
@@ -129,6 +135,7 @@ local RESOURCES: {Resource} = ({
 				.. "issue first_page last_page contact",
 			number = "year pubmed_id", id = "document_chembl_id"}},
 	{name = "Mechanism", path = "mechanism", rows = "mechanisms", label = "mechanism", search = false, id = "integer",
+		example = {filters = {parent_molecule_chembl_id = "CHEMBL941"}, fields = "all"}, exampleId = 241,
 		about = "Curated mechanisms of action of drugs and clinical candidates. id is the integer mec_id. Filter by the parent molecule: parent_molecule_chembl_id, or molecule_chembl_id with the parent's ID.",
 		compact = "mec_id molecule_chembl_id parent_molecule_chembl_id target_chembl_id mechanism_of_action action_type max_phase",
 		fields = "action_type binding_site_comment direct_interaction disease_efficacy max_phase mec_id mechanism_comment "
@@ -139,6 +146,7 @@ local RESOURCES: {Resource} = ({
 			number = "max_phase mec_id record_id site_id", flag = "direct_interaction disease_efficacy molecular_mechanism",
 			id = "molecule_chembl_id parent_molecule_chembl_id target_chembl_id"}},
 	{name = "DrugIndication", path = "drug_indication", rows = "drug_indications", label = "drug indication", search = false,
+		example = {filters = {efo_term__icontains = "fibrillation"}, fields = {"drugind_id", "efo_term"}, limit = 50}, exampleId = 22713,
 		id = "integer",
 		about = "Diseases that drugs and clinical candidates are approved or studied for, with EFO and MeSH terms. id is the integer drugind_id. Filter by parent_molecule_chembl_id, or molecule_chembl_id with the parent's ID; max_phase_for_ind is the highest phase for that indication.",
 		compact = "drugind_id molecule_chembl_id parent_molecule_chembl_id efo_id efo_term mesh_id mesh_heading max_phase_for_ind",
@@ -149,9 +157,11 @@ local RESOURCES: {Resource} = ({
 			id = "molecule_chembl_id parent_molecule_chembl_id"}},
 	-- Structure searches return molecules and have no get or text search.
 	{name = "Similarity", path = "similarity", rows = "molecules", label = "similarity search", search = false, id = "",
+		example = {smiles = "CC(=O)Oc1ccccc1C(=O)O"}, exampleId = nil,
 		about = "", compact = MOLECULE_COMPACT .. " similarity", fields = STRUCTURE_FIELDS .. " similarity",
 		sort = STRUCTURE_SORT .. " similarity", filters = STRUCTURE_FILTERS},
 	{name = "Substructure", path = "substructure", rows = "molecules", label = "substructure search", search = false,
+		example = {smiles = "C#CC/C=C\\c1ccccc1", limit = 3}, exampleId = nil,
 		id = "", about = "", compact = MOLECULE_COMPACT, fields = STRUCTURE_FIELDS, sort = STRUCTURE_SORT,
 		filters = STRUCTURE_FILTERS},
 } :: {Options}) :: any
@@ -486,8 +496,12 @@ local function substructureMolecules(input: Options?): Options
 	return collect("substructureMolecules", BY_NAME.Substructure, args, structure("substructureMolecules", args, MIN_SUBSTRUCTURE))
 end
 
-local exports: {[string]: any} = {similarMolecules = similarMolecules, substructureMolecules = substructureMolecules}
-local sections: {string} = {}
+-- The same resource definitions drive exports, accepted filters and their documentation.
+local function searchName(resource: Resource): string
+	if resource.name == "Similarity" then return "similarMolecules" end
+	if resource.name == "Substructure" then return "substructureMolecules" end
+	return "search" .. string.gsub(string.gsub(resource.rows, "^%l", string.upper), "_(%l)", string.upper)
+end
 
 local function listHelp(lists: {[string]: string}): string
 	local parts: {string} = {}
@@ -497,62 +511,97 @@ local function listHelp(lists: {[string]: string}): string
 	return table.concat(parts, "; ")
 end
 
-local function filterHelp(resource: Resource): string
-	return "Filters by kind: " .. listHelp(resource.filters) .. ".\norder_by: "
-		.. string.gsub(resource.sort, " ", ", ") .. ".\nfields: " .. string.gsub(resource.fields, " ", ", ")
-		.. ". Default fields: " .. string.gsub(resource.compact, " ", ", ") .. "."
-end
-
-for _, resource in RESOURCES do
-	if resource.id ~= "" then
-		local listName = "search" .. string.gsub(string.gsub(resource.rows, "^%l", string.upper), "_(%l)", string.upper)
-		exports[listName] = function(input: Options?): Options
-			return collect(listName, resource, options(input, listName), {})
-		end
-		exports["get" .. resource.name] = get(resource)
-		table.insert(sections, "## " .. listName .. "(opts?) and get" .. resource.name .. "(id, opts?)\n\n"
-			.. "GET /" .. resource.path .. (if resource.search then " (with q: /" .. resource.path .. "/search)" else "")
-			.. " and /" .. resource.path .. "/{id}. Rows come back as `" .. resource.rows .. "`. " .. resource.about
-			.. (if resource.search then "" else " No q text search.") .. "\n" .. filterHelp(resource))
-	end
-end
-
-local HELP = [[ChEMBL: search and read EMBL-EBI's open database of bioactive molecules, their targets, measured bioactivities, assays, source documents, drug mechanisms and indications (ChEMBL data web services, https://www.ebi.ac.uk/chembl/api/data/docs). No account or credentials. Read-only. Calls return completed values; do not wrap them in await(). Records keep ChEMBL's JSON field names and values unchanged; decimals such as max_phase, alogp, standard_value and pchembl_value come back as strings. Data is CC BY-SA 3.0: credit "ChEMBL, EMBL-EBI" when presenting results.
-
-## Searches: search<Rows>(opts?), similarMolecules(opts), substructureMolecules(opts)
-
-Return `{<rows>, total_count, next_offset?}`, for example `{molecules = {...100 rows}, total_count = 2921148, next_offset = 100}` for the default limit of 100 from offset 0. Options use ChEMBL's names; unknown options, filters, lookups, sort fields and field names are rejected before any request, because ChEMBL itself silently ignores unknown filters and returns every record.
+local SEARCH_HELP = [[Return `{<rows>, total_count, next_offset?}`, for example `{molecules = {...100 rows}, total_count = 2921148, next_offset = 100}` for the default limit of 100 from offset 0. Options use ChEMBL's names; unknown options, filters, lookups, sort fields and field names are rejected before any request, because ChEMBL itself silently ignores unknown filters and returns every record.
 - q: free text, for searches that support it; results rank by relevance unless order_by is given. ChEMBL counts at most 10,000 text matches.
 - filters: a table of `field__lookup = value`, all of which must match, such as `{pref_name__icontains = "statin", max_phase = 4, ["molecule_properties__full_mwt__lte"] = 500}`. A bare field means exact. `in` takes an array (values without commas), `range` takes {low, high}, `isnull` takes true or false. Each resource below lists its filters by kind. Lookups by kind: ]] .. listHelp(LOOKUP_LISTS) .. [[. text and term values are strings, number values numbers, flag values true, false or an integer, id values ChEMBL IDs and smiles values SMILES strings.
 - order_by: a field, or -field for descending, or an array of up to 3. Descending order puts missing values first; add a filter such as `pchembl_value__isnull = false`.
 - fields: an array or comma-separated string of top-level fields for each row, or "all" for complete records. Defaults to the compact fields listed per resource. A nested object such as molecule_properties comes back whole.
 - limit: rows to return, 1 to 2000 (default 100). offset: rows to skip (default 0).
-next_offset is present exactly when ChEMBL has rows after the last one returned: call again with the same options and offset = next_offset. A call reads at most two ChEMBL pages of up to 1,000 rows and 4 MiB, so it may return fewer than limit rows with next_offset; fields beyond the defaults, or "all", start with a first page of 32 rows.
+next_offset is present exactly when ChEMBL has rows after the last one returned: call again with the same options and offset = next_offset. A call reads at most two ChEMBL pages of up to 1,000 rows and 4 MiB, so it may return fewer than limit rows with next_offset; fields beyond the defaults, or "all", start with a first page of 32 rows.]]
+local SIMILAR_HELP = [[GET /similarity. Molecules whose Tanimoto similarity to the query structure is at least similarity percent, 40 to 100 (default 80). Each row adds `similarity`, a string percentage; rows come highest first. A chembl_id query excludes that molecule itself; a smiles query includes it. Filters, order_by and fields are those of searchMolecules except the molecule_synonyms ones. order_by and fields additionally accept similarity.]]
+local SUBSTRUCTURE_HELP = [[GET /substructure. Molecules containing the query structure; smiles has at least 5 characters, and ChEMBL stops at 30,000 matches. Filters, order_by and fields are those of searchMolecules except the molecule_synonyms ones.]]
+local GET_HELP = [[Returns one complete record; opts.fields selects top-level fields as in the searches. An unknown ID fails with HTTP 404.]]
 
-## similarMolecules({smiles | chembl_id, similarity?, filters?, order_by?, fields?, limit?, offset?})
-
-GET /similarity. Molecules whose Tanimoto similarity to the query structure is at least similarity percent, 40 to 100 (default 80). Each row adds `similarity`, a string percentage; rows come highest first. A chembl_id query excludes that molecule itself; a smiles query includes it. Filters, order_by and fields are those of searchMolecules except the molecule_synonyms ones, plus similarity.
-
-## substructureMolecules({smiles | chembl_id, filters?, order_by?, fields?, limit?, offset?})
-
-GET /substructure. Molecules containing the query structure; smiles has at least 5 characters, and ChEMBL stops at 30,000 matches. Filters, order_by and fields are those of searchMolecules except the molecule_synonyms ones.
-
-## get<Name>(id, opts?)
-
-Returns one complete record; opts.fields selects top-level fields as in the searches. An unknown ID fails with HTTP 404.
-
-]]
-
-local HELP_END = [[
-
-
-## Errors and limits
-
-Invalid input fails before any request, including requests over 4,000 bytes once URL-encoded (SMILES strings count once encoded). ChEMBL errors come back as upstream errors with the HTTP status and ChEMBL's message, such as a SMILES string it cannot parse (HTTP 500, not retryable). HTTP 429 and other 5xx errors are retryable. ChEMBL answers a cached query in about a second and a new one in 5 to 15 s or more. Houston ends a call after 30 s, so a call gives ChEMBL 27 s: 18 s for the first page and 9 s for the second, each including 3 s to receive the body; a record read gets all 27 s. A first page or record that runs out of time fails as retryable (ChEMBL caches results, so a retry is often fast). A second page that runs out of time or fails for any other reason ends the call with the rows so far and next_offset. Prefer narrow filters and compact fields over many calls.
-
-## Example
-
-Here chembl is the configured ChEMBL connection.
+local function help()
+	local numeric: any = {type = "number", exclusiveMinimum = -(2 ^ 53), exclusiveMaximum = 2 ^ 53}
+	local nonempty: any = {type = "string", minLength = 1, description = "At most " .. tostring(MAX_TEXT) .. " UTF-8 bytes."}
+	local chemblSchema: any = {type = "string", pattern = "^[Cc][Hh][Ee][Mm][Bb][Ll][0-9]+$", description = "ChEMBL ID, case-insensitive."}
+	local smileSchema: any = {type = "string", minLength = 1, maxLength = MAX_TEXT, pattern = "^[!-~]+$", description = "Printable ASCII SMILES without spaces."}
+	local scalars: {[string]: any} = {number = numeric, text = {anyOf = {nonempty, numeric}}, term = {anyOf = {nonempty, numeric}},
+		flag = {anyOf = {{type = "boolean"} :: any, {type = "integer", exclusiveMinimum = -(2 ^ 53), exclusiveMaximum = 2 ^ 53}}}, id = chemblSchema, smiles = smileSchema}
+	local function namedList(names: {string}, maximum: number, description: string): any
+		local alternatives: {any} = {{type = "array", items = {type = "string", enum = names}, minItems = 1, maxItems = maximum},
+			{type = "string", pattern = "^[\\s,]*(" .. table.concat(names, "|") .. ")(\\s*,[\\s,]*(" .. table.concat(names, "|") .. "))*[\\s,]*$"}}
+		return {anyOf = alternatives, description = description .. " Array or comma-separated string, 1 to " .. tostring(maximum) .. " names; blank comma-separated entries are ignored."}
+	end
+	local function filters(resource: Resource): any
+		local patterns: {[string]: any} = {}
+		for kind, fields in resource.filters do
+			local prefix = "^(" .. table.concat(words(fields), "|") .. ")"
+			local simple: {string} = {}
+			for _, lookup in words(LOOKUP_LISTS[kind]) do
+				if lookup == "isnull" then
+					patterns[prefix .. "__isnull$"] = {type = "boolean"}
+				elseif lookup == "in" or lookup == "range" then
+					local scalar = scalars[kind]
+					if kind == "number" then scalar = {anyOf = {numeric, {type = "string", minLength = 1, description = "A finite numeric string with absolute value below 2^53."}}} end
+					local variants: {any} = {
+						{type = "array", minItems = if lookup == "range" then 2 else 1, maxItems = if lookup == "range" then 2 else 1000,
+							items = {allOf = {scalar, {["not"] = {type = "string", pattern = ","}}}}},
+						{type = "string", minLength = 1},
+					}
+					patterns[prefix .. "__" .. lookup .. "$"] = {anyOf = variants,
+						description = if lookup == "range" then "Exactly two finite numbers (low, high), as an array or comma-separated string."
+							else "1 to 1000 " .. kind .. " values as an array or comma-separated string. Values must not contain commas. Number strings are parsed for numeric fields."}
+				else
+					table.insert(simple, lookup)
+				end
+			end
+			patterns[prefix .. "__(" .. table.concat(simple, "|") .. ")$"] = scalars[kind]
+			if LOOKUPS[kind].exact then patterns[prefix .. "$"] = scalars[kind] end
+		end
+		return {type = "object", patternProperties = patterns, additionalProperties = false, description = "All filters must match. Bare fields mean exact. Available fields and lookups are derived from this resource's accepted filter definitions."}
+	end
+	local functions: {[string]: any} = {}
+	for _, resource in RESOURCES do
+		local fields = namedList(words(resource.fields), 100, "Top-level fields to return; nested objects are returned whole.")
+		local fieldSchema: any = {anyOf = {fields, {const = "all"}}, description = "Use all for full records. Search defaults: " .. string.gsub(resource.compact, " ", ", ") .. ". Get operations default to full records."}
+		local sortFields: {string} = {}
+		for _, name in words(resource.sort) do table.insert(sortFields, name); table.insert(sortFields, "-" .. name) end
+		local properties: {[string]: any} = {filters = filters(resource), fields = fieldSchema,
+			order_by = namedList(sortFields, MAX_SORT, "Sort fields in priority order; prefix - for descending. Missing values sort first descending; filter with __isnull=false to omit them."),
+			limit = {type = "integer", minimum = 1, maximum = MAX_LIMIT, default = DEFAULT_LIMIT},
+			offset = {type = "integer", minimum = 0, maximum = MAX_OFFSET, default = 0, description = "Rows to skip; continue with next_offset and the same options."},
+		}
+		if resource.search then properties.q = nonempty end
+		local schema: any = {type = "object", properties = properties, additionalProperties = false, examples = {resource.example}}
+		local description = resource.about .. "\n\n" .. SEARCH_HELP
+		if resource.id == "" then
+			table.insert(schema.examples, {chembl_id = "CHEMBL25"})
+			properties.smiles = table.clone(smileSchema)
+			properties.smiles.minLength = if resource.name == "Substructure" then MIN_SUBSTRUCTURE else 1
+			properties.chembl_id = chemblSchema
+			schema.oneOf = {{required = {"smiles"}, ["not"] = {required = {"chembl_id"}}}, {required = {"chembl_id"}, ["not"] = {required = {"smiles"}}}}
+			if resource.name == "Similarity" then
+				properties.similarity = {type = "integer", minimum = MIN_SIMILARITY, maximum = 100, default = DEFAULT_SIMILARITY}
+				description = SIMILAR_HELP .. "\n\n" .. SEARCH_HELP
+			else description = SUBSTRUCTURE_HELP .. "\n\n" .. SEARCH_HELP end
+		end
+		functions[searchName(resource)] = {description = description .. "\n\nReturns rows under `" .. resource.rows .. "`. Default fields: " .. resource.compact .. ".",
+			inputSchema = schema, outputSchema = {type = "object", properties = {
+				[resource.rows] = {type = "array", items = {type = "object", description = "Native " .. resource.label .. " record with the selected fields. Provider decimals remain strings; missing values may be null."}},
+				total_count = {type = "integer", minimum = 0}, next_offset = {type = "integer", minimum = 0},
+			}, required = {resource.rows, "total_count"}, additionalProperties = false}, annotations = {readOnlyHint = true, idempotentHint = true}}
+		if resource.id ~= "" then
+			local id = chemblSchema
+			if resource.id == "integer" then id = {anyOf = {{type = "integer", minimum = 1, maximum = 2 ^ 53 - 1} :: any, {type = "string", pattern = "^0*[1-9][0-9]*$"}}, description = "Positive integer ID, or its decimal string, at most 9007199254740991."}
+			elseif resource.id == "molecule" then id = {anyOf = {chemblSchema, {type = "string", pattern = "^[A-Za-z]{14}-[A-Za-z]{10}-[A-Za-z]$"}}, description = "ChEMBL ID or standard InChIKey, case-insensitive."} end
+			functions["get" .. resource.name] = {description = resource.about .. "\n\n" .. GET_HELP .. "\nSelectable fields: " .. resource.fields .. ".",
+				args = {"id", "options"}, inputSchema = {type = "object", properties = {id = id, options = {type = "object", properties = {fields = fieldSchema}, additionalProperties = false}},
+					required = {"id"}, additionalProperties = false, examples = {{id = resource.exampleId}}}, annotations = {readOnlyHint = true, idempotentHint = true}}
+		end
+	end
+	return {text = [[ChEMBL: search and read EMBL-EBI's open database of bioactive molecules, their targets, measured bioactivities, assays, source documents, drug mechanisms and indications (ChEMBL data web services, https://www.ebi.ac.uk/chembl/api/data/docs). No account or credentials. Read-only. Calls return completed values; do not wrap them in await(). Records keep ChEMBL's JSON field names and values unchanged; decimals such as max_phase, alogp, standard_value and pchembl_value come back as strings. Data is CC BY-SA 3.0: credit "ChEMBL, EMBL-EBI" when presenting results.]], functions = functions, sections = {limits = [[Invalid input fails before any request, including requests over 4,000 bytes once URL-encoded (SMILES strings count once encoded). ChEMBL errors come back as upstream errors with the HTTP status and ChEMBL's message, such as a SMILES string it cannot parse (HTTP 500, not retryable). HTTP 429 and other 5xx errors are retryable. ChEMBL answers a cached query in about a second and a new one in 5 to 15 s or more. Houston ends a call after 30 s, so a call gives ChEMBL 27 s: 18 s for the first page and 9 s for the second, each including 3 s to receive the body; a record read gets all 27 s. A first page or record that runs out of time fails as retryable (ChEMBL caches results, so a retry is often fast). A second page that runs out of time or fails for any other reason ends the call with the rows so far and next_offset. Prefer narrow filters and compact fields over many calls.]], workflow = [[Here chembl is the configured ChEMBL connection.
 
 ```lua
 local found = chembl.searchMolecules({q = "imatinib", fields = {"molecule_chembl_id", "pref_name", "max_phase"}, limit = 5})
@@ -563,11 +612,17 @@ for _, row in potent.activities do print(row.target_pref_name, row.standard_type
 local moa = chembl.searchMechanisms({filters = {parent_molecule_chembl_id = id}})
 local close = chembl.similarMolecules({smiles = "CC(=O)Oc1ccccc1C(=O)O", similarity = 70, filters = {max_phase = 4}})
 local target = chembl.getTarget("CHEMBL203")
-```]]
-
-local function help(): string
-	return HELP .. table.concat(sections, "\n\n") .. HELP_END
+```]]}}
 end
 
-exports.help = help
+local exports: {[string]: any} = {similarMolecules = similarMolecules, substructureMolecules = substructureMolecules, help = help}
+for _, resource in RESOURCES do
+	if resource.id ~= "" then
+		local operation = searchName(resource)
+		exports[operation] = function(input: Options?): Options
+			return collect(operation, resource, options(input, operation), {})
+		end
+		exports["get" .. resource.name] = get(resource)
+	end
+end
 return exports

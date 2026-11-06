@@ -54,24 +54,24 @@ return {
 		assert(#requests == 0, "initialization reached Attio")
 
 		payload = '{"active":true,"workspace_name":"Acme","scope":"record_permission:read"}'
-		local me = attio.identify()
+		local me = fixture.example("identify")
 		assert(last().url == API .. "/self" and me.active == true and me.workspace_name == "Acme")
 
 		payload = '{"data":[{"id":{"workspace_id":"w","object_id":"o"},"api_slug":"people","singular_noun":"Person"}]}'
-		get(attio.listObjects, API .. "/objects")
+		get(function() fixture.example("listObjects") end, API .. "/objects")
 		assert(attio.listObjects().data[1].api_slug == "people")
 		payload = '{"data":[]}'
 		local empty = attio.listObjects()
 		assert(json.encode(empty.data) == "[]")
-		get(attio.listLists, API .. "/lists")
-		get(attio.listWorkspaceMembers, API .. "/workspace_members")
+		get(function() fixture.example("listLists") end, API .. "/lists")
+		get(function() fixture.example("listWorkspaceMembers") end, API .. "/workspace_members")
 
-		get(function() attio.listAttributes("objects", "people", {limit = 20, offset = 40, show_archived = true}) end,
+		get(function() fixture.example("listAttributes") end,
 			API .. "/objects/people/attributes?limit=20&offset=40&show_archived=true")
 		get(function() attio.listAttributes("lists", RECORD) end, API .. "/lists/" .. RECORD .. "/attributes")
 
 		payload = '{"data":{"id":{"record_id":"' .. RECORD .. '"},"values":{"name":[{"value":"Ada"}],"email_addresses":[]}}}'
-		get(function() attio.getRecord("people", RECORD) end, API .. "/objects/people/records/" .. RECORD)
+		get(function() fixture.example("getRecord") end, API .. "/objects/people/records/" .. RECORD)
 		local record = attio.getRecord("people", RECORD)
 		assert(record.data.values.name[1].value == "Ada" and json.encode(record.data.values.email_addresses) == "[]")
 
@@ -80,43 +80,45 @@ return {
 		local query = {filter = {name = {["$contains"] = "Acme"}}, sorts = {{attribute = "created_at", direction = "desc"}}, limit = 50, offset = 100}
 		post(function() attio.queryRecords("companies", query) end, API .. "/objects/companies/records/query",
 			'{"filter":{"name":{"$contains":"Acme"}},"sorts":[{"attribute":"created_at","direction":"desc"}],"limit":50,"offset":100}')
+		post(function() fixture.example("queryRecords") end, API .. "/objects/companies/records/query",
+			'{"filter":{"name":{"$contains":"Acme"}},"sorts":[{"attribute":"created_at","direction":"desc"}],"limit":50,"offset":100}')
 		assert(query.limit == 50 and query.sorts[1].direction == "desc", "caller options were modified")
-		post(function() attio.queryListEntries("sales", {filter_view_id = RECORD, sorts = {}}) end, API .. "/lists/sales/entries/query",
+		post(function() fixture.example("queryListEntries") end, API .. "/lists/sales/entries/query",
 			'{"filter_view_id":"' .. RECORD .. '","sorts":[]}')
 		assert(string.find(last().body, '"sorts":[]', 1, true), "empty sorts must stay a JSON array")
-		post(function() attio.searchRecords("Acme", {objects = {"companies", "people"}, limit = 25}) end, API .. "/objects/records/search",
+		post(function() fixture.example("searchRecords") end, API .. "/objects/records/search",
 			'{"query":"Acme","objects":["companies","people"],"limit":25,"request_as":{"type":"workspace"}}')
-		post(function() attio.searchRecords("", {objects = "deals", request_as = {type = "workspace-member", email_address = "ada@example.com"}}) end,
+		post(function() fixture.example("searchRecords", 2) end,
 			API .. "/objects/records/search", '{"query":"","objects":["deals"],"request_as":{"type":"workspace-member","email_address":"ada@example.com"}}')
 
-		get(function() attio.listNotes({parent_object = "companies", parent_record_id = RECORD, limit = 50, offset = 0}) end,
+		get(function() fixture.example("listNotes") end,
 			API .. "/notes?limit=50&offset=0&parent_object=companies&parent_record_id=" .. RECORD)
-		get(function() attio.getNote(RECORD) end, API .. "/notes/" .. RECORD)
-		get(function() attio.listEmails({participants = {"ada@example.com", "bo@example.com"}, exclude_automated_participants = true, cursor = "c+/="}) end,
+		get(function() fixture.example("getNote") end, API .. "/notes/" .. RECORD)
+		get(function() fixture.example("listEmails") end,
 			API .. "/emails?cursor=c%2B%2F%3D&exclude_automated_participants=true&participants=ada%40example.com%2Cbo%40example.com")
 		get(function() attio.listEmails({linked_object = "people", linked_record_ids = RECORD, sent_after = "2026-10-01T00:00:00Z"}) end,
 			API .. "/emails?linked_object=people&linked_record_ids=" .. RECORD .. "&sent_after=2026-10-01T00%3A00%3A00Z")
-		get(function() attio.listTasks({sort = "created_at:desc", assignee = "null", is_completed = false, limit = 1000}) end,
+		get(function() fixture.example("listTasks") end,
 			API .. "/tasks?assignee=null&is_completed=false&limit=1000&sort=created_at%3Adesc")
-		get(function() attio.getTask(RECORD) end, API .. "/tasks/" .. RECORD)
-		get(function() attio.listThreads({object = "people", record_id = RECORD}) end, API .. "/threads?object=people&record_id=" .. RECORD)
-		get(function() attio.getThread(RECORD, {limit = 250, cursor = "next"}) end, API .. "/threads/" .. RECORD .. "?cursor=next&limit=250")
-		get(function() attio.getComment(RECORD) end, API .. "/comments/" .. RECORD)
-		get(function() attio.listMeetings({sort = "start_desc", participants = "ada@example.com", limit = 200}) end,
+		get(function() fixture.example("getTask") end, API .. "/tasks/" .. RECORD)
+		get(function() fixture.example("listThreads") end, API .. "/threads?object=people&record_id=" .. RECORD)
+		get(function() fixture.example("getThread") end, API .. "/threads/" .. RECORD .. "?cursor=next&limit=250")
+		get(function() fixture.example("getComment") end, API .. "/comments/" .. RECORD)
+		get(function() fixture.example("listMeetings") end,
 			API .. "/meetings?limit=200&participants=ada%40example.com&sort=start_desc")
-		get(function() attio.getMeeting(MEETING) end, API .. "/meetings/" .. MEETING)
-		get(function() attio.listCallRecordings(MEETING, {limit = 10, cursor = "c1"}) end, API .. "/meetings/" .. MEETING .. "/call_recordings?cursor=c1&limit=10")
-		get(function() attio.getCallRecording(MEETING, RECORDING) end, API .. "/meetings/" .. MEETING .. "/call_recordings/" .. RECORDING)
-		get(function() attio.getList("sales") end, API .. "/lists/sales")
-		get(function() attio.getWorkspaceMember(RECORD) end, API .. "/workspace_members/" .. RECORD)
-		get(function() attio.listFiles({object = "companies", record_id = RECORD, storage_provider = "google-drive"}) end,
+		get(function() fixture.example("getMeeting") end, API .. "/meetings/" .. MEETING)
+		get(function() fixture.example("listCallRecordings") end, API .. "/meetings/" .. MEETING .. "/call_recordings?cursor=c1&limit=10")
+		get(function() fixture.example("getCallRecording") end, API .. "/meetings/" .. MEETING .. "/call_recordings/" .. RECORDING)
+		get(function() fixture.example("getList") end, API .. "/lists/sales")
+		get(function() fixture.example("getWorkspaceMember") end, API .. "/workspace_members/" .. RECORD)
+		get(function() fixture.example("listFiles") end,
 			API .. "/files?object=companies&record_id=" .. RECORD .. "&storage_provider=google-drive")
-		get(function() attio.getFile(RECORD) end, API .. "/files/" .. RECORD)
+		get(function() fixture.example("getFile") end, API .. "/files/" .. RECORD)
 
 		get(function() attio.getRecord("people", "r:2 ü@") end, API .. "/objects/people/records/r%3A2%20%C3%BC%40")
 		get(function() attio.getList("Sales Pipeline") end, API .. "/lists/Sales%20Pipeline")
-		get(function() attio.getNote({id = {workspace_id = "w", note_id = RECORD}, title = "Call"}) end, API .. "/notes/" .. RECORD)
-		get(function() attio.getRecord("people", {id = {object_id = "o", record_id = RECORD}, values = {}}) end, API .. "/objects/people/records/" .. RECORD)
+		get(function() fixture.example("getNote", 2) end, API .. "/notes/" .. RECORD)
+		get(function() fixture.example("getRecord", 2) end, API .. "/objects/people/records/" .. RECORD)
 		get(function() attio.getCallRecording({meeting_id = MEETING}, {call_recording_id = RECORDING}) end,
 			API .. "/meetings/" .. MEETING .. "/call_recordings/" .. RECORDING)
 		post(function() attio.queryListEntries({id = {list_id = "l"}, api_slug = "sales"}) end, API .. "/lists/sales/entries/query", "{}")

@@ -132,17 +132,6 @@ local function exportEndpoints(endpoints: {[string]: Endpoint})
 	end
 end
 
--- help() introduces the API, then documents exactly the configured operations.
-local function helpWith(overview: {string}): () -> string
-	return function(): string
-		local names: {string} = {}
-		for name in help do table.insert(names, name) end
-		table.sort(names)
-		local lines = table.clone(overview)
-		for _, name in names do table.insert(lines, help[name]) end
-		return table.concat(lines, "\n")
-	end
-end
 -- End of the shared request layer.
 
 local PAGE = "{objectId, pageType, revisionId?, pageElements=[{objectId, size, transform, title?, description?, shape?={shapeType, text?={textElements=[{startIndex?, endIndex, textRun?={content, style}, autoText?, paragraphMarker?}]}, placeholder?={type, index?}}, table?={rows, columns, tableRows=[{tableCells=[{text?}]}]}, image?, video?, line?, sheetsChart?, wordArt?, elementGroup?={children}}], slideProperties?={layoutObjectId, isSkipped?, notesPage}}"
@@ -253,5 +242,36 @@ local overview = {
 if config.access == "read-write" then
 	table.insert(overview, "Writes change slides, their content and comments. An empty Luau table encodes as a JSON object: write an empty array as json.decode('[]'). Presentations cannot be deleted, renamed, moved or shared here: use the Google Drive connector. A failed or timed-out write may already have succeeded: check with getPresentation, adding commentsViewMode='COMMENTS_VIEW_MODE_INCLUDED' after comment writes, before repeating it, give new slides and elements your own objectId so a repeat fails with HTTP 400 instead of adding them twice, or pass writeControl={requiredRevisionId=deck.revisionId}, with deck read by getPresentation.")
 end
-exports.help = helpWith(overview)
+local str = {type = "string"}
+local presentationId = {type = "string", minLength = 1, description = "Presentation ID or a https://docs.google.com/presentation/d/<id>/edit URL; published /d/e/ links are not presentation IDs."}
+local sizes: {string} = {}
+for size in SIZES :: {[string]: boolean} do table.insert(sizes, size) end
+table.sort(sizes)
+local deckOutput = {type = "object", properties = {presentationId = str, title = str, revisionId = str}, additionalProperties = true}
+exports.help = require("lib/help.luau").build(require("lib/discovery-schemas.luau"), endpoints, help, {
+	getPresentation = {properties = {presentationId = presentationId}, examples = {{presentationId = "1PrE_x-9"}}, outputSchema = deckOutput},
+	getPage = {properties = {presentationId = presentationId}, examples = {{presentationId = "p1", pageObjectId = "g1"}},
+		outputSchema = {type = "object", properties = {objectId = str, pageType = str, pageElements = {type = "array", items = {type = "object"}}}, additionalProperties = true}},
+	getThumbnail = {inputSchema = {type = "object", properties = {presentationId = presentationId, pageObjectId = {type = "string", minLength = 1},
+		thumbnailSize = {type = "string", enum = sizes}}, required = {"presentationId", "pageObjectId"}, additionalProperties = false},
+		examples = {{presentationId = "p1", pageObjectId = "g1"}, {presentationId = "p1", pageObjectId = "q3:summary", thumbnailSize = "WIDTH2000_PX"}},
+		outputSchema = {type = "object", properties = {width = {type = "integer"}, height = {type = "integer"}, contentUrl = str}, additionalProperties = true}},
+	createPresentation = {inputSchema = {type = "object", properties = {title = str}, additionalProperties = false},
+		examples = {{title = "Q3"}}, outputSchema = deckOutput},
+	batchUpdate = {properties = {presentationId = presentationId}, examples = {
+		{presentationId = "https://docs.google.com/presentation/d/p1/edit#slide=id.g1", requests = {
+			{createSlide = {objectId = "q3_summary", slideLayoutReference = {predefinedLayout = "TITLE_AND_BODY"},
+				placeholderIdMappings = {{layoutPlaceholder = {type = "TITLE"}, objectId = "q3_summary_title"}}}} :: any,
+			{insertText = {objectId = "q3_summary_title", text = "Q3 results"}},
+		}, writeControl = {requiredRevisionId = "r1"}} :: any,
+		{presentationId = "p1", requests = {{insertComment = {content = "Update this chart", objectId = "g1"}}}},
+	}, outputSchema = {type = "object", properties = {presentationId = str, replies = {type = "array", items = {type = "object"}},
+		writeControl = {type = "object"}, commentUpdateState = str}, additionalProperties = true}},
+	getPresentationText = {inputSchema = {type = "object", properties = {presentationId = presentationId}, required = {"presentationId"}, additionalProperties = false},
+		examples = {{presentationId = "https://docs.google.com/presentation/d/1PrE_x-9/edit#slide=id.p1"}},
+		annotations = {readOnlyHint = true, destructiveHint = false, idempotentHint = true},
+		outputSchema = {type = "object", properties = {presentationId = str, title = str, revisionId = str, slides = {type = "array", items = {
+			type = "object", properties = {objectId = str, isSkipped = {type = "boolean"}, text = str, notes = str}, required = {"objectId", "text", "notes"}, additionalProperties = false}}},
+			required = {"presentationId", "title", "slides"}, additionalProperties = false}},
+}, overview)
 return exports

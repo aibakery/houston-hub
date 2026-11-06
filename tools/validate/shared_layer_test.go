@@ -1,12 +1,31 @@
 package main
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
 )
+
+func TestConnectorsShareHelpBuilders(t *testing.T) {
+	for _, names := range [][]string{{"gcalendar", "gdocs", "gdrive", "gforms", "gmail", "gsheets", "gslides"}, {"wordpress", "woocommerce"}} {
+		var first []byte
+		for _, name := range names {
+			path := filepath.Join("../../connectors", name, "lib/help.luau")
+			body, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if first == nil {
+				first = body
+			} else if !bytes.Equal(first, body) {
+				t.Errorf("%s: help builder differs from %s", path, names[0])
+			}
+		}
+	}
+}
 
 // Bundles cannot import each other's files, so related connectors carry the same request
 // layer between markers that name the group.
@@ -43,7 +62,7 @@ func TestConnectorsShareOneRequestLayer(t *testing.T) {
 		groups = append(groups, group)
 	}
 	slices.Sort(groups)
-	if !slices.Equal(groups, []string{"Google", "WordPress REST", "endpoint-table"}) {
+	if !slices.Equal(groups, []string{"Google", "WordPress REST", "endpoint-table", "native-SQL"}) {
 		t.Errorf("shared request layer groups %v", groups)
 	}
 }

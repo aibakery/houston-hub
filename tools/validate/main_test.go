@@ -4,20 +4,21 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+
+	"github.com/aibakery/houston-hub/tools/conformance"
 )
 
 func TestSupportedBundles(t *testing.T) {
-	entries, err := os.ReadDir("../../connectors")
+	directories, err := catalogDirectories("../..")
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, entry := range entries {
-		if !entry.IsDir() {
-			continue
-		}
-		t.Run(entry.Name(), func(t *testing.T) {
-			count, err := validate("../../connectors/" + entry.Name())
+	for _, directory := range directories {
+		t.Run(filepath.Base(directory), func(t *testing.T) {
+			report := map[string][]conformance.Coverage{}
+			count, err := validateWithCoverage(directory, report)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -25,6 +26,34 @@ func TestSupportedBundles(t *testing.T) {
 				t.Fatalf("validated %d bundles, want 1", count)
 			}
 		})
+	}
+}
+
+func TestCatalogPolicyAndStandaloneCompatibility(t *testing.T) {
+	root := t.TempDir()
+	directory := filepath.Join(root, "connectors", "nested", "example")
+	if err := os.MkdirAll(filepath.Join(directory, "tests"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	write := func(name, content string) {
+		t.Helper()
+		if err := os.WriteFile(filepath.Join(directory, name), []byte(content), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write("houston.json", `{"schema_version":1,"description":"Example","name":"Example","files":["main.luau"],"proxy":[{"match":{"host":["api.example.com"],"protocol":"http"},"action":{}}]}`)
+	write("main.luau", `return {answer=function() return 42 end,help="answer() returns 42"}`)
+	write("tests/behavior.luau", `return {scenario={},run=function(c) assert(c.answer()==42) end}`)
+	if count, err := validate(directory); err != nil || count != 1 {
+		t.Fatalf("legacy standalone publication: count=%d error=%v", count, err)
+	}
+	if _, err := validate(root); err == nil || !strings.Contains(err.Error(), "structured help.functions") {
+		t.Fatalf("maintained catalog must require structured function coverage: %v", err)
+	}
+	write("main.luau", `return {answer=function() return 42 end,help={text="Example",functions={answer={description="Return the answer",args={},inputSchema={type="object",properties={},additionalProperties=false,examples={{}}}}}}}`)
+	write("tests/behavior.luau", `return {scenario={},run=function(c) assert(fixture.example("answer")==42) end}`)
+	if count, err := validate(root); err != nil || count != 1 {
+		t.Fatalf("nested maintained connector: count=%d error=%v", count, err)
 	}
 }
 
