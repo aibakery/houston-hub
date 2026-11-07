@@ -1,6 +1,7 @@
 {
   "schema_version": 1,
   "name": "Google Slides",
+  "warning": "**Pending Google approval.** Google is still reviewing Houston's access to Google Slides. Until Google approves it, you will see a *Google hasn't verified this app* screen while connecting: select **Advanced**, then continue to Houston.",
   "files": [
     "connector.luau"
   ],

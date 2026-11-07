@@ -656,6 +656,11 @@ deployment instructions in any connector folder. The Hub renders the README as
 the public description. Inline `description` and `setup` remain supported
 fallbacks, but need not duplicate those files.
 
+Use the optional root `warning` for a short Markdown notice about something
+that currently degrades the experience, such as a provider approval that is
+still pending. Houston shows it prominently on the Hub page, the setup form and
+each connection's page. Remove it once the limitation no longer applies.
+
 Keep the common setup steps first. A heading named `Advanced` (or starting with
 `Advanced ` or `Advanced:`) becomes a collapsed expandable section in Houston,
 ending at the next heading of the same or a higher level. Use subheadings for
