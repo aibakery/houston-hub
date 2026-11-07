@@ -173,7 +173,7 @@ older deployments still reject style elements.
 
 Each exported operation runs in a fresh connector VM and returns completed plain
 data. Connectors and caller scripts share `http.request`, `fs`, `compression`,
-`url`, `await`, and `awaitAll`. A request starts immediately and its operation settles
+`url`, `base64`, `await`, and `awaitAll`. A request starts immediately and its operation settles
 when final headers and a body Reader are available. `await` retrieves the result;
 it does not start or rerun work. A local session cache lasts only for that
 invocation. No background work continues through another invocation.
@@ -871,6 +871,14 @@ path or dot segments. To keep a connector's own error text, wrap it:
 `local ok, segment = pcall(url.segment, id)`.
 Opaque IDs that may contain separators, such as Notion property IDs, use
 `url.encode` and an `opaque_path_parameters` proxy rule instead.
+
+`base64.encode(data, {url?, pad?, wrap?})` returns RFC 4648 text: `url = true`
+selects the URL-safe alphabet, `pad = false` omits `=` padding and `wrap = true`
+breaks MIME lines at 76 characters with CRLF. `base64.decode(data)` accepts either
+alphabet, with or without padding, ignoring whitespace, and raises
+`invalid_argument` for other characters or a truncated length. Both refuse data
+over 16 MiB; to decode a streamed value in pieces, split text without whitespace
+at multiples of 4 characters.
 
 Production helpers should also validate provider-specific error envelopes and
 mutation confirmations, and catch malformed JSON where a structured error helps.

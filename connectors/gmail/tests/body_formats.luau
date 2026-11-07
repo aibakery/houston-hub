@@ -1,5 +1,5 @@
 local function encoded(value)
-	return require("lib/base64.luau").encode(value)
+	return base64.encode(value, {url = true, pad = false}) -- Gmail bodies are unpadded base64url.
 end
 
 return {

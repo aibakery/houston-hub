@@ -37,7 +37,6 @@ return {
 		end}
 	end,
 	run = function(c)
-		local base64 = require("lib/base64.luau")
 		local API = "https://gmail.googleapis.com/gmail/v1/users/me"
 		local UPLOAD = "https://gmail.googleapis.com/upload/gmail/v1/users/me"
 		local binary = string.char(0, 255, 13, 10) .. string.rep("x", 100)
@@ -55,7 +54,7 @@ return {
 		assert(json.encode(metadata) == "{}", "a new message has no thread")
 		local head, content = entity(mime)
 		assert(string.find(head, "To: Ana <ana@example.com>, bo@example.com\r\n", 1, true) and string.find(head, "Bcc: boss@example.com\r\n", 1, true))
-		assert(string.find(head, "Subject: =?UTF-8?B?" .. base64.encode("Résumé") .. "?=", 1, true) and string.find(head, "MIME-Version: 1.0", 1, true))
+		assert(string.find(head, "Subject: =?UTF-8?B?UsOpc3Vtw6k=?=", 1, true) and string.find(head, "MIME-Version: 1.0", 1, true))
 		assert(string.find(head, 'Content-Type: multipart/mixed; boundary="=_houston_mixed"', 1, true) and not string.find(head, "In-Reply-To", 1, true))
 		local mixed = parts(content, "=_houston_mixed")
 		assert(#mixed == 3)

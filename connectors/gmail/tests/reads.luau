@@ -1,6 +1,6 @@
 -- Gmail bodies are unpadded base64url.
 local function b64(s)
-	return (string.gsub(require("lib/base64.luau").encode(s), "[+/=]", {["+"] = "-", ["/"] = "_", ["="] = ""}))
+	return base64.encode(s, {url = true, pad = false})
 end
 return {
 	scenario = {publisher = {client_id = "fixture-client", client_secret = "fixture-private-secret"}, config = {}, auth_method = "oauth", auth_config = {}},

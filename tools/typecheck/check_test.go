@@ -47,6 +47,8 @@ func TestRuntimeIOContracts(t *testing.T) {
 		{"url helpers and error snippet", `local res=await(http.request({method="GET",url="https://example.com/items/"..url.segment("a b","id").."?q="..url.encode("x&y")})); local snippet:string=await(res.body:readPrefix(4096)); return snippet`, false},
 		{"segment without a string", `return url.segment(42)`, true},
 		{"encode scalars", `local query:string=url.encode(42)..url.encode(true); return query`, false},
+		{"base64 helpers", `local encoded:string=base64.encode("x",{url=true,pad=false,wrap=false}); local decoded:string=base64.decode(encoded); return decoded`, false},
+		{"base64 option type", `return base64.encode("x",{wrap=1})`, true},
 		{"prefix without a limit", `local res=await(http.request({method="GET",url="https://example.com"})); return res.body:readPrefix()`, true},
 		{"prefix of a file", `return fs.open("x","r"):readPrefix(10)`, true},
 		{"packed nil", `local fd=fs.open("out","w"); local results:PackedResults<nil> = awaitAll({fd:close()},100); local count:number=results.n; return count`, false},

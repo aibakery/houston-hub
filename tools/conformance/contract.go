@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"context"
 	_ "embed"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -140,8 +139,6 @@ func contractCall(ctx context.Context, binary string, m manifest.Manifest, modul
 			"auth": m.DiscoveryAuth(in.AuthMethod, in.Scopes, in.Facts),
 		}, &result)
 		return result, err
-	case "base64":
-		return base64.StdEncoding.EncodeToString([]byte(in.Text)), nil
 	case "render":
 		return manifest.RenderString(in.Text, in.Context)
 	case "publisher_client":

@@ -39,7 +39,7 @@ return function(call, raw, modules)
 		return call("publisher_client", { auth = auth })
 	end
 	function m.base64(text)
-		return call("base64", { text = text })
+		return base64.encode(text)
 	end
 	function m.render(text, context)
 		return call("render", { text = text, context = context })
