@@ -14,7 +14,7 @@ type AuthFacts struct {
 func (m Manifest) DiscoveryAuth(method string, granted []string, facts map[string]string) AuthFacts {
 	out := AuthFacts{Method: method}
 	a := m.Auth[method]
-	if a.Type != "oauth2" {
+	if !a.RequiresAuthorization() {
 		return out
 	}
 	for name, value := range facts {

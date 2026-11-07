@@ -12,13 +12,14 @@ type FormField struct {
 	Field  Field  `json:"field"`
 }
 type MethodAvailability struct {
-	Key       string `json:"key"`
-	Label     string `json:"label"`
-	Type      string `json:"type"`
-	Eligible  bool   `json:"eligible"`
-	Available bool   `json:"available"`
-	Brand     string `json:"brand,omitempty"`
-	Error     string `json:"error,omitempty"`
+	Availability *AuthAvailability `json:"availability,omitempty"`
+	Key          string            `json:"key"`
+	Label        string            `json:"label"`
+	Type         string            `json:"type"`
+	Eligible     bool              `json:"eligible"`
+	Available    bool              `json:"available"`
+	Brand        string            `json:"brand,omitempty"`
+	Error        string            `json:"error,omitempty"`
 	// PublisherClient marks OAuth methods whose client and redirect URI belong to the publication.
 	PublisherClient bool `json:"publisher_client,omitempty"`
 }
@@ -210,7 +211,7 @@ func (m *Manifest) resolve(publisher, config, auth map[string]any, selected stri
 	for _, key := range m.MethodKeys() {
 		a := m.Auth[key]
 		yes, e := EvaluatePredicate(a.If, *c)
-		status := MethodAvailability{Key: key, Label: a.Label, Type: a.Type, Brand: a.Brand, Eligible: yes, Available: yes, PublisherClient: a.Type == "oauth2" && a.PublisherClient()}
+		status := MethodAvailability{Key: key, Label: a.Label, Type: a.Type, Brand: a.Brand, Eligible: yes, Available: yes, PublisherClient: a.RequiresAuthorization() && a.PublisherClient(), Availability: a.Availability}
 		if e != nil {
 			status.Error = e.Error()
 			status.Available = false
@@ -222,15 +223,22 @@ func (m *Manifest) resolve(publisher, config, auth map[string]any, selected stri
 		}
 		if yes {
 			eligible++
-			if a.Type == "oauth2" {
-				for _, s := range []string{a.ClientID, a.ClientSecret} {
+			if a.RequiresAuthorization() {
+				for _, s := range a.AuthorizationSettings() {
 					if s == "" {
 						continue
 					}
 					value, e := RenderString(s, *c)
 					if e != nil || value == "" {
 						status.Available = false
-						status.Error = "OAuth client settings are incomplete"
+						status.Error = "Authorization settings are incomplete"
+					}
+				}
+				if a.Type == "pipedream" {
+					environment, err := RenderString(a.Environment, *c)
+					if err == nil && environment != "development" && environment != "production" {
+						status.Available = false
+						status.Error = "Pipedream environment must be development or production"
 					}
 				}
 			}
@@ -317,7 +325,7 @@ func (m *Manifest) resolve(publisher, config, auth map[string]any, selected stri
 		}
 		return r, nil
 	}
-	if selected != "" && m.Auth[selected].Type == "oauth2" && active[0].Match.Protocol != "http" {
+	if selected != "" && m.Auth[selected].RequiresAuthorization() && active[0].Match.Protocol != "http" {
 		return r, fmt.Errorf("OAuth requires HTTP proxy")
 	}
 	if !draft {
@@ -355,7 +363,7 @@ func (m *Manifest) resolve(publisher, config, auth map[string]any, selected stri
 			if _, err := recipe.PrepareURL(preparation); err != nil {
 				return r, err
 			}
-			for _, value := range append(mapValues(p.Action.Headers.Set), mapValues(p.Action.Query)...) {
+			for _, value := range append(headerValues(p.Action.Headers.Set), mapValues(p.Action.Query)...) {
 				refs, _ := TemplateReferences(value)
 				for _, ref := range refs {
 					if strings.HasPrefix(ref, "publisher.") {

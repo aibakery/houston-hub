@@ -32,7 +32,7 @@ func TestBundleContractExercisesProductionTransport(t *testing.T) {
 	// A changed credential recipient or injection value must fail the bundle's test.
 	changed := *m
 	changed.Proxy = append(manifest.ProxyRules(nil), m.Proxy...)
-	changed.Proxy[0].Action.Headers.Set = map[string]string{"Authorization": "wrong"}
+	changed.Proxy[0].Action.Headers.Set = map[string]manifest.HeaderValue{"Authorization": {Value: "wrong"}}
 	if err := checkContract(context.Background(), binary, changed, modules, source); err == nil || !strings.Contains(err.Error(), "credential injection") {
 		t.Fatalf("wrong injection accepted: %v", err)
 	}

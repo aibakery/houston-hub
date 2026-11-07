@@ -5,6 +5,12 @@ description: Search, read and answer Gmail, with attachments and drafts.
 
 Give agents the context they need from your Gmail inbox.
 
+Connect your Google account through Pipedream. Pipedream manages Google sign-in
+and credentials; Gmail requests pass through its proxy. Houston enforces your
+selected access level even though Google's Pipedream consent requests broader
+Gmail permissions. Direct Google sign-in is a preview pending Google approval;
+existing direct connections keep working.
+
 - Search mail with Gmail's own search syntax and read whole conversations.
 - Download attachments to work with alongside your other files.
 - With **Read and draft** access: prepare drafts and replies (with attachments)
