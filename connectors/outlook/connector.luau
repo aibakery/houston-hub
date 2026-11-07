@@ -1,6 +1,5 @@
 -- Microsoft Graph v1.0 for the connected account's Outlook mailbox. Arguments and results keep
 -- Graph's native field names; attachments move through session files, never base64.
-local base64 = require("lib/base64.luau")
 
 -- Request layer shared verbatim by the Microsoft Graph connectors; Hub runs each copy against
 -- every consumer's fixtures.
