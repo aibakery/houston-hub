@@ -67,6 +67,8 @@ end, run=function(fastmail)
             result("Email/set", {created={draft={id="d2"}}}), result("EmailSubmission/set", {created={send={id="s2"}}}),
             result("Email/get", {list={original()}}), result("Identity/get", identities), result("Mailbox/get", {list=folders}),
             result("Email/set", {created={draft={id="d3"}}}), result("EmailSubmission/set", {created={send={id="s3"}}}),
+            result("Email/get", {list={original()}}), result("Identity/get", identities), result("Mailbox/get", {list=folders}),
+            result("Email/set", {created={draft={id="d5"}}}), result("EmailSubmission/set", {created={send={id="s5"}}}),
             result("Email/get", {list={original()}}), result("Identity/get", identities),
             result("Mailbox/get", {list=folders}), result("Mailbox/set", {created={folder={id="f1", name="Projects"}}}),
             result("Mailbox/get", {list=folders}), result("Email/set", json.decode([[{"updated":{"a":null,"b":null}}]])),
@@ -130,6 +132,20 @@ end, run=function(fastmail)
         draft = calls[4].args.create.draft
         assert(draft.to[1].email == "sender@example.com" and #draft.cc == 2)
         assert(draft.cc[1].email == "other@example.com" and draft.cc[2].email == "cc@example.com")
+
+        mark = #requests
+        fastmail.replyMessage("m", {text="Both", all=true, to={{email="sender@example.com"}, {email="Other@example.com", name="Other"}}})
+        calls = jmapSince(mark)
+        draft = calls[4].args.create.draft
+        assert(#draft.to == 2 and draft.to[1].email == "sender@example.com" and draft.to[2].name == "Other")
+        assert(#draft.cc == 1 and draft.cc[1].email == "cc@example.com")
+        assert(draft.inReplyTo[1] == "<m@example.com>" and draft.references[2] == "<m@example.com>")
+
+        mark = #requests
+        for _, to in {{}, {{email="sender@example.com"}, "other@example.com"}} do
+            local ok, err = pcall(function() fastmail.replyMessage("m", {text="Nobody", to=to}) end)
+            assert(not ok and string.find(tostring(err), "nonempty", 1, true) and #requests == mark)
+        end
 
         mark = #requests
         local ok, err = pcall(function() fastmail.replyMessage("m", {text="Nope", from="missing@example.com"}) end)
