@@ -175,6 +175,9 @@
         ],
         "path": [
           "/api/v10/channels/{channel_id}/messages/{message_id}/reactions/{emoji}/@me"
+        ],
+        "colon_path_parameters": [
+          "emoji"
         ]
       },
       "action": {

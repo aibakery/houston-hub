@@ -25,9 +25,6 @@
       "action": {
         "headers": {
           "remove": [
-            "X-HTTP-Method-Override",
-            "X-HTTP-Method",
-            "X-Method-Override",
             "Authorization",
             "Cookie"
           ]

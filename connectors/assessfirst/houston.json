@@ -63,9 +63,6 @@
     {
       "action": {
         "headers": {
-          "remove": [
-            "X-HTTP-Method-Override"
-          ],
           "set": {
             "AF-Token": "{{auth.token.token}}"
           }
@@ -91,9 +88,6 @@
     {
       "action": {
         "headers": {
-          "remove": [
-            "X-HTTP-Method-Override"
-          ],
           "set": {
             "AF-Token": "{{auth.token.token}}"
           }
@@ -128,9 +122,6 @@
     {
       "action": {
         "headers": {
-          "remove": [
-            "X-HTTP-Method-Override"
-          ],
           "set": {
             "AF-Token": "{{auth.token.token}}"
           }
@@ -165,9 +156,6 @@
     {
       "action": {
         "headers": {
-          "remove": [
-            "X-HTTP-Method-Override"
-          ],
           "set": {
             "AF-Token": "{{auth.token.token}}"
           }
@@ -195,9 +183,6 @@
     {
       "action": {
         "headers": {
-          "remove": [
-            "X-HTTP-Method-Override"
-          ],
           "set": {
             "AF-Token": "{{auth.token.token}}"
           }

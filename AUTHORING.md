@@ -442,8 +442,10 @@ For custom methods (`POST /v1/{name=items/*}:archive`, as in Google's APIs),
 write the verb on the placeholder: `/v1/items/{id}:archive` matches only a segment
 ending in `:archive`, with a nonempty value before it. That value cannot contain
 another colon unless the rule lists the parameter in `colon_path_parameters`, as
-a Sheets range does in `/values/{range}:clear` (`A1:B2:clear`). Every listed name
-must appear in each path. A bare `{id}` still matches any nonempty segment,
+LinkedIn does for URNs in `/rest/posts/{id}`, or in `opaque_path_parameters`,
+which accept colons too (a Sheets range in `/values/{range}:clear`). Each colon
+parameter must name a placeholder in at least one of the rule's paths and cannot
+repeat an opaque one. A bare `{id}` still matches any nonempty segment,
 including one with a colon; a later release restricts it to values without
 colons, so declare colon IDs (such as `urn:li:share:1`) in
 `colon_path_parameters` now, and write custom methods with their verb. Verbs are
@@ -452,7 +454,7 @@ as `/values:batchGet`, needs that colon unescaped: `%3A` never selects a verb.
 
 An API with opaque IDs can explicitly declare `opaque_path_parameters: ["id"]`
 on a path such as `/records/{id}`. That parameter may contain encoded slash,
-backslash, or percent bytes. For signed file keys, `["*"]` applies to an explicit
+backslash, percent bytes or colons. For signed file keys, `["*"]` applies to an explicit
 terminal wildcard, such as `/trusted-bucket/*`. Keep this on narrowly scoped
 rules: every name must appear in each path, rewriting is forbidden, and literal
 prefixes and other parameters remain strict. Matching preserves the original

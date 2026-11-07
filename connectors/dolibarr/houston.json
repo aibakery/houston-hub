@@ -63,8 +63,7 @@
           "remove": [
             "Authorization",
             "Cookie",
-            "DOLAPIENTITY",
-            "X-HTTP-Method-Override"
+            "DOLAPIENTITY"
           ],
           "set": {
             "DOLAPIKEY": "{{auth.key.token}}"
@@ -129,8 +128,7 @@
           "remove": [
             "Authorization",
             "Cookie",
-            "DOLAPIENTITY",
-            "X-HTTP-Method-Override"
+            "DOLAPIENTITY"
           ],
           "set": {
             "DOLAPIKEY": "{{auth.key.token}}"
@@ -165,8 +163,7 @@
           "remove": [
             "Authorization",
             "Cookie",
-            "DOLAPIENTITY",
-            "X-HTTP-Method-Override"
+            "DOLAPIENTITY"
           ],
           "set": {
             "DOLAPIKEY": "{{auth.key.token}}"

@@ -98,15 +98,13 @@
           "/v1/presentations/{presentationId}",
           "/v1/presentations/{presentationId}/pages/{pageObjectId}",
           "/v1/presentations/{presentationId}/pages/{pageObjectId}/thumbnail"
+        ],
+        "colon_path_parameters": [
+          "pageObjectId"
         ]
       },
       "action": {
         "headers": {
-          "remove": [
-            "X-HTTP-Method-Override",
-            "X-HTTP-Method",
-            "X-Method-Override"
-          ],
           "set": {
             "Authorization": "Bearer {{auth.oauth.access_token}}"
           }
@@ -125,16 +123,11 @@
         ],
         "path": [
           "/v1/presentations",
-          "/v1/presentations/{presentationId}"
+          "/v1/presentations/{presentationId}:batchUpdate"
         ]
       },
       "action": {
         "headers": {
-          "remove": [
-            "X-HTTP-Method-Override",
-            "X-HTTP-Method",
-            "X-Method-Override"
-          ],
           "set": {
             "Authorization": "Bearer {{auth.oauth.access_token}}"
           }

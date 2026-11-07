@@ -106,11 +106,6 @@
       },
       "action": {
         "headers": {
-          "remove": [
-            "X-HTTP-Method-Override",
-            "X-HTTP-Method",
-            "X-Method-Override"
-          ],
           "set": {
             "Authorization": "Bearer {{auth.oauth.access_token}}"
           }
@@ -132,11 +127,6 @@
       },
       "action": {
         "headers": {
-          "remove": [
-            "X-HTTP-Method-Override",
-            "X-HTTP-Method",
-            "X-Method-Override"
-          ],
           "set": {
             "Authorization": "Bearer {{auth.oauth.access_token}}"
           }
@@ -161,11 +151,6 @@
       },
       "action": {
         "headers": {
-          "remove": [
-            "X-HTTP-Method-Override",
-            "X-HTTP-Method",
-            "X-Method-Override"
-          ],
           "set": {
             "Authorization": "Bearer {{auth.oauth.access_token}}"
           }
@@ -189,11 +174,6 @@
       },
       "action": {
         "headers": {
-          "remove": [
-            "X-HTTP-Method-Override",
-            "X-HTTP-Method",
-            "X-Method-Override"
-          ],
           "set": {
             "Authorization": "Bearer {{auth.oauth.access_token}}"
           }

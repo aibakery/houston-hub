@@ -186,7 +186,8 @@ func pathParameter(part string) (name, verb string, ok bool) {
 // parameterValue returns a placeholder's value from one escaped request
 // segment. A {name}:verb part requires that literal, unescaped suffix, so an
 // encoded colon never selects a verb; the value may contain another colon,
-// at any encoding depth, only when the rule lists name in colon_path_parameters.
+// at any encoding depth, only when the rule lists name in colon_path_parameters
+// or opaque_path_parameters.
 func (m ProxyMatch) parameterValue(name, verb, escaped string) (string, bool) {
 	value := escaped
 	if verb != "" {
@@ -194,7 +195,7 @@ func (m ProxyMatch) parameterValue(name, verb, escaped string) (string, bool) {
 		if value, ok = strings.CutSuffix(escaped, ":"+verb); !ok {
 			return "", false
 		}
-		if !slices.Contains(m.ColonPathParameters, name) {
+		if !slices.Contains(m.ColonPathParameters, name) && !slices.Contains(m.OpaquePathParameters, name) {
 			if decoded, ok := decodeOpaque(value); !ok || strings.Contains(decoded, ":") {
 				return "", false
 			}
