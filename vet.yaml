@@ -1,9 +1,12 @@
-# Hub code is Luau. Data, documentation, images and CI configuration are allowed.
+# Bundle code is Luau; shared Go tooling validates every connector.
 version: 1
 rules:
+  # This policy controls source languages. Go APIs are checked by go vet/test.
+  max-function-parameters:
+    enabled: false
   forbidden-files:
     enabled: true
-    reason: "Write connector code and test helpers in Luau; Go tooling lives in Houston"
+    reason: "Keep connector implementations and tests in Luau; Go belongs only in shared tooling"
     patterns:
       - "**/*"
     exclude:
@@ -13,6 +16,11 @@ rules:
       - "**/*.json"
       - "**/*.svg"
       - "**/*.png"
+      - "assets/*.go"
+      - "manifest/*.go"
+      - "tools/*/*.go"
+      - "go.mod"
+      - "go.sum"
       - ".github/workflows/*.yml"
       - "vet.yaml"
       - ".gitignore"

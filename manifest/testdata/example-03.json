@@ -1,0 +1,191 @@
+{
+  "auth": {
+    "oauth": {
+      "account": {
+        "bindings": {
+          "workspace": "/workspace/id"
+        },
+        "checks": [
+          {
+            "op": "equals",
+            "path": "/ok",
+            "value": true
+          }
+        ],
+        "headers": {
+          "Authorization": {
+            "value": "Bearer {{auth.oauth.access_token}}"
+          }
+        },
+        "label": "/workspace/name",
+        "method": "GET",
+        "url": "https://api.collaboration.example.com/identity"
+      },
+      "authorize_params": {
+        "access_type": "offline",
+        "workspace": "{{config.workspace}}"
+      },
+      "authorize_url": "https://accounts.collaboration.example.com/authorize",
+      "client_auth": "body",
+      "client_id": "{{config.client_id}}",
+      "client_secret": "{{config.client_secret}}",
+      "label": "Connect your workspace account",
+      "pkce": "S256",
+      "refresh_response": {
+        "access_token": "/access_token",
+        "checks": [
+          {
+            "op": "equals",
+            "path": "/ok",
+            "value": true
+          }
+        ],
+        "expires_in": "/expires_in",
+        "refresh_token": "/refresh_token",
+        "scopes": "/scope"
+      },
+      "require_refresh": true,
+      "scope_parameter": "user_scope",
+      "scope_separator": ",",
+      "scopes": [
+        {
+          "values": [
+            "files.read",
+            "identity.read"
+          ]
+        }
+      ],
+      "shared": {
+        "body": {
+          "limit": 1
+        },
+        "headers": {
+          "Authorization": {
+            "value": "Bearer {{auth.oauth.access_token}}"
+          }
+        },
+        "items": "/files",
+        "method": "POST",
+        "url": "https://api.collaboration.example.com/files/search"
+      },
+      "token_response": {
+        "access_token": "/user/access_token",
+        "checks": [
+          {
+            "op": "equals",
+            "path": "/ok",
+            "value": true
+          },
+          {
+            "op": "equals",
+            "path": "/user/token_type",
+            "value": "user"
+          },
+          {
+            "op": "exists",
+            "path": "/user/id"
+          }
+        ],
+        "expires_in": "/user/expires_in",
+        "refresh_token": "/user/refresh_token",
+        "scopes": "/user/scope"
+      },
+      "token_url": "https://accounts.collaboration.example.com/token",
+      "type": "oauth2"
+    }
+  },
+  "config": {
+    "client_id": {
+      "label": "OAuth client ID",
+      "order": 1,
+      "required": true,
+      "type": "string"
+    },
+    "client_secret": {
+      "label": "OAuth client secret",
+      "order": 2,
+      "required": true,
+      "type": "secret"
+    },
+    "workspace": {
+      "label": "Workspace ID",
+      "order": 1,
+      "required": true,
+      "type": "string"
+    }
+  },
+  "description": "Read files as an authorized user in one collaboration workspace.",
+  "files": [
+    "files.luau",
+    "folders.luau"
+  ],
+  "name": "Collaboration Files",
+  "proxy": [
+    {
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      },
+      "match": {
+        "host": [
+          "api.collaboration.example.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/files",
+          "/files/{id}",
+          "/folders"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      },
+      "match": {
+        "host": [
+          "files.collaboration.example.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/private/*"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "remove": [
+            "Authorization"
+          ]
+        }
+      },
+      "match": {
+        "host": [
+          "files.collaboration.example.com"
+        ],
+        "method": [
+          "PUT"
+        ],
+        "path": [
+          "/signed-upload/*"
+        ],
+        "protocol": "http"
+      }
+    }
+  ],
+  "schema_version": 1
+}

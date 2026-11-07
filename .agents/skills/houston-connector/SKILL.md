@@ -11,8 +11,9 @@ apply when this skill is installed separately.
 Read `AUTHORING.md` for the bundle contract, native runtime examples, validation,
 and publication workflow. Read `docs/luau-practices.md` for the shared coding
 guidelines. Implement sequentially, keep operations and help together, reuse small
-helpers and avoid registration indirection. The Hub accepts only Luau source and
-fixtures; shared Go tooling belongs to the Houston repository.
+helpers and avoid registration indirection. Bundle implementations and tests are
+Luau. Public Go tooling is shared by every connector; keep provider assertions in
+bundle fixtures, with no provider-specific Go files or runner registrations.
 
 ## Establish the operation contract
 
