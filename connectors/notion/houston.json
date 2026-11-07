@@ -107,9 +107,6 @@
       },
       "if": "{{ isDefined auth.token }}",
       "match": {
-        "colon_path_parameters": [
-          "property_id"
-        ],
         "host": [
           "api.notion.com"
         ],
@@ -136,9 +133,6 @@
       },
       "if": "{{ isDefined auth.oauth }}",
       "match": {
-        "colon_path_parameters": [
-          "property_id"
-        ],
         "host": [
           "api.notion.com"
         ],

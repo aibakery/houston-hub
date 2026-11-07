@@ -67,7 +67,7 @@ func TestCustomMethodSegments(t *testing.T) {
 	m := parseRules(t, `[
 {"match":{"protocol":"http","host":["api.example.com"],"method":["POST"],"path":["/v1/items/{id}:archive","/v1/items/{id}/notes/{note}:pin","/v1/items:batchGet"]},"action":{}},
 {"match":{"protocol":"http","host":["api.example.com"],"method":["POST"],"path":["/v4/sheets/{sheet}/values/{range}:clear"],"colon_path_parameters":["range"]},"action":{}},
-{"match":{"protocol":"http","host":["api.example.com"],"method":["PUT"],"path":["/v4/sheets/{sheet}/values/{range}:append"],"opaque_path_parameters":["range"],"colon_path_parameters":["range"]},"action":{}},
+{"match":{"protocol":"http","host":["api.example.com"],"method":["PUT"],"path":["/v4/sheets/{sheet}/values/{range}:append"],"opaque_path_parameters":["range"]},"action":{}},
 {"match":{"protocol":"http","host":["api.example.com"],"method":["PATCH"],"path":["/files/{id}:copy"],"opaque_path_parameters":["id"]},"action":{}},
 {"match":{"protocol":"http","host":["api.example.com"],"method":["PATCH"],"path":["/buckets/{bucket}:copy/*"],"opaque_path_parameters":["*"]},"action":{}}
 ]`)
@@ -98,9 +98,10 @@ func TestCustomMethodSegments(t *testing.T) {
 		{"POST", "/v1/items/a%3Adelete:archive", false},
 		{"POST", "/v4/sheets/s/values/A1%3AB2:clear", true},
 		{"PATCH", "/files/a%2Fb:copy", true},
-		{"PATCH", "/files/a:delete:copy", false},
-		{"PATCH", "/files/a%3Adelete:copy", false},
-		{"PATCH", "/files/a%253A:copy", false},
+		// Opaque values accept colons, plain or encoded, like other safe bytes.
+		{"PATCH", "/files/a:b:copy", true},
+		{"PATCH", "/files/a%3Ab:copy", true},
+		{"PATCH", "/files/a%3Acopy", false},
 		{"PATCH", "/files/a%2540:copy", true},
 		{"PATCH", "/buckets/b:copy/x%2Fy", true},
 		{"PATCH", "/buckets/b:move/x", false},
@@ -129,6 +130,7 @@ func TestCustomMethodAndColonDeclarations(t *testing.T) {
 		`"path":["/items/{id}"],"colon_path_parameters":["id","id"]`,
 		`"path":["/items/*"],"colon_path_parameters":["*"]`,
 		`"colon_path_parameters":["id"]`,
+		`"path":["/items/{id}:run"],"colon_path_parameters":["id"],"opaque_path_parameters":["id"]`,
 	} {
 		rules := fmt.Sprintf(`[{"match":{"protocol":"http","host":["api.example.com"],%s},"action":{}}]`, config)
 		if _, err := Parse([]byte(ruleManifest(rules))); err == nil {
@@ -136,7 +138,6 @@ func TestCustomMethodAndColonDeclarations(t *testing.T) {
 		}
 	}
 	for _, config := range []string{
-		`"path":["/items/{id}:run"],"colon_path_parameters":["id"],"opaque_path_parameters":["id"]`,
 		`"path":["/items/{id}","/items/{id}:run"],"colon_path_parameters":["id"]`,
 		`"path":["/items/{id}:run","/other"],"colon_path_parameters":["id"]`,
 	} {

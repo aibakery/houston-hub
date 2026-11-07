@@ -196,9 +196,6 @@
         "opaque_path_parameters": [
           "basehead"
         ],
-        "colon_path_parameters": [
-          "basehead"
-        ],
         "path": [
           "/repos/{owner}/{repo}/compare/{basehead}"
         ],
@@ -245,9 +242,6 @@
           "GET"
         ],
         "opaque_path_parameters": [
-          "path"
-        ],
-        "colon_path_parameters": [
           "path"
         ],
         "path": [
@@ -387,9 +381,6 @@
         "opaque_path_parameters": [
           "name"
         ],
-        "colon_path_parameters": [
-          "name"
-        ],
         "path": [
           "/repos/{owner}/{repo}/issues/{issue_number}/labels/{name}",
           "/repos/{owner}/{repo}/labels/{name}"
@@ -414,9 +405,6 @@
           "DELETE"
         ],
         "opaque_path_parameters": [
-          "path"
-        ],
-        "colon_path_parameters": [
           "path"
         ],
         "path": [
@@ -496,9 +484,6 @@
           "PATCH"
         ],
         "opaque_path_parameters": [
-          "name"
-        ],
-        "colon_path_parameters": [
           "name"
         ],
         "path": [
@@ -655,9 +640,6 @@
           "PUT"
         ],
         "opaque_path_parameters": [
-          "path"
-        ],
-        "colon_path_parameters": [
           "path"
         ],
         "path": [

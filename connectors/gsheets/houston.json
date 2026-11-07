@@ -121,9 +121,6 @@
         ],
         "opaque_path_parameters": [
           "range"
-        ],
-        "colon_path_parameters": [
-          "range"
         ]
       },
       "action": {
@@ -174,9 +171,6 @@
         ],
         "opaque_path_parameters": [
           "range"
-        ],
-        "colon_path_parameters": [
-          "range"
         ]
       },
       "action": {
@@ -202,9 +196,6 @@
           "/v4/spreadsheets/{spreadsheetId}/values/{range}:clear"
         ],
         "opaque_path_parameters": [
-          "range"
-        ],
-        "colon_path_parameters": [
           "range"
         ]
       },
