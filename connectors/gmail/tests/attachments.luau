@@ -25,11 +25,10 @@ return {
 		end}
 	end,
 	run = function(c)
-		local base64 = require("lib/base64.luau")
 		local bytes = {}
 		for i = 0, 255 do table.insert(bytes, string.char(i)) end
 		local binary = table.concat(bytes) .. "tail"
-		local payload = '{\n  "size": ' .. #binary .. ',\n  "data": "' .. string.gsub(base64.encode(binary), "[+/=]", {["+"] = "-", ["/"] = "_", ["="] = ""}) .. '"\n}\n'
+		local payload = '{\n  "size": ' .. #binary .. ',\n  "data": "' .. base64.encode(binary, {url = true, pad = false}) .. '"\n}\n'
 		for _, size in {1, 3, 7, 64, 100000} do
 			local reader = chunked(payload, size)
 			responses = {{statusCode = 200, headers = {}, body = reader}}
