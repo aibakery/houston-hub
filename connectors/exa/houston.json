@@ -40,10 +40,7 @@
       "action": {
         "headers": {
           "remove": [
-            "Authorization",
-            "X-HTTP-Method-Override",
-            "X-HTTP-Method",
-            "X-Method-Override"
+            "Authorization"
           ],
           "set": {
             "x-api-key": "{{auth.api_key.token}}"

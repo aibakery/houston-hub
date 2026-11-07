@@ -7,29 +7,43 @@ import (
 	"strings"
 )
 
-// validatePathParameters requires nonempty unique names, each naming a
-// placeholder in every explicit path; only opaque parameters may name the
-// terminal * wildcard.
-func (m ProxyMatch) validatePathParameters(field string, names []string, wildcard bool) error {
+// validatePathParameters requires nonempty unique names of explicit path
+// placeholders. Opaque parameters change how the whole rule matches, so each
+// must appear in every path and only they may name the terminal * wildcard; a
+// colon parameter only widens its own placeholder, so one path suffices, and
+// it cannot repeat an opaque parameter, which already accepts colons.
+func (m ProxyMatch) validatePathParameters(field string, names []string, opaque bool) error {
 	if len(names) == 0 || len(m.Path) == 0 {
 		return fmt.Errorf("%s requires nonempty names and explicit paths", field)
 	}
+	found := map[string]int{} // Paths naming each placeholder; "*" counts terminal wildcards.
+	for _, pattern := range m.Path {
+		inPath := map[string]bool{}
+		for _, part := range strings.Split(pattern, "/") {
+			if name, _, ok := pathParameter(part); ok {
+				inPath[name] = true
+			} else if part == "*" {
+				inPath["*"] = true
+			}
+		}
+		for name := range inPath {
+			found[name]++
+		}
+	}
 	seen := map[string]bool{}
 	for _, name := range names {
-		if name == "" || seen[name] || (name == "*" && !wildcard) {
+		if name == "" || seen[name] || (name == "*" && !opaque) {
 			return fmt.Errorf("invalid or duplicate %s entry", field)
 		}
 		seen[name] = true
-		for _, pattern := range m.Path {
-			if !slices.ContainsFunc(strings.Split(pattern, "/"), func(part string) bool {
-				if name == "*" {
-					return part == "*"
-				}
-				parameter, _, ok := pathParameter(part)
-				return ok && parameter == name
-			}) {
-				return fmt.Errorf("%s must name placeholders in every explicit path", field)
-			}
+		if opaque && found[name] != len(m.Path) {
+			return fmt.Errorf("%s must name a placeholder in every explicit path", field)
+		}
+		if found[name] == 0 {
+			return fmt.Errorf("%s must name a placeholder in at least one explicit path", field)
+		}
+		if !opaque && slices.Contains(m.OpaquePathParameters, name) {
+			return fmt.Errorf("colon_path_parameters repeats opaque parameter %s, which already accepts colons", name)
 		}
 	}
 	return nil

@@ -1,6 +1,7 @@
 {
   "schema_version": 1,
   "name": "Google Drive",
+  "warning": "**Pending Google approval.** Google is still reviewing Houston's access to Google Drive. Until Google approves it, you will see a *Google hasn't verified this app* screen while connecting: select **Advanced**, then continue to Houston.",
   "files": [
     "connector.luau"
   ],
@@ -105,11 +106,6 @@
       },
       "action": {
         "headers": {
-          "remove": [
-            "X-HTTP-Method-Override",
-            "X-HTTP-Method",
-            "X-Method-Override"
-          ],
           "set": {
             "Authorization": "Bearer {{auth.oauth.access_token}}"
           }
@@ -135,11 +131,6 @@
       },
       "action": {
         "headers": {
-          "remove": [
-            "X-HTTP-Method-Override",
-            "X-HTTP-Method",
-            "X-Method-Override"
-          ],
           "set": {
             "Authorization": "Bearer {{auth.oauth.access_token}}"
           }
@@ -163,11 +154,6 @@
       },
       "action": {
         "headers": {
-          "remove": [
-            "X-HTTP-Method-Override",
-            "X-HTTP-Method",
-            "X-Method-Override"
-          ],
           "set": {
             "Authorization": "Bearer {{auth.oauth.access_token}}"
           }
@@ -191,11 +177,6 @@
       },
       "action": {
         "headers": {
-          "remove": [
-            "X-HTTP-Method-Override",
-            "X-HTTP-Method",
-            "X-Method-Override"
-          ],
           "set": {
             "Authorization": "Bearer {{auth.oauth.access_token}}"
           }
@@ -219,11 +200,6 @@
       },
       "action": {
         "headers": {
-          "remove": [
-            "X-HTTP-Method-Override",
-            "X-HTTP-Method",
-            "X-Method-Override"
-          ],
           "set": {
             "Authorization": "Bearer {{auth.oauth.access_token}}"
           }

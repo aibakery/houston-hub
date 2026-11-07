@@ -1,6 +1,7 @@
 {
   "schema_version": 1,
   "name": "Google Sheets",
+  "warning": "**Pending Google approval.** Google is still reviewing Houston's access to Google Sheets. Until Google approves it, you will see a *Google hasn't verified this app* screen while connecting: select **Advanced**, then continue to Houston.",
   "files": [
     "connector.luau"
   ],
@@ -101,11 +102,6 @@
       },
       "action": {
         "headers": {
-          "remove": [
-            "X-HTTP-Method-Override",
-            "X-HTTP-Method",
-            "X-Method-Override"
-          ],
           "set": {
             "Authorization": "Bearer {{auth.oauth.access_token}}"
           }
@@ -130,11 +126,6 @@
       },
       "action": {
         "headers": {
-          "remove": [
-            "X-HTTP-Method-Override",
-            "X-HTTP-Method",
-            "X-Method-Override"
-          ],
           "set": {
             "Authorization": "Bearer {{auth.oauth.access_token}}"
           }
@@ -153,18 +144,13 @@
         ],
         "path": [
           "/v4/spreadsheets",
-          "/v4/spreadsheets/{spreadsheetId}",
+          "/v4/spreadsheets/{spreadsheetId}:batchUpdate",
           "/v4/spreadsheets/{spreadsheetId}/values:batchUpdate",
           "/v4/spreadsheets/{spreadsheetId}/values:batchClear"
         ]
       },
       "action": {
         "headers": {
-          "remove": [
-            "X-HTTP-Method-Override",
-            "X-HTTP-Method",
-            "X-Method-Override"
-          ],
           "set": {
             "Authorization": "Bearer {{auth.oauth.access_token}}"
           }
@@ -179,7 +165,6 @@
           "sheets.googleapis.com"
         ],
         "method": [
-          "POST",
           "PUT"
         ],
         "path": [
@@ -191,11 +176,32 @@
       },
       "action": {
         "headers": {
-          "remove": [
-            "X-HTTP-Method-Override",
-            "X-HTTP-Method",
-            "X-Method-Override"
-          ],
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "sheets.googleapis.com"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/v4/spreadsheets/{spreadsheetId}/values/{range}:append",
+          "/v4/spreadsheets/{spreadsheetId}/values/{range}:clear"
+        ],
+        "opaque_path_parameters": [
+          "range"
+        ]
+      },
+      "action": {
+        "headers": {
           "set": {
             "Authorization": "Bearer {{auth.oauth.access_token}}"
           }

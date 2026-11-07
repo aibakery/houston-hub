@@ -130,6 +130,9 @@
         ],
         "path": [
           "/rest/posts/{id}"
+        ],
+        "colon_path_parameters": [
+          "id"
         ]
       },
       "action": {

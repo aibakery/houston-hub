@@ -82,11 +82,6 @@
         "basic_auth": {
           "password": "{{auth.keys.consumer_secret}}",
           "username": "{{auth.keys.consumer_key}}"
-        },
-        "headers": {
-          "remove": [
-            "X-HTTP-Method-Override"
-          ]
         }
       },
       "match": {

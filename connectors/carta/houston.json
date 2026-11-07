@@ -321,7 +321,7 @@
           "/v1alpha1/portfolios",
           "/v1alpha1/portfolios/{portfolioId}",
           "/v1alpha1/portfolios/{portfolioId}/fundInvestmentDocuments",
-          "/v1alpha1/portfolios/{portfolioId}/fundInvestmentDocuments/{documentId}",
+          "/v1alpha1/portfolios/{portfolioId}/fundInvestmentDocuments/{documentId}:download",
           "/v1alpha1/portfolios/{portfolioId}/issuers",
           "/v1alpha1/portfolios/{portfolioId}/issuers/{issuerId}/certificates",
           "/v1alpha1/portfolios/{portfolioId}/issuers/{issuerId}/certificates/{certificateId}",
@@ -340,11 +340,6 @@
       },
       "action": {
         "headers": {
-          "remove": [
-            "X-HTTP-Method-Override",
-            "X-HTTP-Method",
-            "X-Method-Override"
-          ],
           "set": {
             "Authorization": "Bearer {{auth.carta.access_token || auth.own_app.access_token || auth.playground.access_token}}"
           }
@@ -367,11 +362,6 @@
       },
       "action": {
         "headers": {
-          "remove": [
-            "X-HTTP-Method-Override",
-            "X-HTTP-Method",
-            "X-Method-Override"
-          ],
           "set": {
             "Authorization": "Bearer {{auth.carta.access_token || auth.own_app.access_token || auth.playground.access_token}}"
           }
@@ -398,11 +388,6 @@
       },
       "action": {
         "headers": {
-          "remove": [
-            "X-HTTP-Method-Override",
-            "X-HTTP-Method",
-            "X-Method-Override"
-          ],
           "set": {
             "Authorization": "Bearer {{auth.carta.access_token || auth.own_app.access_token || auth.playground.access_token}}"
           }
@@ -424,23 +409,19 @@
           "/v1alpha1/draftIssuers",
           "/v1alpha1/files:upload",
           "/v1alpha1/investors/firms/{firmId}/funds/{fundId}/capitalCalls",
-          "/v1alpha1/investors/firms/{firmId}/funds/{fundId}/capitalCalls/{capitalCallId}",
+          "/v1alpha1/investors/firms/{firmId}/funds/{fundId}/capitalCalls/{capitalCallId}:adjust",
           "/v1alpha1/investors/firms/{firmId}/funds/{fundId}/carriedInterestAllocations",
           "/v1alpha1/investors/firms/{firmId}/funds/{fundId}/managementFees",
           "/v1alpha1/issuers/{issuerId}/draftOptionGrantSets/{draftOptionGrantSetId}/draftOptionGrants",
-          "/v1alpha1/issuers/{issuerId}/optionExercises/{exerciseId}",
+          "/v1alpha1/issuers/{issuerId}/optionExercises/{exerciseId}:updateMoneyMovement",
+          "/v1alpha1/issuers/{issuerId}/optionExercises/{exerciseId}:updateTaxWithholding",
           "/v1alpha1/issuers/{issuerId}/secondaryTransactions",
-          "/v1alpha1/issuers/{issuerId}/secondaryTransactions/{secondaryTransactionId}",
+          "/v1alpha1/issuers/{issuerId}/secondaryTransactions/{secondaryTransactionId}:finalize",
           "/v1alpha1/openCapTables"
         ]
       },
       "action": {
         "headers": {
-          "remove": [
-            "X-HTTP-Method-Override",
-            "X-HTTP-Method",
-            "X-Method-Override"
-          ],
           "set": {
             "Authorization": "Bearer {{auth.carta.access_token || auth.own_app.access_token || auth.playground.access_token}}"
           }

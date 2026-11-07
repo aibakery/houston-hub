@@ -39,7 +39,6 @@
       "action": {
         "headers": {
           "remove": [
-            "X-HTTP-Method-Override",
             "Stripe-Account",
             "Stripe-Context"
           ],
@@ -69,7 +68,6 @@
       "action": {
         "headers": {
           "remove": [
-            "X-HTTP-Method-Override",
             "Stripe-Account",
             "Stripe-Context"
           ],
@@ -129,7 +127,6 @@
       "action": {
         "headers": {
           "remove": [
-            "X-HTTP-Method-Override",
             "Stripe-Account",
             "Stripe-Context"
           ],
@@ -156,7 +153,6 @@
       "action": {
         "headers": {
           "remove": [
-            "X-HTTP-Method-Override",
             "Stripe-Account",
             "Stripe-Context"
           ],
@@ -213,7 +209,6 @@
       "action": {
         "headers": {
           "remove": [
-            "X-HTTP-Method-Override",
             "Stripe-Account",
             "Stripe-Context"
           ],

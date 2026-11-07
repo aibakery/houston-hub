@@ -1,6 +1,7 @@
 {
   "schema_version": 1,
   "name": "Gmail",
+  "warning": "**Direct Google sign-in is pending approval.** Connect through Pipedream while Google reviews Houston's application. Existing direct Google connections continue to work.",
   "files": [
     "connector.luau"
   ],
@@ -158,10 +159,7 @@
       "action": {
         "headers": {
           "remove": [
-            "Authorization",
-            "X-HTTP-Method-Override",
-            "X-HTTP-Method",
-            "X-Method-Override"
+            "Authorization"
           ],
           "set": {
             "Authorization": {
@@ -199,10 +197,7 @@
       "action": {
         "headers": {
           "remove": [
-            "Authorization",
-            "X-HTTP-Method-Override",
-            "X-HTTP-Method",
-            "X-Method-Override"
+            "Authorization"
           ],
           "set": {
             "Authorization": {
@@ -240,10 +235,7 @@
       "action": {
         "headers": {
           "remove": [
-            "Authorization",
-            "X-HTTP-Method-Override",
-            "X-HTTP-Method",
-            "X-Method-Override"
+            "Authorization"
           ],
           "set": {
             "Authorization": {
@@ -272,10 +264,7 @@
       "action": {
         "headers": {
           "remove": [
-            "Authorization",
-            "X-HTTP-Method-Override",
-            "X-HTTP-Method",
-            "X-Method-Override"
+            "Authorization"
           ],
           "set": {
             "Authorization": {
@@ -303,10 +292,7 @@
       "action": {
         "headers": {
           "remove": [
-            "Authorization",
-            "X-HTTP-Method-Override",
-            "X-HTTP-Method",
-            "X-Method-Override"
+            "Authorization"
           ],
           "set": {
             "Authorization": {
@@ -334,10 +320,7 @@
       "action": {
         "headers": {
           "remove": [
-            "Authorization",
-            "X-HTTP-Method-Override",
-            "X-HTTP-Method",
-            "X-Method-Override"
+            "Authorization"
           ],
           "set": {
             "Authorization": {
@@ -365,10 +348,7 @@
       "action": {
         "headers": {
           "remove": [
-            "Authorization",
-            "X-HTTP-Method-Override",
-            "X-HTTP-Method",
-            "X-Method-Override"
+            "Authorization"
           ],
           "set": {
             "Authorization": {
@@ -396,10 +376,7 @@
       "action": {
         "headers": {
           "remove": [
-            "Authorization",
-            "X-HTTP-Method-Override",
-            "X-HTTP-Method",
-            "X-Method-Override"
+            "Authorization"
           ],
           "set": {
             "Authorization": {

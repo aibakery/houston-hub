@@ -68,6 +68,9 @@
           "/v2/projects/{project_id}/purchases/{purchase_id}",
           "/v2/projects/{project_id}/subscriptions/{subscription_id}",
           "/v2/projects/{project_id}/subscriptions/{subscription_id}/entitlements"
+        ],
+        "colon_path_parameters": [
+          "customer_id"
         ]
       },
       "action": {
@@ -97,6 +100,9 @@
           "/v2/projects/{project_id}/packages/{package_id}",
           "/v2/projects/{project_id}/packages/{package_id}/actions/attach_products",
           "/v2/projects/{project_id}/packages/{package_id}/actions/detach_products"
+        ],
+        "colon_path_parameters": [
+          "customer_id"
         ]
       },
       "action": {
