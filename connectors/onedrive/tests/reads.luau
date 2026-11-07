@@ -49,9 +49,9 @@ return {
 		c.listChildren({nextLink = "https://graph.microsoft.com/v1.0/drives('b!x-1')/items('01ABC')/children?%24skiptoken=UGFn"})
 		assert(requests[5].url == "https://graph.microsoft.com/v1.0/drives/b!x-1/items/01ABC/children?%24skiptoken=UGFn", requests[5].url)
 
-		responses = {{body = '{"id":"f2","name":"Q3 report.pdf","@microsoft.graph.downloadUrl":"https://x.files.1drv.com/y"}'}, {body = '{"id":"root"}'}, {body = '{"id":"f1"}'}}
+		responses = {{body = '{"id":"f2","name":"Q3 report.pdf","@microsoft.graph.downloadUrl":"https://x.files.1drv.com/y","@content.downloadUrl":"https://x.files.1drv.com/z"}'}, {body = '{"id":"root"}'}, {body = '{"id":"f1"}'}}
 		local item = c.getItem({path = "/Documents/Q3 report.pdf"})
-		assert(item.id == "f2" and item["@microsoft.graph.downloadUrl"] == nil)
+		assert(item.id == "f2" and item["@microsoft.graph.downloadUrl"] == nil and item["@content.downloadUrl"] == nil)
 		assert(requests[6].url == API .. "/drive/root:/Documents/Q3%20report.pdf:?" .. SELECT, requests[6].url)
 		c.getItem()
 		assert(requests[7].url == API .. "/drive/root?" .. SELECT, requests[7].url)
@@ -76,7 +76,11 @@ return {
 			function() return c.listChildren({nextLink = next, top = 5}) end,
 			function() return c.listChildren({nextLink = "https://evil.example/v1.0/me/drive/root/children"}) end,
 			function() return c.listChildren({filter = "x"}) end,
-			-- A nextLink carries only paging options: $expand would inline signed links.
+			-- A nextLink must page the same list, carrying only paging options: thumbnails or an $expand
+			-- would return signed links.
+			function() return c.listChildren({nextLink = API .. "/drive/root:/photo.jpg:/thumbnails"}) end,
+			function() return c.listChildren({nextLink = API .. "/drive/root/thumbnails"}) end,
+			function() return c.searchItems({nextLink = API .. "/drive/root/children?$skiptoken=1"}) end,
 			function() return c.listChildren({nextLink = API .. "/drive/root?$expand=children"}) end,
 			function() return c.listChildren({nextLink = API .. "/drive/items/f1/children?%24skiptoken=a&%24Expand=thumbnails"}) end,
 			function() return c.searchItems({nextLink = API .. "/drive/root/children?%2524expand=x"}) end,

@@ -5,8 +5,9 @@ type Options = {[string]: any}
 type Endpoint = {method: string, path: string, read: boolean, query: {string}?, body: boolean?, defaults: Options?, list: boolean?, help: string}
 local GRAPH = "https://graph.microsoft.com/v1.0"
 local API = GRAPH .. "/me"
--- Preauthenticated OneDrive download links work without credentials, so results never carry them.
-local SIGNED = "@microsoft.graph.downloadUrl"
+-- Preauthenticated OneDrive download links, under either annotation, work without credentials,
+-- so results never carry them.
+local SIGNED = {"@microsoft.graph.downloadUrl", "@content.downloadUrl"}
 
 local function text(value: any, field: string): string
 	assert(type(value) == "string" and value ~= "", field .. " must be a nonempty string")
@@ -70,9 +71,11 @@ local function decode(operation: string, response: HttpResponse): any
 		houston.fail({operation = operation, layer = "upstream", upstream_status = response.statusCode,
 			retryable = false, message = "Microsoft Graph returned an invalid JSON object"})
 	end
-	value[SIGNED] = nil
-	for _, item in (if type(value.value) == "table" then value.value else {}) :: {any} do
-		if type(item) == "table" then item[SIGNED] = nil end
+	for _, key in SIGNED do
+		value[key] = nil
+		for _, item in (if type(value.value) == "table" then value.value else {}) :: {any} do
+			if type(item) == "table" then item[key] = nil end
+		end
 	end
 	return value
 end
@@ -101,35 +104,38 @@ local function save(operation: string, path: string, fetch: () -> HttpResponse):
 	return {path = path, url = await(fs.signedGetUrl(path)), size = await(fs.stat(path)).size}
 end
 
--- Follows an @odata.nextLink, which may carry only paging options: an $expand could inline
--- attachment bytes or signed links. Graph may name entities by OData key, as in
--- mailFolders('inbox'), which the routes accept in their path form, mailFolders/inbox.
+-- Follows an @odata.nextLink of the list whose path ends with the pattern ending. It may carry only
+-- paging options: an $expand, or another route such as thumbnails, could return attachment bytes
+-- or signed links. Graph may name entities by OData key, as in mailFolders('inbox'), which the
+-- routes accept in their path form, mailFolders/inbox.
 local PAGING = {select = true, top = true, skip = true, skiptoken = true, orderby = true, filter = true, search = true, count = true}
-local function pageLink(link: string): string
-	local path, search = string.match(link, "^([^?#]*)(%??[^#]*)$")
-	assert(path and search and string.sub(path, 1, #GRAPH + 1) == GRAPH .. "/", "nextLink must be an @odata.nextLink from Microsoft Graph")
+local function pageLink(link: string, ending: string): string
+	local raw, search = string.match(link, "^([^?#]*)(%??[^#]*)$")
+	assert(raw and search and string.sub(raw, 1, #GRAPH + 1) == GRAPH .. "/", "nextLink must be an @odata.nextLink from Microsoft Graph")
+	local path = string.gsub((string.gsub(raw, "%%27", "'")), "/(%w+)%('([^'/]+)'%)", "/%1/%2")
+	assert(string.find(path, ending), "nextLink must come from the same list")
 	for pair in string.gmatch(string.sub(search, 2), "[^&]+") do
 		local name = string.lower((string.gsub(string.match(pair, "^[^=]*") or "", "%%(%x%x)", function(hex: string): string
 			return string.char(tonumber(hex, 16) or 0)
 		end)))
 		assert(PAGING[(string.gsub(name, "^%$", ""))], "nextLink may carry only paging options")
 	end
-	return (string.gsub((string.gsub(path, "%%27", "'")), "/(%w+)%('([^'/]+)'%)", "/%1/%2")) .. search
+	return path .. search
 end
 
 -- A list's nextLink, the previous page's @odata.nextLink, replaces every other option.
-local function nextLink(name: string, args: Options): string?
+local function nextLink(name: string, args: Options, ending: string): string?
 	if args.nextLink == nil then return nil end
 	local link = text(args.nextLink, "nextLink")
 	args.nextLink = nil
 	assert(next(args) == nil, name .. " takes nextLink alone, from a previous page of the same list")
-	return pageLink(link)
+	return pageLink(link, ending)
 end
 
 -- Moves {placeholders} and declared query fields from args into the URL; remaining fields form the
 -- JSON body.
 local function target(name: string, endpoint: Endpoint, args: Options): string
-	local link = if endpoint.list then nextLink(name, args) else nil
+	local link = if endpoint.list then nextLink(name, args, "/" .. (string.match(endpoint.path, "[^/]+$") or "") .. "$") else nil
 	if link then return link end
 	local defaults: Options = endpoint.defaults or {}
 	for key, value in defaults do
@@ -219,8 +225,8 @@ local function conflictBehavior(value: any, default: string): string
 end
 
 -- One page of driveItems with the default fields, unless args holds a nextLink.
-local function page(name: string, href: string, args: Options, names: {string}): Options
-	local link = nextLink(name, args)
+local function page(name: string, href: string, ending: string, args: Options, names: {string}): Options
+	local link = nextLink(name, args, ending)
 	if not link then
 		if args.select == nil then args.select = ITEM end
 		href ..= query(args, names)
@@ -319,7 +325,7 @@ export("listChildren", true, function(input: any): Options
 		href = API .. itemPath(args.itemId, "itemId") .. "/children"
 		args.itemId = nil
 	end
-	return page("listChildren", href, args, {"$select", "$top", "$orderby"})
+	return page("listChildren", href, "/children$", args, {"$select", "$top", "$orderby"})
 end, "listChildren({itemId?, select?, top?, orderby?, nextLink?}) -> {value={driveItem}, @odata.nextLink?}. A folder's items, the root folder without itemId. top ≤999 (default 200); orderby e.g. 'name' or 'lastModifiedDateTime desc'.")
 
 export("searchItems", true, function(input: any): Options
@@ -330,7 +336,7 @@ export("searchItems", true, function(input: any): Options
 		href = API .. "/drive/root/search(q='" .. url.segment((string.gsub(text(args.q, "q"), "'", "''")), "q") .. "')"
 		args.q = nil
 	end
-	return page("searchItems", href, args, {"$select", "$top"})
+	return page("searchItems", href, "/search%(.*%)$", args, {"$select", "$top"})
 end, "searchItems({q, select?, top?, nextLink?}) -> {value={driveItem}, @odata.nextLink?}. Matches names, metadata and file content across the drive. q cannot contain / or %.")
 
 -- Fixed-signature file lookup shared with other storage connectors.

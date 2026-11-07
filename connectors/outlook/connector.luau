@@ -7,8 +7,9 @@ type Options = {[string]: any}
 type Endpoint = {method: string, path: string, read: boolean, query: {string}?, body: boolean?, defaults: Options?, list: boolean?, help: string}
 local GRAPH = "https://graph.microsoft.com/v1.0"
 local API = GRAPH .. "/me"
--- Preauthenticated OneDrive download links work without credentials, so results never carry them.
-local SIGNED = "@microsoft.graph.downloadUrl"
+-- Preauthenticated OneDrive download links, under either annotation, work without credentials,
+-- so results never carry them.
+local SIGNED = {"@microsoft.graph.downloadUrl", "@content.downloadUrl"}
 
 local function text(value: any, field: string): string
 	assert(type(value) == "string" and value ~= "", field .. " must be a nonempty string")
@@ -72,9 +73,11 @@ local function decode(operation: string, response: HttpResponse): any
 		houston.fail({operation = operation, layer = "upstream", upstream_status = response.statusCode,
 			retryable = false, message = "Microsoft Graph returned an invalid JSON object"})
 	end
-	value[SIGNED] = nil
-	for _, item in (if type(value.value) == "table" then value.value else {}) :: {any} do
-		if type(item) == "table" then item[SIGNED] = nil end
+	for _, key in SIGNED do
+		value[key] = nil
+		for _, item in (if type(value.value) == "table" then value.value else {}) :: {any} do
+			if type(item) == "table" then item[key] = nil end
+		end
 	end
 	return value
 end
@@ -103,35 +106,38 @@ local function save(operation: string, path: string, fetch: () -> HttpResponse):
 	return {path = path, url = await(fs.signedGetUrl(path)), size = await(fs.stat(path)).size}
 end
 
--- Follows an @odata.nextLink, which may carry only paging options: an $expand could inline
--- attachment bytes or signed links. Graph may name entities by OData key, as in
--- mailFolders('inbox'), which the routes accept in their path form, mailFolders/inbox.
+-- Follows an @odata.nextLink of the list whose path ends with the pattern ending. It may carry only
+-- paging options: an $expand, or another route such as thumbnails, could return attachment bytes
+-- or signed links. Graph may name entities by OData key, as in mailFolders('inbox'), which the
+-- routes accept in their path form, mailFolders/inbox.
 local PAGING = {select = true, top = true, skip = true, skiptoken = true, orderby = true, filter = true, search = true, count = true}
-local function pageLink(link: string): string
-	local path, search = string.match(link, "^([^?#]*)(%??[^#]*)$")
-	assert(path and search and string.sub(path, 1, #GRAPH + 1) == GRAPH .. "/", "nextLink must be an @odata.nextLink from Microsoft Graph")
+local function pageLink(link: string, ending: string): string
+	local raw, search = string.match(link, "^([^?#]*)(%??[^#]*)$")
+	assert(raw and search and string.sub(raw, 1, #GRAPH + 1) == GRAPH .. "/", "nextLink must be an @odata.nextLink from Microsoft Graph")
+	local path = string.gsub((string.gsub(raw, "%%27", "'")), "/(%w+)%('([^'/]+)'%)", "/%1/%2")
+	assert(string.find(path, ending), "nextLink must come from the same list")
 	for pair in string.gmatch(string.sub(search, 2), "[^&]+") do
 		local name = string.lower((string.gsub(string.match(pair, "^[^=]*") or "", "%%(%x%x)", function(hex: string): string
 			return string.char(tonumber(hex, 16) or 0)
 		end)))
 		assert(PAGING[(string.gsub(name, "^%$", ""))], "nextLink may carry only paging options")
 	end
-	return (string.gsub((string.gsub(path, "%%27", "'")), "/(%w+)%('([^'/]+)'%)", "/%1/%2")) .. search
+	return path .. search
 end
 
 -- A list's nextLink, the previous page's @odata.nextLink, replaces every other option.
-local function nextLink(name: string, args: Options): string?
+local function nextLink(name: string, args: Options, ending: string): string?
 	if args.nextLink == nil then return nil end
 	local link = text(args.nextLink, "nextLink")
 	args.nextLink = nil
 	assert(next(args) == nil, name .. " takes nextLink alone, from a previous page of the same list")
-	return pageLink(link)
+	return pageLink(link, ending)
 end
 
 -- Moves {placeholders} and declared query fields from args into the URL; remaining fields form the
 -- JSON body.
 local function target(name: string, endpoint: Endpoint, args: Options): string
-	local link = if endpoint.list then nextLink(name, args) else nil
+	local link = if endpoint.list then nextLink(name, args, "/" .. (string.match(endpoint.path, "[^/]+$") or "") .. "$") else nil
 	if link then return link end
 	local defaults: Options = endpoint.defaults or {}
 	for key, value in defaults do
@@ -188,6 +194,7 @@ end
 local DRAFTS = config.access == "custom"
 local LIST = "id,subject,from,toRecipients,ccRecipients,receivedDateTime,sentDateTime,isRead,isDraft,hasAttachments,importance,flag,categories,conversationId,parentFolderId,bodyPreview,webLink"
 -- Graph takes attachments "under 3 MB" in one request of at most 4 MB once base64-encoded.
+local MAX_REQUEST = 4000000
 local MAX_ATTACHMENTS = 3000000
 
 local endpoints: {[string]: Endpoint} = {
@@ -267,27 +274,37 @@ local function fileAttachments(items: any): {Options}
 	return list
 end
 
--- A message resource with its attachments read from session files.
+-- A message resource with its attachments read from session files. Graph refuses requests over
+-- 4 MB, which base64-encoded attachments and the rest of the message must fit in.
 local function compose(value: any, field: string): Options
 	local message = options(value)
 	assert(next(message) ~= nil, field .. " must be a nonempty message object")
 	plain(message)
-	if message.attachments ~= nil then message.attachments = fileAttachments(message.attachments) end
+	if message.attachments ~= nil then
+		message.attachments = fileAttachments(message.attachments)
+		assert(#json.encode(message) <= MAX_REQUEST, "the message and its attachments must stay under 4 MB; share larger files from OneDrive")
+	end
 	return message
 end
 
--- Caps body.content at maxBodyBytes without splitting a UTF-8 sequence, and reports it in bodyTruncated.
+-- Caps body.content and uniqueBody.content at maxBodyBytes without splitting a UTF-8 sequence, and
+-- reports it in bodyTruncated.
 local function limitBody(message: any, limit: number)
-	local body = if type(message) == "table" then message.body else nil
-	if type(body) ~= "table" or type(body.content) ~= "string" then return end
-	local content = body.content
-	message.bodyTruncated = limit > 0 and #content > limit
-	if not message.bodyTruncated then return end
-	local start = limit
-	while start > 1 and start > limit - 3 and string.byte(content, start) // 64 == 2 do start -= 1 end
-	local lead = string.byte(content, start)
-	local size = if lead >= 240 then 4 elseif lead >= 224 then 3 elseif lead >= 192 then 2 else 1
-	body.content = string.sub(content, 1, if start + size - 1 > limit then start - 1 else limit)
+	if type(message) ~= "table" then return end
+	for _, field in {"body", "uniqueBody"} do
+		local body = message[field]
+		if type(body) == "table" and type(body.content) == "string" then
+			local content = body.content
+			message.bodyTruncated = message.bodyTruncated == true or (limit > 0 and #content > limit)
+			if limit > 0 and #content > limit then
+				local start = limit
+				while start > 1 and start > limit - 3 and string.byte(content, start) // 64 == 2 do start -= 1 end
+				local lead = string.byte(content, start)
+				local size = if lead >= 240 then 4 elseif lead >= 224 then 3 elseif lead >= 192 then 2 else 1
+				body.content = string.sub(content, 1, if start + size - 1 > limit then start - 1 else limit)
+			end
+		end
+	end
 end
 
 local function bodyLimit(args: Options): number
@@ -314,7 +331,7 @@ export("listMessages", true, function(input: any): Options
 	local args = options(input)
 	local headers = bodyFormat(args)
 	local limit = bodyLimit(args)
-	local link = nextLink("listMessages", args)
+	local link = nextLink("listMessages", args, "/messages$")
 	local href = API .. "/messages"
 	if not link then
 		if args.folderId ~= nil then href = API .. "/mailFolders/" .. url.segment(text(args.folderId, "folderId"), "folderId") .. "/messages" end
@@ -365,18 +382,21 @@ export("listMailFolders", true, function(...: any): {{id: string, name: string}}
 		local page = call("listMailFolders", "GET", job.href)
 		local items: {any} = if type(page.value) == "table" then page.value else {}
 		for _, folder in items do
-			if type(folder) ~= "table" or type(folder.id) ~= "string" or folder.id == "" or type(folder.displayName) ~= "string" or seen[folder.id] then
+			if type(folder) ~= "table" or type(folder.id) ~= "string" or folder.id == "" or type(folder.displayName) ~= "string" then
 				houston.fail({operation = "listMailFolders", layer = "upstream", retryable = false, message = "Microsoft Graph returned invalid folder metadata"})
 			end
-			seen[folder.id] = true
-			local name = job.prefix .. folder.displayName
-			table.insert(folders, {id = folder.id, name = name})
-			if type(folder.childFolderCount) == "number" and folder.childFolderCount > 0 then
-				table.insert(pending, {href = API .. "/mailFolders/" .. url.segment(folder.id, "folder ID") .. "/childFolders" .. FIELDS, prefix = name .. "/"})
+			-- $skip paging can repeat a folder when the mailbox changes between pages.
+			if not seen[folder.id] then
+				seen[folder.id] = true
+				local name = job.prefix .. folder.displayName
+				table.insert(folders, {id = folder.id, name = name})
+				if type(folder.childFolderCount) == "number" and folder.childFolderCount > 0 then
+					table.insert(pending, {href = API .. "/mailFolders/" .. url.segment(folder.id, "folder ID") .. "/childFolders" .. FIELDS, prefix = name .. "/"})
+				end
 			end
 		end
 		local link = page["@odata.nextLink"]
-		if type(link) == "string" then table.insert(pending, {href = pageLink(link), prefix = job.prefix}) end
+		if type(link) == "string" then table.insert(pending, {href = pageLink(link, "/%l+Folders$"), prefix = job.prefix}) end
 	end
 	table.sort(folders, function(a: any, b: any) return a.id < b.id end)
 	return folders
@@ -411,10 +431,12 @@ end, "deleteMessage({id}) -> {success=true}. Moves " .. (if DRAFTS then "a draft
 export("addAttachment", DRAFTS, function(input: any): Options
 	local args = options(input)
 	local id = text(args.messageId, "messageId")
-	local attachment = fileAttachments({{path = args.path, name = args.name, contentType = args.contentType}})[1]
+	local spec = {path = args.path, name = args.name, contentType = args.contentType}
 	args.messageId, args.path, args.name, args.contentType = nil, nil, nil, nil
 	done("addAttachment", args)
+	assert(await(fs.stat(text(spec.path, "path"))).size < MAX_ATTACHMENTS, "attachments must stay under 3 MB; share larger files from OneDrive")
 	draftOnly("addAttachment", id)
+	local attachment = fileAttachments({spec})[1]
 	return call("addAttachment", "POST", messagePath(id, "messageId") .. "/attachments", attachment)
 end, "addAttachment({messageId, path, name?, contentType?}) -> attachment {id, name, size}. Attaches a session file under 3 MB to a draft.")
 

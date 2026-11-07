@@ -73,9 +73,14 @@ return {
 		local big = fs.open("big.bin", "w")
 		big:write(string.rep("x", 3000000))
 		await(big:close())
+		local near = fs.open("near.bin", "w")
+		near:write(string.rep("x", 2900000))
+		await(near:close())
 		local before = #requests
 		for _, call in {
 			function() return c.createDraft({subject = "x", attachments = {"big.bin"}}) end,
+			-- Under 3 MB of files, but with a large body the request would exceed 4 MB.
+			function() return c.createDraft({body = {contentType = "Text", content = string.rep("b", 200000)}, attachments = {"near.bin"}}) end,
 			function() return c.createDraft({subject = "x", attachments = {"missing.txt"}}) end,
 			function() return c.createDraft({subject = "x", attachments = "notes.txt"}) end,
 			function() return c.createDraft({subject = "x", attachments = {{name = "x"}}}) end,

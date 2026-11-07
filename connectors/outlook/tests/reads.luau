@@ -56,6 +56,9 @@ return {
 		assert(last().url == API .. "/messages/AAMk-_%3D" and last().headers.Prefer[1] == 'outlook.body-content-type="text"', last().url)
 		responses = {{body = json.encode({id = "m3", body = {content = "ab" .. utf8.char(0x1F600) .. "c"}})}}
 		assert(c.getMessage({id = "m3", maxBodyBytes = 4}).body.content == "ab", "a 4-byte character was split")
+		responses = {{body = json.encode({id = "m4", body = {content = "ok"}, uniqueBody = {content = string.rep("u", 10)}})}}
+		local unique = c.getMessage({id = "m4", select = "body,uniqueBody", maxBodyBytes = 4})
+		assert(unique.uniqueBody.content == "uuuu" and unique.body.content == "ok" and unique.bodyTruncated == true, "uniqueBody was not capped")
 		responses = {{body = json.encode({value = {{id = "m2", body = {contentType = "text", content = "short"}}}})}}
 		page = c.listMessages({select = {"id", "body"}, maxBodyBytes = 0})
 		assert(page.value[1].body.content == "short" and page.value[1].bodyTruncated == false)
@@ -90,7 +93,10 @@ return {
 		assert(requests[tail].url == API .. "/mailFolders/F2/childFolders?%24top=100&%24skip=1", requests[tail].url)
 		responses = {{body = '{"value":[]}'}}
 		assert(json.encode(c.listMailFolders()) == "[]")
-		for _, invalid in {'{"value":[{"id":"","displayName":"x"}]}', '{"value":[{"id":"F1"}]}', '{"value":[{"id":"F1","displayName":"a"},{"id":"F1","displayName":"b"}]}'} do
+		-- $skip paging can repeat a folder when the mailbox changes between pages.
+		responses = {{body = '{"value":[{"id":"F1","displayName":"a"}],"@odata.nextLink":"https://graph.microsoft.com/v1.0/me/mailFolders?%24skip=1"}'}, {body = '{"value":[{"id":"F1","displayName":"a"},{"id":"F2","displayName":"b"}]}'}}
+		assert(json.encode(c.listMailFolders()) == '[{"id":"F1","name":"a"},{"id":"F2","name":"b"}]')
+		for _, invalid in {'{"value":[{"id":"","displayName":"x"}]}', '{"value":[{"id":"F1"}]}'} do
 			responses = {{body = invalid}}
 			fails({"invalid folder metadata"}, c.listMailFolders)
 		end
@@ -107,6 +113,9 @@ return {
 			function() return c.listMessages({nextLink = "https://graph.microsoft.com.evil.example/v1.0/me/messages"}) end,
 			function() return c.listMessages({top = {}}) end,
 			function() return c.listMessages({nextLink = API .. "/messages?%24skip=10&%24expand=attachments"}) end,
+			-- A nextLink must page the same list: another route could return signed links or bytes.
+			function() return c.listMessages({nextLink = API .. "/mailFolders?%24skip=10"}) end,
+			function() return c.listMessages({nextLink = API .. "/messages/m1/attachments?%24skip=1"}) end,
 			function() return c.listMessages({nextLink = API .. "/messages?$skip=10#x"}) end,
 			function() return c.getMessage({}) end,
 			function() return c.getMessage({id = ".."}) end,
