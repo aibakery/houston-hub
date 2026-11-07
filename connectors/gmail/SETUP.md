@@ -6,7 +6,11 @@
    - **Read and write** to also let agents send and reply, manage drafts, and organize mail with labels and trash.
 2. Select **Connect with Pipedream**, choose your Google account, and approve
    the permissions. Pipedream handles Google's sign-in and returns you to Houston.
-   You do not need to create a Pipedream account.
+   For production connections, you do not need to create a Pipedream account.
+
+Publishers testing with Pipedream's development environment must also sign in to
+Pipedream in the same browser. That environment supports up to ten external users;
+publish with the production environment for the normal user sign-in experience.
 
 Pipedream's Gmail application requests broad Gmail permissions, including sending
 and managing mail, for every access level. Houston separately enforces the access
