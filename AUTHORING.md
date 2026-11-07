@@ -628,8 +628,8 @@ shared Markdown renderer and design tokens. Long code and tables must scroll wit
 the document without widening the page. Raw HTML is disabled.
 
 Official examples should order root fields as `schema_version`, `name`,
-`verification_key`, `files`, `icon`, `config`, `auth`, optional `publisher`, then
-`proxy`. Omit unused optional sections. This is a readability convention; every
+optional `warning`, `verification_key`, `files`, `icon`, `config`, `auth`,
+optional `publisher`, then `proxy`. Omit unused optional sections. This is a readability convention; every
 legal JSON property order validates. Formatting should preserve the source order.
 Use adjacent `README.md` (optionally with `description` frontmatter for a card
 summary) for a short, appealing overview of what people can do with the connector.
