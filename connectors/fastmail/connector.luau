@@ -18,7 +18,7 @@ type SendOptions = {
 }
 type ReplyOptions = {
 	id: string?, messageId: string?, text: string, all: boolean?, subject: string?, identityId: string?, from: string?,
-	cc: {Address}?, bcc: {Address}?, replyTo: {Address}?, attachments: {Upload}?,
+	to: {Address}?, cc: {Address}?, bcc: {Address}?, replyTo: {Address}?, attachments: {Upload}?,
 }
 type Attachment = {id: string, filename: string?, mimeType: string?, size: number?, inline: boolean, contentId: string?}
 type Download = {path: string, url: string, size: number?}
@@ -888,7 +888,7 @@ if config.access == "read-write" then
 		}})
 	end
 
-	operationHelp.replyMessage = [==[replyMessage({id:string,text:string,all:boolean?,subject:string?,identityId:string?,from:string?,cc?,bcc?,replyTo?,attachments?}) -> {id,submissionId}. messageId is also accepted instead of id. Positional replyMessage(id,options) remains supported. Replies to Reply-To, otherwise From; preserves thread message IDs/references. all defaults false. Default sender is receiving identity (To then Cc), then primary identity. all=true adds original To/Cc excluding your identities and reply recipient; cc explicitly replaces that list. Subject derives a Re: prefix unless supplied. Attachments use private session paths as in sendMessage. Email submission scope required. Never automatically replay a partial send.]==]
+	operationHelp.replyMessage = [==[replyMessage({id:string,text:string,all:boolean?,subject:string?,identityId:string?,from:string?,to?,cc?,bcc?,replyTo?,attachments?}) -> {id,submissionId}. messageId is also accepted instead of id. Positional replyMessage(id,options) remains supported. Replies to Reply-To, otherwise From; to={{email,name?}} replaces that recipient list. Always preserves thread message IDs/references. all defaults false. Default sender is receiving identity (To then Cc), then primary identity. all=true adds original To/Cc excluding your identities and the To recipients; cc explicitly replaces that list. Subject derives a Re: prefix unless supplied. Attachments use private session paths as in sendMessage. Email submission scope required. Never automatically replay a partial send.]==]
 	function functions.replyMessage(input: Id | ReplyOptions, options: ReplyOptions?): SendResult
 		local id: any = input
 		local body: any = options
@@ -898,6 +898,7 @@ if config.access == "read-write" then
 		end
 		id = id_of(id)
 		if type(body) ~= "table" or type(body.text) ~= "string" then error("fastmail.replyMessage requires text") end
+		if body.to ~= nil and (type(body.to) ~= "table" or #body.to == 0) then error("fastmail.replyMessage to must be a nonempty array of { email = ... }") end
 		local data = call("Email/get", {
 			ids = { id },
 			properties = { "id", "messageId", "inReplyTo", "references", "from", "to", "cc", "replyTo", "subject" },
@@ -905,10 +906,13 @@ if config.access == "read-write" then
 		local msg = data.list and data.list[1]
 		if type(msg) ~= "table" then fail("replyMessage", "Missing message " .. id) end
 		remove_nulls(msg)
-		local source = msg.replyTo
-		if type(source) ~= "table" or #source == 0 then source = msg.from end
-		local to = address_objects(source)
-		if #to == 0 then error("fastmail.replyMessage: the message has no reply address") end
+		local to = body.to
+		if to == nil then
+			local source = msg.replyTo
+			if type(source) ~= "table" or #source == 0 then source = msg.from end
+			to = address_objects(source)
+			if #to == 0 then error("fastmail.replyMessage: the message has no reply address") end
+		end
 		local identities = as_list(call("Identity/get", nil, "replyMessage").list)
 		for _, item in identities do
 			if type(item) == "table" then remove_nulls(item) end
@@ -941,7 +945,7 @@ if config.access == "read-write" then
 				local key = lower_email(item.email)
 				if key ~= nil then skip[key] = true end
 			end
-			for _, addr in to do
+			for _, addr in address_objects(to) do
 				local key = lower_email(addr.email)
 				if key ~= nil then skip[key] = true end
 			end
