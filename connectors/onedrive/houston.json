@@ -121,6 +121,9 @@
           "/v1.0/drives/{driveId}/root/{search}",
           "/v1.0/drives/{driveId}/items/{itemId}/children",
           "/v1.0/drives/{driveId}/items/{itemId}/permissions"
+        ],
+        "colon_path_parameters": [
+          "search"
         ]
       },
       "action": {

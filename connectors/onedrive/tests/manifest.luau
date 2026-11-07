@@ -9,7 +9,7 @@ return {
 			r.Context.Auth.oauth.access_token = "fixture-token"
 			local reads = {
 				"GET " .. api, "GET " .. api .. "/root", "GET " .. api .. "/root/children?$skiptoken=MjAx",
-				"GET " .. api .. "/root/search(q='O%27%27Brien%20plan')", "GET " .. api .. "/root:/Documents/Q3%20report.pdf:",
+				"GET " .. api .. "/root/search(q='O%27%27Brien%20plan')", "GET " .. api .. "/root/search(q='10:30%20notes')", "GET " .. api .. "/root:/Documents/Q3%20report.pdf:",
 				"GET " .. api .. "/items/D4648F06C91D9D3D%2154927", "GET " .. api .. "/items/f1/children", "GET " .. api .. "/items/f1/content?format=pdf",
 				"GET " .. api .. "/items/f1/permissions",
 				-- Business accounts may page through drive-keyed links.

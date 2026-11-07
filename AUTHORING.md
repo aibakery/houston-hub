@@ -440,16 +440,14 @@ such as a `_method` form field on POST, remain the connector's to reject.
 
 For custom methods (`POST /v1/{name=items/*}:archive`, as in Google's APIs),
 write the verb on the placeholder: `/v1/items/{id}:archive` matches only a segment
-ending in `:archive`, with a nonempty value before it. That value cannot contain
-another colon unless the rule lists the parameter in `colon_path_parameters`, as
-LinkedIn does for URNs in `/rest/posts/{id}`, or in `opaque_path_parameters`,
-which accept colons too (a Sheets range in `/values/{range}:clear`). Each colon
-parameter must name a placeholder in at least one of the rule's paths and cannot
-repeat an opaque one. A bare `{id}` still matches any nonempty segment,
-including one with a colon; a later release restricts it to values without
-colons, so declare colon IDs (such as `urn:li:share:1`) in
-`colon_path_parameters` now, and write custom methods with their verb. Verbs are
-letters and digits, starting with a letter. A literal segment with a colon, such
+ending in `:archive`, with a nonempty value before it. No placeholder value,
+bare or before a verb, may contain a colon, plain or percent-encoded, unless the
+rule lists the parameter in `colon_path_parameters`, as LinkedIn does for URNs
+in `/rest/posts/{id}`, or in `opaque_path_parameters`, which accept colons too
+(a Sheets range in `/values/{range}:clear`). So a bare `{id}` never matches
+`id:delete`. Each colon parameter must name a placeholder in at least one of the
+rule's paths and cannot repeat an opaque one. Verbs are letters and digits,
+starting with a letter. A literal segment with a colon, such
 as `/values:batchGet`, needs that colon unescaped: `%3A` never selects a verb.
 
 An API with opaque IDs can explicitly declare `opaque_path_parameters: ["id"]`

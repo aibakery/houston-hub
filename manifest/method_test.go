@@ -69,7 +69,8 @@ func TestCustomMethodSegments(t *testing.T) {
 {"match":{"protocol":"http","host":["api.example.com"],"method":["POST"],"path":["/v4/sheets/{sheet}/values/{range}:clear"],"colon_path_parameters":["range"]},"action":{}},
 {"match":{"protocol":"http","host":["api.example.com"],"method":["PUT"],"path":["/v4/sheets/{sheet}/values/{range}:append"],"opaque_path_parameters":["range"]},"action":{}},
 {"match":{"protocol":"http","host":["api.example.com"],"method":["PATCH"],"path":["/files/{id}:copy"],"opaque_path_parameters":["id"]},"action":{}},
-{"match":{"protocol":"http","host":["api.example.com"],"method":["PATCH"],"path":["/buckets/{bucket}:copy/*"],"opaque_path_parameters":["*"]},"action":{}}
+{"match":{"protocol":"http","host":["api.example.com"],"method":["PATCH"],"path":["/buckets/{bucket}:copy/*"],"opaque_path_parameters":["*"]},"action":{}},
+{"match":{"protocol":"http","host":["api.example.com"],"method":["GET"],"path":["/v1/items/{id}","/v1/posts/{urn}/likes"],"colon_path_parameters":["urn"]},"action":{}}
 ]`)
 	for _, c := range []struct {
 		method, path string
@@ -81,11 +82,16 @@ func TestCustomMethodSegments(t *testing.T) {
 		{"POST", "/v1/items/a", false},
 		{"POST", "/v1/items/:archive", false},
 		{"POST", "/v1/items/a:b:archive", false},
+		{"POST", "/v1/items/..:archive", false},
+		{"POST", "/v1/items/.:archive", false},
+		{"POST", "/v1/items/%2e%2e:archive", false},
+		{"POST", "/v1/items/...:archive", true},
+		{"POST", "/v4/sheets/s/values/..:clear", false},
 		{"POST", "/v1/items/a:archive/extra", false},
 		{"GET", "/v1/items/a:archive", false},
 		{"POST", "/v4/sheets/s/values/A1:B2:clear", true},
 		{"POST", "/v4/sheets/s/values/A1:clear", true},
-		{"POST", "/v4/sheets/s:x/values/A1:clear", true},
+		{"POST", "/v4/sheets/s:x/values/A1:clear", false},
 		{"POST", "/v4/sheets/s/values/A1:B2:append", false},
 		{"PUT", "/v4/sheets/s/values/Sheet%2F1!A1:B2:append", true},
 		{"PUT", "/v4/sheets/s/values/A1:B2", false},
@@ -105,6 +111,16 @@ func TestCustomMethodSegments(t *testing.T) {
 		{"PATCH", "/files/a%2540:copy", true},
 		{"PATCH", "/buckets/b:copy/x%2Fy", true},
 		{"PATCH", "/buckets/b:move/x", false},
+		// A bare placeholder refuses colons unless the rule declares them.
+		{"GET", "/v1/items/a", true},
+		{"GET", "/v1/items/a:delete", false},
+		{"GET", "/v1/items/a%3adelete", false},
+		{"GET", "/v1/items/a%3Adelete", false},
+		{"PUT", "/v4/sheets/s:x/values/A1:append", false},
+		{"PUT", "/v4/sheets/s%3Ax/values/A1:append", false},
+		{"PUT", "/v4/sheets/s/values/A1:append", true},
+		{"GET", "/v1/posts/urn:li:share:1/likes", true},
+		{"GET", "/v1/posts/urn%3Ali%3Ashare%3A1/likes", true},
 	} {
 		_, err := m.Proxy.HTTPRecipe(c.method, "https://api.example.com"+c.path, nil)
 		if (err == nil) != c.allowed {
