@@ -100,11 +100,6 @@
       },
       "action": {
         "headers": {
-          "remove": [
-            "X-HTTP-Method-Override",
-            "X-HTTP-Method",
-            "X-Method-Override"
-          ],
           "set": {
             "Authorization": "Bearer {{auth.oauth.access_token}}"
           }
@@ -123,16 +118,11 @@
         ],
         "path": [
           "/v1/documents",
-          "/v1/documents/{documentId}"
+          "/v1/documents/{documentId}:batchUpdate"
         ]
       },
       "action": {
         "headers": {
-          "remove": [
-            "X-HTTP-Method-Override",
-            "X-HTTP-Method",
-            "X-Method-Override"
-          ],
           "set": {
             "Authorization": "Bearer {{auth.oauth.access_token}}"
           }

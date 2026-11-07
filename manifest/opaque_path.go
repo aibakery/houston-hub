@@ -7,29 +7,37 @@ import (
 	"strings"
 )
 
-// validatePathParameters requires nonempty unique names, each naming a
-// placeholder in every explicit path; only opaque parameters may name the
-// terminal * wildcard.
-func (m ProxyMatch) validatePathParameters(field string, names []string, wildcard bool) error {
+// validatePathParameters requires nonempty unique names of explicit path
+// placeholders. Opaque parameters change how the whole rule matches, so each
+// must appear in every path and only they may name the terminal * wildcard; a
+// colon parameter only widens its own placeholder, so one path suffices.
+func (m ProxyMatch) validatePathParameters(field string, names []string, opaque bool) error {
 	if len(names) == 0 || len(m.Path) == 0 {
 		return fmt.Errorf("%s requires nonempty names and explicit paths", field)
 	}
 	seen := map[string]bool{}
 	for _, name := range names {
-		if name == "" || seen[name] || (name == "*" && !wildcard) {
+		if name == "" || seen[name] || (name == "*" && !opaque) {
 			return fmt.Errorf("invalid or duplicate %s entry", field)
 		}
 		seen[name] = true
+		found := 0
 		for _, pattern := range m.Path {
-			if !slices.ContainsFunc(strings.Split(pattern, "/"), func(part string) bool {
+			if slices.ContainsFunc(strings.Split(pattern, "/"), func(part string) bool {
 				if name == "*" {
 					return part == "*"
 				}
 				parameter, _, ok := pathParameter(part)
 				return ok && parameter == name
 			}) {
-				return fmt.Errorf("%s must name placeholders in every explicit path", field)
+				found++
 			}
+		}
+		if opaque && found != len(m.Path) {
+			return fmt.Errorf("%s must name a placeholder in every explicit path", field)
+		}
+		if found == 0 {
+			return fmt.Errorf("%s must name a placeholder in at least one explicit path", field)
 		}
 	}
 	return nil

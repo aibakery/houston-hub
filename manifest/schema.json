@@ -847,7 +847,7 @@
       "additionalProperties": false,
       "properties": {
         "colon_path_parameters": {
-          "description": "Placeholder names whose values may contain a colon before a {name}:verb suffix, such as A1:B2 in values/{range}:clear.",
+          "description": "Placeholder names whose values may contain a colon, such as A1:B2 in values/{range}:clear or a URN. Today this applies before a {name}:verb suffix; declare bare colon IDs too, since a later release stops bare placeholders from matching colons.",
           "items": {
             "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
             "type": "string"

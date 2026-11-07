@@ -109,7 +109,7 @@ return function(call, raw, modules)
 			elseif narrows and not entry.custom then
 				gates = { '{{ is config.access "read-only" }}', '{{ is config.access "read-write" }}' }
 			end
-			local paths = { prefix .. string.gsub(entry.path, "}:[%w_]+$", "}") }
+			local paths = { prefix .. entry.path }
 			if string.find(entry.path, "{format}", 1, true) then
 				paths = {}
 				local formats = assert(
@@ -136,7 +136,7 @@ return function(call, raw, modules)
 				end
 			end
 		end
-		m.sortedEqual(want, got, true)
+		m.sortedEqual(want, got)
 	end
 	function m.resolve(publisher, config, auth, method)
 		return call(

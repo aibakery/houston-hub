@@ -442,13 +442,14 @@ For custom methods (`POST /v1/{name=items/*}:archive`, as in Google's APIs),
 write the verb on the placeholder: `/v1/items/{id}:archive` matches only a segment
 ending in `:archive`, with a nonempty value before it. That value cannot contain
 another colon unless the rule lists the parameter in `colon_path_parameters`, as
-a Sheets range does in `/values/{range}:clear` (`A1:B2:clear`). Every listed name
-must appear in each path. A bare `{id}` still matches any nonempty segment,
-including one with a colon; a later release restricts it to values without
-colons, so declare colon IDs (such as `urn:li:share:1`) in
-`colon_path_parameters` now, and write custom methods with their verb. Verbs are
-letters and digits, starting with a letter. A literal segment with a colon, such
-as `/values:batchGet`, needs that colon unescaped: `%3A` never selects a verb.
+a Sheets range does in `/values/{range}:clear` (`A1:B2:clear`). Each listed name
+must name a placeholder in at least one of the rule's paths. A bare `{id}` still
+matches any nonempty segment, including one with a colon; a later release
+restricts it to values without colons, so declare colon IDs (such as
+`urn:li:share:1`) in `colon_path_parameters` now, and write custom methods with
+their verb. Verbs are letters and digits, starting with a letter. A literal
+segment with a colon, such as `/values:batchGet`, needs that colon unescaped:
+`%3A` never selects a verb.
 
 An API with opaque IDs can explicitly declare `opaque_path_parameters: ["id"]`
 on a path such as `/records/{id}`. That parameter may contain encoded slash,

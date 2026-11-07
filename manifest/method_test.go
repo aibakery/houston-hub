@@ -127,7 +127,6 @@ func TestCustomMethodAndColonDeclarations(t *testing.T) {
 		`"path":["/items/{id}"],"colon_path_parameters":[]`,
 		`"path":["/items/{id}"],"colon_path_parameters":["unknown"]`,
 		`"path":["/items/{id}"],"colon_path_parameters":["id","id"]`,
-		`"path":["/items/{id}:run","/other"],"colon_path_parameters":["id"]`,
 		`"path":["/items/*"],"colon_path_parameters":["*"]`,
 		`"colon_path_parameters":["id"]`,
 	} {
@@ -139,6 +138,7 @@ func TestCustomMethodAndColonDeclarations(t *testing.T) {
 	for _, config := range []string{
 		`"path":["/items/{id}:run"],"colon_path_parameters":["id"],"opaque_path_parameters":["id"]`,
 		`"path":["/items/{id}","/items/{id}:run"],"colon_path_parameters":["id"]`,
+		`"path":["/items/{id}:run","/other"],"colon_path_parameters":["id"]`,
 	} {
 		rules := fmt.Sprintf(`[{"match":{"protocol":"http","host":["api.example.com"],%s},"action":{}}]`, config)
 		if _, err := Parse([]byte(ruleManifest(rules))); err != nil {

@@ -104,11 +104,6 @@
       },
       "action": {
         "headers": {
-          "remove": [
-            "X-HTTP-Method-Override",
-            "X-HTTP-Method",
-            "X-Method-Override"
-          ],
           "set": {
             "Authorization": "Bearer {{auth.oauth.access_token}}"
           }
@@ -127,16 +122,12 @@
         ],
         "path": [
           "/v1/forms",
-          "/v1/forms/{formId}"
+          "/v1/forms/{formId}:batchUpdate",
+          "/v1/forms/{formId}:setPublishSettings"
         ]
       },
       "action": {
         "headers": {
-          "remove": [
-            "X-HTTP-Method-Override",
-            "X-HTTP-Method",
-            "X-Method-Override"
-          ],
           "set": {
             "Authorization": "Bearer {{auth.oauth.access_token}}"
           }
