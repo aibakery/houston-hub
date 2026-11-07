@@ -248,6 +248,61 @@ and rejects unobserved asynchronous failures or unfinished accepted work.
 
 ## Settings and authentication
 
+Authentication methods may declare `availability: {"status": "preview",
+"message": "Waiting for provider approval"}`. Status is `available` (the default),
+`preview`, or `disabled`; preview and disabled require a message. This is a launch
+gate for starting sign-in, presented alongside the method. It does not revoke an
+existing connection or change its runtime authorization.
+
+### Brokered connections with Pipedream
+
+Any publisher can declare a `pipedream` method. Set `client_id`, `client_secret`,
+`project_id`, and `environment` to exact `publisher.*` field references. The client
+secret field must have type `secret`; the other fields must be strings. Environment
+resolves to `development` or `production`. `app` is Pipedream's literal app slug,
+such as `gmail`. Publishers enter these values in the normal Hub publication form.
+They are never exposed to connector Luau. No platform-owned Pipedream account or
+hidden connector registration is required.
+
+Pipedream handles the provider callback and redirects to Houston after connecting.
+Houston verifies the resulting account before binding it to the pending connection.
+Each Houston connection uses a stable opaque external identity derived from its
+publication and server-owned callback reservation. Reconnecting reuses that
+identity instead of creating another Pipedream external user, which matters for
+Pipedream user-based billing. The browser state remains fresh for each attempt;
+completion may verify an account already authorized for that identity and does
+not prove new provider consent occurred. Exactly one matching account is required;
+multiple accounts are rejected rather than choosing one arbitrarily. Reconnects
+and authentication-method switches retain the connection's verified mailbox.
+
+Publishers manage provider-side account and external-user cleanup in Pipedream.
+Deleting a Houston connection currently does not delete those Pipedream records
+or revoke its Google grant. Abandoned setup reservations can also leave provider
+records behind. Account for these records when managing Pipedream usage and billing.
+
+Native transport applies the connector's original destination, method and path
+rules before forwarding through Pipedream. Keep `proxy` rules pointed at the real
+provider API, not Pipedream's API. Connector functions continue using ordinary
+`http.request` and do not receive provider tokens or broker credentials.
+
+Optional `scopes` groups declare grants required from Pipedream's managed provider
+application; they do not customize that application's consent screen. An optional
+`account` GET request obtains a label through its JSON pointer. As with OAuth
+account lookup, this fixed manifest-declared request runs only during server-side
+authorization, outside the proxy rules for connector calls. The broker transport
+validates its URL and rejects private authentication headers; header values may
+reference only nonsecret fields. Explain broader
+provider consent separately from Houston's access restrictions in `SETUP.md`.
+
+For connectors supporting both direct OAuth and Pipedream, a proxy header can be
+conditional: `"Authorization": {"value": "Bearer {{auth.oauth.access_token}}",
+"if": "{{ isDefined auth.oauth }}"}`. Existing string header values remain valid.
+The native Pipedream transport supplies the selected account's authentication.
+
+Keep credentials optional at the field level when they belong to alternative
+methods: each authorization method is unavailable until all its own referenced
+settings are configured, without preventing another method from working.
+
 `publisher`, root `config`, and manual `auth.<key>.config` share the same Field
 schema. Types are `string`, `boolean`, `integer`, `number`, and `secret`. A string
 with `options` renders a choice. Optional `default`, numeric bounds, string length
@@ -374,8 +429,8 @@ it activates; failures never reuse another method's credentials.
 ## Transport and exports
 
 `proxy` is a nonempty ordered array of rules containing `match`, `action`, and an
-optional `if` predicate. Within `proxy`, conditions belong only on rules, never
-inside `match` or `action`. Enabled rules must share one protocol. For HTTP, the
+optional `if` predicate. Conditions belong on rules or individual `headers.set`
+values, never on `match` or `action` themselves. Enabled rules must share one protocol. For HTTP, the
 first enabled rule matching the original request wins; only its action runs.
 Rules never merge, rematch after changes, or fall through after errors.
 
