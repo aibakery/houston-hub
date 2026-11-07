@@ -3,7 +3,7 @@
 1. Choose a **Chain** in Houston. Each connection reads one chain.
 2. Leave **Use a Blockscout API key** off for public explorer access, or enable it
    and paste a key from the [Developer Portal](https://dev.blockscout.com/).
-3. Select **Add connector** and share the connection with the members who need it.
+3. Select **Add connection** and share the connection with the members who need it.
 
 > Some public explorers block automated requests. An API key gives your connection
 > its own quota and works across chains.

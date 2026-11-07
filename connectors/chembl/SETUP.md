@@ -1,6 +1,6 @@
 # Add ChEMBL
 
-Select **Add connector** in Houston. No account, API key or settings are required.
+Select **Add connection** in Houston. No account, API key or settings are required.
 
 For a missing molecule, search by name to find its ChEMBL ID. Structure searches
 need valid SMILES; substructures need at least five characters.

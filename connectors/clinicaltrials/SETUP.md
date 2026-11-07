@@ -1,6 +1,6 @@
 # Add ClinicalTrials.gov
 
-Select **Add connector** in Houston. No account, API key or settings are required.
+Select **Add connection** in Houston. No account, API key or settings are required.
 
 Study IDs use `NCT` followed by eight digits, such as `NCT04368728`. If a study was
 merged, use the replacement ID reported in the error.

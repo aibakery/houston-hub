@@ -10,7 +10,7 @@
    - **Read and write** to also mark mail read/unread, send, reply, create folders,
      move, archive, or delete mail. Changing read state needs a writable **Email**
      token; **Email submission** is only needed for sending and replying.
-5. Paste the token into **JMAP API token** and select **Add connector**.
+5. Paste the token into **JMAP API token** and select **Add connection**.
 
 API tokens require a Fastmail plan above Basic.
 

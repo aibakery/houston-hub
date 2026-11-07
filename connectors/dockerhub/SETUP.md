@@ -1,6 +1,6 @@
 # Add Docker Hub
 
-Select **Add connector** in Houston. No account, token or settings are required.
+Select **Add connection** in Houston. No account, token or settings are required.
 
 > This connector reads public data only. Private repositories, organizations and
 > teams are unavailable.

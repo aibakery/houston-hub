@@ -3,7 +3,7 @@
 You need to be the primary admin or a full-access admin of the company in Gusto.
 
 1. Choose **Read-only** or **Read and write** access.
-2. Select **Authorize connector** and sign in with your Gusto account.
+2. Select **Authorize connection** and sign in with your Gusto account.
 3. If you manage several companies, pick the one to connect, then allow access.
 
 Each connection reaches one company: add another connection for each additional
@@ -25,7 +25,7 @@ approves them for production; Gusto approves only App Integration partners.
 3. Copy the app's client ID and secret into **Gusto OAuth client ID** and **Gusto
    OAuth client secret** in Houston.
 4. In the Developer Portal, create a demo company. In Houston, choose **Connect with
-   your Gusto demo app** under **Connect using**, then select **Authorize connector**
+   your Gusto demo app** under **Connect using**, then select **Authorize connection**
    and sign in with that demo company's admin.
 
 Once Gusto approves the app for production, enter its production client ID and secret,
