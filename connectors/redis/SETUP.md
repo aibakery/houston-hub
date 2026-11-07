@@ -1,3 +1,5 @@
+# Connect Redis
+
 1. Create a Redis user for Houston with only the commands agents need. For
    read-only access, allow read commands, `COMMAND INFO`, which Houston uses to
    confirm that a command is read-only, and `SELECT`, which opens a database
@@ -14,5 +16,3 @@
    the host name you enter, and never connects without TLS.
 3. In Houston, choose the access level, then enter the host, port, database
    number, username, and password, and select **Add connector**.
-
-Your password stays on the Houston server.

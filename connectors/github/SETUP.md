@@ -1,66 +1,36 @@
 # Connect GitHub
 
-Choose an access level, then either sign in with GitHub or paste a personal access
-token. With **Continue with GitHub** you install Houston's app instead of creating
-one.
+1. Choose **Read-only** or **Read and write** and select **Continue with GitHub**.
+2. Authorize **OK Houston**, then [install or configure the app](https://github.com/apps/ok-houston)
+   for the account/organization and repositories to share. An organization owner
+   may need to approve it.
 
-1. Choose **Read-only** or **Read and write**.
-2. Select **Continue with GitHub** and authorize Houston's GitHub App, **OK Houston**.
-3. Install the app where your repositories live: open
-   [OK Houston on GitHub](https://github.com/apps/ok-houston), select **Install**
-   (or **Configure** if it is already installed), pick your account or organization,
-   and choose **All repositories** or **Only select repositories**. Organization
-   owners may need to approve it.
-
-Houston sees public data plus the repositories where the app is installed, limited
-to what your own GitHub account can do. Change the repository selection anytime in
-[Installed GitHub Apps](https://github.com/settings/installations) or your
-organization's **Settings → GitHub Apps**; no reconnect is needed.
+> Access is limited by your own GitHub permissions and the app's installations.
+> Change shared repositories under [Installed GitHub Apps](https://github.com/settings/installations)
+> without reconnecting.
 
 ## Advanced
 
-### Use a personal access token
+### Personal access token
 
-A token is useful for automation accounts or when you cannot install the app.
-Choose **Personal access token** and paste a token created as follows.
+Choose **Personal access token** in Houston. Create a
+[fine-grained token](https://github.com/settings/personal-access-tokens/new), select
+its owner and repositories, and grant these repository permissions:
 
-**Fine-grained token** (recommended):
+- **Actions**, **Commit statuses**, **Contents**, **Issues**, **Pull requests**:
+  Read-only, or Read and write for a writable connection. Metadata is automatic.
+- For workflow changes: **Workflows**. For creating/forking repositories:
+  **Administration** and **Repository creation**.
+- Optional: **Members** and **Email addresses** read access; **Gists** and
+  **Starring** read/write access.
 
-1. Open [New fine-grained personal access token](https://github.com/settings/personal-access-tokens/new).
-2. Enter a **Token name**, choose an **Expiration**, and pick the **Resource owner**:
-   your account or an organization (which may require an owner's approval).
-3. Under **Repository access**, choose **All repositories** or **Only select
-   repositories**.
-4. Under **Permissions**, add these **Repository permissions**: **Actions**,
-   **Commit statuses**, **Contents**, **Issues** and **Pull requests**, set to
-   **Read-only** for a read-only connection or **Read and write** otherwise
-   (**Metadata** is added as read-only automatically). For read and write, also add
-   **Workflows** to edit workflow files, and **Administration** and **Repository
-   creation** to create or fork repositories.
-5. Optionally add **Members** (read-only) under **Organization permissions**, and
-   **Email addresses** (read-only), **Gists** (read and write) and **Starring**
-   (read and write, to star repositories) under **Account permissions**.
-6. Select **Generate token** and copy it.
+A [classic token](https://github.com/settings/tokens/new) instead needs `repo`,
+`workflow`, `read:org`, `gist`, `notifications` and `user:email`. It covers all your
+repositories and `repo` permits writes; Houston still enforces read-only access.
+Notifications need a classic token; check runs need classic or app authorization.
 
-**Classic token**: in [New personal access token (classic)](https://github.com/settings/tokens/new),
-tick `repo`, `workflow`, `read:org`, `gist`, `notifications` and `user:email`.
-Classic tokens reach every repository you can access, and `repo` always allows
-writes on GitHub's side; Houston still blocks writes on a read-only connection.
-Notifications are only available with classic tokens, and check runs need a
-classic token or **Continue with GitHub**: fine-grained tokens cannot read them.
+### Missing repositories or access
 
-### Troubleshooting
-
-- **A repository is missing or returns "Not Found"**: GitHub hides private
-  repositories you cannot access. Add the repository to the app installation or
-  token, and check that an organization owner approved it. Organizations using SAML
-  single sign-on require you to authorize the token for that organization
-  (**Configure SSO** next to the token).
-- **"Resource not accessible"**: the app or token lacks a permission; the error
-  names the permissions GitHub expects.
-- **Rate limits**: GitHub allows 5,000 requests per hour per user and fewer for
-  searches; errors report when the limit resets.
-- **Expired token**: create a new token and update the connection. Sign-ins with
-  GitHub refresh automatically; if GitHub reports the authorization was revoked,
-  connect again. Revoke Houston's access in
-  [Authorized GitHub Apps](https://github.com/settings/apps/authorizations).
+Check installation/token repository selection, organization approval and SAML SSO
+(**Configure SSO** on the token). Replace expired/revoked tokens or reconnect a
+revoked app. Revoke app access in [Authorized GitHub Apps](https://github.com/settings/apps/authorizations).

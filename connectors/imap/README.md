@@ -1,30 +1,17 @@
 ---
 description: Give agents access to any IMAP mailbox to find, read, and organize email and prepare drafts, read-only unless you allow changes.
 ---
+
 # IMAP
 
-Connect agents to a mailbox from any provider that offers IMAP, such as your
-domain host, iCloud Mail, Yahoo Mail, Zoho Mail, or a company mail server.
+Let agents search and read mail and download attachments from an IMAP mailbox.
+Reading never marks messages as read on **Read-only** connections.
 
-## Find what matters
+- **Read and draft** also lets agents create, update and delete drafts for you to
+  review and send. Updating a draft moves its previous version to Trash.
+- **Read and write** also permits flagging, moving and trashing mail, and creating
+  folders. Providers may empty Trash automatically.
 
-- Search a folder by sender, recipient, subject, text, date, or read state.
-- Read messages with their decoded text and attachment details.
-- Download attachments and work with them alongside your other files.
+> This connector never sends email or permanently deletes messages.
 
-## Keep your inbox tidy
-
-With **Read and write** access, agents can also mark messages read or unread,
-flag them, move them between folders, move them to the trash, and create
-folders. Agents never delete messages permanently, though many providers empty
-the trash automatically after some days. With **Read-only** access, agents
-cannot change anything, and reading a message never marks it as read.
-
-## Prepare replies
-
-With **Read and draft** or **Read and write** access, agents can write drafts,
-including replies and attachments, and save them in your drafts folder for you
-to review and send. **Read and draft** lets them change only drafts, so they
-can read your mail and prepare answers without moving, flagging or trashing
-anything else. Updating a draft moves its earlier version to the trash.
-This connector never sends email.
+[Connect your mailbox](SETUP.md).

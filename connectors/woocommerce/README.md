@@ -16,7 +16,6 @@ settings, payment methods and webhooks are available only with read and write ac
 because they can include payment credentials and webhook secrets.
 
 The connection uses a WooCommerce REST API key from your own store. The key's
-permissions and its WordPress user's role still apply. Your keys stay on Houston's
-server.
+permissions and its WordPress user's role still apply.
 
 [Connect your WooCommerce store](SETUP.md).

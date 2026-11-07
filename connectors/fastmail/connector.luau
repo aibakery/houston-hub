@@ -189,7 +189,7 @@ local function id_list(value: any, operation: string): {string}
 	return out
 end
 
-local function as_list(value: any)
+local function as_list(value: any): {any}
 	if type(value) ~= "table" then return json.decode("[]") end
 	return value
 end
@@ -206,7 +206,9 @@ local function each_chunk(ids: {string}): () -> {string}?
 end
 
 local functions = {}
+local operationHelp: {[string]: string} = {}
 
+operationHelp.getProfile = [==[getProfile() -> {emailAddress, accountId, name, capabilities, canSend}. Reads the connected account profile; does not infer unknown token scopes during discovery.]==]
 function functions.getProfile()
 	local s = session()
 	local caps: {string} = json.decode("[]") :: {string}
@@ -222,6 +224,7 @@ function functions.getProfile()
 	}
 end
 
+operationHelp.listFolders = [==[listFolders() -> {folders={{id,name,role,parentId,totalEmails,unreadEmails}}}. Folder filters accept opaque IDs or roles such as INBOX.]==]
 function functions.listFolders(): {folders: {Folder}}
 	local data = call("Mailbox/get", { properties = FOLDER_PROPERTIES })
 	return { folders = as_list(data.list) }
@@ -304,6 +307,7 @@ local function query(options: SearchOptions?, threads: boolean): ({string}, stri
 	return data.ids or {}, nextPage
 end
 
+operationHelp.listMessages = [==[listMessages(opts?) -> {messages={{id}},nextPageToken?}. Newest first; loop using nextPageToken until nil, including a possibly empty last page. opts: from,to,subject,text,after,before (date or UTC timestamp),folder/folders,alias/aliases,includeSpamTrash,maxResults (1–500, default 100),pageToken. Alias searches From/To/Cc/Bcc. Array filters combine with AND; spam/trash excluded unless explicitly selected. No Gmail q syntax.]==]
 function functions.listMessages(opts: SearchOptions?)
 	local ids, nextPage = query(opts, false)
 	local rows: {{id: string}} = json.decode("[]")
@@ -392,6 +396,7 @@ local function body_format(opts: BodyOptions): string
 	return value
 end
 
+operationHelp.getMessages = [==[getMessages({ids={...},maxBodyValueBytes:number?,bodyFormat:string?}) -> messages in requested order. Requires 1–50 IDs, each a string or {id}. Positional getMessages(ids,opts?) remains supported. Same fields and body options as getMessage; request fewer messages when responses are too large.]==]
 function functions.getMessages(input: IdList | MessagesOptions, options: BodyOptions?): {Message}
 	local ids: any = input
 	local opts: BodyOptions = options or {}
@@ -422,11 +427,13 @@ local function body_options(value: any, options: BodyOptions?): BodyOptions
 	return options or (if type(value) == "table" then value else {})
 end
 
+operationHelp.getMessage = [==[getMessage({id:string,maxBodyValueBytes:number?,bodyFormat:string?}) -> message envelope,body,headers,received,attachments. Positional getMessage(id,opts?) remains supported; IDs accept strings or {id}. Envelope includes from,to,cc,bcc,replyTo,subject,date,messageId. bodyFormat: auto (default) chooses the nonblank JMAP text-preferred rendering, then HTML-preferred rendering, then preview (renderings may mix MIME types); text or html selects only that MIME type, preserving whitespace and returning an empty string if missing. Whitespace is ignored only when deciding emptiness. Body parts default 64 KiB; bodyTruncated flags truncation of the selected body. A truncated whitespace prefix is not considered empty. maxBodyValueBytes changes the per-part cap (0 disables it). Request smaller bodies when a proxy response is too large.]==]
 function functions.getMessage(id: Id | MessageOptions, opts: BodyOptions?): Message
 	local options = body_options(id, opts)
 	return functions.getMessages({ id_of(id) }, options)[1]
 end
 
+operationHelp.listThreads = [==[listThreads(opts?) -> {threads={{id}},nextPageToken?}. Uses the same filters and opaque pagination as listMessages; loop until nextPageToken is nil, even if a page is empty.]==]
 function functions.listThreads(opts: SearchOptions?)
 	local ids, nextPage = query(opts, true)
 	local threads: {{id: string}} = json.decode("[]")
@@ -442,6 +449,7 @@ function functions.listThreads(opts: SearchOptions?)
 	return { threads = threads, nextPageToken = nextPage }
 end
 
+operationHelp.getThread = [==[getThread({id:string,maxBodyValueBytes:number?,bodyFormat:string?}) -> {id,messages} in conversation order, fetching in batches. Positional getThread(id,opts?) remains supported. Same message-body options as getMessage.]==]
 function functions.getThread(input: Id | MessageOptions, opts: BodyOptions?): {id: string, messages: {Message}}
 	local options = body_options(input, opts)
 	body_format(options)
@@ -456,6 +464,7 @@ function functions.getThread(input: Id | MessageOptions, opts: BodyOptions?): {i
 	return { id = id, messages = messages }
 end
 
+operationHelp.listAttachments = [==[listAttachments(messageId) -> attachment metadata {id,filename,mimeType,size,inline,contentId}[]. Attachment bytes are never returned inline.]==]
 function functions.listAttachments(input: Id | Message): {Attachment}
 	local id: any = input
 	if type(id) == "table" and id.attachments then return id.attachments :: {Attachment} end
@@ -467,6 +476,7 @@ function functions.listAttachments(input: Id | Message): {Attachment}
 	return attachment_metadata(msg.attachments)
 end
 
+operationHelp.getAttachments = [==[getAttachments({messageId:string,items={{id:string,path:string?},...}}) -> ordered {path,url,size}[]. Items also accept ID strings; destination paths must be distinct. Positional getAttachments(messageId,items) remains supported. Streams to session files; never returns inline attachment bytes.]==]
 function functions.getAttachments(input: Id | DownloadsOptions, requested: {DownloadItem}?): {Download}
 	local messageId: any = input
 	local items: any = requested
@@ -517,6 +527,7 @@ function functions.getAttachments(input: Id | DownloadsOptions, requested: {Down
 	return out
 end
 
+operationHelp.getAttachment = [==[getAttachment({messageId:string,attachmentId:string,path:string?}) -> {path,url,size}. id is also accepted in place of attachmentId. Positional getAttachment(messageId,attachmentId,path?) remains supported. Streams to private session files; url is a signed Houston download. Default path: attachments/<encoded-message-id>/<encoded-attachment-id>. Links expire; files remain scoped to caller and execution workspace.]==]
 function functions.getAttachment(input: Id | DownloadOptions, attachment: DownloadItem?, destination: string?): Download
 	local messageId: any = input
 	local attachmentId: any = attachment
@@ -533,6 +544,7 @@ local function has_cap(s: any, cap: string)
 	return type(s.capabilities) == "table" and s.capabilities[cap] ~= nil
 end
 
+operationHelp.listAliases = [==[listAliases() -> {aliases,notes}. Each alias has email,canSend,masked. Sending identities add identityId,name; masked addresses add maskedId,state,description,forDomain. Combines addresses shared by both lists. Missing Email submission or Masked Email scope is explained in notes; fails if neither scope is available.]==]
 function functions.listAliases(): {aliases: {Alias}, notes: {string}}
 	local s = session()
 	if not has_cap(s, SUBMISSION) and not has_cap(s, MASKED) then
@@ -583,6 +595,7 @@ function functions.listAliases(): {aliases: {Alias}, notes: {string}}
 	return { aliases = order, notes = notes }
 end
 
+operationHelp.listIdentities = [==[listIdentities() -> {identities}, raw JMAP sending identities. Requires the provider Email submission scope, which may be unknown before the first real call.]==]
 function functions.listIdentities(): {identities: {Identity}}
 	return { identities = as_list(call("Identity/get", nil, "listIdentities").list) }
 end
@@ -705,7 +718,7 @@ local function submit(options: SubmitOptions): SendResult
 	return { id = made.id, submissionId = submission.id }
 end
 
-local function address_objects(values: any)
+local function address_objects(values: any): {Address}
 	local out = {}
 	if type(values) ~= "table" then return out end
 	for _, value in values do
@@ -718,7 +731,7 @@ local function address_objects(values: any)
 	return out
 end
 
-local function message_ids(value: any)
+local function message_ids(value: any): {string}
 	local out: {string} = json.decode("[]") :: {string}
 	if type(value) == "table" then
 		for _, item in value do
@@ -730,7 +743,7 @@ local function message_ids(value: any)
 	return out
 end
 
-local function reply_subject(subject: any)
+local function reply_subject(subject: any): string
 	if type(subject) ~= "string" then subject = "" end
 	if string.match(subject, "^[Rr][Ee]:") then return subject end
 	if subject == "" then return "Re:" end
@@ -774,191 +787,208 @@ local function destroy_ids(ids: any, operation: any)
 	return { ids = gone }
 end
 
-local writes = {}
+if config.access == "read-write" then
 
-function writes.markRead(ids: Ids)
-	return { ids = update_ids(id_list(ids, "markRead"), { ["keywords/$seen"] = true }, "markRead") }
-end
-
-function writes.markUnread(ids: Ids)
-	return { ids = update_ids(id_list(ids, "markUnread"), { ["keywords/$seen"] = json.decode("null") }, "markUnread") }
-end
-
-function writes.trashMessage(id: Id)
-	local moved = move_to({ id_of(id) }, folder_id(functions.listFolders().folders, "trash"), "trashMessage")
-	return { id = moved.ids[1] }
-end
-
-function writes.deleteMessage(ids: Ids)
-	return move_to(id_list(ids, "deleteMessage"), folder_id(functions.listFolders().folders, "trash"), "deleteMessage")
-end
-
-function writes.deleteMessages(ids: Ids)
-	return writes.deleteMessage(ids)
-end
-
-function writes.destroyMessage(ids: Ids)
-	return destroy_ids(ids, "destroyMessage")
-end
-
-function writes.destroyMessages(ids: Ids)
-	return writes.destroyMessage(ids)
-end
-
-function writes.archiveMessages(ids: Ids): MoveResult
-	local archive = nil
-	for _, folder in functions.listFolders().folders do
-		if folder.role == "archive" then archive = folder.id; break end
+	operationHelp.markRead = [==[markRead(ids) -> {ids}. Marks messages read by setting $seen, preserving other keywords and mailboxes. Accepts one ID or a list of strings/{id} rows. Requires a writable Email token and read-write connection access; Email submission scope is unnecessary. Batches of 50 may partially complete; inspect keywords after a failure before retrying.]==]
+	function functions.markRead(ids: Ids)
+		return { ids = update_ids(id_list(ids, "markRead"), { ["keywords/$seen"] = true }, "markRead") }
 	end
-	if type(archive) ~= "string" or archive == "" then return fail("archiveMessages", "Fastmail has no Archive mailbox") end
-	return move_to(id_list(ids, "archiveMessages"), archive, "archiveMessages")
-end
 
-function writes.archiveMessage(ids: Ids)
-	return writes.archiveMessages(ids)
-end
-
-function writes.moveMessages(input: Ids | MoveOptions, folder: string?)
-	local ids: any = input
-	if type(ids) == "table" and folder == nil and type(ids.folder) == "string" then
-		folder = ids.folder
-		ids = ids.ids or ids.id
+	operationHelp.markUnread = [==[markUnread(ids) -> {ids}. Marks messages unread by removing $seen, preserving other keywords and mailboxes. Accepts one ID or a list of strings/{id} rows. Requires a writable Email token and read-write connection access; Email submission scope is unnecessary. Batches of 50 may partially complete; inspect keywords after a failure before retrying.]==]
+	function functions.markUnread(ids: Ids)
+		return { ids = update_ids(id_list(ids, "markUnread"), { ["keywords/$seen"] = json.decode("null") }, "markUnread") }
 	end
-	if type(folder) ~= "string" or folder == "" then error("fastmail.moveMessages requires a folder id or role") end
-	return move_to(id_list(ids, "moveMessages"), folder_id(functions.listFolders().folders, folder), "moveMessages")
-end
 
-function writes.moveMessage(id: Ids | MoveOptions, folder: string?)
-	return writes.moveMessages(id, folder)
-end
+	operationHelp.trashMessage = [==[trashMessage(id) -> {id}. Moves a single message to Trash; does not permanently destroy. ID accepts a string or {id}.]==]
+	function functions.trashMessage(id: Id)
+		local moved = move_to({ id_of(id) }, folder_id(functions.listFolders().folders, "trash"), "trashMessage")
+		return { id = moved.ids[1] }
+	end
 
-function writes.createFolder(input: string | FolderOptions, parent: Id?)
-	local name: any = input
-	if type(name) == "table" and parent == nil then
-		parent = name.parent or name.parentId
-		name = name.name
+	operationHelp.deleteMessage = [==[deleteMessage(ids) -> {ids,folderId}. Moves to Trash; does not permanently destroy. Accepts one ID or list of strings/{id}; batches may partially complete.]==]
+	function functions.deleteMessage(ids: Ids)
+		return move_to(id_list(ids, "deleteMessage"), folder_id(functions.listFolders().folders, "trash"), "deleteMessage")
 	end
-	if type(name) ~= "string" or name == "" then error("fastmail.createFolder requires a name") end
-	local spec: {[string]: any} = { name = name }
-	if parent ~= nil then spec.parentId = folder_id(functions.listFolders().folders, parent) end
-	local data = call("Mailbox/set", { create = { folder = spec } }, "createFolder")
-	local made = data.created and data.created.folder
-	if type(made) ~= "table" or type(made.id) ~= "string" or made.id == "" then
-		fail("createFolder", "Missing folder creation confirmation")
-	end
-	local createdName = if type(made.name) == "string" and made.name ~= "" then made.name else name
-	return { id = made.id, name = createdName }
-end
 
--- A structured message avoids adding a second MIME/base64 implementation.
-function writes.sendMessage(body: SendOptions): SendResult
-	if type(body) ~= "table" or type(body.to) ~= "table" or #body.to == 0 then error("fastmail.sendMessage requires to = { { email = ... } }") end
-	if type(body.text) ~= "string" then error("fastmail.sendMessage requires text") end
-	local identities = as_list(call("Identity/get", nil, "sendMessage").list)
-	local identity = require_identity(identities, body)
-	return submit({operation = "sendMessage", identity = identity, fields = {
-		to = body.to, cc = body.cc, bcc = body.bcc, replyTo = body.replyTo,
-		subject = body.subject or "", text = body.text, attachments = body.attachments,
-	}})
-end
+	operationHelp.deleteMessages = [==[deleteMessages(ids) -> {ids,folderId}. Moves to Trash; does not permanently destroy. Accepts one ID or list of strings/{id}; batches of 50 may partially complete. No automatic replay.]==]
+	function functions.deleteMessages(ids: Ids)
+		return functions.deleteMessage(ids)
+	end
 
-function writes.replyMessage(input: Id | ReplyOptions, options: ReplyOptions?): SendResult
-	local id: any = input
-	local body: any = options
-	if type(id) == "table" and body == nil then
-		body = id
-		id = id.id or id.messageId
+	operationHelp.destroyMessage = [==[destroyMessage(ids) -> {ids}. Permanently destroys messages. Accepts one ID or list of strings/{id}; batches may partially complete. This differs from moving messages to Trash.]==]
+	function functions.destroyMessage(ids: Ids)
+		return destroy_ids(ids, "destroyMessage")
 	end
-	id = id_of(id)
-	if type(body) ~= "table" or type(body.text) ~= "string" then error("fastmail.replyMessage requires text") end
-	local data = call("Email/get", {
-		ids = { id },
-		properties = { "id", "messageId", "inReplyTo", "references", "from", "to", "cc", "replyTo", "subject" },
-	}, "replyMessage")
-	local msg = data.list and data.list[1]
-	if type(msg) ~= "table" then fail("replyMessage", "Missing message " .. id) end
-	remove_nulls(msg)
-	local source = msg.replyTo
-	if type(source) ~= "table" or #source == 0 then source = msg.from end
-	local to = address_objects(source)
-	if #to == 0 then error("fastmail.replyMessage: the message has no reply address") end
-	local identities = as_list(call("Identity/get", nil, "replyMessage").list)
-	for _, item in identities do
-		if type(item) == "table" then remove_nulls(item) end
+
+	operationHelp.destroyMessages = [==[destroyMessages(ids) -> {ids}. Permanently destroys messages in batches of 50. Accepts one ID or list of strings/{id}. Partial completion is possible; never automatically replay.]==]
+	function functions.destroyMessages(ids: Ids)
+		return functions.destroyMessage(ids)
 	end
-	local identity = nil
-	if body.identityId ~= nil or body.from ~= nil then
-		identity = require_identity(identities, body)
-	else
-		local byEmail: {[string]: any} = {}
+
+	operationHelp.archiveMessages = [==[archiveMessages(ids) -> {ids,folderId}. Moves to Archive; fails if Archive is absent. Accepts one ID or a list, strings or {id}; batches of 50 may partially complete. No automatic replay.]==]
+	function functions.archiveMessages(ids: Ids): MoveResult
+		local archive = nil
+		for _, folder in functions.listFolders().folders do
+			if folder.role == "archive" then archive = folder.id; break end
+		end
+		if type(archive) ~= "string" or archive == "" then return fail("archiveMessages", "Fastmail has no Archive mailbox") end
+		return move_to(id_list(ids, "archiveMessages"), archive, "archiveMessages")
+	end
+
+	operationHelp.archiveMessage = [==[archiveMessage(ids) -> {ids,folderId}. Moves to Archive; fails if Archive is absent. Accepts strings or {id} rows, individually or in a list. Alias of archiveMessages; batches may partially complete.]==]
+	function functions.archiveMessage(ids: Ids)
+		return functions.archiveMessages(ids)
+	end
+
+	operationHelp.moveMessages = [==[moveMessages({ids={...},folder:string}) -> {ids,folderId}. ids accepts one ID or a list; IDs may be strings or {id}. id is also accepted instead of ids for a single message. folder accepts ID or role. Positional moveMessages(ids,folder) remains supported. Replaces mailboxes with one destination, in batches of 50. Partial completion is possible; never automatically replay.]==]
+	function functions.moveMessages(input: Ids | MoveOptions, folder: string?)
+		local ids: any = input
+		if type(ids) == "table" and folder == nil and type(ids.folder) == "string" then
+			folder = ids.folder
+			ids = ids.ids or ids.id
+		end
+		if type(folder) ~= "string" or folder == "" then error("fastmail.moveMessages requires a folder id or role") end
+		return move_to(id_list(ids, "moveMessages"), folder_id(functions.listFolders().folders, folder), "moveMessages")
+	end
+
+	operationHelp.moveMessage = [==[moveMessage({id:string,folder:string}) -> {ids,folderId}. Replaces message mailboxes with one destination. folder accepts ID or role. Positional moveMessage(id,folder) remains supported; id accepts a string or {id}.]==]
+	function functions.moveMessage(id: Ids | MoveOptions, folder: string?)
+		return functions.moveMessages(id, folder)
+	end
+
+	operationHelp.createFolder = [==[createFolder({name:string,parentId:string?}) -> {id,name}. parentId is a folder ID or role; parent is also accepted. Omit both for a top-level folder. Positional createFolder(name,parent?) remains supported.]==]
+	function functions.createFolder(input: string | FolderOptions, parent: Id?)
+		local name: any = input
+		if type(name) == "table" and parent == nil then
+			parent = name.parent or name.parentId
+			name = name.name
+		end
+		if type(name) ~= "string" or name == "" then error("fastmail.createFolder requires a name") end
+		local spec: {[string]: any} = { name = name }
+		if parent ~= nil then spec.parentId = folder_id(functions.listFolders().folders, parent) end
+		local data = call("Mailbox/set", { create = { folder = spec } }, "createFolder")
+		local made = data.created and data.created.folder
+		if type(made) ~= "table" or type(made.id) ~= "string" or made.id == "" then
+			fail("createFolder", "Missing folder creation confirmation")
+		end
+		local createdName = if type(made.name) == "string" and made.name ~= "" then made.name else name
+		return { id = made.id, name = createdName }
+	end
+
+	-- A structured message avoids adding a second MIME/base64 implementation.
+	operationHelp.sendMessage = [==[sendMessage({to={{email=...}},text=...,subject?,identityId?,from?,cc?,bcc?,replyTo?,attachments?}) -> {id,submissionId}. text and nonempty to required; subject defaults empty. Address arrays use {email,name?}. identityId takes precedence over from. Without either, selects identity matching account username or sole identity; ambiguous sender fails. attachments={{path,filename?,mimeType?}} uploads private session files, never inline base64; MIME defaults application/octet-stream, filename defaults path basename. Moves from Drafts to Sent. Email submission scope required. On timeout inspect Drafts and Sent before retrying: delivery may have succeeded.]==]
+	function functions.sendMessage(body: SendOptions): SendResult
+		if type(body) ~= "table" or type(body.to) ~= "table" or #body.to == 0 then error("fastmail.sendMessage requires to = { { email = ... } }") end
+		if type(body.text) ~= "string" then error("fastmail.sendMessage requires text") end
+		local identities = as_list(call("Identity/get", nil, "sendMessage").list)
+		local identity = require_identity(identities, body)
+		return submit({operation = "sendMessage", identity = identity, fields = {
+			to = body.to, cc = body.cc, bcc = body.bcc, replyTo = body.replyTo,
+			subject = body.subject or "", text = body.text, attachments = body.attachments,
+		}})
+	end
+
+	operationHelp.replyMessage = [==[replyMessage({id:string,text:string,all:boolean?,subject:string?,identityId:string?,from:string?,cc?,bcc?,replyTo?,attachments?}) -> {id,submissionId}. messageId is also accepted instead of id. Positional replyMessage(id,options) remains supported. Replies to Reply-To, otherwise From; preserves thread message IDs/references. all defaults false. Default sender is receiving identity (To then Cc), then primary identity. all=true adds original To/Cc excluding your identities and reply recipient; cc explicitly replaces that list. Subject derives a Re: prefix unless supplied. Attachments use private session paths as in sendMessage. Email submission scope required. Never automatically replay a partial send.]==]
+	function functions.replyMessage(input: Id | ReplyOptions, options: ReplyOptions?): SendResult
+		local id: any = input
+		local body: any = options
+		if type(id) == "table" and body == nil then
+			body = id
+			id = id.id or id.messageId
+		end
+		id = id_of(id)
+		if type(body) ~= "table" or type(body.text) ~= "string" then error("fastmail.replyMessage requires text") end
+		local data = call("Email/get", {
+			ids = { id },
+			properties = { "id", "messageId", "inReplyTo", "references", "from", "to", "cc", "replyTo", "subject" },
+		}, "replyMessage")
+		local msg = data.list and data.list[1]
+		if type(msg) ~= "table" then fail("replyMessage", "Missing message " .. id) end
+		remove_nulls(msg)
+		local source = msg.replyTo
+		if type(source) ~= "table" or #source == 0 then source = msg.from end
+		local to = address_objects(source)
+		if #to == 0 then error("fastmail.replyMessage: the message has no reply address") end
+		local identities = as_list(call("Identity/get", nil, "replyMessage").list)
 		for _, item in identities do
-			local key = lower_email(item.email)
-			if key ~= nil and byEmail[key] == nil then byEmail[key] = item end
+			if type(item) == "table" then remove_nulls(item) end
 		end
-		for _, list in { msg.to, msg.cc } do
-			for _, addr in address_objects(list) do
+		local identity = nil
+		if body.identityId ~= nil or body.from ~= nil then
+			identity = require_identity(identities, body)
+		else
+			local byEmail: {[string]: any} = {}
+			for _, item in identities do
+				local key = lower_email(item.email)
+				if key ~= nil and byEmail[key] == nil then byEmail[key] = item end
+			end
+			for _, list in { msg.to, msg.cc } do
+				for _, addr in address_objects(list) do
+					local key = lower_email(addr.email)
+					if key ~= nil then
+						local hit = byEmail[key]
+						if hit then identity = hit; break end
+					end
+				end
+				if identity then break end
+			end
+			if not identity then identity = require_identity(identities, {}) end
+		end
+		local cc = body.cc
+		if body.all and cc == nil then
+			local skip: {[string]: boolean} = {}
+			for _, item in identities do
+				local key = lower_email(item.email)
+				if key ~= nil then skip[key] = true end
+			end
+			for _, addr in to do
 				local key = lower_email(addr.email)
-				if key ~= nil then
-					local hit = byEmail[key]
-					if hit then identity = hit; break end
+				if key ~= nil then skip[key] = true end
+			end
+			local combined = {}
+			local seen: {[string]: boolean} = {}
+			for _, list in { msg.to, msg.cc } do
+				for _, addr in address_objects(list) do
+					local key = lower_email(addr.email)
+					if key ~= nil and not skip[key] and not seen[key] then
+						seen[key] = true
+						combined[#combined + 1] = addr
+					end
 				end
 			end
-			if identity then break end
+			if #combined > 0 then cc = combined end
 		end
-		if not identity then identity = require_identity(identities, {}) end
-	end
-	local cc = body.cc
-	if body.all and cc == nil then
-		local skip: {[string]: boolean} = {}
-		for _, item in identities do
-			local key = lower_email(item.email)
-			if key ~= nil then skip[key] = true end
-		end
-		for _, addr in to do
-			local key = lower_email(addr.email)
-			if key ~= nil then skip[key] = true end
-		end
-		local combined = {}
-		local seen: {[string]: boolean} = {}
-		for _, list in { msg.to, msg.cc } do
-			for _, addr in address_objects(list) do
-				local key = lower_email(addr.email)
-				if key ~= nil and not skip[key] and not seen[key] then
-					seen[key] = true
-					combined[#combined + 1] = addr
+		local ids = message_ids(msg.messageId)
+		local inReplyTo = nil
+		local references = nil
+		if #ids > 0 then
+			inReplyTo = ids
+			local refs: {string} = json.decode("[]") :: {string}
+			local seen: {[string]: boolean} = {}
+			local function add(values: any)
+				for _, value in message_ids(values) do
+					if not seen[value] then
+						seen[value] = true
+						refs[#refs + 1] = value
+					end
 				end
 			end
+			add(msg.references)
+			add(ids)
+			references = refs
 		end
-		if #combined > 0 then cc = combined end
+		local subject = body.subject
+		if type(subject) ~= "string" then subject = reply_subject(msg.subject) end
+		assert(identity, "reply identity was not resolved")
+		return submit({operation = "replyMessage", identity = identity, fields = {
+			to = to, cc = cc, bcc = body.bcc, replyTo = body.replyTo, subject = subject, text = body.text,
+			attachments = body.attachments, inReplyTo = inReplyTo, references = references,
+		}})
 	end
-	local ids = message_ids(msg.messageId)
-	local inReplyTo = nil
-	local references = nil
-	if #ids > 0 then
-		inReplyTo = ids
-		local refs: {string} = json.decode("[]") :: {string}
-		local seen: {[string]: boolean} = {}
-		local function add(values: any)
-			for _, value in message_ids(values) do
-				if not seen[value] then
-					seen[value] = true
-					refs[#refs + 1] = value
-				end
-			end
-		end
-		add(msg.references)
-		add(ids)
-		references = refs
-	end
-	local subject = body.subject
-	if type(subject) ~= "string" then subject = reply_subject(msg.subject) end
-	assert(identity, "reply identity was not resolved")
-	return submit({operation = "replyMessage", identity = identity, fields = {
-		to = to, cc = cc, bcc = body.bcc, replyTo = body.replyTo, subject = subject, text = body.text,
-		attachments = body.attachments, inReplyTo = inReplyTo, references = references,
-	}})
+
 end
 
+operationHelp.listMailFolders = [==[listMailFolders() -> {id:string,name:string}[]. No arguments. Includes every available folder, sorted by nonempty unique ID; names may repeat. Empty mailboxes return an empty array; provider failures raise errors.]==]
 function functions.listMailFolders(...: any): {{id: string, name: string}}
     if select("#", ...) ~= 0 then error("listMailFolders takes no arguments") end
 	local folders = functions.listFolders().folders
@@ -976,35 +1006,6 @@ function functions.listMailFolders(...: any): {{id: string, name: string}}
 	return out
 end
 
-local operationHelp: {[string]: string} = {
-	archiveMessage = [==[archiveMessage(ids) -> {ids,folderId}. Moves to Archive; fails if Archive is absent. Accepts strings or {id} rows, individually or in a list. Alias of archiveMessages; batches may partially complete.]==],
-	archiveMessages = [==[archiveMessages(ids) -> {ids,folderId}. Moves to Archive; fails if Archive is absent. Accepts one ID or a list, strings or {id}; batches of 50 may partially complete. No automatic replay.]==],
-	createFolder = [==[createFolder({name:string,parentId:string?}) -> {id,name}. parentId is a folder ID or role; parent is also accepted. Omit both for a top-level folder. Positional createFolder(name,parent?) remains supported.]==],
-	deleteMessage = [==[deleteMessage(ids) -> {ids,folderId}. Moves to Trash; does not permanently destroy. Accepts one ID or list of strings/{id}; batches may partially complete.]==],
-	deleteMessages = [==[deleteMessages(ids) -> {ids,folderId}. Moves to Trash; does not permanently destroy. Accepts one ID or list of strings/{id}; batches of 50 may partially complete. No automatic replay.]==],
-	destroyMessage = [==[destroyMessage(ids) -> {ids}. Permanently destroys messages. Accepts one ID or list of strings/{id}; batches may partially complete. This differs from moving messages to Trash.]==],
-	destroyMessages = [==[destroyMessages(ids) -> {ids}. Permanently destroys messages in batches of 50. Accepts one ID or list of strings/{id}. Partial completion is possible; never automatically replay.]==],
-	getAttachment = [==[getAttachment({messageId:string,attachmentId:string,path:string?}) -> {path,url,size}. id is also accepted in place of attachmentId. Positional getAttachment(messageId,attachmentId,path?) remains supported. Streams to private session files; url is a signed Houston download. Default path: attachments/<encoded-message-id>/<encoded-attachment-id>. Links expire; files remain scoped to caller and execution workspace.]==],
-	getAttachments = [==[getAttachments({messageId:string,items={{id:string,path:string?},...}}) -> ordered {path,url,size}[]. Items also accept ID strings; destination paths must be distinct. Positional getAttachments(messageId,items) remains supported. Streams to session files; never returns inline attachment bytes.]==],
-	getMessage = [==[getMessage({id:string,maxBodyValueBytes:number?,bodyFormat:string?}) -> message envelope,body,headers,received,attachments. Positional getMessage(id,opts?) remains supported; IDs accept strings or {id}. Envelope includes from,to,cc,bcc,replyTo,subject,date,messageId. bodyFormat: auto (default) chooses the nonblank JMAP text-preferred rendering, then HTML-preferred rendering, then preview (renderings may mix MIME types); text or html selects only that MIME type, preserving whitespace and returning an empty string if missing. Whitespace is ignored only when deciding emptiness. Body parts default 64 KiB; bodyTruncated flags truncation of the selected body. A truncated whitespace prefix is not considered empty. maxBodyValueBytes changes the per-part cap (0 disables it). Request smaller bodies when a proxy response is too large.]==],
-	getMessages = [==[getMessages({ids={...},maxBodyValueBytes:number?,bodyFormat:string?}) -> messages in requested order. Requires 1–50 IDs, each a string or {id}. Positional getMessages(ids,opts?) remains supported. Same fields and body options as getMessage; request fewer messages when responses are too large.]==],
-	getProfile = [==[getProfile() -> {emailAddress, accountId, name, capabilities, canSend}. Reads the connected account profile; does not infer unknown token scopes during discovery.]==],
-	getThread = [==[getThread({id:string,maxBodyValueBytes:number?,bodyFormat:string?}) -> {id,messages} in conversation order, fetching in batches. Positional getThread(id,opts?) remains supported. Same message-body options as getMessage.]==],
-	listAliases = [==[listAliases() -> {aliases,notes}. Each alias has email,canSend,masked. Sending identities add identityId,name; masked addresses add maskedId,state,description,forDomain. Combines addresses shared by both lists. Missing Email submission or Masked Email scope is explained in notes; fails if neither scope is available.]==],
-	listAttachments = [==[listAttachments(messageId) -> attachment metadata {id,filename,mimeType,size,inline,contentId}[]. Attachment bytes are never returned inline.]==],
-	listFolders = [==[listFolders() -> {folders={{id,name,role,parentId,totalEmails,unreadEmails}}}. Folder filters accept opaque IDs or roles such as INBOX.]==],
-	listIdentities = [==[listIdentities() -> {identities}, raw JMAP sending identities. Requires the provider Email submission scope, which may be unknown before the first real call.]==],
-	listMailFolders = [==[listMailFolders() -> {id:string,name:string}[]. No arguments. Includes every available folder, sorted by nonempty unique ID; names may repeat. Empty mailboxes return an empty array; provider failures raise errors.]==],
-	listMessages = [==[listMessages(opts?) -> {messages={{id}},nextPageToken?}. Newest first; loop using nextPageToken until nil, including a possibly empty last page. opts: from,to,subject,text,after,before (date or UTC timestamp),folder/folders,alias/aliases,includeSpamTrash,maxResults (1–500, default 100),pageToken. Alias searches From/To/Cc/Bcc. Array filters combine with AND; spam/trash excluded unless explicitly selected. No Gmail q syntax.]==],
-	listThreads = [==[listThreads(opts?) -> {threads={{id}},nextPageToken?}. Uses the same filters and opaque pagination as listMessages; loop until nextPageToken is nil, even if a page is empty.]==],
-	markRead = [==[markRead(ids) -> {ids}. Marks messages read by setting $seen, preserving other keywords and mailboxes. Accepts one ID or a list of strings/{id} rows. Requires a writable Email token and read-write connection access; Email submission scope is unnecessary. Batches of 50 may partially complete; inspect keywords after a failure before retrying.]==],
-	markUnread = [==[markUnread(ids) -> {ids}. Marks messages unread by removing $seen, preserving other keywords and mailboxes. Accepts one ID or a list of strings/{id} rows. Requires a writable Email token and read-write connection access; Email submission scope is unnecessary. Batches of 50 may partially complete; inspect keywords after a failure before retrying.]==],
-	moveMessage = [==[moveMessage({id:string,folder:string}) -> {ids,folderId}. Replaces message mailboxes with one destination. folder accepts ID or role. Positional moveMessage(id,folder) remains supported; id accepts a string or {id}.]==],
-	moveMessages = [==[moveMessages({ids={...},folder:string}) -> {ids,folderId}. ids accepts one ID or a list; IDs may be strings or {id}. id is also accepted instead of ids for a single message. folder accepts ID or role. Positional moveMessages(ids,folder) remains supported. Replaces mailboxes with one destination, in batches of 50. Partial completion is possible; never automatically replay.]==],
-	replyMessage = [==[replyMessage({id:string,text:string,all:boolean?,subject:string?,identityId:string?,from:string?,cc?,bcc?,replyTo?,attachments?}) -> {id,submissionId}. messageId is also accepted instead of id. Positional replyMessage(id,options) remains supported. Replies to Reply-To, otherwise From; preserves thread message IDs/references. all defaults false. Default sender is receiving identity (To then Cc), then primary identity. all=true adds original To/Cc excluding your identities and reply recipient; cc explicitly replaces that list. Subject derives a Re: prefix unless supplied. Attachments use private session paths as in sendMessage. Email submission scope required. Never automatically replay a partial send.]==],
-	sendMessage = [==[sendMessage({to={{email=...}},text=...,subject?,identityId?,from?,cc?,bcc?,replyTo?,attachments?}) -> {id,submissionId}. text and nonempty to required; subject defaults empty. Address arrays use {email,name?}. identityId takes precedence over from. Without either, selects identity matching account username or sole identity; ambiguous sender fails. attachments={{path,filename?,mimeType?}} uploads private session files, never inline base64; MIME defaults application/octet-stream, filename defaults path basename. Moves from Drafts to Sent. Email submission scope required. On timeout inspect Drafts and Sent before retrying: delivery may have succeeded.]==],
-	trashMessage = [==[trashMessage(id) -> {id}. Moves a single message to Trash; does not permanently destroy. ID accepts a string or {id}.]==],
-}
 
 function functions.help(): string
 	local names: {string} = {}
@@ -1019,10 +1020,6 @@ function functions.help(): string
 		sections[#sections + 1] = text
 	end
 	return table.concat(sections, "\n\n")
-end
-
-if config.access == "read-write" then
-	for name, fn in (writes :: {[string]: any}) do (functions :: {[string]: any})[name] = fn end
 end
 
 return functions

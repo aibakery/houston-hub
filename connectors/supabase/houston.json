@@ -74,6 +74,5 @@
       }
     }
   ],
-  "schema_version": 1,
-  "setup": "Enter the database host, database name, username and password separately. TLS verifies the server certificate and hostname. Use a database role limited to the operations you want to share. Query uses the database read-only transaction support; execute is available when Access is Read and write."
+  "schema_version": 1
 }

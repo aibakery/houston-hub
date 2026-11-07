@@ -17,7 +17,7 @@ app you manage or create one for Houston.
 5. Paste the token into **App bearer token** below, without a `Bearer ` prefix.
    Ensure your developer account has the API access and credits you need.
 
-X bills usage to your developer account. Your token stays on Houston's server.
+X bills usage to your developer account.
 
 ## Advanced: finding the right credential
 

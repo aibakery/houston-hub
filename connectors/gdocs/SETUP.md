@@ -8,8 +8,7 @@
    permissions Google lists. If Google shows a checkbox per permission, tick
    them all: Houston refuses a partial grant.
 
-Houston keeps your Google authorization on its server; agent scripts never see
-it. The connection can open every document your Google account can open, but
+The connection can open every document your Google account can open, but
 nothing else in your Drive; connecting Google Docs does not grant access to
 your other Google services.
 

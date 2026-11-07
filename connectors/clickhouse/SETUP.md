@@ -1,3 +1,5 @@
+# Connect ClickHouse
+
 1. Create a ClickHouse user for Houston with only the grants agents need. For
    read-only access, for example:
 
@@ -12,5 +14,3 @@
    never connects without TLS.
 3. In Houston, choose the access level, then enter the host, HTTPS port,
    database, username, and password, and select **Add connector**.
-
-Your password stays on the Houston server.

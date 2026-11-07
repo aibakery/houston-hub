@@ -4,27 +4,14 @@ description: Check orders, customers, products and stock in your PrestaShop stor
 
 # PrestaShop
 
-Connect your PrestaShop store so your agents can look up orders, their lines,
-status history, invoices, payments and shipments, find customers and their
-addresses and carts, and check products, combinations, categories, stock, brands,
-suppliers, carriers and vouchers.
+Let agents check orders, customers, products and stock. **Read and write** also
+permits status/tracking updates, stock changes, and product/customer creation,
+edits and permanent deletion. Order changes can email customers.
 
-With read and write access, agents can also change an order's status, set a
-shipment's tracking number, adjust stock quantities, and create, edit or delete
-products and customers. Status changes and tracking numbers can email your
-customers when agents ask for it.
+> Read-only access requires a **View (GET)**-only PrestaShop key. A key with write
+> permissions can change store data regardless of Houston's Access setting.
 
-**Read-only access depends on the key you create in PrestaShop.** PrestaShop, not
-Houston, has the final say on what a key can change: Houston never sends changes
-on a read-only connection, but a key allowed to edit or delete can still change
-your store. For a read-only connection, use a key that can only view, as the
-setup guide describes.
+Supports PrestaShop 1.7, 8 and 9; editing existing records requires version 8+.
+Customer password hashes and private order keys stay hidden.
 
-The connection uses a webservice key from your own store, and the key's other
-permissions still apply. Customer password hashes and private order keys are
-never shown to agents. Your key stays on Houston's server.
-
-Works with PrestaShop 1.7, 8 and 9. Editing existing records needs PrestaShop 8 or
-later.
-
-[Connect your PrestaShop store](SETUP.md).
+[Connect PrestaShop](SETUP.md).

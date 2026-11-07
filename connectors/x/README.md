@@ -13,4 +13,4 @@ home feeds, bookmarks, or direct messages, and it cannot publish posts.
 
 Connecting requires an X developer account and an app bearer token. X charges
 usage to your developer account; available searches depend on your API access
-and credits. Your token stays on Houston's server.
+and credits.

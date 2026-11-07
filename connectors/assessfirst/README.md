@@ -4,27 +4,15 @@ description: Follow candidates' AssessFirst assessments, read their results and 
 
 # AssessFirst
 
-Connect your company's AssessFirst account so your agents can follow candidates
-through the personality (Swipe), motivations (Drive), reasoning (Brain) and voice
-assessments. They can see who has finished, read candidates' scores and written
-synthesis, check how well a candidate fits one of your predictive models, suggest
-the jobs that suit them best and save report PDFs. They can also list your
-predictive models, AssessFirst's job benchmarks, recruiters, candidate groups and
-webhooks.
+Let agents follow assessment completion, read scores and reports, and compare
+candidates with your predictive models. **Read and write** also permits
+invitations, voice assessments, group changes and webhooks.
 
-With read and write access, agents can also invite candidates by email, add
-candidates directly, start voice assessments, organize candidates in groups and
-set up webhooks that notify your own systems when a candidate finishes.
-AssessFirst sends invitation emails and reminders itself. Adding a candidate
-directly skips asking them, so collect their consent first.
+> **Completion status only** hides scores and reports but still exposes candidate
+> names and emails. Assessment results are personal data; limit who can use the
+> connection. Obtain consent before adding candidates without an invitation.
 
-Assessment results are personal data. The API token gives access to all your
-company's AssessFirst data and stays on Houston's server; keep the connection
-read-only unless agents need to invite candidates. If agents only need to follow
-who has finished their assessments, by candidate group or predictive model,
-choose the Completion status only access level: Houston then refuses every
-request for scores, reports and other results. AssessFirst's API is an open
-beta that AssessFirst may still change. A connection can also use AssessFirst's
-test environment, to try Houston with fictional candidates first.
+The token covers your company's data. Production and test environments are
+supported; AssessFirst's API remains in open beta.
 
-[Connect your AssessFirst account](SETUP.md).
+[Connect AssessFirst](SETUP.md).

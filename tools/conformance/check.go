@@ -29,6 +29,7 @@ type Scenario struct {
 type metadata struct {
 	Scenario Scenario       `json:"scenario"`
 	Config   map[string]any `json:"config"`
+	Contract bool           `json:"contract"`
 }
 type boundedOutput struct{ bytes.Buffer }
 
@@ -57,7 +58,7 @@ func call(ctx context.Context, binary, mode string, input any, output any) error
 	decoder := json.NewDecoder(&out)
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(output); err != nil {
-		return fmt.Errorf("invalid fixture response")
+		return fmt.Errorf("invalid fixture response: %w", err)
 	}
 	if decoder.Decode(new(any)) != io.EOF {
 		return fmt.Errorf("trailing fixture response")
@@ -88,6 +89,12 @@ func Check(ctx context.Context, binary string, m manifest.Manifest, modules, fix
 		var meta metadata
 		if err := call(ctx, binary, "connector-fixture", map[string]any{"action": "inspect", "source": source}, &meta); err != nil {
 			return fmt.Errorf("fixture %s metadata: %w", name, err)
+		}
+		if meta.Contract {
+			if err := checkContract(ctx, binary, m, modules, source); err != nil {
+				return fmt.Errorf("fixture %s contract: %w", name, err)
+			}
+			continue
 		}
 		scenario := meta.Scenario
 		if scenario.Config == nil {

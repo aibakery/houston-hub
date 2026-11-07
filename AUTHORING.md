@@ -1,7 +1,8 @@
 # Create and publish a Houston connector
 
 This guide covers the shared connector contract and authoring workflow. Connector
-folders contain bundles and account-user documentation. Publishing follows the
+folders contain Luau bundles and short documentation for people. Agents learn the
+callable interface through the connector's pure `help()`, never through README or SETUP. Publishing follows the
 settings declared in `houston.json`; see
 [Publish a Connector on Houston Hub](#publish-a-connector-on-houston-hub).
 For a shorter overview, see [Build a connector](https://ok-houston.com/docs/connectors).
@@ -25,7 +26,7 @@ surface sharing a small request layer.
    provider icon, account-user README and SETUP, and behavior fixtures.
 3. Implement operations using the runtime examples below. Keep credentials in
    manifest injection rules, and derive both exports and help from effective access.
-4. Validate the real bundle with the Go validator and current Houston runtime.
+4. Validate the real bundle with Houston's current runtime and Luau fixtures.
 5. Commit and push the source, then register its repository, revision and manifest
    path in Houston's Hub. Connection admins configure account credentials when adding a connection.
 6. Connect a test account using the same flow account users see. Check discovery,
@@ -41,8 +42,31 @@ plain tables of public functions, which Houston executes on the server. Caller
 scripts invoke those functions with JSON data; they never receive transport
 handles, credentials, or connector source authority.
 
-The optional [Luau practices](docs/luau-practices.md) suggest ways to keep interfaces,
-state and allocations simple. They do not add publication or style requirements.
+## Code rigor
+
+Implement one operation at a time: input validation, provider request, response
+validation, help, then a fixture exercising the real operation. Keep that path
+readable from top to bottom. Put each help record immediately before its direct
+exported function, and keep both inside the same access condition. Avoid dispatch
+registries, parallel name/implementation/help maps and wrappers that only forward
+arguments. Extract a helper when it removes repeated behavior, not to hide a
+single step. Keep provider routes and semantics visible at the call site.
+
+A declarative endpoint table is appropriate for a broad, uniform API when each
+record is the single source of truth for its route, validation, access and help.
+Keep its shared request path sequential and bounded. Do not duplicate those records
+into separate registration lists; write custom behavior as direct functions with
+adjacent documentation.
+
+Use precise local types, validate untrusted data at the boundary, and keep
+initialization and help free of I/O. Default to sequential, bounded work; introduce
+concurrency only for independent operations with an explicit bound. Account for
+native calls, retained results and file sizes; paginate collections and stream
+files. Consume or close every response and never replay ambiguous writes.
+
+These are review guidelines, supported by behavior fixtures and type checking;
+CI does not prescribe helper names or a particular source spelling. See
+[Luau practices](docs/luau-practices.md) for examples and tradeoffs.
 
 ## Bundle
 
@@ -56,7 +80,11 @@ connectors/example/
   tests/behavior.luau
 ```
 
-Name Luau sources `.luau`; Houston also accepts `.lua` for modules and tests.
+Connector implementations and tests must be Luau (`.luau`, or Lua-compatible
+`.lua`). Keep provider expectations in each bundle's `tests/` directory.
+Shared Go code in `manifest/`, `assets/` and `tools/` validates all bundles;
+never add a provider-specific Go test or a provider list to the runner.
+The repository's `vet.yaml` enforces this source layout.
 `files` is a required nonempty array of entrypoints. Private imports use exact
 canonical paths relative to the manifest, such as `require("lib/pagination.luau")`.
 Every imported file belongs to the pinned release; imports cannot cross bundles.
@@ -224,7 +252,7 @@ and rejects unobserved asynchronous failures or unfinished accepted work.
 schema. Types are `string`, `boolean`, `integer`, `number`, and `secret`. A string
 with `options` renders a choice. Optional `default`, numeric bounds, string length
 bounds, `required`, and `order` drive validation and forms. The public JSON schema
-is generated from the authoritative Go `manifest` package. Unknown fields,
+is generated from the shared `manifest` package. Unknown fields,
 duplicate keys, explicit null, and malformed references are errors.
 
 Publisher settings belong to a Hub publication. Root settings belong to a connection.
@@ -578,6 +606,25 @@ justify them. Connectors do not declare `implements`.
 
 ## Documentation and recommended manifest layout
 
+Write the shortest useful README and SETUP. README answers “What can my agents do,
+and what access am I granting?” SETUP answers “How do I connect my account?”
+Callable signatures, examples, response shapes and agent workflows belong in
+`help()`, even when that reference is long. Do not repeat them in user docs.
+
+Use one title, a short overview, and a few bullets for capabilities. Setup should
+lead with the common connection steps and link the provider's official credential
+instructions. Use **bold** for form labels, a blockquote for an essential access or
+plan limitation, and fenced code only for something the person must copy during
+setup (for example SQL grants or a JSON access policy). Put uncommon auth methods
+and troubleshooting under `## Advanced`; Houston folds it automatically. Avoid
+repeating credential-security boilerplate, feature catalogs and generic error lists.
+Preserve every fact necessary to connect safely; brevity is not a line-count quota.
+
+Preview both the Hub description and connection setup at desktop and mobile widths.
+Check headings, lists, quotes, links, code blocks and folded sections using Houston's
+shared Markdown renderer and design tokens. Long code and tables must scroll within
+the document without widening the page. Raw HTML is disabled.
+
 Official examples should order root fields as `schema_version`, `name`,
 `verification_key`, `files`, `icon`, `config`, `auth`, optional `publisher`, then
 `proxy`. Omit unused optional sections. This is a readability convention; every
@@ -621,13 +668,64 @@ Completed connections keep their callback URL when reauthorized.
 
 ## Tests and publication
 
+Keep provider-specific assertions in the bundle. A fixture may return
+`{contract = function(m) ... end}` to exercise the real Go manifest engine from
+Luau. This runs in the same bounded Luau VM as behavior fixtures, with synthetic
+values and no network, files or stored credentials. Contract fixtures supplement
+operation fixtures; they do not count toward auth-method or proxy-rule coverage.
+
+```lua
+return {
+    contract = function(m)
+        local connection, err = m.resolve(nil, nil, {token = "fixture-token"}, "token")
+        assert(connection and not err, tostring(err))
+        m.routes(connection, "Bearer fixture-token", true, {
+            "GET https://api.example.com/items",
+        })
+        m.routes(connection, "", false, {
+            "POST https://api.example.com/items",
+            "GET https://api.example.com.evil.test/items",
+        })
+        m.rejectOverrides(connection, {"GET https://api.example.com/items"})
+    end,
+}
+```
+
+The shared helpers are in [tools/conformance/contract.luau](tools/conformance/contract.luau).
+They contain no provider names or registration lists.
+
+| Helper | Purpose |
+| --- | --- |
+| `m.raw`, `m.modules` | Parsed manifest and bundle source text |
+| `m.resolve(publisher, config, authConfig, method)`, `m.draft(...)` | Resolve submitted inputs or an unfinished setup form; return value and error |
+| `m.recipe(connection, method, url, headers?)` | Select the production HTTP proxy recipe |
+| `m.prepare(recipe, connection.Context, headers?)`, `m.prepareUrl(recipe, connection.Context)` | Check injected headers and rendered query credentials |
+| `m.database(connection)`, `m.credentials(connection.Context)` | Resolve a native connection or check required credentials |
+| `m.routes(connection, authorization, allowed, routes)` | Assert route selection and replacement of a forged Authorization header |
+| `m.rejectOverrides(connection, routes)`, `m.refused(connection, reason, routes)` | Assert method-override rejection or a matching refusal reason |
+| `m.exports(config, method, scopes?, facts?)` | Inspect actual configured exports and help, including initialization errors |
+| `m.endpoints()`, `m.endpointRules()` | Read a uniform endpoint table and compare its access gates with manifest routes |
+
+Resolution uses the production Go result fields, such as `Context`,
+`PublicConfig`, `Scopes` and `Proxy`; manifest declarations use their JSON names.
+OAuth fixtures may fill `connection.Context.Auth[method].access_token` with a
+synthetic token before preparing a request. Empty scope tables mean an explicitly
+empty grant; omitted scopes mean the grant is unknown.
+
+From this public Hub checkout, with a matching runtime binary and analyzer:
+
 ```sh
-go test ./...
+go test -count=1 ./...
 go run ./tools/validate connectors/fastmail
 ```
 
-Replace `connectors/fastmail` with the bundle you are authoring. Without an argument, the
-validator checks every bundle in `connectors/`.
+Replace `connectors/fastmail` with a bundle directory, including one outside this
+repository. Omit the argument to check all bundles. No provider credentials are
+needed. Public CI checks the shared manifest and image packages and the source
+policy; full behavioral validation also needs the runtime binary.
+From Houston, `go -C tools/runtime run . test-connectors` builds the runtime and
+checks the Hub. Publication runs the same manifest, icon, type, configured-help
+and fixture validation.
 
 Set `HOUSTON_RUNTIME` to a newly built Houston service runtime and put the pinned
 `luau-analyze` on `PATH`. A fixture returns a table with `scenario`, optional

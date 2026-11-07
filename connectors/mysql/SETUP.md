@@ -1,3 +1,5 @@
+# Connect MySQL
+
 1. Create a MySQL user for Houston with only the privileges agents need. For
    read-only access, for example:
 
@@ -15,5 +17,3 @@
    the host name you enter, and never connects without TLS.
 3. In Houston, choose the access level, then enter the host, port, database,
    username, and password, and select **Add connector**.
-
-Your password stays on the Houston server.

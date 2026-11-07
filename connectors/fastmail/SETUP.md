@@ -1,3 +1,5 @@
+# Connect Fastmail
+
 1. In Fastmail, open **Settings → Privacy & Security → Manage API tokens**.
 2. Create an API token using the **JMAP** protocol. MCP and Dynamic DNS tokens
    are not supported.
@@ -10,8 +12,6 @@
      token; **Email submission** is only needed for sending and replying.
 5. Paste the token into **JMAP API token** and select **Add connector**.
 
-API tokens require a Fastmail plan above Basic. Your token stays on the Houston
-server.
+API tokens require a Fastmail plan above Basic.
 
-With **Read and write** access, `deleteMessage` moves messages to Trash;
-`destroyMessage` permanently deletes them.
+> Write access permits both moving mail to Trash and permanent deletion.
