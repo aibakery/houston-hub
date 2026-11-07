@@ -1,7 +1,7 @@
 # Connect Carta
 
 1. Choose **Read-only** or **Read and write** access.
-2. Select **Authorize connector** and sign in with your Carta account.
+2. Select **Authorize connection** and sign in with your Carta account.
 3. On Carta's consent screen, choose the companies, firms or portfolios to share,
    then allow access.
 
@@ -49,7 +49,7 @@ later means submitting a new app.
    and `client_secret` in Houston.
 5. Under **Connect using**, choose **Connect with your Carta app** for production
    or **Connect with your Carta playground app** for the playground, then select
-   **Authorize connector** and sign in. In the playground, pick the persona to
+   **Authorize connection** and sign in. In the playground, pick the persona to
    simulate: Company editor for companies, Investor for firms, Employee for
    shareholders and Lawyer for Carta Launch.
 

@@ -5,6 +5,6 @@
 3. In Houston, enter **Host**, **Port**, **Database**, **Username** and
    **Password** separately. Use the database password, not an API key.
 4. Choose **Read-only**, or **Read and write** to allow changes, then select
-   **Add connector**.
+   **Add connection**.
 
 > Houston requires TLS with a trusted certificate matching the database host.

@@ -29,7 +29,7 @@ and [OAuth app guide](https://developer.calendly.com/docs/authentication/creatin
    **Production** OAuth app with that exact **Redirect URI**. A developer account
    is separate from your Calendly login. Create one app per Houston connection.
 3. Enable both scope lists above. Paste **OAuth client ID** and **OAuth client
-   secret** into Houston, select **Authorize connector** and allow every permission.
+   secret** into Houston, select **Authorize connection** and allow every permission.
 
 Reauthorize when changing access. A token needs replacement to add scopes.
 Calendly can revoke tokens when your sign-in details change.

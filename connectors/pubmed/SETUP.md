@@ -2,7 +2,7 @@
 
 1. Add PubMed in Houston. No account is required.
 2. Optionally enter **NCBI API key** for a higher request quota, then select
-   **Add connector**.
+   **Add connection**.
 
 ## Advanced
 

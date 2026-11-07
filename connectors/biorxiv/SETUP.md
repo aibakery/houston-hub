@@ -1,6 +1,6 @@
 # Add bioRxiv and medRxiv
 
-Select **Add connector** in Houston. No account, API key or settings are required.
+Select **Add connection** in Houston. No account, API key or settings are required.
 
 > Automated PDF downloads may be blocked, especially by medRxiv. Open the PDF
 > link in your browser if a download fails.
