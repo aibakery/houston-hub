@@ -142,11 +142,13 @@ end, run=function(fastmail)
         assert(draft.inReplyTo[1] == "<m@example.com>" and draft.references[2] == "<m@example.com>")
 
         mark = #requests
-        local ok, err = pcall(function() fastmail.replyMessage("m", {text="Nobody", to={}}) end)
-        assert(not ok and string.find(tostring(err), "nonempty", 1, true) and #requests == mark)
+        for _, to in {{}, {{email="sender@example.com"}, "other@example.com"}} do
+            local ok, err = pcall(function() fastmail.replyMessage("m", {text="Nobody", to=to}) end)
+            assert(not ok and string.find(tostring(err), "nonempty", 1, true) and #requests == mark)
+        end
 
         mark = #requests
-        ok, err = pcall(function() fastmail.replyMessage("m", {text="Nope", from="missing@example.com"}) end)
+        local ok, err = pcall(function() fastmail.replyMessage("m", {text="Nope", from="missing@example.com"}) end)
         assert(not ok and string.find(tostring(err), "missing@example.com", 1, true) and string.find(tostring(err), "listAliases", 1, true))
         calls = jmapSince(mark)
         assert(#calls == 2 and calls[2].name == "Identity/get")

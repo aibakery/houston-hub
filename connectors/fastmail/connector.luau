@@ -898,7 +898,8 @@ if config.access == "read-write" then
 		end
 		id = id_of(id)
 		if type(body) ~= "table" or type(body.text) ~= "string" then error("fastmail.replyMessage requires text") end
-		if body.to ~= nil and (type(body.to) ~= "table" or #body.to == 0) then error("fastmail.replyMessage to must be a nonempty array of { email = ... }") end
+		local to = address_objects(body.to)
+		if body.to ~= nil and (#to == 0 or #to ~= #body.to) then error("fastmail.replyMessage to must be a nonempty array of { email = ... }") end
 		local data = call("Email/get", {
 			ids = { id },
 			properties = { "id", "messageId", "inReplyTo", "references", "from", "to", "cc", "replyTo", "subject" },
@@ -906,8 +907,7 @@ if config.access == "read-write" then
 		local msg = data.list and data.list[1]
 		if type(msg) ~= "table" then fail("replyMessage", "Missing message " .. id) end
 		remove_nulls(msg)
-		local to = body.to
-		if to == nil then
+		if body.to == nil then
 			local source = msg.replyTo
 			if type(source) ~= "table" or #source == 0 then source = msg.from end
 			to = address_objects(source)
@@ -945,7 +945,7 @@ if config.access == "read-write" then
 				local key = lower_email(item.email)
 				if key ~= nil then skip[key] = true end
 			end
-			for _, addr in address_objects(to) do
+			for _, addr in to do
 				local key = lower_email(addr.email)
 				if key ~= nil then skip[key] = true end
 			end
