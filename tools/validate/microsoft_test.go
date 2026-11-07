@@ -82,7 +82,8 @@ func TestOneDriveScopesAndRoutes(t *testing.T) {
 			"GET " + api + "/items/f1/permissions",
 			// Business accounts may page through drive-keyed links.
 			"GET https://graph.microsoft.com/v1.0/drives/b!x-1/items/01ABC/children?%24skiptoken=UGFn",
-			"GET https://graph.microsoft.com/v1.0/drives/b!x-1/root/children?%24skiptoken=UGFn"}
+			"GET https://graph.microsoft.com/v1.0/drives/b!x-1/root/children?%24skiptoken=UGFn",
+			"GET https://graph.microsoft.com/v1.0/drives/b!x-1/items/01ABC/permissions?%24skiptoken=UGFn"}
 		assertRoutes(t, r, "fixture-token", true, reads...)
 		assertRejectsMethodOverrides(t, r, reads...)
 		// Content redirects to preauthenticated hosts, which never receive the token.

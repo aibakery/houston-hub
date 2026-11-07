@@ -93,6 +93,7 @@ return {
 			-- Extended MAPI properties could turn a draft into a sent or received message.
 			function() return c.createDraft({subject = "x", singleValueExtendedProperties = {{id = "Integer 0x0E07", value = "1"}}}) end,
 			function() return c.updateMessage({id = "D1", multiValueExtendedProperties = {}}) end,
+			function() return c.createDraft({subject = "x", SingleValueExtendedProperties = {}}) end,
 			function() return c.createReply({id = "M1", message = {singleValueExtendedProperties = {}}}) end,
 		} do assert(not pcall(call)) end
 		assert(#requests == before, "invalid drafts reached Graph")

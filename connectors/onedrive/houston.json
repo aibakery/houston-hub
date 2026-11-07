@@ -119,7 +119,8 @@
           "/v1.0/me/drive/items/{itemId}/permissions",
           "/v1.0/drives/{driveId}/root/children",
           "/v1.0/drives/{driveId}/root/{search}",
-          "/v1.0/drives/{driveId}/items/{itemId}/children"
+          "/v1.0/drives/{driveId}/items/{itemId}/children",
+          "/v1.0/drives/{driveId}/items/{itemId}/permissions"
         ]
       },
       "action": {

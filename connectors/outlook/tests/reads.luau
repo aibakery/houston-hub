@@ -64,8 +64,9 @@ return {
 		assert(page.value[1].body.content == "short" and page.value[1].bodyTruncated == false)
 		assert(last().url == API .. "/messages?$select=id,body", last().url)
 
-		responses = {{body = '{"value":[{"id":"A1","name":"invoice.pdf","size":12}]}'}, {body = "%PDF-1.7 bytes"}}
-		assert(c.listAttachments({messageId = "m1"}).value[1].name == "invoice.pdf")
+		responses = {{body = '{"value":[{"id":"A1","name":"invoice.pdf","size":12,"contentBytes":"JVBERg=="}]}'}, {body = "%PDF-1.7 bytes"}}
+		local attachments = c.listAttachments({messageId = "m1", select = "id,name,contentBytes"})
+		assert(attachments.value[1].name == "invoice.pdf" and attachments.value[1].contentBytes == nil, "attachment bytes came back inline")
 		responses = {{body = '{"value":[]}'}, {body = "%PDF-1.7 bytes"}}
 		assert(json.encode(c.listAttachments({messageId = "m1"}).value) == "[]")
 		assert(last().url == API .. "/messages/m1/attachments?$select=id%2Cname%2CcontentType%2Csize%2CisInline%2ClastModifiedDateTime", last().url)

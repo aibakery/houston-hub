@@ -250,8 +250,10 @@ local function draftOnly(name: string, id: any)
 end
 
 local function plain(fields: Options)
-	assert(not DRAFTS or (fields.singleValueExtendedProperties == nil and fields.multiValueExtendedProperties == nil),
-		"Read and draft connections cannot set extended properties")
+	if not DRAFTS then return end
+	for key in fields do
+		assert(not string.find(string.lower(key), "extendedproperties", 1, true), "Read and draft connections cannot set extended properties")
+	end
 end
 
 -- Session files become fileAttachments, under 3 MB in total.
@@ -281,8 +283,12 @@ local function compose(value: any, field: string): Options
 	assert(next(message) ~= nil, field .. " must be a nonempty message object")
 	plain(message)
 	if message.attachments ~= nil then
-		message.attachments = fileAttachments(message.attachments)
-		assert(#json.encode(message) <= MAX_REQUEST, "the message and its attachments must stay under 4 MB; share larger files from OneDrive")
+		local attachments = fileAttachments(message.attachments)
+		message.attachments = nil
+		local size = #json.encode(message)
+		for _, attachment in attachments do size += #attachment.contentBytes + #attachment.name + 128 end
+		message.attachments = attachments
+		assert(size <= MAX_REQUEST, "the message and its attachments must stay under 4 MB; share larger files from OneDrive")
 	end
 	return message
 end
@@ -315,6 +321,15 @@ local function bodyLimit(args: Options): number
 end
 
 exportEndpoints(endpoints)
+-- Attachment bytes move through getAttachment, never inline, whatever select asks for.
+local listAttachments = exports.listAttachments
+exports.listAttachments = function(args: Options?): any
+	local page = listAttachments(args)
+	for _, attachment in page.value do
+		if type(attachment) == "table" then attachment.contentBytes = nil end
+	end
+	return page
+end
 for group, isRead in {[replies] = false, [drafting] = DRAFTS} do
 	for name, endpoint in group do
 		export(name, isRead, function(input: any): any
@@ -434,9 +449,8 @@ export("addAttachment", DRAFTS, function(input: any): Options
 	local spec = {path = args.path, name = args.name, contentType = args.contentType}
 	args.messageId, args.path, args.name, args.contentType = nil, nil, nil, nil
 	done("addAttachment", args)
-	assert(await(fs.stat(text(spec.path, "path"))).size < MAX_ATTACHMENTS, "attachments must stay under 3 MB; share larger files from OneDrive")
-	draftOnly("addAttachment", id)
 	local attachment = fileAttachments({spec})[1]
+	draftOnly("addAttachment", id)
 	return call("addAttachment", "POST", messagePath(id, "messageId") .. "/attachments", attachment)
 end, "addAttachment({messageId, path, name?, contentType?}) -> attachment {id, name, size}. Attaches a session file under 3 MB to a draft.")
 
