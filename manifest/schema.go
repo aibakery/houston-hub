@@ -62,7 +62,9 @@ func Schema() ([]byte, error) {
 	enum("Field", "type", "string", "boolean", "integer", "number", "secret")
 	enum("Field", "display", "plain", "masked")
 	enum("Field", "format", formats...)
-	enum("AuthMethod", "type", "manual", "oauth2")
+	enum("AuthMethod", "type", "manual", "oauth2", "pipedream")
+	enum("AuthAvailability", "status", "available", "preview", "disabled")
+	props("HeaderActions")["set"].(map[string]any)["additionalProperties"] = map[string]any{"oneOf": []any{map[string]any{"type": "string"}, map[string]any{"$ref": "#/$defs/HeaderValue"}}}
 	enum("AuthMethod", "client_auth", "basic", "body", "none")
 	enum("AuthMethod", "token_encoding", "form", "json")
 	enum("AuthMethod", "pkce", "S256", "none")
@@ -136,12 +138,19 @@ func Schema() ([]byte, error) {
 
 	props("AuthMethod")["refresh_response"] = map[string]any{"allOf": []any{props("AuthMethod")["refresh_response"], forbid("facts", "label")}}
 
-	manualKeys := []string{"brand", "authorize_url", "token_url", "client_id", "client_secret", "client_auth", "token_encoding", "token_headers", "pkce", "scopes", "scope_parameter", "scope_separator", "authorize_params", "token_params", "refresh_params", "token_response", "refresh_response", "require_refresh", "account", "shared"}
+	manualKeys := []string{"brand", "authorize_url", "token_url", "client_id", "client_secret", "client_auth", "token_encoding", "token_headers", "pkce", "scopes", "scope_parameter", "scope_separator", "authorize_params", "token_params", "refresh_params", "token_response", "refresh_response", "require_refresh", "account", "shared", "project_id", "environment", "app"}
 	manual := forbid(manualKeys...)
 	manual["required"] = []string{"config"}
-	oauth := forbid("config")
+	oauth := forbid("config", "project_id", "environment", "app")
 	oauth["required"] = []string{"authorize_url", "token_url", "client_id"}
-	def("AuthMethod")["allOf"] = []any{map[string]any{"if": condition("type", "manual"), "then": manual, "else": oauth}, map[string]any{"if": condition("type", "oauth2"), "then": map[string]any{"if": condition("client_auth", "none"), "then": map[string]any{"properties": map[string]any{"client_secret": false, "pkce": map[string]any{"const": "S256"}}}, "else": map[string]any{"required": []string{"client_secret"}}}}}
+	pipedream := forbid("config", "authorize_url", "token_url", "client_auth", "token_encoding", "token_headers", "pkce", "scope_parameter", "scope_separator", "authorize_params", "token_params", "refresh_params", "token_response", "refresh_response", "require_refresh", "shared")
+	pipedream["required"] = []string{"client_id", "client_secret", "project_id", "environment", "app"}
+	def("AuthMethod")["allOf"] = []any{
+		map[string]any{"if": condition("type", "manual"), "then": manual},
+		map[string]any{"if": condition("type", "oauth2"), "then": oauth},
+		map[string]any{"if": condition("type", "pipedream"), "then": pipedream},
+		map[string]any{"if": condition("type", "oauth2"), "then": map[string]any{"if": condition("client_auth", "none"), "then": map[string]any{"properties": map[string]any{"client_secret": false, "pkce": map[string]any{"const": "S256"}}}, "else": map[string]any{"required": []string{"client_secret"}}}},
+	}
 	def("BasicAuth")["oneOf"] = []any{map[string]any{"maxProperties": 0}, map[string]any{"required": []string{"username", "password"}}}
 	def("ResponseCheck")["allOf"] = []any{map[string]any{"if": condition("op", "equals"), "then": map[string]any{"required": []string{"value"}}, "else": forbid("value")}}
 	def("Field")["allOf"] = []any{

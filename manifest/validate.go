@@ -220,6 +220,14 @@ func (m *Manifest) Validate() error {
 		if e := m.validatePredicate(a.If, "auth", used); e != nil {
 			return fmt.Errorf("auth.%s.if: %w", k, e)
 		}
+		if a.Availability != nil {
+			if !slices.Contains([]string{"available", "preview", "disabled"}, a.Availability.Status) {
+				return fmt.Errorf("auth.%s: invalid availability status", k)
+			}
+			if a.Availability.Status != "available" && strings.TrimSpace(a.Availability.Message) == "" {
+				return fmt.Errorf("auth.%s: unavailable methods require a message", k)
+			}
+		}
 		switch a.Type {
 		case "manual":
 			if len(a.Config) == 0 {
@@ -238,6 +246,10 @@ func (m *Manifest) Validate() error {
 			}
 		case "oauth2":
 			if e := m.validateOAuth(k, a, used); e != nil {
+				return fmt.Errorf("auth.%s: %w", k, e)
+			}
+		case "pipedream":
+			if e := m.validatePipedream(a, used); e != nil {
 				return fmt.Errorf("auth.%s: %w", k, e)
 			}
 		default:
@@ -353,6 +365,7 @@ func (m *Manifest) template(s, mode string, used map[string]bool) error {
 }
 
 var paramRE = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_-]*$`)
+var brokerAppRE = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]*$`)
 var reservedParams = map[string]bool{"client_id": true, "client_secret": true, "state": true, "response_type": true, "redirect_uri": true, "code": true, "grant_type": true, "refresh_token": true, "code_verifier": true, "code_challenge": true, "code_challenge_method": true}
 
 func HTTPSURL(s string, query bool) error {
@@ -507,20 +520,8 @@ func (m *Manifest) validateOAuth(key string, a AuthMethod, used map[string]bool)
 	if !paramRE.MatchString(a.ScopeParameter) || reservedParams[a.ScopeParameter] {
 		return fmt.Errorf("invalid scope_parameter")
 	}
-	for _, g := range a.Scopes {
-		if len(g.Values) == 0 {
-			return fmt.Errorf("empty scope group")
-		}
-		seen := map[string]bool{}
-		for _, s := range g.Values {
-			if s == "" || seen[s] || strings.Contains(s, "{{") {
-				return fmt.Errorf("invalid scope")
-			}
-			seen[s] = true
-		}
-		if e := m.validatePredicate(g.If, "scope", used); e != nil {
-			return e
-		}
+	if e := m.validateScopes(a.Scopes, used); e != nil {
+		return e
 	}
 	for mode, params := range map[string]map[string]string{"public": a.AuthorizeParams, "token": a.TokenParams, "refresh": a.RefreshParams} {
 		for k, v := range params {
@@ -545,6 +546,51 @@ func (m *Manifest) validateOAuth(key string, a AuthMethod, used map[string]bool)
 	if e := validateInitialResponse(a); e != nil {
 		return e
 	}
+	if e := m.validateAccount(a, used); e != nil {
+		return e
+	}
+	if s := a.Shared; s != nil {
+		if e := HTTPSURL(s.URL, true); e != nil {
+			return e
+		}
+		if s.Method != "" && s.Method != "GET" && s.Method != "POST" || s.Method == "GET" && s.Body != nil {
+			return fmt.Errorf("invalid shared method")
+		}
+		if !validPointer(s.Items) {
+			return fmt.Errorf("invalid shared items pointer")
+		}
+		for _, v := range s.Body {
+			if _, e := scalarString(v); e != nil {
+				return fmt.Errorf("shared body values must be scalars")
+			}
+		}
+		if e := m.validateHeaders(s.Headers, used); e != nil {
+			return e
+		}
+	}
+	return nil
+}
+
+func (m *Manifest) validateScopes(groups []ScopeGroup, used map[string]bool) error {
+	for _, g := range groups {
+		if len(g.Values) == 0 {
+			return fmt.Errorf("empty scope group")
+		}
+		seen := map[string]bool{}
+		for _, s := range g.Values {
+			if s == "" || seen[s] || strings.Contains(s, "{{") {
+				return fmt.Errorf("invalid scope")
+			}
+			seen[s] = true
+		}
+		if e := m.validatePredicate(g.If, "scope", used); e != nil {
+			return e
+		}
+	}
+	return nil
+}
+
+func (m *Manifest) validateAccount(a AuthMethod, used map[string]bool) error {
 	if a.Account != nil {
 		c := a.Account
 		if e := HTTPSURL(c.URL, true); e != nil {
@@ -575,23 +621,49 @@ func (m *Manifest) validateOAuth(key string, a AuthMethod, used map[string]bool)
 			}
 		}
 	}
-	if s := a.Shared; s != nil {
-		if e := HTTPSURL(s.URL, true); e != nil {
-			return e
+	return nil
+}
+
+func (m *Manifest) validatePipedream(a AuthMethod, used map[string]bool) error {
+	if a.Brand != "" && !slices.Contains(Brands, a.Brand) {
+		return fmt.Errorf("invalid brand")
+	}
+	if !brokerAppRE.MatchString(a.App) {
+		return fmt.Errorf("Pipedream app must be a literal slug")
+	}
+	for _, input := range []struct{ value, mode string }{{a.ClientID, "client_id"}, {a.ClientSecret, "client_secret"}, {a.ProjectID, "client_id"}, {a.Environment, "client_id"}} {
+		if err := m.template(input.value, input.mode, used); err != nil {
+			return err
 		}
-		if s.Method != "" && s.Method != "GET" && s.Method != "POST" || s.Method == "GET" && s.Body != nil {
-			return fmt.Errorf("invalid shared method")
+		if clientOwner(input.value) != "publisher" {
+			return fmt.Errorf("Pipedream credentials and project settings must be publisher-owned")
 		}
-		if !validPointer(s.Items) {
-			return fmt.Errorf("invalid shared items pointer")
+	}
+	if err := m.validateScopes(a.Scopes, used); err != nil {
+		return err
+	}
+	if err := m.validateAccount(a, used); err != nil {
+		return err
+	}
+	if a.Account != nil {
+		if a.Account.Method != "" && a.Account.Method != "GET" {
+			return fmt.Errorf("Pipedream account lookup must use GET")
 		}
-		for _, v := range s.Body {
-			if _, e := scalarString(v); e != nil {
-				return fmt.Errorf("shared body values must be scalars")
+		for _, header := range a.Account.Headers {
+			refs, _ := TemplateReferences(header.Value)
+			for _, ref := range refs {
+				field, err := m.reference(ref)
+				if err != nil || field.Type == "secret" {
+					return fmt.Errorf("Pipedream account headers cannot contain credentials")
+				}
 			}
 		}
-		if e := m.validateHeaders(s.Headers, used); e != nil {
-			return e
+	}
+	// The broker can attach account credentials to every allowed destination.
+	// Keep those destinations controlled by the publication, as for OAuth tokens.
+	for _, rule := range m.Proxy {
+		if err := m.publisherRecipient([]string{a.ClientSecret}, rule.Match.Host); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -730,7 +802,7 @@ func checkPresence(data []byte) error {
 			if typ == "manual" {
 				for k := range a {
 					switch k {
-					case "if", "type", "label", "description", "order", "config":
+					case "if", "type", "label", "description", "order", "config", "availability":
 					default:
 						return fmt.Errorf("manual method forbids %s", k)
 					}
@@ -739,6 +811,11 @@ func checkPresence(data []byte) error {
 					return e
 				}
 			} else if typ == "oauth2" {
+				for _, field := range []string{"project_id", "environment", "app"} {
+					if _, exists := a[field]; exists {
+						return fmt.Errorf("OAuth forbids %s", field)
+					}
+				}
 				if _, ok := a["config"]; ok {
 					return fmt.Errorf("OAuth forbids config")
 				}
@@ -754,6 +831,14 @@ func checkPresence(data []byte) error {
 								return fmt.Errorf("empty token selector")
 							}
 						}
+					}
+				}
+			} else if typ == "pipedream" {
+				for field := range a {
+					switch field {
+					case "if", "type", "label", "description", "order", "brand", "availability", "client_id", "client_secret", "project_id", "environment", "app", "scopes", "account":
+					default:
+						return fmt.Errorf("Pipedream method forbids %s", field)
 					}
 				}
 			}
