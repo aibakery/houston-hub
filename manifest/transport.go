@@ -185,9 +185,10 @@ func pathParameter(part string) (name, verb string, ok bool) {
 
 // parameterValue returns a placeholder's value from one escaped request
 // segment. A {name}:verb part requires that literal, unescaped suffix, so an
-// encoded colon never selects a verb; the value may contain another colon,
-// at any encoding depth, only when the rule lists name in colon_path_parameters
-// or opaque_path_parameters.
+// encoded colon never selects a verb, and refuses a dot-segment value, which
+// RequestPath cannot see inside ..:verb. The value may contain a colon, plain or
+// encoded, only when the rule lists name in colon_path_parameters or
+// opaque_path_parameters, so a bare {id} never matches id:delete.
 func (m ProxyMatch) parameterValue(name, verb, escaped string) (string, bool) {
 	value := escaped
 	if verb != "" {
@@ -195,20 +196,28 @@ func (m ProxyMatch) parameterValue(name, verb, escaped string) (string, bool) {
 		if value, ok = strings.CutSuffix(escaped, ":"+verb); !ok {
 			return "", false
 		}
-		if !slices.Contains(m.ColonPathParameters, name) && !slices.Contains(m.OpaquePathParameters, name) {
-			if decoded, ok := decodeOpaque(value); !ok || strings.Contains(decoded, ":") {
-				return "", false
-			}
+		if decoded, err := url.PathUnescape(value); err != nil || decoded == "." || decoded == ".." {
+			return "", false
 		}
 	}
+	if (strings.Contains(value, ":") || encodedColon(value)) && !slices.Contains(m.ColonPathParameters, name) && !slices.Contains(m.OpaquePathParameters, name) {
+		return "", false
+	}
 	return value, value != ""
+}
+
+// encodedColon reports whether an escaped segment holds %3A in either case.
+// Callers reject %25 in non-opaque segments first, so no deeper encoding can
+// hide a colon.
+func encodedColon(escaped string) bool {
+	return strings.Contains(escaped, "%3a") || strings.Contains(escaped, "%3A")
 }
 
 // literalMatches compares a literal pattern segment with a decoded request
 // segment. A literal with a colon, such as values:batchGet, needs that colon
 // unescaped, so an encoded colon never selects a custom method.
 func literalMatches(part, decoded, escaped string) bool {
-	return part == decoded && (!strings.Contains(part, ":") || !strings.Contains(strings.ToLower(escaped), "%3a"))
+	return part == decoded && (!strings.Contains(part, ":") || !encodedColon(escaped))
 }
 
 // pathMatches takes the request path as decoded and escaped segments, which
