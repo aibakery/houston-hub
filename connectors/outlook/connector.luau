@@ -2,9 +2,10 @@
 -- Graph's native field names; attachments move through session files, never base64.
 local base64 = require("lib/base64.luau")
 
--- Request layer shared verbatim by the Microsoft Graph connectors (tools/validate checks they match).
+-- Request layer shared verbatim by the Microsoft Graph connectors; Hub runs each copy against
+-- every consumer's fixtures.
 type Options = {[string]: any}
-type Endpoint = {method: string, path: string, read: boolean, query: {string}?, body: boolean?, defaults: Options?, list: boolean?, help: string}
+type Spec = {query: {string}?, body: boolean?, list: string?, defaults: Options?, headers: HttpHeaders?}
 local GRAPH = "https://graph.microsoft.com/v1.0"
 local API = GRAPH .. "/me"
 -- Preauthenticated OneDrive download links, under either annotation, work without credentials,
@@ -134,100 +135,94 @@ local function nextLink(name: string, args: Options, ending: string): string?
 	return pageLink(link, ending)
 end
 
--- Moves {placeholders} and declared query fields from args into the URL; remaining fields form the
--- JSON body.
-local function target(name: string, endpoint: Endpoint, args: Options): string
-	local link = if endpoint.list then nextLink(name, args, "/" .. (string.match(endpoint.path, "[^/]+$") or "") .. "$") else nil
-	if link then return link end
-	local defaults: Options = endpoint.defaults or {}
-	for key, value in defaults do
-		if args[key] == nil then args[key] = value end
-	end
-	local path = string.gsub(endpoint.path, "{(%w+)}", function(field: string)
-		local value = url.segment(text(args[field], field), field)
-		args[field] = nil
-		return value
-	end)
-	path ..= query(args, endpoint.query or {})
-	if not endpoint.body then done(name, args) end
-	return API .. path
-end
-
-local function invoke(name: string, endpoint: Endpoint, input: any): any
+-- One Graph request built from args: {field} placeholders take URL-encoded path segments, query
+-- names the query fields and, with body, the other fields form the JSON body. A list (the Lua
+-- pattern its path ends with) also accepts nextLink and always returns a value array.
+local function request(name: string, method: string, path: string, input: any, spec: Spec?): any
 	local args = options(input)
-	local href = target(name, endpoint, args)
-	local result = call(name, endpoint.method, href, if endpoint.body then args else nil)
-	if endpoint.list and result.value == nil then result.value = json.decode("[]") end
+	local s: Spec = spec or {}
+	local href = if s.list then nextLink(name, args, s.list) else nil
+	if not href then
+		local defaults: Options = s.defaults or {}
+		for key, value in defaults do
+			if args[key] == nil then args[key] = value end
+		end
+		local route = string.gsub(path, "{(%w+)}", function(field: string)
+			local value = url.segment(text(args[field], field), field)
+			args[field] = nil
+			return value
+		end)
+		href = API .. route .. query(args, s.query or {})
+		if not s.body then done(name, args) end
+	end
+	local result = call(name, method, href :: string, if s.body then args else nil, s.headers)
+	if s.list and result.value == nil then result.value = json.decode("[]") end
 	return result
-end
-
-local exports: {[string]: any} = {}
-local help: {[string]: string} = {}
-
--- Exposes an operation when it only reads or the connection allows writes.
-local function export(name: string, isRead: boolean, fn: (any) -> any, doc: string)
-	if isRead or config.access == "read-write" then
-		exports[name], help[name] = fn, doc
-	end
-end
-
-local function exportEndpoints(endpoints: {[string]: Endpoint})
-	for name, endpoint in endpoints do
-		export(name, endpoint.read, function(args: Options?): any return invoke(name, endpoint, args) end, endpoint.help)
-	end
-end
-
--- help() introduces the API, then documents exactly the configured operations.
-local function helpWith(overview: {string}): () -> string
-	return function(): string
-		local names: {string} = {}
-		for name in help do table.insert(names, name) end
-		table.sort(names)
-		local lines = table.clone(overview)
-		for _, name in names do table.insert(lines, help[name]) end
-		return table.concat(lines, "\n")
-	end
 end
 -- End of the shared request layer.
 
 -- Read and draft (custom) connections change only drafts, and the proxy refuses every send.
 local DRAFTS = config.access == "custom"
 local LIST = "id,subject,from,toRecipients,ccRecipients,receivedDateTime,sentDateTime,isRead,isDraft,hasAttachments,importance,flag,categories,conversationId,parentFolderId,bodyPreview,webLink"
--- Graph takes attachments "under 3 MB" in one request of at most 4 MB once base64-encoded.
+-- Graph refuses requests over 4 MB, and base64 makes attachments a third larger.
 local MAX_REQUEST = 4000000
-local MAX_ATTACHMENTS = 3000000
+local MAX_ATTACHMENTS = 2900000
 
-local endpoints: {[string]: Endpoint} = {
-	getProfile = {method = "GET", path = "", read = true, defaults = {select = "id,displayName,mail,userPrincipalName"}, query = {"$select"},
-		help = "getProfile({select?}) -> {id, displayName, mail, userPrincipalName}. The connected account."},
-	getMailFolder = {method = "GET", path = "/mailFolders/{id}", read = true, query = {"$select"},
-		help = "getMailFolder({id, select?}) -> {id, displayName, parentFolderId, childFolderCount, unreadItemCount, totalItemCount}. id is a folder ID or a well-known name: inbox, drafts, sentitems, deleteditems, archive, junkemail."},
-	listAttachments = {method = "GET", path = "/messages/{messageId}/attachments", read = true, list = true,
-		defaults = {select = "id,name,contentType,size,isInline,lastModifiedDateTime"}, query = {"$select"},
-		help = "listAttachments({messageId}) -> {value={{id, name, contentType, size, isInline}}}. Metadata only: save one with getAttachment."},
-	sendDraft = {method = "POST", path = "/messages/{id}/send", read = false,
-		help = "sendDraft({id}) -> {success=true}. Sends a draft; the sent copy gets a new ID in Sent Items."},
-	moveMessage = {method = "POST", path = "/messages/{id}/move", read = false, body = true,
-		help = "moveMessage({id, destinationId}) -> the moved message, with a new id. destinationId is a folder ID or well-known name; 'deleteditems' trashes and 'archive' archives."},
+local help = {
+	text = [[Microsoft Graph v1.0 for the connected Outlook mailbox. Operations take one named options object
+with Graph's camelCase fields and return Graph's JSON unchanged; sends and deletes return
+{success=true}. Connector calls return completed values: use them directly, without await.
+Messages carry decoded bodies; attachments save to session files, and composing reads attachments
+from session paths: never base64-encode anything yourself. Moving a message gives it a new id.
+Lists return one page: while ['@odata.nextLink'] is present, pass it back as nextLink (alone, with
+bodyFormat or maxBodyBytes if used). listMailFolders alone walks the whole folder tree.
+Houston itself retries only a short 429 wait. Errors report the HTTP status and Graph's code and
+message, e.g. 'Microsoft Graph HTTP 404 (ErrorItemNotFound)'; 429, 503 and other transient server
+errors are retryable. A failed or timed-out write may already have succeeded: check Sent Items or
+Drafts before repeating.]] .. (if DRAFTS then "\nRead and draft connection: Houston refuses every send, and changes apply only to drafts. Save drafts for the person to review and send from Outlook." else ""),
+	functions = {} :: {[string]: any},
 }
+local exports: {[string]: any} = {help = help}
 
--- Replies and forwards take a message whose attachments are session files, like createDraft.
-local replies: {[string]: Endpoint} = {
-	reply = {method = "POST", path = "/messages/{id}/reply", read = false, body = true,
-		help = "reply({id, comment?, message?}) -> {success=true}. Sends a reply to the sender: comment is the text above the quoted original, message sets other fields such as attachments."},
-	replyAll = {method = "POST", path = "/messages/{id}/replyAll", read = false, body = true,
-		help = "replyAll({id, comment?, message?}) -> {success=true}. As reply, to every recipient."},
-	forward = {method = "POST", path = "/messages/{id}/forward", read = false, body = true,
-		help = "forward({id, toRecipients, comment?, message?}) -> {success=true}. Sends the message on to toRecipients."},
+-- Schemas and hints shared by several operations.
+local ID = {type = "string", minLength = 1}
+local MESSAGE_ID = "AAMkAGI2THVSAAA="
+local SELECT = {type = {"string", "array"}, items = {type = "string"}, description = "Message fields, comma-separated or as an array."}
+local NEXT = {type = "string", description = "The previous page's @odata.nextLink; pass it alone, with bodyFormat or maxBodyBytes if used."}
+local BODY_FORMAT = {type = "string", enum = {"text", "html"}, description = "Format of body and uniqueBody; defaults to text."}
+local MAX_BODY = {type = "integer", minimum = 0, description = "Caps body and uniqueBody content in bytes and sets bodyTruncated; defaults to 65536, 0 for no cap."}
+local RECIPIENTS = {
+	type = "array",
+	items = {
+		type = "object",
+		properties = {emailAddress = {type = "object", properties = {address = ID, name = {type = "string"}}, required = {"address"}}},
+		required = {"emailAddress"},
+	},
 }
-local drafting: {[string]: Endpoint} = {
-	createReply = {method = "POST", path = "/messages/{id}/createReply", read = false, body = true,
-		help = "createReply({id, comment?, message?}) -> draft message. A reply draft in the conversation, addressed to the sender; edit it with updateMessage."},
-	createReplyAll = {method = "POST", path = "/messages/{id}/createReplyAll", read = false, body = true,
-		help = "createReplyAll({id, comment?, message?}) -> draft message. As createReply, addressed to every recipient."},
-	createForward = {method = "POST", path = "/messages/{id}/createForward", read = false, body = true,
-		help = "createForward({id, toRecipients?, comment?, message?}) -> draft message. A forward draft with the original's attachments."},
+local ATTACHMENTS = {
+	type = "array",
+	minItems = 1,
+	items = {anyOf = {
+		{type = "string", minLength = 1},
+		{type = "object", properties = {path = ID, name = ID, contentType = ID}, required = {"path"}, additionalProperties = false},
+	} :: {any}},
+	description = "Session files to attach, about 2.9 MB in total; share larger files from OneDrive.",
 }
+local MESSAGE = {
+	type = "object",
+	properties = {
+		subject = {type = "string"},
+		body = {type = "object", properties = {contentType = {type = "string", description = "Text or HTML."}, content = {type = "string"}}, required = {"content"}},
+		toRecipients = RECIPIENTS, ccRecipients = RECIPIENTS, bccRecipients = RECIPIENTS, replyTo = RECIPIENTS,
+		importance = {type = "string", enum = {"low", "normal", "high"}},
+		attachments = ATTACHMENTS,
+	},
+	additionalProperties = true,
+	description = "Graph message fields; attachments are session files.",
+}
+local READ = {readOnlyHint = true, openWorldHint = true}
+local WRITE = {readOnlyHint = false, destructiveHint = false, openWorldHint = true}
+local DESTRUCTIVE = {readOnlyHint = false, destructiveHint = true, openWorldHint = true}
 
 -- Prefer selects the body format; Graph defaults to HTML.
 local function bodyFormat(args: Options): HttpHeaders
@@ -243,10 +238,10 @@ end
 
 -- Read and draft connections change a message only while it is a draft, and never set extended
 -- MAPI properties, which could make a draft look sent or received.
-local function draftOnly(name: string, id: any)
+local function draftOnly(operation: string, id: any)
 	if not DRAFTS then return end
-	local message = call(name, "GET", messagePath(id, "id") .. "?$select=isDraft")
-	assert(message.isDraft == true, name .. " changes only drafts on a Read and draft connection")
+	local message = call(operation, "GET", messagePath(id, "id") .. "?$select=isDraft")
+	assert(message.isDraft == true, operation .. " changes only drafts on a Read and draft connection")
 end
 
 local function plain(fields: Options)
@@ -256,7 +251,7 @@ local function plain(fields: Options)
 	end
 end
 
--- Session files become fileAttachments, under 3 MB in total.
+-- Session files become fileAttachments.
 local function fileAttachments(items: any): {Options}
 	assert(type(items) == "table" and items[1] ~= nil, "attachments must be an array of paths or {path, name?, contentType?}")
 	local list: {Options} = json.decode("[]")
@@ -266,7 +261,7 @@ local function fileAttachments(items: any): {Options}
 		assert(type(spec) == "table", "attachments must be paths or {path, name?, contentType?}")
 		local path = text(spec.path, "attachment path")
 		total += await(fs.stat(path)).size
-		assert(total < MAX_ATTACHMENTS, "attachments must stay under 3 MB in total; share larger files from OneDrive")
+		assert(total <= MAX_ATTACHMENTS, "attachments must stay under about 2.9 MB in total; share larger files from OneDrive")
 		local file = fs.open(path, "r")
 		local data = await(file:readAll())
 		await(file:close())
@@ -276,11 +271,10 @@ local function fileAttachments(items: any): {Options}
 	return list
 end
 
--- A message resource with its attachments read from session files. Graph refuses requests over
--- 4 MB, which base64-encoded attachments and the rest of the message must fit in.
+-- A message resource with its attachments read from session files. The encoded attachments and the
+-- rest of the message must fit in Graph's 4 MB request.
 local function compose(value: any, field: string): Options
 	local message = options(value)
-	assert(next(message) ~= nil, field .. " must be a nonempty message object")
 	plain(message)
 	if message.attachments ~= nil then
 		local attachments = fileAttachments(message.attachments)
@@ -320,73 +314,36 @@ local function bodyLimit(args: Options): number
 	return limit
 end
 
-exportEndpoints(endpoints)
--- Attachment bytes move through getAttachment, never inline, whatever select asks for.
-local listAttachments = exports.listAttachments
-exports.listAttachments = function(args: Options?): any
-	local page = listAttachments(args)
-	for _, attachment in page.value do
-		if type(attachment) == "table" then attachment.contentBytes = nil end
-	end
-	return page
-end
-for group, isRead in {[replies] = false, [drafting] = DRAFTS} do
-	for name, endpoint in group do
-		export(name, isRead, function(input: any): any
-			local args = options(input)
-			if args.message ~= nil then args.message = compose(args.message, "message") end
-			return invoke(name, endpoint, args)
-		end, endpoint.help)
-	end
+-- Replies and forwards take a message whose attachments are session files, like createDraft.
+local function respond(operation: string, verb: string, input: any): Options
+	local args = options(input)
+	if args.message ~= nil then args.message = compose(args.message, "message") end
+	return request(operation, "POST", "/messages/{id}/" .. verb, args, {body = true})
 end
 
-local READ = "bodyFormat='text' (default) or 'html' sets body.contentType; maxBodyBytes caps body.content (default 65536, 0 for no cap) and sets bodyTruncated."
+local function replySchema(forward: boolean, example: Options): Options
+	local properties: Options = {id = ID, comment = {type = "string", description = "Text above the quoted original."}, message = MESSAGE}
+	if forward then properties.toRecipients = RECIPIENTS end
+	return {type = "object", properties = properties, required = if forward then {"id", "toRecipients"} else {"id"}, additionalProperties = false, examples = {example}}
+end
 
-export("listMessages", true, function(input: any): Options
-	local args = options(input)
-	local headers = bodyFormat(args)
-	local limit = bodyLimit(args)
-	local link = nextLink("listMessages", args, "/messages$")
-	local href = API .. "/messages"
-	if not link then
-		if args.folderId ~= nil then href = API .. "/mailFolders/" .. url.segment(text(args.folderId, "folderId"), "folderId") .. "/messages" end
-		args.folderId = nil
-		if args.select == nil then args.select = LIST end
-		-- $search takes a quoted string; \ and " inside it are escaped.
-		if args.search ~= nil then args.search = "\"" .. (string.gsub(text(args.search, "search"), "[\\\"]", "\\%0")) .. "\"" end
-		href ..= query(args, {"$select", "$filter", "$search", "$orderby", "$top", "$skip"})
-		done("listMessages", args)
-	end
-	local page = call("listMessages", "GET", link or href, nil, headers)
-	if page.value == nil then page.value = json.decode("[]") end
-	for _, message in page.value do limitBody(message, limit) end
-	return page
-end, "listMessages({folderId?, search?, filter?, orderby?, select?, top?, skip?, bodyFormat?, maxBodyBytes?, nextLink?}) -> {value={message}, @odata.nextLink?}. Every folder without folderId (a folder ID or well-known name such as 'inbox'). search is KQL, e.g. 'from:ana budget' or 'subject:invoice hasAttachments:true', returns at most 1000 messages and cannot combine with filter, orderby or skip; filter is OData, e.g. \"receivedDateTime ge 2026-10-01T00:00:00Z and isRead eq false\"; orderby e.g. 'receivedDateTime desc', whose fields must also lead filter when both are set (Graph answers InefficientFilter otherwise). top ≤1000 (default 10). Default fields: " .. LIST .. "; add body to select for full bodies. " .. READ)
-
-export("getMessage", true, function(input: any): Options
-	local args = options(input)
-	local headers = bodyFormat(args)
-	local limit = bodyLimit(args)
-	local href = messagePath(args.id, "id")
-	args.id = nil
-	href ..= query(args, {"$select"})
-	done("getMessage", args)
-	local message = call("getMessage", "GET", href, nil, headers)
-	limitBody(message, limit)
-	return message
-end, "getMessage({id, select?, bodyFormat?, maxBodyBytes?}) -> message {id, subject, from, toRecipients, ccRecipients, bccRecipients, replyTo, receivedDateTime, body={contentType, content}, bodyTruncated, uniqueBody?, isRead, isDraft, hasAttachments, conversationId, internetMessageId, webLink, ...}. Every field unless select narrows them. " .. READ .. " A conversation is listMessages({filter=\"conversationId eq '<id>'\"}).")
-
-export("getAttachment", true, function(input: any): Options
-	local args = options(input)
-	local href = messagePath(args.messageId, "messageId") .. "/attachments/" .. url.segment(text(args.attachmentId, "attachmentId"), "attachmentId") .. "/$value"
-	local path = text(args.path, "path")
-	args.messageId, args.attachmentId, args.path = nil, nil, nil
-	done("getAttachment", args)
-	return save("getAttachment", path, function(): HttpResponse return await(http.request({method = "GET", url = href})) end)
-end, "getAttachment({messageId, attachmentId, path}) -> {path, url, size}. Saves an attachment's bytes to a session path (an attached message saves as MIME); url is a signed Houston download link. Never inline attachment bytes.")
+help.functions.getProfile = {
+	description = "The connected account: {id, displayName, mail, userPrincipalName}.",
+	inputSchema = {type = "object", properties = {select = SELECT}, additionalProperties = false, examples = {{select = "displayName,mail"}}},
+	annotations = READ,
+}
+function exports.getProfile(args: Options?): Options
+	return request("getProfile", "GET", "", args, {defaults = {select = "id,displayName,mail,userPrincipalName"}, query = {"$select"}})
+end
 
 -- Fixed-signature folder list shared with other mail connectors.
-export("listMailFolders", true, function(...: any): {{id: string, name: string}}
+help.functions.listMailFolders = {
+	description = "Every visible folder of the mailbox as {{id, name}} sorted by ID, nested names joined with '/' such as 'Inbox/Projects'.",
+	args = {},
+	inputSchema = {type = "object", properties = {}, additionalProperties = false, examples = {json.decode("{}")}},
+	annotations = READ,
+}
+function exports.listMailFolders(...: any): {{id: string, name: string}}
 	assert(select("#", ...) == 0, "listMailFolders takes no arguments")
 	local FIELDS = "?$top=100&$select=id,displayName,childFolderCount"
 	local folders: {{id: string, name: string}} = json.decode("[]")
@@ -415,70 +372,306 @@ export("listMailFolders", true, function(...: any): {{id: string, name: string}}
 	end
 	table.sort(folders, function(a: any, b: any) return a.id < b.id end)
 	return folders
-end, "listMailFolders() -> {{id, name}} sorted by ID. No arguments; every visible folder of the mailbox, nested names joined with '/' such as 'Inbox/Projects'.")
-
-local MESSAGE = "A message uses Graph's fields: subject, body={contentType='Text'|'HTML', content}, toRecipients/ccRecipients/bccRecipients/replyTo={{emailAddress={address, name?}}}, importance?, attachments?={'path' or {path, name?, contentType?}} read from session files, under 3 MB in total (share larger files from OneDrive)."
-
-export("createDraft", DRAFTS, function(input: any): Options
-	return call("createDraft", "POST", API .. "/messages", compose(input, "createDraft options"))
-end, "createDraft({subject?, body?, toRecipients?, ccRecipients?, bccRecipients?, attachments?, ...}) -> draft message. Saves to Drafts without sending" .. (if DRAFTS then "; the person reviews and sends it from Outlook. " else ". ") .. MESSAGE)
-
-export("updateMessage", DRAFTS, function(input: any): Options
-	local args = options(input)
-	local id = text(args.id, "id")
-	args.id = nil
-	assert(next(args) ~= nil and args.attachments == nil, "updateMessage requires fields to change; add attachments with addAttachment")
-	plain(args)
-	draftOnly("updateMessage", id)
-	return call("updateMessage", "PATCH", messagePath(id, "id"), args)
-end, if DRAFTS then "updateMessage({id, subject?, body?, toRecipients?, ...}) -> message. Changes a draft's fields."
-	else "updateMessage({id, isRead?, categories?, flag?={flagStatus='flagged'|'complete'|'notFlagged'}, importance?, ...draft fields}) -> message. Marks read or unread, categorizes or flags; drafts also take subject, body and recipients.")
-
-export("deleteMessage", DRAFTS, function(input: any): Options
-	local args = options(input)
-	local id = text(args.id, "id")
-	args.id = nil
-	done("deleteMessage", args)
-	draftOnly("deleteMessage", id)
-	return call("deleteMessage", "DELETE", messagePath(id, "id"))
-end, "deleteMessage({id}) -> {success=true}. Moves " .. (if DRAFTS then "a draft" else "the message") .. " to Deleted Items.")
-
-export("addAttachment", DRAFTS, function(input: any): Options
-	local args = options(input)
-	local id = text(args.messageId, "messageId")
-	local spec = {path = args.path, name = args.name, contentType = args.contentType}
-	args.messageId, args.path, args.name, args.contentType = nil, nil, nil, nil
-	done("addAttachment", args)
-	local attachment = fileAttachments({spec})[1]
-	draftOnly("addAttachment", id)
-	return call("addAttachment", "POST", messagePath(id, "messageId") .. "/attachments", attachment)
-end, "addAttachment({messageId, path, name?, contentType?}) -> attachment {id, name, size}. Attaches a session file under 3 MB to a draft.")
-
-export("sendMail", false, function(input: any): Options
-	local args = options(input)
-	local body = {message = compose(args.message, "message"), saveToSentItems = args.saveToSentItems}
-	args.message, args.saveToSentItems = nil, nil
-	done("sendMail", args)
-	return call("sendMail", "POST", API .. "/sendMail", body)
-end, "sendMail({message, saveToSentItems?=true}) -> {success=true}. Sends immediately. " .. MESSAGE .. " A timeout may still have sent the mail: check Sent Items before retrying.")
-
-export("createMailFolder", false, function(input: any): Options
-	local args = options(input)
-	local href = API .. "/mailFolders" .. (if args.parentId == nil then "" else "/" .. url.segment(text(args.parentId, "parentId"), "parentId") .. "/childFolders")
-	args.parentId = nil
-	text(args.displayName, "displayName")
-	return call("createMailFolder", "POST", href, args)
-end, "createMailFolder({displayName, parentId?}) -> mailFolder. A top-level folder, or a child of parentId.")
-
-local overview = {
-	"Microsoft Graph v1.0 for the connected Outlook mailbox. Operations take one named options object with Graph's camelCase fields and return Graph's JSON unchanged; sends and deletes return {success=true}. Connector calls return completed values: use them directly, without await.",
-	"Messages carry decoded bodies; attachments save to session files, and composing reads attachments from session paths: never base64-encode anything yourself.",
-	"Lists return one page: while ['@odata.nextLink'] is present, pass it back as nextLink (alone, with bodyFormat or maxBodyBytes if used) for the next page.",
-	"No hidden paging; Houston itself retries only a short 429 wait. Errors report the HTTP status and Graph's error code and message, e.g. 'Microsoft Graph HTTP 404 (ErrorItemNotFound)'; 429, 503 and other transient server errors are retryable after Retry-After. A failed or timed-out write may already have succeeded; check before repeating.",
-	"Example: local page = outlook.listMessages({folderId='inbox', filter='isRead eq false', top=20}); local full = outlook.getMessage({id=page.value[1].id}).",
-}
-if DRAFTS then
-	table.insert(overview, 2, "Read and draft connection: Houston refuses every send, and changes apply only to drafts. Save drafts for the person to review and send from Outlook.")
 end
-exports.help = helpWith(overview)
+
+help.functions.getMailFolder = {
+	description = "One folder: {id, displayName, parentFolderId, childFolderCount, unreadItemCount, totalItemCount}. id is a folder ID or a well-known name: inbox, drafts, sentitems, deleteditems, archive, junkemail.",
+	inputSchema = {type = "object", properties = {id = ID, select = SELECT}, required = {"id"}, additionalProperties = false, examples = {{id = "inbox"}}},
+	annotations = READ,
+}
+function exports.getMailFolder(args: Options?): Options
+	return request("getMailFolder", "GET", "/mailFolders/{id}", args, {query = {"$select"}})
+end
+
+help.functions.listMessages = {
+	description = [[One page of messages, from every folder or from folderId (an ID or well-known name such as
+'inbox'): {value={message}, ['@odata.nextLink']?}. search is KQL, e.g. 'from:ana budget' or
+'subject:invoice hasAttachments:true', returns at most 1000 messages and cannot combine with
+filter, orderby or skip. filter is OData, e.g. "receivedDateTime ge 2026-10-01T00:00:00Z and
+isRead eq false"; with orderby, the ordered fields must also lead filter (Graph answers
+InefficientFilter otherwise). top is at most 1000 (default 10). Default fields: ]] .. LIST .. [[;
+add body to select for full bodies. A conversation is filter="conversationId eq '<id>'".]],
+	inputSchema = {
+		type = "object",
+		properties = {
+			folderId = ID, search = {type = "string", minLength = 1}, filter = {type = "string"}, orderby = {type = "string"},
+			select = SELECT, top = {type = "integer", minimum = 1, maximum = 1000}, skip = {type = "integer", minimum = 0},
+			bodyFormat = BODY_FORMAT, maxBodyBytes = MAX_BODY, nextLink = NEXT,
+		},
+		additionalProperties = false,
+		examples = {{folderId = "inbox", filter = "isRead eq false", top = 20}, {search = "from:ana budget", top = 10}} :: {any},
+	},
+	annotations = READ,
+}
+function exports.listMessages(input: any): Options
+	local args = options(input)
+	local headers = bodyFormat(args)
+	local limit = bodyLimit(args)
+	local link = nextLink("listMessages", args, "/messages$")
+	local href = API .. "/messages"
+	if not link then
+		if args.folderId ~= nil then href = API .. "/mailFolders/" .. url.segment(text(args.folderId, "folderId"), "folderId") .. "/messages" end
+		args.folderId = nil
+		if args.select == nil then args.select = LIST end
+		-- $search takes a quoted string; \ and " inside it are escaped.
+		if args.search ~= nil then args.search = "\"" .. (string.gsub(text(args.search, "search"), "[\\\"]", "\\%0")) .. "\"" end
+		href ..= query(args, {"$select", "$filter", "$search", "$orderby", "$top", "$skip"})
+		done("listMessages", args)
+	end
+	local page = call("listMessages", "GET", link or href, nil, headers)
+	if page.value == nil then page.value = json.decode("[]") end
+	for _, message in page.value do limitBody(message, limit) end
+	return page
+end
+
+help.functions.getMessage = {
+	description = [[One message with every field unless select narrows them: {id, subject, from, toRecipients,
+ccRecipients, bccRecipients, replyTo, receivedDateTime, body={contentType, content}, bodyTruncated,
+uniqueBody?, isRead, isDraft, hasAttachments, conversationId, internetMessageId, webLink, ...}.]],
+	inputSchema = {
+		type = "object",
+		properties = {id = ID, select = SELECT, bodyFormat = BODY_FORMAT, maxBodyBytes = MAX_BODY},
+		required = {"id"},
+		additionalProperties = false,
+		examples = {{id = MESSAGE_ID}, {id = MESSAGE_ID, bodyFormat = "html", maxBodyBytes = 0}} :: {any},
+	},
+	annotations = READ,
+}
+function exports.getMessage(input: any): Options
+	local args = options(input)
+	local headers = bodyFormat(args)
+	local limit = bodyLimit(args)
+	local href = messagePath(args.id, "id")
+	args.id = nil
+	href ..= query(args, {"$select"})
+	done("getMessage", args)
+	local message = call("getMessage", "GET", href, nil, headers)
+	limitBody(message, limit)
+	return message
+end
+
+help.functions.listAttachments = {
+	description = "A message's attachments as metadata, {value={{id, name, contentType, size, isInline}}}; save one with getAttachment.",
+	inputSchema = {type = "object", properties = {messageId = ID, select = SELECT, nextLink = NEXT}, additionalProperties = false, examples = {{messageId = MESSAGE_ID}}},
+	annotations = READ,
+}
+function exports.listAttachments(args: Options?): Options
+	local page = request("listAttachments", "GET", "/messages/{messageId}/attachments", args,
+		{list = "/attachments$", defaults = {select = "id,name,contentType,size,isInline,lastModifiedDateTime"}, query = {"$select"}})
+	-- Attachment bytes move through getAttachment, never inline, whatever select asks for.
+	for _, attachment in page.value do
+		if type(attachment) == "table" then attachment.contentBytes = nil end
+	end
+	return page
+end
+
+help.functions.getAttachment = {
+	description = "Saves an attachment's bytes to a session path (an attached message saves as MIME) and returns {path, url, size}; url is a signed Houston download link.",
+	inputSchema = {
+		type = "object",
+		properties = {messageId = ID, attachmentId = ID, path = {type = "string", minLength = 1, description = "Session file path to write."}},
+		required = {"messageId", "attachmentId", "path"},
+		additionalProperties = false,
+		examples = {{messageId = MESSAGE_ID, attachmentId = "AAMkAGI2THVSAAABEgAQAA=", path = "invoice.pdf"}},
+	},
+	annotations = READ,
+}
+function exports.getAttachment(input: any): Options
+	local args = options(input)
+	local href = messagePath(args.messageId, "messageId") .. "/attachments/" .. url.segment(text(args.attachmentId, "attachmentId"), "attachmentId") .. "/$value"
+	local path = text(args.path, "path")
+	args.messageId, args.attachmentId, args.path = nil, nil, nil
+	done("getAttachment", args)
+	return save("getAttachment", path, function(): HttpResponse return await(http.request({method = "GET", url = href})) end)
+end
+
+if config.access ~= "read-only" then
+	help.functions.createDraft = {
+		description = "Saves a message to Drafts without sending and returns the draft" .. (if DRAFTS then "; the person reviews and sends it from Outlook." else "; send it with sendDraft."),
+		inputSchema = {
+			type = "object",
+			properties = MESSAGE.properties,
+			additionalProperties = true,
+			examples = {{subject = "Q3 report", body = {contentType = "Text", content = "Report attached."},
+				toRecipients = {{emailAddress = {address = "ana@example.com"}}}, attachments = {"report.pdf"}}},
+		},
+		annotations = WRITE,
+	}
+	function exports.createDraft(input: any): Options
+		return call("createDraft", "POST", API .. "/messages", compose(input, "createDraft options"))
+	end
+
+	help.functions.createReply = {
+		description = "Creates a reply draft addressed to the sender, in the conversation, and returns it; edit it with updateMessage.",
+		inputSchema = replySchema(false, {id = MESSAGE_ID, comment = "Thanks, I'll review it today."}),
+		annotations = WRITE,
+	}
+	function exports.createReply(input: any): Options
+		return respond("createReply", "createReply", input)
+	end
+
+	help.functions.createReplyAll = {
+		description = "Creates a reply draft addressed to every recipient and returns it.",
+		inputSchema = replySchema(false, {id = MESSAGE_ID, comment = "Thanks all."}),
+		annotations = WRITE,
+	}
+	function exports.createReplyAll(input: any): Options
+		return respond("createReplyAll", "createReplyAll", input)
+	end
+
+	help.functions.createForward = {
+		description = "Creates a forward draft, with the original's attachments, and returns it.",
+		inputSchema = {
+			type = "object",
+			properties = {id = ID, toRecipients = RECIPIENTS, comment = {type = "string"}, message = MESSAGE},
+			required = {"id"},
+			additionalProperties = false,
+			examples = {{id = MESSAGE_ID, toRecipients = {{emailAddress = {address = "bo@example.com"}}}, comment = "FYI"}},
+		},
+		annotations = WRITE,
+	}
+	function exports.createForward(input: any): Options
+		return respond("createForward", "createForward", input)
+	end
+
+	help.functions.updateMessage = {
+		description = if DRAFTS then "Changes a draft's fields, such as subject, body or recipients, and returns it."
+			else "Changes a message: isRead, categories, flag={flagStatus='flagged'|'complete'|'notFlagged'} or importance; drafts also take subject, body and recipients. Returns the message.",
+		inputSchema = {
+			type = "object",
+			properties = {id = ID, isRead = {type = "boolean"}, categories = {type = "array", items = {type = "string"}}, flag = {type = "object"}, subject = {type = "string"}, body = MESSAGE.properties.body},
+			required = {"id"},
+			minProperties = 2,
+			additionalProperties = true,
+			examples = {if DRAFTS then {id = MESSAGE_ID, subject = "Q3 report (v2)"} else {id = MESSAGE_ID, isRead = true}},
+		},
+		annotations = WRITE,
+	}
+	function exports.updateMessage(input: any): Options
+		local args = options(input)
+		local id = text(args.id, "id")
+		args.id = nil
+		assert(next(args) ~= nil and args.attachments == nil, "updateMessage requires fields to change; add attachments with addAttachment")
+		plain(args)
+		draftOnly("updateMessage", id)
+		return call("updateMessage", "PATCH", messagePath(id, "id"), args)
+	end
+
+	help.functions.deleteMessage = {
+		description = "Deletes " .. (if DRAFTS then "a draft" else "a message") .. " and returns {success=true}. It stays recoverable for the mailbox's retention period but does not appear in Deleted Items; to trash a message instead, move it to 'deleteditems'.",
+		inputSchema = {type = "object", properties = {id = ID}, required = {"id"}, additionalProperties = false, examples = {{id = MESSAGE_ID}}},
+		annotations = DESTRUCTIVE,
+	}
+	function exports.deleteMessage(input: any): Options
+		local args = options(input)
+		local id = text(args.id, "id")
+		args.id = nil
+		done("deleteMessage", args)
+		draftOnly("deleteMessage", id)
+		return call("deleteMessage", "DELETE", messagePath(id, "id"))
+	end
+
+	help.functions.addAttachment = {
+		description = "Attaches a session file of up to about 2.9 MB to a draft and returns the attachment {id, name, size}.",
+		inputSchema = {
+			type = "object",
+			properties = {messageId = ID, path = ID, name = ID, contentType = ID},
+			required = {"messageId", "path"},
+			additionalProperties = false,
+			examples = {{messageId = MESSAGE_ID, path = "report.pdf", contentType = "application/pdf"}},
+		},
+		annotations = WRITE,
+	}
+	function exports.addAttachment(input: any): Options
+		local args = options(input)
+		local id = text(args.messageId, "messageId")
+		local spec = {path = args.path, name = args.name, contentType = args.contentType}
+		args.messageId, args.path, args.name, args.contentType = nil, nil, nil, nil
+		done("addAttachment", args)
+		draftOnly("addAttachment", id)
+		return call("addAttachment", "POST", messagePath(id, "messageId") .. "/attachments", fileAttachments({spec})[1])
+	end
+end
+
+if config.access == "read-write" then
+	help.functions.sendMail = {
+		description = "Sends a message immediately and returns {success=true}. saveToSentItems defaults to true. A timeout may still have sent the mail: check Sent Items before retrying.",
+		inputSchema = {
+			type = "object",
+			properties = {message = MESSAGE, saveToSentItems = {type = "boolean"}},
+			required = {"message"},
+			additionalProperties = false,
+			examples = {{message = {subject = "Lunch?", body = {contentType = "Text", content = "Noon at the usual place?"},
+				toRecipients = {{emailAddress = {address = "ana@example.com", name = "Ana"}}}}}},
+		},
+		annotations = WRITE,
+	}
+	function exports.sendMail(input: any): Options
+		local args = options(input)
+		assert(type(args.message) == "table" and next(args.message) ~= nil, "sendMail requires a nonempty message")
+		local body = {message = compose(args.message, "message"), saveToSentItems = args.saveToSentItems}
+		args.message, args.saveToSentItems = nil, nil
+		done("sendMail", args)
+		return call("sendMail", "POST", API .. "/sendMail", body)
+	end
+
+	help.functions.sendDraft = {
+		description = "Sends a draft and returns {success=true}; the sent copy gets a new ID in Sent Items.",
+		inputSchema = {type = "object", properties = {id = ID}, required = {"id"}, additionalProperties = false, examples = {{id = MESSAGE_ID}}},
+		annotations = WRITE,
+	}
+	function exports.sendDraft(args: Options?): Options
+		return request("sendDraft", "POST", "/messages/{id}/send", args)
+	end
+
+	help.functions.reply = {
+		description = "Sends a reply to the sender and returns {success=true}.",
+		inputSchema = replySchema(false, {id = MESSAGE_ID, comment = "On it."}),
+		annotations = WRITE,
+	}
+	function exports.reply(input: any): Options
+		return respond("reply", "reply", input)
+	end
+
+	help.functions.replyAll = {
+		description = "Sends a reply to every recipient and returns {success=true}.",
+		inputSchema = replySchema(false, {id = MESSAGE_ID, comment = "Thanks all."}),
+		annotations = WRITE,
+	}
+	function exports.replyAll(input: any): Options
+		return respond("replyAll", "replyAll", input)
+	end
+
+	help.functions.forward = {
+		description = "Forwards the message to toRecipients and returns {success=true}.",
+		inputSchema = replySchema(true, {id = MESSAGE_ID, toRecipients = {{emailAddress = {address = "bo@example.com"}}}, comment = "FYI"}),
+		annotations = WRITE,
+	}
+	function exports.forward(input: any): Options
+		return respond("forward", "forward", input)
+	end
+
+	help.functions.moveMessage = {
+		description = "Moves a message and returns it with its new id. destinationId is a folder ID or a well-known name; 'deleteditems' trashes and 'archive' archives.",
+		inputSchema = {type = "object", properties = {id = ID, destinationId = ID}, required = {"id", "destinationId"}, additionalProperties = false, examples = {{id = MESSAGE_ID, destinationId = "archive"}}},
+		annotations = WRITE,
+	}
+	function exports.moveMessage(args: Options?): Options
+		return request("moveMessage", "POST", "/messages/{id}/move", args, {body = true})
+	end
+
+	help.functions.createMailFolder = {
+		description = "Creates a top-level folder, or a child of parentId, and returns it.",
+		inputSchema = {type = "object", properties = {displayName = ID, parentId = ID}, required = {"displayName"}, additionalProperties = false, examples = {{displayName = "Clients"}}},
+		annotations = WRITE,
+	}
+	function exports.createMailFolder(input: any): Options
+		local args = options(input)
+		local href = API .. "/mailFolders" .. (if args.parentId == nil then "" else "/" .. url.segment(text(args.parentId, "parentId"), "parentId") .. "/childFolders")
+		args.parentId = nil
+		text(args.displayName, "displayName")
+		return call("createMailFolder", "POST", href, args)
+	end
+end
+
 return exports

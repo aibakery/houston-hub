@@ -73,6 +73,7 @@ return {
 			function() return c.uploadFile({path = "uploads/report.pdf", itemId = "F1", name = "x.pdf"}) end,
 			function() return c.uploadFile({path = "uploads/report.pdf", parentId = "a/b"}) end,
 			function() return c.uploadFile({path = "uploads/report.pdf", name = ".."}) end,
+			function() return c.uploadFile({path = "uploads/report.pdf", name = "a:b.pdf"}) end,
 			function() return c.uploadFile({path = "uploads/report.pdf", description = "x"}) end,
 			function() return c.uploadFile({path = "uploads/missing.pdf"}) end,
 			function() return c.uploadFile({}) end,

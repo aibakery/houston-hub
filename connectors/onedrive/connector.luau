@@ -1,8 +1,9 @@
 -- Microsoft Graph v1.0 for the connected account's OneDrive. Arguments and results keep Graph's
 -- native field names.
--- Request layer shared verbatim by the Microsoft Graph connectors (tools/validate checks they match).
+-- Request layer shared verbatim by the Microsoft Graph connectors; Hub runs each copy against
+-- every consumer's fixtures.
 type Options = {[string]: any}
-type Endpoint = {method: string, path: string, read: boolean, query: {string}?, body: boolean?, defaults: Options?, list: boolean?, help: string}
+type Spec = {query: {string}?, body: boolean?, list: string?, defaults: Options?, headers: HttpHeaders?}
 local GRAPH = "https://graph.microsoft.com/v1.0"
 local API = GRAPH .. "/me"
 -- Preauthenticated OneDrive download links, under either annotation, work without credentials,
@@ -132,59 +133,29 @@ local function nextLink(name: string, args: Options, ending: string): string?
 	return pageLink(link, ending)
 end
 
--- Moves {placeholders} and declared query fields from args into the URL; remaining fields form the
--- JSON body.
-local function target(name: string, endpoint: Endpoint, args: Options): string
-	local link = if endpoint.list then nextLink(name, args, "/" .. (string.match(endpoint.path, "[^/]+$") or "") .. "$") else nil
-	if link then return link end
-	local defaults: Options = endpoint.defaults or {}
-	for key, value in defaults do
-		if args[key] == nil then args[key] = value end
-	end
-	local path = string.gsub(endpoint.path, "{(%w+)}", function(field: string)
-		local value = url.segment(text(args[field], field), field)
-		args[field] = nil
-		return value
-	end)
-	path ..= query(args, endpoint.query or {})
-	if not endpoint.body then done(name, args) end
-	return API .. path
-end
-
-local function invoke(name: string, endpoint: Endpoint, input: any): any
+-- One Graph request built from args: {field} placeholders take URL-encoded path segments, query
+-- names the query fields and, with body, the other fields form the JSON body. A list (the Lua
+-- pattern its path ends with) also accepts nextLink and always returns a value array.
+local function request(name: string, method: string, path: string, input: any, spec: Spec?): any
 	local args = options(input)
-	local href = target(name, endpoint, args)
-	local result = call(name, endpoint.method, href, if endpoint.body then args else nil)
-	if endpoint.list and result.value == nil then result.value = json.decode("[]") end
+	local s: Spec = spec or {}
+	local href = if s.list then nextLink(name, args, s.list) else nil
+	if not href then
+		local defaults: Options = s.defaults or {}
+		for key, value in defaults do
+			if args[key] == nil then args[key] = value end
+		end
+		local route = string.gsub(path, "{(%w+)}", function(field: string)
+			local value = url.segment(text(args[field], field), field)
+			args[field] = nil
+			return value
+		end)
+		href = API .. route .. query(args, s.query or {})
+		if not s.body then done(name, args) end
+	end
+	local result = call(name, method, href :: string, if s.body then args else nil, s.headers)
+	if s.list and result.value == nil then result.value = json.decode("[]") end
 	return result
-end
-
-local exports: {[string]: any} = {}
-local help: {[string]: string} = {}
-
--- Exposes an operation when it only reads or the connection allows writes.
-local function export(name: string, isRead: boolean, fn: (any) -> any, doc: string)
-	if isRead or config.access == "read-write" then
-		exports[name], help[name] = fn, doc
-	end
-end
-
-local function exportEndpoints(endpoints: {[string]: Endpoint})
-	for name, endpoint in endpoints do
-		export(name, endpoint.read, function(args: Options?): any return invoke(name, endpoint, args) end, endpoint.help)
-	end
-end
-
--- help() introduces the API, then documents exactly the configured operations.
-local function helpWith(overview: {string}): () -> string
-	return function(): string
-		local names: {string} = {}
-		for name in help do table.insert(names, name) end
-		table.sort(names)
-		local lines = table.clone(overview)
-		for _, name in names do table.insert(lines, help[name]) end
-		return table.concat(lines, "\n")
-	end
 end
 -- End of the shared request layer.
 
@@ -193,29 +164,43 @@ local MAX_UPLOAD = 250 * 1024 * 1024
 -- File content redirects to a short-lived preauthenticated URL on these hosts, fetched without credentials.
 local DOWNLOAD_HOSTS = {"%.sharepoint%.com$", "%.files%.1drv%.com$", "%.livefilestore%.com$", "^my%.microsoftpersonalcontent%.com$", "%.svc%.ms$"}
 
-local endpoints: {[string]: Endpoint} = {
-	getDrive = {method = "GET", path = "/drive", read = true, query = {"$select"},
-		help = "getDrive({select?}) -> {id, driveType, owner, quota={total, used, remaining, state}}. The connected account's OneDrive; id is the driveId copies need."},
-	listPermissions = {method = "GET", path = "/drive/items/{itemId}/permissions", read = true, list = true,
-		help = "listPermissions({itemId}) -> {value={{id, roles, link?, grantedToV2?, invitation?}}}. Who can access an item, including its sharing links."},
-	updateItem = {method = "PATCH", path = "/drive/items/{itemId}", read = false, body = true, defaults = {select = ITEM}, query = {"$select"},
-		help = "updateItem({itemId, name?, description?, parentReference?={id}}) -> driveItem. Renames, or moves with parentReference={id=<folder itemId>}."},
-	copyItem = {method = "POST", path = "/drive/items/{itemId}/copy", read = false, body = true,
-		help = "copyItem({itemId, parentReference={driveId, id}, name?}) -> {success=true}. driveId is getDrive().id or an item's parentReference.driveId; name is required to copy into the same folder. OneDrive copies in the background and reports no later failure, such as a name conflict: list the destination to find the copy."},
-	deleteItem = {method = "DELETE", path = "/drive/items/{itemId}", read = false,
-		help = "deleteItem({itemId}) -> {success=true}. Moves the item to the OneDrive recycle bin."},
-	createLink = {method = "POST", path = "/drive/items/{itemId}/createLink", read = false, body = true,
-		help = "createLink({itemId, type='view'|'edit'|'embed', scope?='anonymous'|'organization'|'users', expirationDateTime?, password?}) -> permission with link.webUrl. Anyone with an anonymous link can open the item; organizations may disable them."},
-	invite = {method = "POST", path = "/drive/items/{itemId}/invite", read = false, body = true,
-		help = "invite({itemId, recipients={{email}}, roles={'read'|'write'}, requireSignIn?=true, sendInvitation?=true, message?}) -> {value={permission}}. Shares an item with people; sendInvitation emails them."},
-	deletePermission = {method = "DELETE", path = "/drive/items/{itemId}/permissions/{permissionId}", read = false,
-		help = "deletePermission({itemId, permissionId}) -> {success=true}. Revokes a sharing link or a person's access."},
+local help = {
+	text = [[Microsoft Graph v1.0 for the connected account's OneDrive. Operations take one named options
+object with Graph's camelCase fields and return Graph's JSON unchanged; deletes and copies return
+{success=true}. Connector calls return completed values: use them directly, without await.
+Items are addressed by itemId; omit it for the root folder, and getItem({path='Folder/file.docx'})
+finds an item by path. driveItems have folder on folders and file={mimeType} on files.
+Lists return one page: while ['@odata.nextLink'] is present, pass it back as nextLink, alone.
+Files move through session paths: downloads save to a path and return a signed Houston URL, uploads
+read from a path. Never inline file bytes. Results omit preauthenticated download links.
+No hidden paging; Houston itself retries only a short 429 wait. Errors report the HTTP status and
+Graph's code and message, e.g. 'Microsoft Graph HTTP 404 (itemNotFound)'; 429, 503 and other
+transient server errors are retryable, a full drive (507) is not. A failed or timed-out write may
+already have succeeded: check before repeating.]],
+	functions = {} :: {[string]: any},
 }
+local exports: {[string]: any} = {help = help}
+
+-- Schemas and hints shared by several operations.
+local ID = {type = "string", minLength = 1}
+local SELECT = {type = {"string", "array"}, items = {type = "string"}, description = "driveItem fields, comma-separated or as an array; defaults to " .. ITEM .. "."}
+local NEXT = {type = "string", description = "The previous page's @odata.nextLink; pass it alone."}
+local CONFLICT = {type = "string", enum = {"rename", "replace", "fail"}, description = "What happens when the name exists."}
+local REFERENCE = {type = "object", properties = {id = ID, driveId = ID}, required = {"id"}, description = "The destination folder."}
+local READ = {readOnlyHint = true, openWorldHint = true}
+local WRITE = {readOnlyHint = false, destructiveHint = false, openWorldHint = true}
+local DESTRUCTIVE = {readOnlyHint = false, destructiveHint = true, openWorldHint = true}
 
 -- An item by ID, or the root folder when id is nil.
 local function itemPath(id: any, field: string): string
 	if id == nil then return "/drive/root" end
 	return "/drive/items/" .. url.segment(text(id, field), field)
+end
+
+-- OneDrive names cannot contain a colon, which would end path-based addressing early.
+local function itemName(value: any, field: string): string
+	assert(not string.find(text(value, field), ":", 1, true), field .. " cannot contain ':'")
+	return url.segment(value, field)
 end
 
 local function conflictBehavior(value: any, default: string): string
@@ -225,14 +210,14 @@ local function conflictBehavior(value: any, default: string): string
 end
 
 -- One page of driveItems with the default fields, unless args holds a nextLink.
-local function page(name: string, href: string, ending: string, args: Options, names: {string}): Options
-	local link = nextLink(name, args, ending)
+local function page(operation: string, href: string, ending: string, args: Options, names: {string}): Options
+	local link = nextLink(operation, args, ending)
 	if not link then
 		if args.select == nil then args.select = ITEM end
 		href ..= query(args, names)
-		done(name, args)
+		done(operation, args)
 	end
-	local result = call(name, "GET", link or href)
+	local result = call(operation, "GET", link or href)
 	if result.value == nil then result.value = json.decode("[]") end
 	return result
 end
@@ -247,8 +232,133 @@ local function allowedDownload(location: string): boolean
 	return false
 end
 
+help.functions.getDrive = {
+	description = "The connected account's OneDrive: {id, driveType, owner, quota={total, used, remaining, state}}. id is the driveId copies need.",
+	inputSchema = {type = "object", properties = {select = {type = {"string", "array"}, items = {type = "string"}}}, additionalProperties = false, examples = {{select = "id,driveType,quota"}}},
+	annotations = READ,
+}
+function exports.getDrive(args: Options?): Options
+	return request("getDrive", "GET", "/drive", args, {query = {"$select"}})
+end
+
+help.functions.getItem = {
+	description = [[One driveItem {id, name, size, file?={mimeType}, folder?={childCount}, parentReference,
+lastModifiedDateTime, webUrl}: by itemId, by path relative to the root such as
+'Documents/Q3 report.pdf', or the root folder without either. Names containing % or : can only be
+reached by itemId.]],
+	inputSchema = {
+		type = "object",
+		properties = {itemId = ID, path = {type = "string", minLength = 1}, select = SELECT},
+		["not"] = {required = {"itemId", "path"}},
+		additionalProperties = false,
+		examples = {{path = "Documents/Q3 report.pdf"}, {itemId = "01BYE5RZ6QN3ZWBTUFOFD3GSPGOHDJD36K", select = "id,name,size"}} :: {any},
+	},
+	annotations = READ,
+}
+function exports.getItem(input: any): Options
+	local args = options(input)
+	local href = API .. itemPath(args.itemId, "itemId")
+	if args.path ~= nil then
+		assert(args.itemId == nil, "getItem takes itemId or path, not both")
+		local segments: {string} = {}
+		for part in string.gmatch(text(args.path, "path"), "[^/]+") do table.insert(segments, itemName(part, "path")) end
+		if #segments > 0 then href ..= ":/" .. table.concat(segments, "/") .. ":" end
+	end
+	args.itemId, args.path = nil, nil
+	if args.select == nil then args.select = ITEM end
+	href ..= query(args, {"$select"})
+	done("getItem", args)
+	return call("getItem", "GET", href)
+end
+
+help.functions.listChildren = {
+	description = "One page of a folder's driveItems, the root folder without itemId: {value={driveItem}, ['@odata.nextLink']?}. top is at most 999 (default 200); orderby is e.g. 'name' or 'lastModifiedDateTime desc'.",
+	inputSchema = {
+		type = "object",
+		properties = {itemId = ID, select = SELECT, top = {type = "integer", minimum = 1, maximum = 999}, orderby = {type = "string"}, nextLink = NEXT},
+		additionalProperties = false,
+		examples = {{itemId = "01BYE5RZ6QN3ZWBTUFOFD3GSPGOHDJD36K", top = 50, orderby = "name"}},
+	},
+	annotations = READ,
+}
+function exports.listChildren(input: any): Options
+	local args = options(input)
+	local href = ""
+	if args.nextLink == nil then
+		href = API .. itemPath(args.itemId, "itemId") .. "/children"
+		args.itemId = nil
+	end
+	return page("listChildren", href, "/children$", args, {"$select", "$top", "$orderby"})
+end
+
+help.functions.searchItems = {
+	description = "One page of driveItems whose name, metadata or content match q, across the drive: {value={driveItem}, ['@odata.nextLink']?}. q cannot contain / or %.",
+	inputSchema = {
+		type = "object",
+		properties = {q = {type = "string", minLength = 1}, select = SELECT, top = {type = "integer", minimum = 1}, nextLink = NEXT},
+		additionalProperties = false,
+		examples = {{q = "quarterly budget", top = 10}},
+	},
+	annotations = READ,
+}
+function exports.searchItems(input: any): Options
+	local args = options(input)
+	local href = ""
+	if args.nextLink == nil then
+		-- OData quotes a literal by doubling its single quotes.
+		href = API .. "/drive/root/search(q='" .. url.segment((string.gsub(text(args.q, "q"), "'", "''")), "q") .. "')"
+		args.q = nil
+	end
+	return page("searchItems", href, "[/%.]search%(.*%)$", args, {"$select", "$top"})
+end
+
+help.functions.listPermissions = {
+	description = "Who can access an item, including its sharing links: {value={{id, roles, link?, grantedToV2?, invitation?}}, ['@odata.nextLink']?}.",
+	inputSchema = {type = "object", properties = {itemId = ID, nextLink = NEXT}, additionalProperties = false, examples = {{itemId = "01BYE5RZ6QN3ZWBTUFOFD3GSPGOHDJD36K"}}},
+	annotations = READ,
+}
+function exports.listPermissions(args: Options?): Options
+	return request("listPermissions", "GET", "/drive/items/{itemId}/permissions", args, {list = "/permissions$"})
+end
+
+-- Fixed-signature file lookup shared with other storage connectors.
+help.functions.statFile = {
+	description = "One item's {id, name, isFolder, size?}; size is absent for folders.",
+	args = {"itemId"},
+	inputSchema = {type = "object", properties = {itemId = ID}, required = {"itemId"}, additionalProperties = false, examples = {{itemId = "01BYE5RZ6QN3ZWBTUFOFD3GSPGOHDJD36K"}}},
+	outputSchema = {
+		type = "object",
+		properties = {id = ID, name = {type = "string"}, isFolder = {type = "boolean"}, size = {type = "integer", minimum = 0}},
+		required = {"id", "name", "isFolder"},
+		additionalProperties = false,
+	},
+	annotations = READ,
+}
+function exports.statFile(...: any): {id: string, name: string, isFolder: boolean, size: number?}
+	assert(select("#", ...) == 1, "statFile takes exactly one item ID")
+	local file = call("statFile", "GET", API .. itemPath(text((...), "item ID"), "item ID") .. "?$select=id,name,size,folder")
+	local isFolder = file.folder ~= nil
+	local size = if isFolder then nil else file.size
+	if type(file.id) ~= "string" or file.id == "" or type(file.name) ~= "string"
+		or (not isFolder and (type(size) ~= "number" or size < 0 or size % 1 ~= 0 or size > 9007199254740991)) then
+		houston.fail({operation = "statFile", layer = "upstream", retryable = false, message = "Microsoft Graph returned invalid item metadata"})
+	end
+	return {id = file.id, name = file.name, isFolder = isFolder, size = size}
+end
+
+help.functions.downloadFile = {
+	description = "Saves a file's bytes to a session path and returns {path, url, size}, where url is a signed Houston download link. format='pdf' converts Word, Excel, PowerPoint and other documents of up to 2 MB to PDF.",
+	inputSchema = {
+		type = "object",
+		properties = {itemId = ID, path = {type = "string", minLength = 1, description = "Session file path to write."}, format = {type = "string", enum = {"pdf"}}},
+		required = {"itemId", "path"},
+		additionalProperties = false,
+		examples = {{itemId = "01BYE5RZ6QN3ZWBTUFOFD3GSPGOHDJD36K", path = "report.docx"}, {itemId = "01BYE5RZ6QN3ZWBTUFOFD3GSPGOHDJD36K", path = "report.pdf", format = "pdf"}} :: {any},
+	},
+	annotations = READ,
+}
 -- Graph answers with a redirect to the file's preauthenticated link, which expires within minutes.
-local function download(input: any): Options
+function exports.downloadFile(input: any): Options
 	local args = options(input)
 	local href = API .. itemPath(text(args.itemId, "itemId"), "itemId") .. "/content"
 	local path = text(args.path, "path")
@@ -278,101 +388,161 @@ local function download(input: any): Options
 	end)
 end
 
--- Simple upload streams the session file in one request; with itemId it replaces that file's content.
-local function upload(input: any): Options
-	local args = options(input)
-	local path = text(args.path, "path")
-	local contentType = text(args.contentType or "application/octet-stream", "contentType")
-	local href: string
-	if args.itemId ~= nil then
-		assert(args.parentId == nil and args.name == nil and args.conflictBehavior == nil,
-			"uploadFile with itemId replaces content only; omit parentId, name and conflictBehavior")
-		href = API .. itemPath(text(args.itemId, "itemId"), "itemId") .. "/content"
-	else
-		local name = url.segment(text(args.name or string.match(path, "[^/]+$"), "name"), "name")
-		href = API .. itemPath(args.parentId, "parentId") .. ":/" .. name .. ":/content?@microsoft.graph.conflictBehavior="
-			.. conflictBehavior(args.conflictBehavior, "rename")
+if config.access == "read-write" then
+	help.functions.createFolder = {
+		description = "Creates a folder in parentId, or in the root folder, and returns its driveItem. conflictBehavior defaults to 'fail'.",
+		inputSchema = {
+			type = "object",
+			properties = {name = {type = "string", minLength = 1}, parentId = ID, conflictBehavior = CONFLICT},
+			required = {"name"},
+			additionalProperties = false,
+			examples = {{name = "Reports"}, {name = "2026", parentId = "01BYE5RZ6QN3ZWBTUFOFD3GSPGOHDJD36K", conflictBehavior = "rename"}} :: {any},
+		},
+		annotations = WRITE,
+	}
+	function exports.createFolder(input: any): Options
+		local args = options(input)
+		local href = API .. itemPath(args.parentId, "parentId") .. "/children"
+		local body = {name = text(args.name, "name"), folder = {}, ["@microsoft.graph.conflictBehavior"] = conflictBehavior(args.conflictBehavior, "fail")}
+		args.parentId, args.name, args.conflictBehavior = nil, nil, nil
+		done("createFolder", args)
+		return call("createFolder", "POST", href, body)
 	end
-	args.path, args.contentType, args.itemId, args.parentId, args.name, args.conflictBehavior = nil, nil, nil, nil, nil, nil
-	done("uploadFile", args)
-	assert(await(fs.stat(path)).size <= MAX_UPLOAD, "uploadFile handles files up to 250 MB")
-	return decode("uploadFile", await(http.request({method = "PUT", url = href,
-		headers = {["Content-Type"] = {contentType}}, body = fs.open(path, "r")})))
+
+	help.functions.uploadFile = {
+		description = [[Streams a session file of up to 250 MB into parentId or the root folder and returns its driveItem.
+name defaults to the path's basename and cannot contain % or :; by default an existing name gets a
+numbered copy. With itemId instead, replaces that file's content. A failed upload may leave nothing
+or a complete file: check with listChildren before retrying.]],
+		inputSchema = {
+			type = "object",
+			properties = {
+				path = {type = "string", minLength = 1, description = "Session file to upload."},
+				parentId = ID, name = {type = "string", minLength = 1}, conflictBehavior = CONFLICT,
+				itemId = {type = "string", minLength = 1, description = "A file whose content to replace; excludes parentId, name and conflictBehavior."},
+				contentType = {type = "string", minLength = 1, description = "Defaults to application/octet-stream."},
+			},
+			required = {"path"},
+			additionalProperties = false,
+			examples = {{path = "report.pdf", parentId = "01BYE5RZ6QN3ZWBTUFOFD3GSPGOHDJD36K", contentType = "application/pdf"}, {path = "report.pdf", itemId = "01BYE5RZ6QN3ZWBTUFOFD3GSPGOHDJD36K"}} :: {any},
+		},
+		annotations = WRITE,
+	}
+	function exports.uploadFile(input: any): Options
+		local args = options(input)
+		local path = text(args.path, "path")
+		local contentType = text(args.contentType or "application/octet-stream", "contentType")
+		local href: string
+		if args.itemId ~= nil then
+			assert(args.parentId == nil and args.name == nil and args.conflictBehavior == nil,
+				"uploadFile with itemId replaces content only; omit parentId, name and conflictBehavior")
+			href = API .. itemPath(text(args.itemId, "itemId"), "itemId") .. "/content"
+		else
+			href = API .. itemPath(args.parentId, "parentId") .. ":/" .. itemName(args.name or string.match(path, "[^/]+$"), "name")
+				.. ":/content?@microsoft.graph.conflictBehavior=" .. conflictBehavior(args.conflictBehavior, "rename")
+		end
+		args.path, args.contentType, args.itemId, args.parentId, args.name, args.conflictBehavior = nil, nil, nil, nil, nil, nil
+		done("uploadFile", args)
+		assert(await(fs.stat(path)).size <= MAX_UPLOAD, "uploadFile handles files up to 250 MB")
+		return decode("uploadFile", await(http.request({method = "PUT", url = href,
+			headers = {["Content-Type"] = {contentType}}, body = fs.open(path, "r")})))
+	end
+
+	help.functions.updateItem = {
+		description = "Renames an item, changes its description, or moves it with parentReference={id=<folder itemId>}; returns the driveItem.",
+		inputSchema = {
+			type = "object",
+			properties = {itemId = ID, name = {type = "string", minLength = 1}, description = {type = "string"}, parentReference = REFERENCE, select = SELECT},
+			required = {"itemId"},
+			additionalProperties = true,
+			examples = {{itemId = "01BYE5RZ6QN3ZWBTUFOFD3GSPGOHDJD36K", name = "Q3 report (final).pdf"}},
+		},
+		annotations = WRITE,
+	}
+	function exports.updateItem(args: Options?): Options
+		return request("updateItem", "PATCH", "/drive/items/{itemId}", args, {body = true, defaults = {select = ITEM}, query = {"$select"}})
+	end
+
+	help.functions.copyItem = {
+		description = [[Copies an item into parentReference={driveId, id}, where driveId is getDrive().id or an item's
+parentReference.driveId; name is required to copy into the same folder. Returns {success=true}:
+OneDrive copies in the background and reports no later failure, such as a name conflict, so list the
+destination to find the copy.]],
+		inputSchema = {
+			type = "object",
+			properties = {itemId = ID, parentReference = REFERENCE, name = {type = "string", minLength = 1}},
+			required = {"itemId", "parentReference"},
+			additionalProperties = false,
+			examples = {{itemId = "01BYE5RZ6QN3ZWBTUFOFD3GSPGOHDJD36K", parentReference = {driveId = "b!x-1", id = "01BYE5RZ2BXHFM2TBFTJ7QXAG6KD4V4S7L"}, name = "Q3 report copy.pdf"}},
+		},
+		annotations = WRITE,
+	}
+	function exports.copyItem(args: Options?): Options
+		return request("copyItem", "POST", "/drive/items/{itemId}/copy", args, {body = true})
+	end
+
+	help.functions.deleteItem = {
+		description = "Moves an item to the OneDrive recycle bin and returns {success=true}.",
+		inputSchema = {type = "object", properties = {itemId = ID}, required = {"itemId"}, additionalProperties = false, examples = {{itemId = "01BYE5RZ6QN3ZWBTUFOFD3GSPGOHDJD36K"}}},
+		annotations = DESTRUCTIVE,
+	}
+	function exports.deleteItem(args: Options?): Options
+		return request("deleteItem", "DELETE", "/drive/items/{itemId}", args)
+	end
+
+	help.functions.createLink = {
+		description = "Creates or returns a sharing link: a permission with link.webUrl. Anyone with an anonymous link can open the item; organizations may disable them.",
+		inputSchema = {
+			type = "object",
+			properties = {
+				itemId = ID, type = {type = "string", enum = {"view", "edit", "embed"}},
+				scope = {type = "string", enum = {"anonymous", "organization", "users"}},
+				expirationDateTime = {type = "string"}, password = {type = "string"},
+			},
+			required = {"itemId", "type"},
+			additionalProperties = false,
+			examples = {{itemId = "01BYE5RZ6QN3ZWBTUFOFD3GSPGOHDJD36K", type = "view", scope = "organization"}},
+		},
+		annotations = WRITE,
+	}
+	function exports.createLink(args: Options?): Options
+		return request("createLink", "POST", "/drive/items/{itemId}/createLink", args, {body = true})
+	end
+
+	help.functions.invite = {
+		description = "Shares an item with people and returns {value={permission}}; sendInvitation (default true) emails them.",
+		inputSchema = {
+			type = "object",
+			properties = {
+				itemId = ID,
+				recipients = {type = "array", minItems = 1, items = {type = "object", properties = {email = {type = "string", minLength = 1}}, required = {"email"}}},
+				roles = {type = "array", minItems = 1, items = {type = "string", enum = {"read", "write"}}},
+				requireSignIn = {type = "boolean"}, sendInvitation = {type = "boolean"}, message = {type = "string"},
+			},
+			required = {"itemId", "recipients", "roles"},
+			additionalProperties = false,
+			examples = {{itemId = "01BYE5RZ6QN3ZWBTUFOFD3GSPGOHDJD36K", recipients = {{email = "ana@example.com"}}, roles = {"read"}, sendInvitation = false}},
+		},
+		annotations = WRITE,
+	}
+	function exports.invite(args: Options?): Options
+		return request("invite", "POST", "/drive/items/{itemId}/invite", args, {body = true})
+	end
+
+	help.functions.deletePermission = {
+		description = "Revokes a sharing link or a person's access and returns {success=true}.",
+		inputSchema = {
+			type = "object",
+			properties = {itemId = ID, permissionId = ID},
+			required = {"itemId", "permissionId"},
+			additionalProperties = false,
+			examples = {{itemId = "01BYE5RZ6QN3ZWBTUFOFD3GSPGOHDJD36K", permissionId = "aTowIy5mfG1lbWJlcnNoaXA"}},
+		},
+		annotations = DESTRUCTIVE,
+	}
+	function exports.deletePermission(args: Options?): Options
+		return request("deletePermission", "DELETE", "/drive/items/{itemId}/permissions/{permissionId}", args)
+	end
 end
 
-exportEndpoints(endpoints)
-
-export("getItem", true, function(input: any): Options
-	local args = options(input)
-	local href = API .. itemPath(args.itemId, "itemId")
-	if args.path ~= nil then
-		assert(args.itemId == nil, "getItem takes itemId or path, not both")
-		local segments: {string} = {}
-		for part in string.gmatch(text(args.path, "path"), "[^/]+") do table.insert(segments, url.segment(part, "path")) end
-		if #segments > 0 then href ..= ":/" .. table.concat(segments, "/") .. ":" end
-	end
-	args.itemId, args.path = nil, nil
-	if args.select == nil then args.select = ITEM end
-	href ..= query(args, {"$select"})
-	done("getItem", args)
-	return call("getItem", "GET", href)
-end, "getItem({itemId? | path?, select?}) -> driveItem {id, name, size, file?={mimeType}, folder?={childCount}, parentReference, lastModifiedDateTime, webUrl}. Without either, the root folder; path is relative to the root, e.g. 'Documents/Q3 report.pdf', and names containing % can only be reached by itemId.")
-
-export("listChildren", true, function(input: any): Options
-	local args = options(input)
-	local href = ""
-	if args.nextLink == nil then
-		href = API .. itemPath(args.itemId, "itemId") .. "/children"
-		args.itemId = nil
-	end
-	return page("listChildren", href, "/children$", args, {"$select", "$top", "$orderby"})
-end, "listChildren({itemId?, select?, top?, orderby?, nextLink?}) -> {value={driveItem}, @odata.nextLink?}. A folder's items, the root folder without itemId. top ≤999 (default 200); orderby e.g. 'name' or 'lastModifiedDateTime desc'.")
-
-export("searchItems", true, function(input: any): Options
-	local args = options(input)
-	local href = ""
-	if args.nextLink == nil then
-		-- OData quotes a literal by doubling its single quotes.
-		href = API .. "/drive/root/search(q='" .. url.segment((string.gsub(text(args.q, "q"), "'", "''")), "q") .. "')"
-		args.q = nil
-	end
-	return page("searchItems", href, "/search%(.*%)$", args, {"$select", "$top"})
-end, "searchItems({q, select?, top?, nextLink?}) -> {value={driveItem}, @odata.nextLink?}. Matches names, metadata and file content across the drive. q cannot contain / or %.")
-
--- Fixed-signature file lookup shared with other storage connectors.
-export("statFile", true, function(...: any): {id: string, name: string, isFolder: boolean, size: number?}
-	assert(select("#", ...) == 1, "statFile takes exactly one item ID")
-	local file = call("statFile", "GET", API .. itemPath(text((...), "item ID"), "item ID") .. "?$select=id,name,size,folder")
-	local isFolder = file.folder ~= nil
-	local size = if isFolder then nil else file.size
-	if type(file.id) ~= "string" or file.id == "" or type(file.name) ~= "string"
-		or (not isFolder and (type(size) ~= "number" or size < 0 or size % 1 ~= 0 or size > 9007199254740991)) then
-		houston.fail({operation = "statFile", layer = "upstream", retryable = false, message = "Microsoft Graph returned invalid item metadata"})
-	end
-	return {id = file.id, name = file.name, isFolder = isFolder, size = size}
-end, "statFile(itemId) -> {id, name, isFolder, size?}. One positional item ID; size is absent for folders.")
-
-export("downloadFile", true, download,
-	"downloadFile({itemId, path, format?='pdf'}) -> {path, url, size}. Saves a file's bytes to a session path; url is a signed Houston download link. format='pdf' converts Word, Excel, PowerPoint and other documents of up to 2 MB to PDF.")
-
-export("createFolder", false, function(input: any): Options
-	local args = options(input)
-	local href = API .. itemPath(args.parentId, "parentId") .. "/children"
-	local body = {name = text(args.name, "name"), folder = {}, ["@microsoft.graph.conflictBehavior"] = conflictBehavior(args.conflictBehavior, "fail")}
-	args.parentId, args.name, args.conflictBehavior = nil, nil, nil
-	done("createFolder", args)
-	return call("createFolder", "POST", href, body)
-end, "createFolder({name, parentId?, conflictBehavior?='fail'|'rename'|'replace'}) -> driveItem. Creates the folder in parentId, or in the root folder.")
-
-export("uploadFile", false, upload,
-	"uploadFile({path, parentId?, name?, conflictBehavior?='rename'|'replace'|'fail', contentType?}) -> driveItem. Streams a session file of up to 250 MB into parentId or the root folder; name defaults to the path's basename and cannot contain %, and by default an existing name gets a numbered copy. uploadFile({path, itemId}) replaces that file's content instead. A failed upload may leave nothing or a complete file: check with listChildren before retrying.")
-
-exports.help = helpWith({
-	"Microsoft Graph v1.0 for the connected account's OneDrive. Operations take one named options object with Graph's camelCase fields and return Graph's JSON unchanged; deletes and copies return {success=true}. Connector calls return completed values: use them directly, without await.",
-	"Items are addressed by itemId; omit it for the root folder, and getItem({path='Folder/file.docx'}) finds an item by path. select lists driveItem fields, defaulting to " .. ITEM .. "; folder is present on folders and file={mimeType} on files.",
-	"Lists return one page: while ['@odata.nextLink'] is present, pass it back as nextLink (alone) for the next page.",
-	"Files move through session paths: downloads save to a path and return a signed URL, uploads read from a path. Never inline file bytes. Results omit @microsoft.graph.downloadUrl.",
-	"No hidden paging; Houston itself retries only a short 429 wait. Errors report the HTTP status and Graph's error code and message, e.g. 'Microsoft Graph HTTP 404 (itemNotFound)'; 429, 503 and other transient server errors are retryable after Retry-After, a full drive (507) is not. A failed or timed-out write may already have succeeded; check before repeating.",
-	"Example: local hits = onedrive.searchItems({q='budget', top=10}); local saved = onedrive.downloadFile({itemId=hits.value[1].id, path='budget.xlsx'}).",
-})
 return exports

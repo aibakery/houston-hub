@@ -65,11 +65,17 @@ return {
 		responses = {{body = '{"value":[{"id":"p1","roles":["read"]}]}'}}
 		assert(c.listPermissions({itemId = "f1"}).value[1].id == "p1")
 		assert(requests[10].url == API .. "/drive/items/f1/permissions", requests[10].url)
+		-- Graph may name the search function with its namespace in nextLinks.
+		responses = {{body = '{"value":[]}'}}
+		local ns = API .. "/drive/root/microsoft.graph.search(q='x')?$skiptoken=1"
+		assert(#c.searchItems({nextLink = ns}).value == 0 and requests[11].url == ns, requests[11].url)
 
 		-- Invalid input never reaches Graph.
 		local sent = #requests
 		for _, call in {
 			function() return c.getItem({path = "Documents/../secret"}) end,
+			-- OneDrive names have no colon, which would end path-based addressing early.
+			function() return c.getItem({path = "photo.jpg:/thumbnails"}) end,
 			function() return c.getItem({itemId = "f1", path = "a"}) end,
 			function() return c.getItem({itemId = "f/1"}) end,
 			function() return c.listChildren({itemId = ".."}) end,

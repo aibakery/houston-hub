@@ -15,4 +15,5 @@ Give agents the context they need from your Outlook mailbox.
 Works with Outlook.com and Microsoft 365 work or school mailboxes. Read-only
 access cannot send mail or change your mailbox. Read and draft access can
 create, update and delete drafts, including ones you wrote, but Houston
-refuses every request to send. Deleted messages go to Deleted Items.
+refuses every request to send. Deleted messages stay recoverable in Outlook for
+your mailbox's retention period.

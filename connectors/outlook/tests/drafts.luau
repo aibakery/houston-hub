@@ -84,10 +84,8 @@ return {
 			function() return c.createDraft({subject = "x", attachments = {"missing.txt"}}) end,
 			function() return c.createDraft({subject = "x", attachments = "notes.txt"}) end,
 			function() return c.createDraft({subject = "x", attachments = {{name = "x"}}}) end,
-			function() return c.createDraft({}) end,
 			function() return c.updateMessage({id = "D1"}) end,
 			function() return c.updateMessage({id = "D1", attachments = {"notes.txt"}}) end,
-			function() return c.addAttachment({messageId = "D1", path = "big.bin"}) end,
 			function() return c.deleteMessage({id = "D1", permanent = true}) end,
 			function() return c.createReply({}) end,
 			-- Extended MAPI properties could turn a draft into a sent or received message.
@@ -97,6 +95,11 @@ return {
 			function() return c.createReply({id = "M1", message = {singleValueExtendedProperties = {}}}) end,
 		} do assert(not pcall(call)) end
 		assert(#requests == before, "invalid drafts reached Graph")
+		-- An empty draft is fine; an oversized attachment fails after the draft check, before upload.
+		responses = {{status = 201, body = '{"id":"D9","isDraft":true}'}, {body = '{"isDraft":true}'}}
+		assert(c.createDraft({}).id == "D9" and last().body == "{}", last().body)
+		assert(not pcall(c.addAttachment, {messageId = "D9", path = "big.bin"}))
+		assert(last().method == "GET" and #responses == 0, "an oversized attachment was uploaded")
 		assert(#responses == 0)
 	end,
 }
