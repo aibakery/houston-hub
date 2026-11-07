@@ -606,6 +606,13 @@ General Luau typechecking and native transport restrictions still apply.
 Standardized cross-provider interfaces are deferred until actual portability needs
 justify them. Connectors do not declare `implements`.
 
+Name operations, arguments and result fields after the API the connector wraps,
+keeping its shapes, so the provider's documentation still applies. Fastmail
+follows JMAP (`to={{email, name?}}`), Outlook follows Microsoft Graph
+(`toRecipients`, `comment`), and connectors that build MIME use header names such as
+`replyTo` and `inReplyTo`. Give a convenience without a provider equivalent a
+plain name, and never reuse a provider name for something else.
+
 ## Documentation and recommended manifest layout
 
 Write the shortest useful README and SETUP. README answers “What can my agents do,
