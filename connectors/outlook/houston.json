@@ -1,0 +1,249 @@
+{
+  "schema_version": 1,
+  "name": "Microsoft Outlook",
+  "files": [
+    "connector.luau"
+  ],
+  "icon": "icon.svg",
+  "config": {
+    "access": {
+      "type": "string",
+      "label": "Access",
+      "default": "read-only",
+      "description": "Read and draft lets agents create, update and delete drafts for you to review and send from Outlook; Houston refuses every send request on that level.",
+      "options": [
+        {
+          "label": "Read-only",
+          "value": "read-only"
+        },
+        {
+          "label": "Read and draft",
+          "value": "custom"
+        },
+        {
+          "label": "Read and write",
+          "value": "read-write"
+        }
+      ]
+    }
+  },
+  "auth": {
+    "oauth": {
+      "type": "oauth2",
+      "label": "Connect with Microsoft",
+      "brand": "microsoft",
+      "authorize_url": "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
+      "token_url": "https://login.microsoftonline.com/common/oauth2/v2.0/token",
+      "client_id": "{{publisher.client_id}}",
+      "client_secret": "{{publisher.client_secret}}",
+      "client_auth": "body",
+      "pkce": "S256",
+      "require_refresh": true,
+      "authorize_params": {
+        "prompt": "select_account"
+      },
+      "scopes": [
+        {
+          "values": [
+            "offline_access",
+            "User.Read"
+          ]
+        },
+        {
+          "if": "{{ is config.access \"read-only\" }}",
+          "values": [
+            "Mail.Read"
+          ]
+        },
+        {
+          "if": "{{ is config.access \"custom\" }}",
+          "values": [
+            "Mail.ReadWrite"
+          ]
+        },
+        {
+          "if": "{{ is config.access \"read-write\" }}",
+          "values": [
+            "Mail.ReadWrite",
+            "Mail.Send"
+          ]
+        }
+      ],
+      "account": {
+        "method": "GET",
+        "url": "https://graph.microsoft.com/v1.0/me?$select=userPrincipalName",
+        "headers": {
+          "Authorization": {
+            "value": "Bearer {{auth.oauth.access_token}}"
+          }
+        },
+        "label": "/userPrincipalName"
+      },
+      "token_response": {
+        "scopes_unreported": true,
+        "checks": [
+          {
+            "op": "equals",
+            "path": "/token_type",
+            "value": "Bearer"
+          },
+          {
+            "op": "exists",
+            "path": "/refresh_token"
+          }
+        ]
+      }
+    }
+  },
+  "publisher": {
+    "client_id": {
+      "type": "string",
+      "label": "Microsoft application (client) ID",
+      "required": true,
+      "order": 1
+    },
+    "client_secret": {
+      "type": "secret",
+      "label": "Microsoft client secret value",
+      "required": true,
+      "order": 2
+    }
+  },
+  "proxy": [
+    {
+      "match": {
+        "protocol": "http",
+        "host": [
+          "graph.microsoft.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/v1.0/me",
+          "/v1.0/me/mailFolders",
+          "/v1.0/me/mailFolders/{id}",
+          "/v1.0/me/mailFolders/{id}/childFolders",
+          "/v1.0/me/mailFolders/{id}/messages",
+          "/v1.0/me/messages",
+          "/v1.0/me/messages/{id}",
+          "/v1.0/me/messages/{id}/attachments",
+          "/v1.0/me/messages/{id}/attachments/{attachmentId}/$value"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"custom\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "graph.microsoft.com"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/v1.0/me/messages",
+          "/v1.0/me/messages/{id}/attachments",
+          "/v1.0/me/messages/{id}/createReply",
+          "/v1.0/me/messages/{id}/createReplyAll",
+          "/v1.0/me/messages/{id}/createForward"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"custom\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "graph.microsoft.com"
+        ],
+        "method": [
+          "PATCH",
+          "DELETE"
+        ],
+        "path": [
+          "/v1.0/me/messages/{id}"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "graph.microsoft.com"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/v1.0/me/sendMail",
+          "/v1.0/me/mailFolders",
+          "/v1.0/me/mailFolders/{id}/childFolders",
+          "/v1.0/me/messages",
+          "/v1.0/me/messages/{id}/attachments",
+          "/v1.0/me/messages/{id}/createReply",
+          "/v1.0/me/messages/{id}/createReplyAll",
+          "/v1.0/me/messages/{id}/createForward",
+          "/v1.0/me/messages/{id}/send",
+          "/v1.0/me/messages/{id}/reply",
+          "/v1.0/me/messages/{id}/replyAll",
+          "/v1.0/me/messages/{id}/forward",
+          "/v1.0/me/messages/{id}/move"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "graph.microsoft.com"
+        ],
+        "method": [
+          "PATCH",
+          "DELETE"
+        ],
+        "path": [
+          "/v1.0/me/messages/{id}"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      }
+    }
+  ]
+}
