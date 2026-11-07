@@ -628,8 +628,8 @@ shared Markdown renderer and design tokens. Long code and tables must scroll wit
 the document without widening the page. Raw HTML is disabled.
 
 Official examples should order root fields as `schema_version`, `name`,
-`verification_key`, `files`, `icon`, `config`, `auth`, optional `publisher`, then
-`proxy`. Omit unused optional sections. This is a readability convention; every
+optional `warning`, `verification_key`, `files`, `icon`, `config`, `auth`,
+optional `publisher`, then `proxy`. Omit unused optional sections. This is a readability convention; every
 legal JSON property order validates. Formatting should preserve the source order.
 Use adjacent `README.md` (optionally with `description` frontmatter for a card
 summary) for a short, appealing overview of what people can do with the connector.
@@ -655,6 +655,11 @@ connector. Do not put repository publication, publisher settings, builds or
 deployment instructions in any connector folder. The Hub renders the README as
 the public description. Inline `description` and `setup` remain supported
 fallbacks, but need not duplicate those files.
+
+Use the optional root `warning` for a short Markdown notice about something
+that currently degrades the experience, such as a provider approval that is
+still pending. Houston shows it prominently on the Hub page, the setup form and
+each connection's page. Remove it once the limitation no longer applies.
 
 Keep the common setup steps first. A heading named `Advanced` (or starting with
 `Advanced ` or `Advanced:`) becomes a collapsed expandable section in Houston,

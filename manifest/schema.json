@@ -591,6 +591,10 @@
         "verification_key": {
           "minLength": 1,
           "type": "string"
+        },
+        "warning": {
+          "description": "Markdown notice shown prominently wherever people set up or review this connector, such as a pending provider approval that affects their experience.",
+          "type": "string"
         }
       },
       "required": [

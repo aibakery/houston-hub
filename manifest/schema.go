@@ -80,6 +80,7 @@ func Schema() ([]byte, error) {
 	props("ProxyMatch")["colon_path_parameters"].(map[string]any)["items"] = map[string]any{"type": "string", "pattern": `^[A-Za-z_][A-Za-z0-9_]*$`}
 	props("ProxyMatch")["colon_path_parameters"].(map[string]any)["description"] = "Placeholder names whose values may contain a colon, such as a URN. Today this applies before a {name}:verb suffix; declare bare colon IDs too, since a later release stops bare placeholders from matching colons. Opaque parameters already accept colons and cannot be repeated here."
 	props("Manifest")["schema_version"] = map[string]any{"const": 1}
+	props("Manifest")["warning"].(map[string]any)["description"] = "Markdown notice shown prominently wherever people set up or review this connector, such as a pending provider approval that affects their experience."
 	for _, nk := range [][2]string{{"Manifest", "files"}, {"Manifest", "proxy"}, {"Field", "options"}, {"ScopeGroup", "values"}, {"ProxyMatch", "host"}, {"ProxyMatch", "method"}, {"ProxyMatch", "path"}} {
 		props(nk[0])[nk[1]].(map[string]any)["minItems"] = 1
 	}
