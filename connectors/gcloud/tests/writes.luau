@@ -75,6 +75,7 @@ return {
 		assert(polled.done == true and polled.response.template.containers[1].env[1].value == "redacted")
 		assert(fails({"traffic must be a nonempty array"}, c.updateRunServiceTraffic, {project = P, location = "us-central1", service = "api", traffic = {}}) == 0)
 		assert(fails({"name must be projects/<project>/locations/<location>/operations/<id>"}, c.getRunOperation, {name = "operations/op-1"}) == 0)
+		assert(fails({"getRunOperation received an unknown option"}, c.getRunOperation, {name = "projects/p/locations/l/operations/o", pageSize = 5}) == 0)
 		assert(fails({"received an unknown option"}, c.runJob, {project = P, location = "us-central1", job = "export", validateOnly = true}) == 0)
 
 		-- Compute writes carry requestId and are billed to the instance's project.

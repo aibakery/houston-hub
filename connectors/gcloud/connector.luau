@@ -84,7 +84,7 @@ local function target(route: string, args: Options, names: {string}?): (string, 
 end
 
 local function problemOf(response: HttpResponse): any
-	local ok, decoded = pcall(json.decode, await(response.body:readPrefix(4096)))
+	local ok, decoded = pcall(json.decode, await(response.body:readPrefix(65536)))
 	if not ok or type(decoded) ~= "table" then return {} end
 	if type(decoded.error) == "table" then return decoded.error end
 	-- Managed Prometheus answers in Prometheus's format: {status='error', errorType, error}.
@@ -128,13 +128,13 @@ local function failWith(operation: string, response: HttpResponse, problem: any,
 	end
 	local retry = response.headers["retry-after"]
 	if retry and retry[1] then message ..= "; Retry-After: " .. retry[1] end
-	local limited = reason ~= nil and string.find(string.lower(reason), "ratelimitexceeded", 1, true) ~= nil
+	local limited = false
+	for _, item in reasons(problem) do
+		limited = limited or string.find(string.lower((string.gsub(item.reason, "_", ""))), "ratelimitexceeded", 1, true) ~= nil
+	end
 	return houston.fail({operation = operation, layer = "upstream", upstream_status = response.statusCode,
 		retryable = response.statusCode == 429 or response.statusCode >= 500 or limited, message = message})
 end
-
--- API host and project pairs that cannot be charged quota; later calls skip the header.
-local unbilled: {[string]: boolean} = {}
 
 -- Sends one request and returns a 2xx response. With project, Google charges the call's quota to
 -- that project. An account without serviceusage.services.use there gets USER_PROJECT_DENIED, and a
@@ -142,7 +142,6 @@ local unbilled: {[string]: boolean} = {}
 -- without the header, charging Houston's OAuth client project, whose quota all connections share.
 local function send(operation: string, method: string, href: string, body: any?, project: string?, shared: boolean?): HttpResponse
 	local host = hostOf(href)
-	local key = host .. " " .. (project or "")
 	local function attempt(billed: boolean): HttpResponse
 		local headers: HttpHeaders = {}
 		if body ~= nil then headers["Content-Type"] = {"application/json"} end
@@ -150,12 +149,11 @@ local function send(operation: string, method: string, href: string, body: any?,
 		return await(http.request({method = method, url = href, headers = headers,
 			body = if body ~= nil then json.encode(body) elseif method == "POST" then "" else nil}))
 	end
-	local billed = project ~= nil and not unbilled[key]
+	local billed = project ~= nil
 	local response = attempt(billed)
 	if response.statusCode >= 200 and response.statusCode < 300 then return response end
 	local problem = problemOf(response)
 	if billed and shared ~= false and response.statusCode == 403 and (hasReason(problem, "USER_PROJECT_DENIED") or hasReason(problem, "SERVICE_DISABLED")) then
-		unbilled[key] = true
 		local retried = attempt(false)
 		if retried.statusCode >= 200 and retried.statusCode < 300 then return retried end
 		local again = problemOf(retried)
@@ -196,8 +194,8 @@ local function redact(value: any): any
 			end
 		elseif key == "substitutions" or key == "environmentVariables" or (key == "headers" and item[1] == nil) then
 			for name in item do item[name] = REDACTED end
-		elseif key == "metadata" and type(item.items) == "table" then
-			for _, entry in item.items do
+		elseif key == "items" and type(item[1]) == "table" and item[1].key ~= nil then
+			for _, entry in item do
 				if type(entry) == "table" and entry.value ~= nil then entry.value = REDACTED end
 			end
 		else
@@ -413,8 +411,10 @@ insertId}], nextPageToken?}. Pass project (or resourceNames such as {'projects/p
 and a filter that bounds timestamp, e.g. 'timestamp>="2026-11-07T00:00:00Z" AND severity>=ERROR AND
 resource.type="cloud_run_revision" AND resource.labels.service_name="api"'. Cloud Build logs are
 logName="projects/p/logs/cloudbuild" with resource.labels.build_id. orderBy is 'timestamp asc'
-(default) or 'timestamp desc'. pageSize defaults to 50 and is at most 1000. Google allows 60 calls
-per minute per project, so prefer a narrow filter and bigger pages to many calls.]],
+(default) or 'timestamp desc'. pageSize defaults to 50 and is at most 1000; a page over 8 MiB fails,
+so keep pages of audit logs or large jsonPayload entries to a few hundred. The first project in
+resourceNames is charged the quota: Google allows 60 calls per minute per project, so prefer a
+narrow filter to many calls.]],
 	inputSchema = {
 		type = "object",
 		properties = {
@@ -444,8 +444,11 @@ function exports.listLogEntries(input: any): Options
 	local names = args.resourceNames
 	assert(type(names) == "table" and names[1] ~= nil, "listLogEntries requires project or resourceNames")
 	for _, resource in names do text(resource, "resourceNames[]") end
-	local named = string.match(names[1], "^projects/([^/]+)$")
-	if project == nil and named and isProject(named) then project = named end
+	for _, resource in names do
+		local named = string.match(resource, "^projects/([^/]+)$")
+		if project == nil and named and isProject(named) then project = named end
+	end
+	assert(project, "resourceNames must include a project ID, as projects/<id>, which is charged the Logging quota")
 	assert(string.find(text(args.filter, "filter"), "timestamp", 1, true), 'filter must bound timestamp, e.g. timestamp>="2026-11-07T00:00:00Z"')
 	if args.pageSize == nil then args.pageSize = 50 end
 	assert(type(args.pageSize) == "number" and args.pageSize >= 1 and args.pageSize <= 1000 and args.pageSize % 1 == 0, "pageSize must be an integer from 1 to 1000")
@@ -781,6 +784,8 @@ which this does not set, and fails.]],
 		local args = options(input)
 		local project, location, operation = string.match(text(args.name, "name"), "^projects/([^/]+)/locations/([^/]+)/operations/([^/]+)$")
 		assert(project and location and operation, "name must be projects/<project>/locations/<location>/operations/<id>")
+		args.name = nil
+		done("getRunOperation", args)
 		return request("getRunOperation", "GET", RUN .. "/v2/projects/{project}/locations/{location}/operations/{operation}", {project = project, location = location, operation = operation}, {redact = true})
 	end
 

@@ -91,7 +91,7 @@ return {
 		local body = json.decode(req.body)
 		assert(body.resourceNames[1] == "projects/my-project-123" and body.filter == filter and body.orderBy == "timestamp desc" and body.pageSize == 50 and body.pageToken == nil, req.body)
 		assert(entries.entries[1].textPayload == "boom")
-		assert(json.encode(c.listLogEntries({resourceNames = {"projects/other-project", "folders/42"}, filter = filter, pageSize = 1000, pageToken = "n"}).entries) == "[]")
+		assert(json.encode(c.listLogEntries({resourceNames = {"folders/42", "projects/other-project"}, filter = filter, pageSize = 1000, pageToken = "n"}).entries) == "[]")
 		body = json.decode(last("POST", "https://logging.googleapis.com/v2/entries:list", "other-project").body)
 		assert(#body.resourceNames == 2 and body.pageSize == 1000 and body.pageToken == "n")
 		assert(c.listLogs({project = P}).logNames[1] == "projects/p/logs/syslog")
@@ -170,12 +170,6 @@ return {
 		assert(#requests == before + 2 and requests[before + 1].headers["x-goog-user-project"][1] == P)
 		last("GET", "https://cloudresourcemanager.googleapis.com/v3/projects/my-project-123", nil)
 
-		-- The refusal is remembered for that API and project: the next call goes without the header at once.
-		before = #requests
-		responses = {{body = '{"projectId":"my-project-123"}'}}
-		c.getProject({project = P})
-		assert(#requests == before + 1)
-		last("GET", "https://cloudresourcemanager.googleapis.com/v3/projects/my-project-123", nil)
 		-- An older API may put a generic reason in errors[] beside the ErrorInfo detail.
 		local denied = '{"error":{"code":403,"message":"Caller does not have required permission to use project other-project.","errors":[{"reason":"forbidden"}],"details":[{"@type":"type.googleapis.com/google.rpc.ErrorInfo","reason":"USER_PROJECT_DENIED"}]}}'
 		responses = {{status = 403, body = denied}, {body = "{}"}}
@@ -189,15 +183,16 @@ return {
 		before = #requests
 		responses = {{status = 403, body = denied}}
 		assert(fails({"[USER_PROJECT_DENIED]; the account needs the Service Usage Consumer role on the project"}, c.listLogEntries, {project = "other-project", filter = filter}) == 1)
-		-- Only a valid project ID is charged.
-		responses = {{body = "{}"}}
-		c.listLogEntries({resourceNames = {"projects/example.com:legacy"}, filter = filter})
-		last("POST", "https://logging.googleapis.com/v2/entries:list", nil)
+		-- A project ID in resourceNames is always charged, never Houston's shared quota.
+		for _, names in {{"organizations/1"}, {"projects/example.com:legacy", "folders/42"}} do
+			assert(fails({"resourceNames must include a project ID"}, c.listLogEntries, {resourceNames = names, filter = filter}) == 0)
+		end
 		-- Audit log entries echo resources with their secrets: protoPayload is redacted, application logs are not.
 		responses = {{body = json.encode({entries = {
 			{protoPayload = {methodName = "google.cloud.run.v2.Services.UpdateService", request = {service = {template = {containers = {{env = {{name = "DB_PASSWORD", value = "hunter2"}}}}}}},
 				response = {spec = {template = {spec = {containers = {{env = {{name = "DB_PASSWORD", value = "hunter2"}}}}}}}}}},
 			{protoPayload = {methodName = "v1.compute.instances.setMetadata", request = {metadata = {items = {{key = "startup-script", value = "export TOKEN=abc"}}}}}},
+			{protoPayload = {methodName = "v1.compute.projects.setCommonInstanceMetadata", request = {["@type"] = "type.googleapis.com/compute.projects.setCommonInstanceMetadata", fingerprint = "f", items = {{key = "ssh-keys", value = "ana:ssh-ed25519 TOKEN=abc"}}}}},
 			{jsonPayload = {env = {{name = "APP", value = "app-logged"}}}},
 		}})}}
 		local audited = json.encode(c.listLogEntries({project = P, filter = filter}).entries)
@@ -217,6 +212,12 @@ return {
 		fails({"Google HTTP 429 (RESOURCE_EXHAUSTED): Quota exceeded; Retry-After: 30", '"retryable":true'}, c.listLogEntries, {project = P, filter = filter})
 		responses = {{status = 403, body = '{"error":{"code":403,"message":"Rate Limit Exceeded","errors":[{"reason":"rateLimitExceeded"}]}}'}}
 		fails({"Google HTTP 403: Rate Limit Exceeded [rateLimitExceeded]", '"retryable":true'}, c.getBucket, {bucket = "assets"})
+		-- ErrorInfo spells it RATE_LIMIT_EXCEEDED, ahead of errors[].
+		responses = {{status = 403, body = '{"error":{"code":403,"message":"Rate Limit Exceeded","errors":[{"reason":"forbidden"}],"details":[{"@type":"type.googleapis.com/google.rpc.ErrorInfo","reason":"RATE_LIMIT_EXCEEDED"}]}}'}}
+		fails({"[RATE_LIMIT_EXCEEDED]", '"retryable":true'}, c.getInstance, {project = P, zone = "us-central1-a", instance = "worker-1"})
+		-- Error bodies past a few KiB keep their reason and link.
+		responses = {{status = 403, body = '{"error":{"code":403,"message":"' .. string.rep("x", 8000) .. '","details":[{"reason":"SERVICE_DISABLED","metadata":{"activationUrl":"https://console.developers.google.com/apis/api/storage.googleapis.com/overview?project=123"}}]}}'}}
+		fails({"[SERVICE_DISABLED]; enable the API at https://console.developers.google.com/apis/api/storage.googleapis.com/overview?project=123"}, c.getBucket, {bucket = "assets"})
 		responses = {{status = 503, body = "<html>unavailable</html>"}}
 		fails({"Google HTTP 503", '"retryable":true'}, c.listLogs, {project = P})
 		responses = {{status = 400, body = '{"status":"error","errorType":"bad_data","error":"invalid parameter \\"query\\": 1:1: parse error"}'}}
