@@ -1,0 +1,574 @@
+{
+  "schema_version": 1,
+  "name": "Google Cloud",
+  "warning": "**Early access.** Google is still reviewing Houston's access to Google Cloud. Until it approves, only members of the Houston team can connect; other Google accounts see an *access denied* page.",
+  "files": [
+    "connector.luau"
+  ],
+  "icon": "icon.svg",
+  "config": {
+    "access": {
+      "type": "string",
+      "label": "Access",
+      "default": "read-only",
+      "options": [
+        {
+          "label": "Read-only",
+          "value": "read-only"
+        },
+        {
+          "label": "Read and write",
+          "value": "read-write"
+        }
+      ]
+    }
+  },
+  "auth": {
+    "oauth": {
+      "type": "oauth2",
+      "label": "Connect with Google",
+      "brand": "google",
+      "authorize_url": "https://accounts.google.com/o/oauth2/v2/auth",
+      "token_url": "https://oauth2.googleapis.com/token",
+      "client_id": "{{publisher.client_id}}",
+      "client_secret": "{{publisher.client_secret}}",
+      "client_auth": "body",
+      "pkce": "S256",
+      "require_refresh": true,
+      "authorize_params": {
+        "access_type": "offline",
+        "include_granted_scopes": "false",
+        "prompt": "consent"
+      },
+      "scopes": [
+        {
+          "values": [
+            "https://www.googleapis.com/auth/userinfo.email"
+          ]
+        },
+        {
+          "if": "{{ is config.access \"read-only\" }}",
+          "values": [
+            "https://www.googleapis.com/auth/cloud-platform.read-only",
+            "https://www.googleapis.com/auth/run.readonly",
+            "https://www.googleapis.com/auth/monitoring.read",
+            "https://www.googleapis.com/auth/compute.readonly",
+            "https://www.googleapis.com/auth/cloud-billing.readonly"
+          ]
+        },
+        {
+          "if": "{{ is config.access \"read-write\" }}",
+          "values": [
+            "https://www.googleapis.com/auth/cloud-platform"
+          ]
+        }
+      ],
+      "account": {
+        "method": "GET",
+        "url": "https://www.googleapis.com/oauth2/v2/userinfo",
+        "headers": {
+          "Authorization": {
+            "value": "Bearer {{auth.oauth.access_token}}"
+          }
+        },
+        "label": "/email"
+      }
+    }
+  },
+  "publisher": {
+    "client_id": {
+      "type": "string",
+      "label": "Google OAuth client ID",
+      "required": true,
+      "order": 1
+    },
+    "client_secret": {
+      "type": "secret",
+      "label": "Google OAuth client secret",
+      "required": true,
+      "order": 2
+    }
+  },
+  "proxy": [
+    {
+      "match": {
+        "protocol": "http",
+        "host": [
+          "cloudresourcemanager.googleapis.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/v3/projects:search",
+          "/v3/projects/{project}"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      }
+    },
+    {
+      "match": {
+        "protocol": "http",
+        "host": [
+          "run.googleapis.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/v1/projects/{project}/locations",
+          "/v2/projects/{project}/locations/{location}/services",
+          "/v2/projects/{project}/locations/{location}/services/{service}",
+          "/v2/projects/{project}/locations/{location}/services/{service}/revisions",
+          "/v2/projects/{project}/locations/{location}/services/{service}/revisions/{revision}",
+          "/v2/projects/{project}/locations/{location}/jobs",
+          "/v2/projects/{project}/locations/{location}/jobs/{job}",
+          "/v2/projects/{project}/locations/{location}/jobs/{job}/executions",
+          "/v2/projects/{project}/locations/{location}/jobs/{job}/executions/{execution}",
+          "/v2/projects/{project}/locations/{location}/jobs/{job}/executions/{execution}/tasks"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      }
+    },
+    {
+      "match": {
+        "protocol": "http",
+        "host": [
+          "logging.googleapis.com"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/v2/entries:list"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      }
+    },
+    {
+      "match": {
+        "protocol": "http",
+        "host": [
+          "logging.googleapis.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/v2/projects/{project}/logs"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      }
+    },
+    {
+      "match": {
+        "protocol": "http",
+        "host": [
+          "storage.googleapis.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/storage/v1/b",
+          "/storage/v1/b/{bucket}",
+          "/storage/v1/b/{bucket}/o"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      }
+    },
+    {
+      "match": {
+        "protocol": "http",
+        "host": [
+          "storage.googleapis.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/storage/v1/b/{bucket}/o/{object}"
+        ],
+        "opaque_path_parameters": [
+          "object"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      }
+    },
+    {
+      "match": {
+        "protocol": "http",
+        "host": [
+          "monitoring.googleapis.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/v3/projects/{project}/timeSeries",
+          "/v3/projects/{project}/alertPolicies",
+          "/v3/projects/{project}/uptimeCheckConfigs"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      }
+    },
+    {
+      "match": {
+        "protocol": "http",
+        "host": [
+          "monitoring.googleapis.com"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/v1/projects/{project}/location/global/prometheus/api/v1/query",
+          "/v1/projects/{project}/location/global/prometheus/api/v1/query_range"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      }
+    },
+    {
+      "match": {
+        "protocol": "http",
+        "host": [
+          "compute.googleapis.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/compute/v1/projects/{project}/aggregated/instances",
+          "/compute/v1/projects/{project}/zones/{zone}/instances/{instance}"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      }
+    },
+    {
+      "match": {
+        "protocol": "http",
+        "host": [
+          "cloudbilling.googleapis.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/v1/billingAccounts",
+          "/v1/projects/{project}/billingInfo"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      }
+    },
+    {
+      "match": {
+        "protocol": "http",
+        "host": [
+          "serviceusage.googleapis.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/v1/projects/{project}/services"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      }
+    },
+    {
+      "match": {
+        "protocol": "http",
+        "host": [
+          "artifactregistry.googleapis.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/v1/projects/{project}/locations/{location}/repositories",
+          "/v1/projects/{project}/locations/{location}/repositories/{repository}/dockerImages"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "run.googleapis.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/v2/projects/{project}/locations/{location}/operations/{operation}"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "run.googleapis.com"
+        ],
+        "method": [
+          "PATCH"
+        ],
+        "path": [
+          "/v2/projects/{project}/locations/{location}/services/{service}"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "run.googleapis.com"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/v2/projects/{project}/locations/{location}/jobs/{job}:run",
+          "/v2/projects/{project}/locations/{location}/jobs/{job}/executions/{execution}:cancel"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "compute.googleapis.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/compute/v1/projects/{project}/zones/{zone}/operations/{operation}"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "compute.googleapis.com"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/compute/v1/projects/{project}/zones/{zone}/instances/{instance}/start",
+          "/compute/v1/projects/{project}/zones/{zone}/instances/{instance}/stop",
+          "/compute/v1/projects/{project}/zones/{zone}/instances/{instance}/reset"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "storage.googleapis.com"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/upload/storage/v1/b/{bucket}/o"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "storage.googleapis.com"
+        ],
+        "method": [
+          "DELETE"
+        ],
+        "path": [
+          "/storage/v1/b/{bucket}/o/{object}"
+        ],
+        "opaque_path_parameters": [
+          "object"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "cloudbuild.googleapis.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/v1/projects/{project}/locations/{location}/builds",
+          "/v1/projects/{project}/locations/{location}/builds/{build}",
+          "/v1/projects/{project}/locations/{location}/triggers"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "cloudbuild.googleapis.com"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/v1/projects/{project}/locations/{location}/builds/{build}:retry",
+          "/v1/projects/{project}/locations/{location}/builds/{build}:cancel"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      }
+    }
+  ]
+}
