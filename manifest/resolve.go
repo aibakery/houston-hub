@@ -24,6 +24,7 @@ type MethodAvailability struct {
 	PublisherClient bool `json:"publisher_client,omitempty"`
 }
 type Resolved struct {
+	ScopeProfile    string
 	Context         Context
 	PublicConfig    map[string]any
 	PublisherFields []FormField
@@ -268,6 +269,10 @@ func (m *Manifest) resolve(publisher, config, auth map[string]any, selected stri
 		} else {
 			if len(auth) > 0 {
 				return r, fmt.Errorf("OAuth inputs are lifecycle-owned")
+			}
+			r.ScopeProfile, e = a.ScopeProfile(*c)
+			if e != nil && !draft {
+				return r, e
 			}
 			seen := map[string]bool{}
 			for _, g := range a.Scopes {

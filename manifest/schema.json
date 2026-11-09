@@ -81,7 +81,14 @@
               "app": false,
               "config": false,
               "environment": false,
-              "project_id": false
+              "project_id": false,
+              "scopes": {
+                "items": {
+                  "properties": {
+                    "profile": false
+                  }
+                }
+              }
             },
             "required": [
               "authorize_url",
@@ -1099,6 +1106,15 @@
       "properties": {
         "if": {
           "pattern": "^\\s*\\{\\{.+\\}\\}\\s*$",
+          "type": "string"
+        },
+        "profile": {
+          "description": "Pipedream only: request this OAuth scope profile. Exactly one profile group must be active. Active scope values also bound the accepted grant.",
+          "enum": [
+            "read_only",
+            "read_write",
+            "admin"
+          ],
           "type": "string"
         },
         "values": {

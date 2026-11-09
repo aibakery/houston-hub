@@ -291,8 +291,22 @@ provider API, not Pipedream's API. Connector functions continue using ordinary
 `http.request` and do not receive provider tokens or broker credentials.
 
 Optional `scopes` groups declare grants required from Pipedream's managed provider
-application; they do not customize that application's consent screen. An optional
-`account` GET request obtains a label through its JSON pointer. As with OAuth
+application. To select a narrower consent profile, add `"profile": "read_only"`
+or `"profile": "read_write"` (also supported: `admin`) to a scope group. Use the
+existing `if` predicate to select the group from public configuration. When any
+group declares a profile, exactly one profile group must be active. Populate its
+`values` from the app's `scope_profiles` metadata in Pipedream's Retrieve App API.
+Houston passes the profile as `oauthScopeProfile` on Connect Link and rejects a
+callback with missing scopes or scopes outside the active groups. Google's short
+and URL-form identity scope names are treated as equivalent. Profiles are bound
+to saved connections; changing profiles requires reauthorization. Unprofiled
+methods use Pipedream's default consent and check only the required scopes.
+
+An existing provider grant may retain broader permissions even after requesting
+a narrower profile. Houston rejects that grant; the user must revoke it at the
+provider and reconnect. Do not silently fall back to broader access.
+
+An optional `account` GET request obtains a label through its JSON pointer. As with OAuth
 account lookup, this fixed manifest-declared request runs only during server-side
 authorization, outside the proxy rules for connector calls. The broker transport
 validates its URL and rejects private authentication headers; header values may

@@ -64,6 +64,8 @@ func Schema() ([]byte, error) {
 	enum("Field", "format", formats...)
 	enum("AuthMethod", "type", "manual", "oauth2", "pipedream")
 	enum("AuthAvailability", "status", "available", "preview", "disabled")
+	enum("ScopeGroup", "profile", pipedreamScopeProfiles...)
+	props("ScopeGroup")["profile"].(map[string]any)["description"] = "Pipedream only: request this OAuth scope profile. Exactly one profile group must be active. Active scope values also bound the accepted grant."
 	props("HeaderActions")["set"].(map[string]any)["additionalProperties"] = map[string]any{"oneOf": []any{map[string]any{"type": "string"}, map[string]any{"$ref": "#/$defs/HeaderValue"}}}
 	enum("AuthMethod", "client_auth", "basic", "body", "none")
 	enum("AuthMethod", "token_encoding", "form", "json")
@@ -143,6 +145,7 @@ func Schema() ([]byte, error) {
 	manual := forbid(manualKeys...)
 	manual["required"] = []string{"config"}
 	oauth := forbid("config", "project_id", "environment", "app")
+	oauth["properties"].(map[string]any)["scopes"] = map[string]any{"items": map[string]any{"properties": map[string]any{"profile": false}}}
 	oauth["required"] = []string{"authorize_url", "token_url", "client_id"}
 	pipedream := forbid("config", "authorize_url", "token_url", "client_auth", "token_encoding", "token_headers", "pkce", "scope_parameter", "scope_separator", "authorize_params", "token_params", "refresh_params", "token_response", "refresh_response", "require_refresh", "shared")
 	pipedream["required"] = []string{"client_id", "client_secret", "project_id", "environment", "app"}

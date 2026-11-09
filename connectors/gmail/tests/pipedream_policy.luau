@@ -6,7 +6,15 @@ return {
 		for _, access in {"read-only", "custom", "read-write"} do
 			local r, err = m.resolve(publisher, {access = access}, nil, "pipedream")
 			assert(r and not err, tostring(err))
-			assert(m.equal(r.Scopes, {"https://www.googleapis.com/auth/gmail.modify", "https://www.googleapis.com/auth/gmail.settings.basic"}))
+			local expected = if access == "read-only" then {
+				"email", "https://www.googleapis.com/auth/gmail.metadata", "https://www.googleapis.com/auth/gmail.readonly", "openid", "profile",
+			} else {
+				"email", "https://www.googleapis.com/auth/gmail.compose", "https://www.googleapis.com/auth/gmail.labels", "https://www.googleapis.com/auth/gmail.metadata",
+				"https://www.googleapis.com/auth/gmail.modify", "https://www.googleapis.com/auth/gmail.readonly", "https://www.googleapis.com/auth/gmail.send",
+				"https://www.googleapis.com/auth/gmail.settings.basic", "openid", "profile",
+			}
+			assert(m.equal(r.Scopes, expected))
+			assert(r.ScopeProfile == (if access == "read-only" then "read_only" else "read_write"))
 			m.routes(r, "", true, {"GET " .. api .. "/profile", "GET " .. api .. "/messages?q=is%3Aunread", "GET " .. api .. "/settings/sendAs"})
 			m.routes(r, "", access ~= "read-only", {"POST " .. upload .. "/drafts?uploadType=multipart", "PUT " .. upload .. "/drafts/d1?uploadType=multipart", "DELETE " .. api .. "/drafts/d1"})
 			m.routes(r, "", access == "read-write", {"POST " .. upload .. "/messages/send?uploadType=multipart", "POST " .. api .. "/drafts/send", "POST " .. api .. "/messages/m1/trash"})

@@ -98,8 +98,9 @@ func (a AuthMethod) AuthorizationSettings() []string {
 }
 
 type ScopeGroup struct {
-	If     string   `json:"if,omitempty"`
-	Values []string `json:"values"`
+	If      string   `json:"if,omitempty"`
+	Profile string   `json:"profile,omitempty"`
+	Values  []string `json:"values"`
 }
 type TokenResponse struct {
 	AccessToken      string            `json:"access_token,omitempty"`

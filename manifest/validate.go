@@ -523,6 +523,11 @@ func (m *Manifest) validateOAuth(key string, a AuthMethod, used map[string]bool)
 	if e := m.validateScopes(a.Scopes, used); e != nil {
 		return e
 	}
+	for _, group := range a.Scopes {
+		if group.Profile != "" {
+			return fmt.Errorf("scope profiles require Pipedream authentication")
+		}
+	}
 	for mode, params := range map[string]map[string]string{"public": a.AuthorizeParams, "token": a.TokenParams, "refresh": a.RefreshParams} {
 		for k, v := range params {
 			if !paramRE.MatchString(k) || reservedParams[k] || k == "scope" || k == a.ScopeParameter {
@@ -573,6 +578,9 @@ func (m *Manifest) validateOAuth(key string, a AuthMethod, used map[string]bool)
 
 func (m *Manifest) validateScopes(groups []ScopeGroup, used map[string]bool) error {
 	for _, g := range groups {
+		if g.Profile != "" && !slices.Contains(pipedreamScopeProfiles, g.Profile) {
+			return fmt.Errorf("invalid Pipedream scope profile")
+		}
 		if len(g.Values) == 0 {
 			return fmt.Errorf("empty scope group")
 		}

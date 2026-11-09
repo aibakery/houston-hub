@@ -102,9 +102,46 @@
       "project_id": "{{publisher.pipedream_project_id}}",
       "scopes": [
         {
+          "if": "{{ is config.access \"read-only\" }}",
+          "profile": "read_only",
           "values": [
+            "email",
+            "https://www.googleapis.com/auth/gmail.metadata",
+            "https://www.googleapis.com/auth/gmail.readonly",
+            "openid",
+            "profile"
+          ]
+        },
+        {
+          "if": "{{ is config.access \"custom\" }}",
+          "profile": "read_write",
+          "values": [
+            "email",
+            "https://www.googleapis.com/auth/gmail.compose",
+            "https://www.googleapis.com/auth/gmail.labels",
+            "https://www.googleapis.com/auth/gmail.metadata",
             "https://www.googleapis.com/auth/gmail.modify",
-            "https://www.googleapis.com/auth/gmail.settings.basic"
+            "https://www.googleapis.com/auth/gmail.readonly",
+            "https://www.googleapis.com/auth/gmail.send",
+            "https://www.googleapis.com/auth/gmail.settings.basic",
+            "openid",
+            "profile"
+          ]
+        },
+        {
+          "if": "{{ is config.access \"read-write\" }}",
+          "profile": "read_write",
+          "values": [
+            "email",
+            "https://www.googleapis.com/auth/gmail.compose",
+            "https://www.googleapis.com/auth/gmail.labels",
+            "https://www.googleapis.com/auth/gmail.metadata",
+            "https://www.googleapis.com/auth/gmail.modify",
+            "https://www.googleapis.com/auth/gmail.readonly",
+            "https://www.googleapis.com/auth/gmail.send",
+            "https://www.googleapis.com/auth/gmail.settings.basic",
+            "openid",
+            "profile"
           ]
         }
       ],
