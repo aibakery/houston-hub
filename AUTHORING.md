@@ -254,81 +254,70 @@ Authentication methods may declare `availability: {"status": "preview",
 gate for starting sign-in, presented alongside the method. It does not revoke an
 existing connection or change its runtime authorization.
 
-### Brokered connections with Pipedream
+### Brokered connections with Composio
 
-Any publisher can declare a `pipedream` method. Set `client_id`, `client_secret`,
-`project_id`, and `environment` to exact `publisher.*` field references. The client
-secret field must have type `secret`; the other fields must be strings. Environment
-resolves to `development` or `production`. `app` is Pipedream's literal app slug,
-such as `gmail`. Publishers enter these values in the normal Hub publication form.
-They are never exposed to connector Luau. No platform-owned Pipedream account or
-hidden connector registration is required.
+Any publisher can declare a `composio` method. Set `api_key` to an exact reference
+to a publisher `secret` field and `auth_config_id` to an exact reference to a
+publisher `string` field. The API key must belong to the Composio project that owns
+the auth config (`ac_…`) and allow **Proxy execute**. Default full-access keys
+include that capability; enable it explicitly on a scoped key. Set `app` to the
+literal toolkit slug, such as `gmail`.
+Publishers supply these settings in the normal Hub publication form. They stay
+outside connector Luau; no Houston-owned Composio account or private connector
+registration is required.
 
-Use `production` for normal user connections; this requires a paid Pipedream plan.
-The free plan supports personal testing in `development`, even when Houston
-itself is deployed in production. In `development`, the person
-connecting must also sign in to Pipedream in the same browser, and the project
-supports up to ten external users. Keep these publisher setup details out of
-connector README and SETUP files.
+For Gmail, create an OAuth2 auth config using Composio-managed credentials with
+the `https://mail.google.com/` scope. This grants full Gmail access at Google.
+One auth config serves all Houston access choices: native method and path rules
+independently enforce read-only, read-and-draft, or read-and-write access.
+Composio methods do not declare `scopes`: requested configuration is not evidence
+of the scopes Google actually granted. Explain the broad provider permission in
+the method description and user setup instructions without presenting Houston's
+restriction as a narrower Google grant.
 
-If a connector offers direct authentication as well, leave its Pipedream client
-ID optional and explain that it enables Pipedream. Make the secret, project ID,
-and environment required with `if: "{{ isDefined publisher.pipedream_client_id }}"`
-(using your own client ID field name). This keeps direct-only publications valid
-and presents the complete Pipedream settings as required once enabled.
+When offering direct OAuth as an alternative, leave the Composio auth config ID
+optional and make the API key required only when that ID is supplied, using
+`if: "{{ isDefined publisher.composio_auth_config_id }}"`. Each method becomes
+available when its own referenced publisher settings are complete.
 
-Pipedream handles the provider callback and redirects to Houston after connecting.
-Houston verifies the resulting account before binding it to the pending connection.
-Each Houston connection uses a stable opaque external identity derived from its
-publication and server-owned callback reservation. Reconnecting reuses that
-identity instead of creating another Pipedream external user, which matters for
-Pipedream user-based billing. The browser state remains fresh for each attempt;
-completion may verify an account already authorized for that identity and does
-not prove new provider consent occurred. Exactly one matching account is required;
-multiple accounts are rejected rather than choosing one arbitrarily. Reconnects
-and authentication-method switches retain the connection's verified mailbox.
+Houston creates a Composio connection link and saves its connected account ID
+with the pending authorization before redirecting the browser. Google returns to
+Composio, which redirects to Houston's callback. Houston checks the exact saved
+account server-side: it must be active, belong to the expected user and auth
+config, and match the declared toolkit. Browser-supplied account IDs cannot select
+the binding. Each Houston connection uses a stable opaque user identity derived
+from its publication and callback reservation. Reconnection reuses that identity;
+fresh state and actor checks bind each authorization attempt. Reconnects and
+authentication-method switches must retain the connection's verified mailbox.
 
-Publishers manage provider-side account and external-user cleanup in Pipedream.
-Deleting a Houston connection currently does not delete those Pipedream records
-or revoke its Google grant. Abandoned setup reservations can also leave provider
-records behind. Account for these records when managing Pipedream usage and billing.
+Publishers manage connected-account cleanup in Composio. Deleting a Houston
+connection or abandoning setup does not delete those records or revoke the
+provider grant.
 
-Native transport applies the connector's original destination, method and path
-rules before forwarding through Pipedream. Keep `proxy` rules pointed at the real
-provider API, not Pipedream's API. Connector functions continue using ordinary
-`http.request` and do not receive provider tokens or broker credentials.
+Keep `proxy` rules pointed at the real provider API. Native transport applies the
+original destination, method, path and access rules before forwarding the request
+through Composio's proxy. Connector functions continue using ordinary
+`http.request` and receive provider responses without the proxy envelope. They do
+not receive Google tokens, Composio API keys or connected account IDs.
 
-Optional `scopes` groups declare grants required from Pipedream's managed provider
-application. To select a narrower consent profile, add `"profile": "read_only"`
-or `"profile": "read_write"` (also supported: `admin`) to a scope group. Use the
-existing `if` predicate to select the group from public configuration. When any
-group declares a profile, exactly one profile group must be active. Populate its
-`values` from the app's `scope_profiles` metadata in Pipedream's Retrieve App API.
-Houston passes the profile as `oauthScopeProfile` on Connect Link and rejects a
-callback with missing scopes or scopes outside the active groups. Google's short
-and URL-form identity scope names are treated as equivalent. Profiles are bound
-to saved connections; changing profiles requires reauthorization. Unprofiled
-methods use Pipedream's default consent and check only the required scopes.
+Native transport preserves MIME uploads through `binary_body.base64` and buffers
+the proxy envelope. Check provider limits as well as Houston's limits. Composio's
+[changelog](https://docs.composio.dev/reference/changelog) announced a 4 MB base64
+upload limit on December 30, 2025, then a 250 MB overall proxy payload cap on
+June 4, 2026. The latter does not explicitly retire the base64-specific limit.
+Gmail limits composed messages to 8 MiB, so validate an upload above 4 MB with
+the publisher's project before treating that full range as verified.
 
-An existing provider grant may retain broader permissions even after requesting
-a narrower profile. Houston rejects that grant; the user must revoke it at the
-provider and reconnect. Do not silently fall back to broader access.
+An optional `account` GET request obtains a label through its JSON pointer. As
+with OAuth account lookup, this fixed manifest-declared request runs only during
+server-side authorization, outside the proxy rules for connector calls. Its
+headers may reference only nonsecret fields; the native transport supplies
+provider authentication.
 
-An optional `account` GET request obtains a label through its JSON pointer. As with OAuth
-account lookup, this fixed manifest-declared request runs only during server-side
-authorization, outside the proxy rules for connector calls. The broker transport
-validates its URL and rejects private authentication headers; header values may
-reference only nonsecret fields. Explain broader
-provider consent separately from Houston's access restrictions in `SETUP.md`.
-
-For connectors supporting both direct OAuth and Pipedream, a proxy header can be
-conditional: `"Authorization": {"value": "Bearer {{auth.oauth.access_token}}",
-"if": "{{ isDefined auth.oauth }}"}`. Existing string header values remain valid.
-The native Pipedream transport supplies the selected account's authentication.
-
-Keep credentials optional at the field level when they belong to alternative
-methods: each authorization method is unavailable until all its own referenced
-settings are configured, without preventing another method from working.
+For connectors supporting both direct OAuth and Composio, make direct OAuth
+injection conditional: `"Authorization": {"value": "Bearer
+{{auth.oauth.access_token}}", "if": "{{ isDefined auth.oauth }}"}`. Existing string
+header values remain valid. Do not grant connector code access to Composio's API.
 
 `publisher`, root `config`, and manual `auth.<key>.config` share the same Field
 schema. Types are `string`, `boolean`, `integer`, `number`, and `secret`. A string

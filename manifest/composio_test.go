@@ -8,23 +8,23 @@ import (
 	"testing"
 )
 
-const brokerManifest = `{"schema_version":1,"name":"Broker","files":["connector.luau"],"publisher":{"id":{"type":"string","label":"ID"},"secret":{"type":"secret","label":"Secret"},"project":{"type":"string","label":"Project"},"environment":{"type":"string","label":"Environment"}},"auth":{"broker":{"type":"pipedream","label":"Connect","client_id":"{{publisher.id}}","client_secret":"{{publisher.secret}}","project_id":"{{publisher.project}}","environment":"{{publisher.environment}}","app":"example","scopes":[{"values":["read"]}],"account":{"url":"https://api.example.com/profile","label":"/email"}}},"proxy":[{"match":{"protocol":"http","host":["api.example.com"],"method":["GET"],"path":["/profile"]},"action":{}}]}`
+const brokerManifest = `{"schema_version":1,"name":"Broker","files":["connector.luau"],"publisher":{"id":{"type":"string","label":"ID"},"secret":{"type":"secret","label":"Secret"}},"auth":{"broker":{"type":"composio","label":"Connect","auth_config_id":"{{publisher.id}}","api_key":"{{publisher.secret}}","app":"example","account":{"url":"https://api.example.com/profile","label":"/email"}}},"proxy":[{"match":{"protocol":"http","host":["api.example.com"],"method":["GET"],"path":["/profile"]},"action":{}}]}`
 
-func TestPipedreamResolutionAndDiscovery(t *testing.T) {
+func TestComposioResolutionAndDiscovery(t *testing.T) {
 	m, err := Parse([]byte(brokerManifest))
 	if err != nil {
 		t.Fatal(err)
 	}
-	publisher := map[string]any{"id": "client", "secret": "private", "project": "proj_123", "environment": "development"}
+	publisher := map[string]any{"id": "ac_fixture", "secret": "private"}
 	r, err := m.Resolve(publisher, nil, nil, "broker")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !r.Methods[0].Available || !r.Methods[0].PublisherClient || !reflect.DeepEqual(r.Scopes, []string{"read"}) || len(r.PublicConfig) != 0 {
+	if !r.Methods[0].Available || !r.Methods[0].PublisherClient || len(r.Scopes) != 0 || len(r.PublicConfig) != 0 {
 		t.Fatalf("unexpected resolution: %#v", r)
 	}
-	auth := m.DiscoveryAuth("broker", []string{"read", "admin"}, map[string]string{"token": "private"})
-	if auth.Scopes == nil || !reflect.DeepEqual(*auth.Scopes, []string{"read"}) || len(auth.Facts) != 0 {
+	auth := m.DiscoveryAuth("broker", nil, map[string]string{"token": "private"})
+	if auth.Scopes != nil || len(auth.Facts) != 0 {
 		t.Fatalf("discovery: %#v", auth)
 	}
 	for _, status := range []string{"available", "preview", "disabled"} {
@@ -36,7 +36,7 @@ func TestPipedreamResolutionAndDiscovery(t *testing.T) {
 			t.Fatalf("existing grant affected by presentation status %s: %v", status, err)
 		}
 	}
-	for _, key := range []string{"id", "secret", "project", "environment"} {
+	for _, key := range []string{"id", "secret"} {
 		incomplete := map[string]any{}
 		for field, value := range publisher {
 			if field != key {
@@ -51,14 +51,6 @@ func TestPipedreamResolutionAndDiscovery(t *testing.T) {
 			t.Fatalf("incomplete %s resolved", key)
 		}
 	}
-	publisher["environment"] = "staging"
-	if _, err := m.Resolve(publisher, nil, nil, "broker"); err == nil {
-		t.Fatal("invalid environment accepted")
-	}
-	publisher["environment"] = "production"
-	if _, err := m.Resolve(publisher, nil, nil, "broker"); err != nil {
-		t.Fatal(err)
-	}
 	serialized, err := json.Marshal(m)
 	if err != nil {
 		t.Fatal(err)
@@ -68,13 +60,16 @@ func TestPipedreamResolutionAndDiscovery(t *testing.T) {
 	}
 }
 
-func TestPipedreamRejectsUnsafeDeclarations(t *testing.T) {
+func TestComposioRejectsUnsafeDeclarations(t *testing.T) {
 	for _, change := range [][2]string{
 		{`"app":"example"`, `"app":"{{publisher.id}}"`},
 		{`"app":"example"`, `"app":"example","token_url":"https://attacker.example/token"`},
 		{`"app":"example"`, `"app":"example","availability":{"status":"unknown"}`},
 		{`"app":"example"`, `"app":"example","availability":{"status":"preview"}`},
-		{`"client_secret":"{{publisher.secret}}"`, `"client_secret":"{{publisher.id}}"`},
+		{`"api_key":"{{publisher.secret}}"`, `"api_key":"{{publisher.id}}"`},
+		{`"auth_config_id":"{{publisher.id}}"`, `"auth_config_id":"{{publisher.secret}}"`},
+		{`"api_key":"{{publisher.secret}}"`, `"api_key":"literal-key"`},
+		{`"auth_config_id":"{{publisher.id}}"`, `"auth_config_id":"ac_literal"`},
 		{`"label":"/email"`, `"label":"/email","headers":{"Authorization":{"value":"{{publisher.secret}}"}}`},
 		{`"label":"/email"`, `"label":"/email","method":"POST"`},
 	} {

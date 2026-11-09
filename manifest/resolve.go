@@ -15,6 +15,7 @@ type MethodAvailability struct {
 	Availability *AuthAvailability `json:"availability,omitempty"`
 	Key          string            `json:"key"`
 	Label        string            `json:"label"`
+	Description  string            `json:"description,omitempty"`
 	Type         string            `json:"type"`
 	Eligible     bool              `json:"eligible"`
 	Available    bool              `json:"available"`
@@ -24,7 +25,6 @@ type MethodAvailability struct {
 	PublisherClient bool `json:"publisher_client,omitempty"`
 }
 type Resolved struct {
-	ScopeProfile    string
 	Context         Context
 	PublicConfig    map[string]any
 	PublisherFields []FormField
@@ -212,7 +212,7 @@ func (m *Manifest) resolve(publisher, config, auth map[string]any, selected stri
 	for _, key := range m.MethodKeys() {
 		a := m.Auth[key]
 		yes, e := EvaluatePredicate(a.If, *c)
-		status := MethodAvailability{Key: key, Label: a.Label, Type: a.Type, Brand: a.Brand, Eligible: yes, Available: yes, PublisherClient: a.RequiresAuthorization() && a.PublisherClient(), Availability: a.Availability}
+		status := MethodAvailability{Key: key, Label: a.Label, Description: a.Description, Type: a.Type, Brand: a.Brand, Eligible: yes, Available: yes, PublisherClient: a.RequiresAuthorization() && a.PublisherClient(), Availability: a.Availability}
 		if e != nil {
 			status.Error = e.Error()
 			status.Available = false
@@ -233,13 +233,6 @@ func (m *Manifest) resolve(publisher, config, auth map[string]any, selected stri
 					if e != nil || value == "" {
 						status.Available = false
 						status.Error = "Authorization settings are incomplete"
-					}
-				}
-				if a.Type == "pipedream" {
-					environment, err := RenderString(a.Environment, *c)
-					if err == nil && environment != "development" && environment != "production" {
-						status.Available = false
-						status.Error = "Pipedream environment must be development or production"
 					}
 				}
 			}
@@ -269,10 +262,6 @@ func (m *Manifest) resolve(publisher, config, auth map[string]any, selected stri
 		} else {
 			if len(auth) > 0 {
 				return r, fmt.Errorf("OAuth inputs are lifecycle-owned")
-			}
-			r.ScopeProfile, e = a.ScopeProfile(*c)
-			if e != nil && !draft {
-				return r, e
 			}
 			seen := map[string]bool{}
 			for _, g := range a.Scopes {

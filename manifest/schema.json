@@ -37,16 +37,16 @@
           "then": {
             "properties": {
               "account": false,
+              "api_key": false,
               "app": false,
+              "auth_config_id": false,
               "authorize_params": false,
               "authorize_url": false,
               "brand": false,
               "client_auth": false,
               "client_id": false,
               "client_secret": false,
-              "environment": false,
               "pkce": false,
-              "project_id": false,
               "refresh_params": false,
               "refresh_response": false,
               "require_refresh": false,
@@ -78,17 +78,10 @@
           },
           "then": {
             "properties": {
+              "api_key": false,
               "app": false,
-              "config": false,
-              "environment": false,
-              "project_id": false,
-              "scopes": {
-                "items": {
-                  "properties": {
-                    "profile": false
-                  }
-                }
-              }
+              "auth_config_id": false,
+              "config": false
             },
             "required": [
               "authorize_url",
@@ -101,7 +94,7 @@
           "if": {
             "properties": {
               "type": {
-                "const": "pipedream"
+                "const": "composio"
               }
             },
             "required": [
@@ -113,6 +106,8 @@
               "authorize_params": false,
               "authorize_url": false,
               "client_auth": false,
+              "client_id": false,
+              "client_secret": false,
               "config": false,
               "pkce": false,
               "refresh_params": false,
@@ -120,6 +115,7 @@
               "require_refresh": false,
               "scope_parameter": false,
               "scope_separator": false,
+              "scopes": false,
               "shared": false,
               "token_encoding": false,
               "token_headers": false,
@@ -128,10 +124,8 @@
               "token_url": false
             },
             "required": [
-              "client_id",
-              "client_secret",
-              "project_id",
-              "environment",
+              "api_key",
+              "auth_config_id",
               "app"
             ]
           }
@@ -178,7 +172,13 @@
         "account": {
           "$ref": "#/$defs/OAuthAccount"
         },
+        "api_key": {
+          "type": "string"
+        },
         "app": {
+          "type": "string"
+        },
+        "auth_config_id": {
           "type": "string"
         },
         "authorize_params": {
@@ -234,9 +234,6 @@
         "description": {
           "type": "string"
         },
-        "environment": {
-          "type": "string"
-        },
         "if": {
           "pattern": "^\\s*\\{\\{.+\\}\\}\\s*$",
           "type": "string"
@@ -255,9 +252,6 @@
             "S256",
             "none"
           ],
-          "type": "string"
-        },
-        "project_id": {
           "type": "string"
         },
         "refresh_params": {
@@ -328,7 +322,7 @@
           "enum": [
             "manual",
             "oauth2",
-            "pipedream"
+            "composio"
           ],
           "type": "string"
         }
@@ -1106,15 +1100,6 @@
       "properties": {
         "if": {
           "pattern": "^\\s*\\{\\{.+\\}\\}\\s*$",
-          "type": "string"
-        },
-        "profile": {
-          "description": "Pipedream only: request this OAuth scope profile. Exactly one profile group must be active. Active scope values also bound the accepted grant.",
-          "enum": [
-            "read_only",
-            "read_write",
-            "admin"
-          ],
           "type": "string"
         },
         "values": {
