@@ -1,17 +1,16 @@
 {
   "schema_version": 1,
   "name": "Gmail",
-  "warning": "**Pending Google approval.** Google is still reviewing Houston's access to Gmail. Until Google approves it, you will see a *Google hasn't verified this app* screen while connecting: select **Advanced**, then continue to Houston.",
+  "warning": "**Direct Google sign-in is pending approval.** Connect through Pipedream while Google reviews Houston's application. Existing direct Google connections continue to work.",
   "files": [
     "connector.luau"
   ],
   "icon": "icon.svg",
   "config": {
     "access": {
-      "type": "string",
-      "label": "Access",
       "default": "read-only",
-      "description": "Read and draft lets agents create, update and delete drafts for you to review and send from Gmail; Houston refuses every send request on that level.",
+      "description": "Read and draft lets agents create, edit and delete drafts. You review and send them yourself in Gmail.",
+      "label": "Access",
       "options": [
         {
           "label": "Read-only",
@@ -25,26 +24,40 @@
           "label": "Read and write",
           "value": "read-write"
         }
-      ]
+      ],
+      "type": "string"
     }
   },
   "auth": {
     "oauth": {
-      "type": "oauth2",
-      "label": "Connect with Google",
-      "brand": "google",
-      "authorize_url": "https://accounts.google.com/o/oauth2/v2/auth",
-      "token_url": "https://oauth2.googleapis.com/token",
-      "client_id": "{{publisher.client_id}}",
-      "client_secret": "{{publisher.client_secret}}",
-      "client_auth": "body",
-      "pkce": "S256",
-      "require_refresh": true,
+      "account": {
+        "headers": {
+          "Authorization": {
+            "value": "Bearer {{auth.oauth.access_token}}"
+          }
+        },
+        "label": "/email",
+        "method": "GET",
+        "url": "https://www.googleapis.com/oauth2/v2/userinfo"
+      },
       "authorize_params": {
         "access_type": "offline",
         "include_granted_scopes": "false",
         "prompt": "consent"
       },
+      "authorize_url": "https://accounts.google.com/o/oauth2/v2/auth",
+      "availability": {
+        "message": "Waiting for Google approval",
+        "status": "preview"
+      },
+      "brand": "google",
+      "client_auth": "body",
+      "client_id": "{{publisher.client_id}}",
+      "client_secret": "{{publisher.client_secret}}",
+      "label": "Connect with Google",
+      "order": 2,
+      "pkce": "S256",
+      "require_refresh": true,
       "scopes": [
         {
           "values": [
@@ -71,36 +84,129 @@
           ]
         }
       ],
+      "token_url": "https://oauth2.googleapis.com/token",
+      "type": "oauth2"
+    },
+    "pipedream": {
       "account": {
+        "label": "/emailAddress",
         "method": "GET",
-        "url": "https://www.googleapis.com/oauth2/v2/userinfo",
-        "headers": {
-          "Authorization": {
-            "value": "Bearer {{auth.oauth.access_token}}"
-          }
+        "url": "https://gmail.googleapis.com/gmail/v1/users/me/profile"
+      },
+      "app": "gmail",
+      "client_id": "{{publisher.pipedream_client_id}}",
+      "client_secret": "{{publisher.pipedream_client_secret}}",
+      "environment": "{{publisher.pipedream_environment}}",
+      "label": "Connect with Pipedream",
+      "order": 1,
+      "project_id": "{{publisher.pipedream_project_id}}",
+      "scopes": [
+        {
+          "if": "{{ is config.access \"read-only\" }}",
+          "profile": "read_only",
+          "values": [
+            "email",
+            "https://www.googleapis.com/auth/gmail.metadata",
+            "https://www.googleapis.com/auth/gmail.readonly",
+            "openid",
+            "profile"
+          ]
         },
-        "label": "/email"
-      }
+        {
+          "if": "{{ is config.access \"custom\" }}",
+          "profile": "read_write",
+          "values": [
+            "email",
+            "https://www.googleapis.com/auth/gmail.compose",
+            "https://www.googleapis.com/auth/gmail.labels",
+            "https://www.googleapis.com/auth/gmail.metadata",
+            "https://www.googleapis.com/auth/gmail.modify",
+            "https://www.googleapis.com/auth/gmail.readonly",
+            "https://www.googleapis.com/auth/gmail.send",
+            "https://www.googleapis.com/auth/gmail.settings.basic",
+            "openid",
+            "profile"
+          ]
+        },
+        {
+          "if": "{{ is config.access \"read-write\" }}",
+          "profile": "read_write",
+          "values": [
+            "email",
+            "https://www.googleapis.com/auth/gmail.compose",
+            "https://www.googleapis.com/auth/gmail.labels",
+            "https://www.googleapis.com/auth/gmail.metadata",
+            "https://www.googleapis.com/auth/gmail.modify",
+            "https://www.googleapis.com/auth/gmail.readonly",
+            "https://www.googleapis.com/auth/gmail.send",
+            "https://www.googleapis.com/auth/gmail.settings.basic",
+            "openid",
+            "profile"
+          ]
+        }
+      ],
+      "type": "pipedream"
     }
   },
   "publisher": {
     "client_id": {
-      "type": "string",
       "label": "Google OAuth client ID",
-      "required": true,
-      "order": 1
+      "order": 1,
+      "type": "string"
     },
     "client_secret": {
-      "type": "secret",
       "label": "Google OAuth client secret",
-      "required": true,
-      "order": 2
+      "order": 2,
+      "type": "secret"
+    },
+    "pipedream_client_id": {
+      "label": "Pipedream OAuth client ID",
+      "order": 3,
+      "type": "string"
+    },
+    "pipedream_client_secret": {
+      "label": "Pipedream OAuth client secret",
+      "order": 4,
+      "type": "secret"
+    },
+    "pipedream_environment": {
+      "default": "development",
+      "label": "Pipedream environment",
+      "options": [
+        {
+          "label": "Development",
+          "value": "development"
+        },
+        {
+          "label": "Production",
+          "value": "production"
+        }
+      ],
+      "order": 6,
+      "type": "string"
+    },
+    "pipedream_project_id": {
+      "label": "Pipedream project ID",
+      "order": 5,
+      "type": "string"
     }
   },
   "proxy": [
     {
+      "action": {
+        "headers": {
+          "remove": [
+            "Authorization"
+          ],
+          "set": {
+            "Authorization": {
+              "if": "{{ isDefined auth.oauth }}",
+              "value": "Bearer {{auth.oauth.access_token}}"
+            }
+          }
+        }
+      },
       "match": {
-        "protocol": "http",
         "host": [
           "gmail.googleapis.com"
         ],
@@ -120,20 +226,26 @@
           "/gmail/v1/users/me/drafts/{id}",
           "/gmail/v1/users/me/history",
           "/gmail/v1/users/me/settings/sendAs"
-        ]
-      },
-      "action": {
-        "headers": {
-          "set": {
-            "Authorization": "Bearer {{auth.oauth.access_token}}"
-          }
-        }
+        ],
+        "protocol": "http"
       }
     },
     {
+      "action": {
+        "headers": {
+          "remove": [
+            "Authorization"
+          ],
+          "set": {
+            "Authorization": {
+              "if": "{{ isDefined auth.oauth }}",
+              "value": "Bearer {{auth.oauth.access_token}}"
+            }
+          }
+        }
+      },
       "if": "{{ is config.access \"read-write\" }}",
       "match": {
-        "protocol": "http",
         "host": [
           "gmail.googleapis.com"
         ],
@@ -152,20 +264,26 @@
           "/gmail/v1/users/me/drafts/send",
           "/upload/gmail/v1/users/me/messages/send",
           "/upload/gmail/v1/users/me/drafts"
-        ]
-      },
-      "action": {
-        "headers": {
-          "set": {
-            "Authorization": "Bearer {{auth.oauth.access_token}}"
-          }
-        }
+        ],
+        "protocol": "http"
       }
     },
     {
+      "action": {
+        "headers": {
+          "remove": [
+            "Authorization"
+          ],
+          "set": {
+            "Authorization": {
+              "if": "{{ isDefined auth.oauth }}",
+              "value": "Bearer {{auth.oauth.access_token}}"
+            }
+          }
+        }
+      },
       "if": "{{ is config.access \"read-write\" }}",
       "match": {
-        "protocol": "http",
         "host": [
           "gmail.googleapis.com"
         ],
@@ -175,20 +293,26 @@
         ],
         "path": [
           "/gmail/v1/users/me/labels/{id}"
-        ]
-      },
-      "action": {
-        "headers": {
-          "set": {
-            "Authorization": "Bearer {{auth.oauth.access_token}}"
-          }
-        }
+        ],
+        "protocol": "http"
       }
     },
     {
+      "action": {
+        "headers": {
+          "remove": [
+            "Authorization"
+          ],
+          "set": {
+            "Authorization": {
+              "if": "{{ isDefined auth.oauth }}",
+              "value": "Bearer {{auth.oauth.access_token}}"
+            }
+          }
+        }
+      },
       "if": "{{ is config.access \"read-write\" }}",
       "match": {
-        "protocol": "http",
         "host": [
           "gmail.googleapis.com"
         ],
@@ -197,20 +321,26 @@
         ],
         "path": [
           "/gmail/v1/users/me/drafts/{id}"
-        ]
-      },
-      "action": {
-        "headers": {
-          "set": {
-            "Authorization": "Bearer {{auth.oauth.access_token}}"
-          }
-        }
+        ],
+        "protocol": "http"
       }
     },
     {
+      "action": {
+        "headers": {
+          "remove": [
+            "Authorization"
+          ],
+          "set": {
+            "Authorization": {
+              "if": "{{ isDefined auth.oauth }}",
+              "value": "Bearer {{auth.oauth.access_token}}"
+            }
+          }
+        }
+      },
       "if": "{{ is config.access \"read-write\" }}",
       "match": {
-        "protocol": "http",
         "host": [
           "gmail.googleapis.com"
         ],
@@ -219,20 +349,26 @@
         ],
         "path": [
           "/upload/gmail/v1/users/me/drafts/{id}"
-        ]
-      },
-      "action": {
-        "headers": {
-          "set": {
-            "Authorization": "Bearer {{auth.oauth.access_token}}"
-          }
-        }
+        ],
+        "protocol": "http"
       }
     },
     {
+      "action": {
+        "headers": {
+          "remove": [
+            "Authorization"
+          ],
+          "set": {
+            "Authorization": {
+              "if": "{{ isDefined auth.oauth }}",
+              "value": "Bearer {{auth.oauth.access_token}}"
+            }
+          }
+        }
+      },
       "if": "{{ is config.access \"custom\" }}",
       "match": {
-        "protocol": "http",
         "host": [
           "gmail.googleapis.com"
         ],
@@ -241,20 +377,26 @@
         ],
         "path": [
           "/upload/gmail/v1/users/me/drafts"
-        ]
-      },
-      "action": {
-        "headers": {
-          "set": {
-            "Authorization": "Bearer {{auth.oauth.access_token}}"
-          }
-        }
+        ],
+        "protocol": "http"
       }
     },
     {
+      "action": {
+        "headers": {
+          "remove": [
+            "Authorization"
+          ],
+          "set": {
+            "Authorization": {
+              "if": "{{ isDefined auth.oauth }}",
+              "value": "Bearer {{auth.oauth.access_token}}"
+            }
+          }
+        }
+      },
       "if": "{{ is config.access \"custom\" }}",
       "match": {
-        "protocol": "http",
         "host": [
           "gmail.googleapis.com"
         ],
@@ -263,20 +405,26 @@
         ],
         "path": [
           "/gmail/v1/users/me/drafts/{id}"
-        ]
-      },
-      "action": {
-        "headers": {
-          "set": {
-            "Authorization": "Bearer {{auth.oauth.access_token}}"
-          }
-        }
+        ],
+        "protocol": "http"
       }
     },
     {
+      "action": {
+        "headers": {
+          "remove": [
+            "Authorization"
+          ],
+          "set": {
+            "Authorization": {
+              "if": "{{ isDefined auth.oauth }}",
+              "value": "Bearer {{auth.oauth.access_token}}"
+            }
+          }
+        }
+      },
       "if": "{{ is config.access \"custom\" }}",
       "match": {
-        "protocol": "http",
         "host": [
           "gmail.googleapis.com"
         ],
@@ -285,14 +433,8 @@
         ],
         "path": [
           "/upload/gmail/v1/users/me/drafts/{id}"
-        ]
-      },
-      "action": {
-        "headers": {
-          "set": {
-            "Authorization": "Bearer {{auth.oauth.access_token}}"
-          }
-        }
+        ],
+        "protocol": "http"
       }
     }
   ]

@@ -13,7 +13,6 @@ Give agents the context they need from your Gmail inbox.
   drafts for you to review, mark messages read or unread, and organize mail with
   labels, archive and trash.
 
-Read-only access cannot send mail or change your inbox. Read and draft access
-can create, update and delete drafts, including ones you wrote, but Houston
-refuses every request to send. Apart from deleted drafts, messages are never
-permanently deleted: trash keeps them for 30 days.
+> **Read-only** cannot change your inbox or send mail. **Read and draft** can
+> also edit or delete existing drafts, but cannot send them. Trashed messages
+> stay in Gmail for 30 days; deleted drafts are removed permanently.

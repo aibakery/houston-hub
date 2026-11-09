@@ -48,6 +48,10 @@ type Option struct {
 	Label string `json:"label"`
 }
 type AuthMethod struct {
+	Availability    *AuthAvailability `json:"availability,omitempty"`
+	ProjectID       string            `json:"project_id,omitempty"`
+	Environment     string            `json:"environment,omitempty"`
+	App             string            `json:"app,omitempty"`
 	If              string            `json:"if,omitempty"`
 	Type            string            `json:"type"`
 	Label           string            `json:"label"`
@@ -75,9 +79,28 @@ type AuthMethod struct {
 	Account         *OAuthAccount     `json:"account,omitempty"`
 	Shared          *OAuthShared      `json:"shared,omitempty"`
 }
+
+// AuthAvailability describes whether new connections may start this method.
+// It does not revoke existing grants or change runtime authorization.
+type AuthAvailability struct {
+	Status  string `json:"status"`
+	Message string `json:"message,omitempty"`
+}
+
+func (a AuthMethod) RequiresAuthorization() bool { return a.Type == "oauth2" || a.Type == "pipedream" }
+
+// AuthorizationSettings returns private settings needed to start sign-in.
+func (a AuthMethod) AuthorizationSettings() []string {
+	if a.Type == "pipedream" {
+		return []string{a.ClientID, a.ClientSecret, a.ProjectID, a.Environment}
+	}
+	return []string{a.ClientID, a.ClientSecret}
+}
+
 type ScopeGroup struct {
-	If     string   `json:"if,omitempty"`
-	Values []string `json:"values"`
+	If      string   `json:"if,omitempty"`
+	Profile string   `json:"profile,omitempty"`
+	Values  []string `json:"values"`
 }
 type TokenResponse struct {
 	AccessToken      string            `json:"access_token,omitempty"`
@@ -132,8 +155,8 @@ type ProxyAction struct {
 	Connection *DatabaseConnection `json:"connection,omitempty"`
 }
 type HeaderActions struct {
-	Set    map[string]string `json:"set,omitempty"`
-	Remove []string          `json:"remove,omitempty"`
+	Set    map[string]HeaderValue `json:"set,omitempty"`
+	Remove []string               `json:"remove,omitempty"`
 }
 type Rewrite struct {
 	StripPrefix string `json:"strip_prefix"`

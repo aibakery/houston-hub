@@ -229,8 +229,6 @@ func TestRulesRejectInvalidDeclarations(t *testing.T) {
 		`{"match":{"protocol":"http","host":["api.example.com"]},"action":{"headers":{"remove":["X-Test","x-test"]}}}`,
 		`{"match":{"protocol":"http","host":["api.example.com"]},"action":{"headers":{"set":{"X-Test":{}}}}}`,
 		`{"match":{"protocol":"http","host":["api.example.com"]},"action":{"headers":{"set":{"if":{"value":"x","if":""}}}}}`,
-		`{"match":{"protocol":"http","host":["api.example.com"]},"action":{"headers":{"set":{"X-Test":{"value":"x"}}}}}`,
-		`{"match":{"protocol":"http","host":["api.example.com"]},"action":{"headers":{"set":{"X-Test":{"value":"x","if":"{{ is config.enabled true }}"}}}}}`,
 		`{"match":{"protocol":"http","host":["api.example.com"],"if":"{{ is config.enabled true }}"},"action":{}}`,
 		`{"match":{"protocol":"http","host":["api.example.com"]},"action":{"if":"{{ is config.enabled true }}"}}`,
 		`{"match":{"protocol":"http","host":["api.example.com"]},"action":{"headers":{"remove":["SomeOtherHeader "]}}}`,

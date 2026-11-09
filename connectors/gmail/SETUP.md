@@ -1,21 +1,24 @@
-# Connect your Google account
+# Connect Gmail
 
-1. Choose the access level:
-   - **Read-only** to let agents read without changing anything.
-   - **Read and draft** to also let agents prepare drafts for you to review and send from Gmail. Agents can also update or delete existing drafts. Google's consent screen mentions sending email, but Houston refuses every send request on this level.
-   - **Read and write** to also let agents send and reply, manage drafts, and organize mail with labels and trash.
-2. Select **Continue with Google**, choose your account, and approve the
-   permissions Google lists. If Google shows a checkbox per permission, tick
-   them all: Houston refuses a partial grant.
+1. Choose **Access**: **Read-only** to search and read mail, **Read and draft**
+   to also prepare drafts you send yourself, or **Read and write** to send mail
+   and organize your inbox too.
+2. Select **Connect Gmail with Pipedream**.
+3. Choose your Google account and approve access. You will return to Houston.
 
-Each Gmail connection asks only for its own permissions, so connecting
-Gmail does not grant access to your other Google services.
+> **Read-only** requests permission to read your mail, without sending or changing
+> it. With Pipedream, **Read and draft** uses the same Google permissions as **Read and write**,
+> but Houston blocks sending and limits changes to drafts.
 
-## Advanced: changing access and troubleshooting
+## Advanced
 
-- To change the access level, edit the connection and connect with Google again.
-  Google then asks for the new set of permissions.
-- To revoke access, remove the connection in Houston, or remove Houston from
-  [your Google Account's third-party connections](https://myaccount.google.com/connections).
-- Google Workspace administrators can block third-party apps. If Google refuses
-  the connection, ask your administrator to allow Houston.
+- To change **Access**, edit the connection and connect the same mailbox again.
+  Add a separate connection for a different mailbox.
+- When switching to **Read-only**, you may need to remove Pipedream from
+  [your Google Account's connections](https://myaccount.google.com/connections)
+  before reconnecting. This revokes access for other Pipedream connections too.
+- Removing a connection stops Houston from using it. To revoke access in Google
+  too, remove Pipedream (or Houston for direct sign-in) from
+  [your Google Account's connections](https://myaccount.google.com/connections).
+- If your Google Workspace blocks the connection, ask your administrator to
+  allow the app shown on Google's consent screen.

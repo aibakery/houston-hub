@@ -1,19 +1,29 @@
 {
   "$defs": {
+    "AuthAvailability": {
+      "additionalProperties": false,
+      "properties": {
+        "message": {
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "available",
+            "preview",
+            "disabled"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "type": "object"
+    },
     "AuthMethod": {
       "additionalProperties": false,
       "allOf": [
         {
-          "else": {
-            "properties": {
-              "config": false
-            },
-            "required": [
-              "authorize_url",
-              "token_url",
-              "client_id"
-            ]
-          },
           "if": {
             "properties": {
               "type": {
@@ -27,13 +37,16 @@
           "then": {
             "properties": {
               "account": false,
+              "app": false,
               "authorize_params": false,
               "authorize_url": false,
               "brand": false,
               "client_auth": false,
               "client_id": false,
               "client_secret": false,
+              "environment": false,
               "pkce": false,
+              "project_id": false,
               "refresh_params": false,
               "refresh_response": false,
               "require_refresh": false,
@@ -49,6 +62,77 @@
             },
             "required": [
               "config"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "oauth2"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "app": false,
+              "config": false,
+              "environment": false,
+              "project_id": false,
+              "scopes": {
+                "items": {
+                  "properties": {
+                    "profile": false
+                  }
+                }
+              }
+            },
+            "required": [
+              "authorize_url",
+              "token_url",
+              "client_id"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "pipedream"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "authorize_params": false,
+              "authorize_url": false,
+              "client_auth": false,
+              "config": false,
+              "pkce": false,
+              "refresh_params": false,
+              "refresh_response": false,
+              "require_refresh": false,
+              "scope_parameter": false,
+              "scope_separator": false,
+              "shared": false,
+              "token_encoding": false,
+              "token_headers": false,
+              "token_params": false,
+              "token_response": false,
+              "token_url": false
+            },
+            "required": [
+              "client_id",
+              "client_secret",
+              "project_id",
+              "environment",
+              "app"
             ]
           }
         },
@@ -94,6 +178,9 @@
         "account": {
           "$ref": "#/$defs/OAuthAccount"
         },
+        "app": {
+          "type": "string"
+        },
         "authorize_params": {
           "additionalProperties": {
             "type": "string"
@@ -102,6 +189,9 @@
         },
         "authorize_url": {
           "type": "string"
+        },
+        "availability": {
+          "$ref": "#/$defs/AuthAvailability"
         },
         "brand": {
           "enum": [
@@ -144,6 +234,9 @@
         "description": {
           "type": "string"
         },
+        "environment": {
+          "type": "string"
+        },
         "if": {
           "pattern": "^\\s*\\{\\{.+\\}\\}\\s*$",
           "type": "string"
@@ -162,6 +255,9 @@
             "S256",
             "none"
           ],
+          "type": "string"
+        },
+        "project_id": {
           "type": "string"
         },
         "refresh_params": {
@@ -231,7 +327,8 @@
         "type": {
           "enum": [
             "manual",
-            "oauth2"
+            "oauth2",
+            "pipedream"
           ],
           "type": "string"
         }
@@ -496,7 +593,14 @@
         },
         "set": {
           "additionalProperties": {
-            "type": "string"
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "$ref": "#/$defs/HeaderValue"
+              }
+            ]
           },
           "type": "object"
         }
@@ -1002,6 +1106,15 @@
       "properties": {
         "if": {
           "pattern": "^\\s*\\{\\{.+\\}\\}\\s*$",
+          "type": "string"
+        },
+        "profile": {
+          "description": "Pipedream only: request this OAuth scope profile. Exactly one profile group must be active. Active scope values also bound the accepted grant.",
+          "enum": [
+            "read_only",
+            "read_write",
+            "admin"
+          ],
           "type": "string"
         },
         "values": {

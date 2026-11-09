@@ -345,7 +345,7 @@ func (m *Manifest) validateProxy(p Proxy, used map[string]bool) error {
 				return err
 			}
 		}
-		credentials := mapValues(p.Action.Headers.Set)
+		credentials := headerValues(p.Action.Headers.Set)
 		credentials = append(credentials, mapValues(p.Action.Query)...)
 		if b := p.Action.BasicAuth; b.Enabled() {
 			credentials = append(credentials, b.Username, b.Password)
@@ -459,14 +459,17 @@ type HTTPRecipe struct {
 	RemoveHeaders []string
 }
 
-// Proxy sets are unconditional templates; OAuth account headers reuse preparation
-// with their separate conditional HeaderValue contract.
+// Proxy and account headers use the same conditional preparation contract.
 func (a ProxyAction) httpRecipe(rawURL string) HTTPRecipe {
-	headers := make(map[string]HeaderValue, len(a.Headers.Set))
-	for name, value := range a.Headers.Set {
-		headers[name] = HeaderValue{Value: value}
+	return HTTPRecipe{URL: rawURL, Headers: a.Headers.Set, Query: a.Query, BasicAuth: a.BasicAuth, RemoveHeaders: a.Headers.Remove}
+}
+
+func headerValues(headers map[string]HeaderValue) []string {
+	values := make([]string, 0, len(headers))
+	for _, header := range headers {
+		values = append(values, header.Value)
 	}
-	return HTTPRecipe{URL: rawURL, Headers: headers, Query: a.Query, BasicAuth: a.BasicAuth, RemoveHeaders: a.Headers.Remove}
+	return values
 }
 
 // PrepareURL injects private query values after the original request has selected
