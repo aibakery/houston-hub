@@ -9,7 +9,7 @@
   "config": {
     "access": {
       "default": "read-only",
-      "description": "Read and draft lets agents create, update and delete drafts for you to review and send from Gmail; Houston refuses every send request on that level.",
+      "description": "Read and draft lets agents create, edit and delete drafts. You review and send them yourself in Gmail.",
       "label": "Access",
       "options": [
         {

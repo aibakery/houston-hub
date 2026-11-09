@@ -264,6 +264,11 @@ such as `gmail`. Publishers enter these values in the normal Hub publication for
 They are never exposed to connector Luau. No platform-owned Pipedream account or
 hidden connector registration is required.
 
+Use `production` for normal user connections. In `development`, the person
+connecting must also sign in to Pipedream in the same browser, and the project
+supports up to ten external users. Keep these publisher setup details out of
+connector README and SETUP files.
+
 Pipedream handles the provider callback and redirects to Houston after connecting.
 Houston verifies the resulting account before binding it to the pending connection.
 Each Houston connection uses a stable opaque external identity derived from its

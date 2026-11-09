@@ -5,12 +5,6 @@ description: Search, read and answer Gmail, with attachments and drafts.
 
 Give agents the context they need from your Gmail inbox.
 
-Connect your Google account through Pipedream. Pipedream manages Google sign-in
-and credentials; Gmail requests pass through its proxy. Houston enforces your
-selected access level even though Google's Pipedream consent requests broader
-Gmail permissions. Direct Google sign-in is a preview pending Google approval;
-existing direct connections keep working.
-
 - Search mail with Gmail's own search syntax and read whole conversations.
 - Download attachments to work with alongside your other files.
 - With **Read and draft** access: prepare drafts and replies (with attachments)
@@ -19,7 +13,6 @@ existing direct connections keep working.
   drafts for you to review, mark messages read or unread, and organize mail with
   labels, archive and trash.
 
-Read-only access cannot send mail or change your inbox. Read and draft access
-can create, update and delete drafts, including ones you wrote, but Houston
-refuses every request to send. Apart from deleted drafts, messages are never
-permanently deleted: trash keeps them for 30 days.
+> **Read-only** cannot change your inbox or send mail. **Read and draft** can
+> also edit or delete existing drafts, but cannot send them. Trashed messages
+> stay in Gmail for 30 days; deleted drafts are removed permanently.
