@@ -5,6 +5,10 @@ return {
 			if not (m.publisherClient(m.raw.auth["oauth"])) then
 				m.fail("Slack OAuth client must belong to the publication")
 			end
+			local bot = m.raw.auth["oauth"].authorize_params.scope
+			if bot ~= "mcp:connect" then
+				m.fail("Slack install requests bot scopes %s", bot)
+			end
 		end
 		-- TestSlackScopesAndAccessRoutes
 		do

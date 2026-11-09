@@ -44,6 +44,8 @@ func TestOAuthFactsValidation(t *testing.T) {
 		{`"pkce":"none",`, `"pkce":"none","refresh_response":{"label":"/team/name"},`, "refresh_response forbids facts, label"},
 		{`"pkce":"none",`, `"pkce":"none","account":{"url":"https://example.com/me","label":"/name"},`, "token_response.label conflicts with account"},
 		{`"pkce":"none",`, `"pkce":"none","authorize_params":{"team":"{{auth.oauth.team_id}}"},`, "browser parameters require public publisher/config values"},
+		{`"pkce":"none",`, `"pkce":"none","authorize_params":{"scope":"bot"},`, "reserved or invalid OAuth parameter scope"},
+		{`"pkce":"none",`, `"pkce":"none","scope_parameter":"user_scope","token_params":{"scope":"bot"},`, "reserved or invalid OAuth parameter scope"},
 		{`"host":["api.example.com"],"method":["GET"]`, `"host":["{{auth.oauth.team_id}}"],"method":["GET"]`, "host requires a required, unconditional string setting"},
 		{`{"match":{"protocol":"http","host":["api.example.com"],"method":["PUT"]`, `{"if":"{{ is auth.oauth.team_id \"T1\" }}","match":{"protocol":"http","host":["api.example.com"],"method":["PUT"]`, "cannot be used in predicates"},
 		{`"/channels/{channel}"`, `"/channels/x{{auth.oauth.team_id}}"`, "exactly one declared OAuth fact reference"},
@@ -72,6 +74,10 @@ func TestOAuthFactsValidation(t *testing.T) {
 	revoked := strings.Replace(factsManifest, `"pkce":"none",`, `"pkce":"none","refresh_response":{"revoked":[{"op":"equals","path":"/error","value":"invalid_grant"}]},`, 1)
 	if m, err := Parse([]byte(revoked)); err != nil || len(m.Auth["oauth"].RefreshResponse.Revoked) != 1 {
 		t.Errorf("refresh revocation checks: %v", err)
+	}
+	botScope := strings.Replace(factsManifest, `"pkce":"none",`, `"pkce":"none","scope_parameter":"user_scope","authorize_params":{"scope":"mcp:connect"},`, 1)
+	if m, err := Parse([]byte(botScope)); err != nil || m.Auth["oauth"].AuthorizeParams["scope"] != "mcp:connect" {
+		t.Errorf("bot scope beside user_scope: %v", err)
 	}
 	unreported := strings.Replace(factsManifest, `"label":"/team/name"}`, `"label":"/team/name","scopes_unreported":true}`, 1)
 	if m, err := Parse([]byte(unreported)); err != nil || !m.Auth["oauth"].TokenResponse.ScopesUnreported || m.Auth["oauth"].TokenResponse.Scopes != "" {

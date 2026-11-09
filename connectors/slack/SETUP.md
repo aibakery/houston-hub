@@ -8,6 +8,15 @@
 > Agents see what you can see, including private channels and direct messages.
 > With write access, they post and share files under your name.
 
+## Use Houston from Slackbot
+
+Connecting Slack also adds Houston to Slackbot in that workspace. Open a direct
+message with Slackbot, select **Apps**, then **+** next to Houston, and sign in
+to Houston. Slackbot asks before each Houston action: choose **Allow once** or
+**Always allow**. It stops waiting after 60 seconds, so ask for long work to run
+in the background. To disconnect, remove Houston in Slackbot, or remove Slack
+under **Your agents** in Houston's dashboard.
+
 ## Advanced
 
 Add one connection per workspace; Enterprise Grid-wide installations are unsupported.

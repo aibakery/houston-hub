@@ -17,6 +17,10 @@ Read-only access lets agents read, but never post. Each connection covers one
 Slack workspace and is personal: only you can use it. Add another connection for
 each additional workspace.
 
+Connecting Slack also adds Houston to Slackbot. Open a direct message with
+Slackbot, select **Apps**, add Houston and sign in. Slackbot can then use your
+Houston connections and saved workflows, and asks you before each action.
+
 Your agent's summaries and answers may be inaccurate or incomplete. Check
 important details in Slack before you rely on them.
 

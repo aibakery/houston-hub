@@ -537,7 +537,7 @@ func (m *Manifest) validateOAuth(key string, a AuthMethod, used map[string]bool)
 	}
 	for mode, params := range map[string]map[string]string{"public": a.AuthorizeParams, "token": a.TokenParams, "refresh": a.RefreshParams} {
 		for k, v := range params {
-			if !paramRE.MatchString(k) || reservedParams[k] || k == "scope" || k == a.ScopeParameter {
+			if !paramRE.MatchString(k) || reservedParams[k] || k == a.ScopeParameter || k == "scope" && mode != "public" {
 				return fmt.Errorf("reserved or invalid OAuth parameter %s", k)
 			}
 			sink := mode

@@ -36,6 +36,9 @@
       "pkce": "none",
       "scope_parameter": "user_scope",
       "scope_separator": ",",
+      "authorize_params": {
+        "scope": "mcp:connect"
+      },
       "scopes": [
         {
           "values": [
