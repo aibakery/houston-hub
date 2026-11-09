@@ -98,6 +98,24 @@ metadata to show a **Houston billing — Coming soon** banner during
 connection setup. It does not supply credentials, change authentication, or charge
 credits. Do not mark mailboxes, private workspaces, or databases as stateless.
 
+Set the optional root `connections` string to choose which connections Houston
+accepts for the connector. It defaults to `unrestricted`, where workspaces may
+add both shared and personal connections.
+
+- `personal-only`: Houston accepts only personal connections, each used by the
+  one person who connected it. Set it when the provider's terms forbid letting
+  other people use one person's authorization, as Slack's do for user tokens.
+  Do not set it only because a token acts as its user; workspaces can already
+  keep such connections personal. It cannot be combined with `stateless`.
+- `shared-only`: Houston accepts only shared connections, which workspace admins
+  add and manage. Set it when a connection stands for the whole workspace
+  rather than one person, such as an organization-wide app installation.
+
+Workspace admins can't add a connection the policy refuses, and once a release
+sets a policy, Houston removes the connector's existing connections of the other
+kind with their credentials.
+
+
 ```json
 {
   "schema_version": 1,

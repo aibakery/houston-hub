@@ -170,6 +170,12 @@ func (m *Manifest) Validate() error {
 	if m.Name == "" {
 		return fmt.Errorf("name is required")
 	}
+	if m.Connections != "" && !slices.Contains(ConnectionPolicies, m.Connections) {
+		return fmt.Errorf("connections must be one of %v", ConnectionPolicies)
+	}
+	if m.Connections == ConnectionsPersonalOnly && m.Stateless {
+		return fmt.Errorf("personal-only connectors cannot be stateless")
+	}
 	if m.Icon != "" && m.Icon != "icon.svg" && m.Icon != "icon.png" {
 		return fmt.Errorf("invalid icon")
 	}

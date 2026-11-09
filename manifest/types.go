@@ -17,6 +17,7 @@ type Manifest struct {
 	Setup           string                `json:"setup,omitempty"`
 	Warning         string                `json:"warning,omitempty"`
 	Stateless       bool                  `json:"stateless,omitempty"`
+	Connections     ConnectionPolicy      `json:"connections,omitempty"`
 	Icon            string                `json:"icon,omitempty"`
 	VerificationKey string                `json:"verification_key,omitempty"`
 	Files           []string              `json:"files"`
@@ -25,6 +26,27 @@ type Manifest struct {
 	Auth            map[string]AuthMethod `json:"auth,omitempty"`
 	Proxy           ProxyRules            `json:"proxy"`
 }
+
+// ConnectionPolicy says which connections Houston accepts for a connector. An
+// empty policy is unrestricted.
+type ConnectionPolicy string
+
+const (
+	ConnectionsUnrestricted ConnectionPolicy = "unrestricted"
+	ConnectionsPersonalOnly ConnectionPolicy = "personal-only"
+	ConnectionsSharedOnly   ConnectionPolicy = "shared-only"
+)
+
+var ConnectionPolicies = []ConnectionPolicy{ConnectionsUnrestricted, ConnectionsPersonalOnly, ConnectionsSharedOnly}
+
+// Allows reports whether the policy accepts a personal or a shared connection.
+func (p ConnectionPolicy) Allows(personal bool) bool {
+	if personal {
+		return p != ConnectionsSharedOnly
+	}
+	return p != ConnectionsPersonalOnly
+}
+
 type Field struct {
 	If          string   `json:"if,omitempty"`
 	Type        string   `json:"type"`

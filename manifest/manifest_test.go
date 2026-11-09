@@ -411,3 +411,37 @@ func TestSharedCheckValidation(t *testing.T) {
 		t.Fatalf("shared check not parsed: %+v", s)
 	}
 }
+
+func TestConnectionPolicy(t *testing.T) {
+	m := example(t, 2)
+	if !m.Connections.Allows(true) || !m.Connections.Allows(false) {
+		t.Fatal("connections must default to unrestricted")
+	}
+	for policy, allows := range map[ConnectionPolicy][2]bool{ConnectionsUnrestricted: {true, true}, ConnectionsPersonalOnly: {true, false}, ConnectionsSharedOnly: {false, true}} {
+		m.Connections = policy
+		raw, err := json.Marshal(m)
+		if err != nil {
+			t.Fatal(err)
+		}
+		parsed, err := Parse(raw)
+		if err != nil || parsed.Connections != policy {
+			t.Fatalf("connections %s lost: %v", policy, err)
+		}
+		if parsed.Connections.Allows(true) != allows[0] || parsed.Connections.Allows(false) != allows[1] {
+			t.Fatalf("connections %s allows personal=%v shared=%v", policy, parsed.Connections.Allows(true), parsed.Connections.Allows(false))
+		}
+		for _, invalid := range []string{`"personal"`, `true`, `null`} {
+			if _, err := Parse([]byte(strings.Replace(string(raw), `"connections":"`+string(policy)+`"`, `"connections":`+invalid, 1))); err == nil {
+				t.Fatalf("accepted connections=%s", invalid)
+			}
+		}
+	}
+	m.Connections, m.Stateless = ConnectionsPersonalOnly, true
+	raw, err := json.Marshal(m)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Parse(raw); err == nil || !strings.Contains(err.Error(), "personal-only connectors cannot be stateless") {
+		t.Fatalf("accepted a stateless personal-only connector: %v", err)
+	}
+}
