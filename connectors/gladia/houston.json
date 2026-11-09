@@ -1,0 +1,118 @@
+{
+  "schema_version": 1,
+  "name": "Gladia",
+  "files": [
+    "connector.luau"
+  ],
+  "icon": "icon.svg",
+  "config": {
+    "access": {
+      "default": "read-only",
+      "label": "Access",
+      "options": [
+        {
+          "label": "Read-only",
+          "value": "read-only"
+        },
+        {
+          "label": "Read and write",
+          "value": "read-write"
+        }
+      ],
+      "type": "string"
+    }
+  },
+  "auth": {
+    "api_key": {
+      "type": "manual",
+      "label": "API key",
+      "config": {
+        "token": {
+          "type": "secret",
+          "label": "API key",
+          "description": "Create a key in the Gladia dashboard under API keys. Gladia bills every transcription to the account that owns the key.",
+          "required": true
+        }
+      }
+    }
+  },
+  "proxy": [
+    {
+      "match": {
+        "protocol": "http",
+        "host": [
+          "api.gladia.io"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/v2/transcription",
+          "/v2/transcription/{id}",
+          "/v2/transcription/{id}/file"
+        ]
+      },
+      "action": {
+        "headers": {
+          "remove": [
+            "Authorization"
+          ],
+          "set": {
+            "x-gladia-key": "{{auth.api_key.token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "api.gladia.io"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/v2/upload",
+          "/v2/transcription"
+        ]
+      },
+      "action": {
+        "headers": {
+          "remove": [
+            "Authorization"
+          ],
+          "set": {
+            "x-gladia-key": "{{auth.api_key.token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "api.gladia.io"
+        ],
+        "method": [
+          "DELETE"
+        ],
+        "path": [
+          "/v2/transcription/{id}"
+        ]
+      },
+      "action": {
+        "headers": {
+          "remove": [
+            "Authorization"
+          ],
+          "set": {
+            "x-gladia-key": "{{auth.api_key.token}}"
+          }
+        }
+      }
+    }
+  ]
+}
