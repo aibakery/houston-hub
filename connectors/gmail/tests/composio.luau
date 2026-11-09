@@ -1,7 +1,7 @@
 return {
 	scenario = {
-		publisher = {pipedream_client_id = "fixture-client", pipedream_client_secret = "fixture-secret", pipedream_project_id = "proj_fixture", pipedream_environment = "development"},
-		config = {}, auth_method = "pipedream", auth_config = {},
+		publisher = {composio_auth_config_id = "ac_fixture", composio_api_key = "fixture-secret"},
+		config = {}, auth_method = "composio", auth_config = {},
 	},
 	config = {access = "read-only"},
 	configure = function()

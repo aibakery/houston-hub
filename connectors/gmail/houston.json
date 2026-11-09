@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "name": "Gmail",
-  "warning": "**Direct Google sign-in is pending approval.** Connect through Pipedream while Google reviews Houston's application. Existing direct Google connections continue to work.",
+  "warning": "**Direct Google sign-in is pending approval.**",
   "files": [
     "connector.luau"
   ],
@@ -29,6 +29,20 @@
     }
   },
   "auth": {
+    "composio": {
+      "account": {
+        "label": "/emailAddress",
+        "method": "GET",
+        "url": "https://gmail.googleapis.com/gmail/v1/users/me/profile"
+      },
+      "api_key": "{{publisher.composio_api_key}}",
+      "app": "gmail",
+      "auth_config_id": "{{publisher.composio_auth_config_id}}",
+      "description": "Composio requires full Gmail access. Houston limits its use to the access level you select.",
+      "label": "Connect with Composio",
+      "order": 1,
+      "type": "composio"
+    },
     "oauth": {
       "account": {
         "headers": {
@@ -86,66 +100,6 @@
       ],
       "token_url": "https://oauth2.googleapis.com/token",
       "type": "oauth2"
-    },
-    "pipedream": {
-      "account": {
-        "label": "/emailAddress",
-        "method": "GET",
-        "url": "https://gmail.googleapis.com/gmail/v1/users/me/profile"
-      },
-      "app": "gmail",
-      "client_id": "{{publisher.pipedream_client_id}}",
-      "client_secret": "{{publisher.pipedream_client_secret}}",
-      "environment": "{{publisher.pipedream_environment}}",
-      "label": "Connect with Pipedream",
-      "order": 1,
-      "project_id": "{{publisher.pipedream_project_id}}",
-      "scopes": [
-        {
-          "if": "{{ is config.access \"read-only\" }}",
-          "profile": "read_only",
-          "values": [
-            "email",
-            "https://www.googleapis.com/auth/gmail.metadata",
-            "https://www.googleapis.com/auth/gmail.readonly",
-            "openid",
-            "profile"
-          ]
-        },
-        {
-          "if": "{{ is config.access \"custom\" }}",
-          "profile": "read_write",
-          "values": [
-            "email",
-            "https://www.googleapis.com/auth/gmail.compose",
-            "https://www.googleapis.com/auth/gmail.labels",
-            "https://www.googleapis.com/auth/gmail.metadata",
-            "https://www.googleapis.com/auth/gmail.modify",
-            "https://www.googleapis.com/auth/gmail.readonly",
-            "https://www.googleapis.com/auth/gmail.send",
-            "https://www.googleapis.com/auth/gmail.settings.basic",
-            "openid",
-            "profile"
-          ]
-        },
-        {
-          "if": "{{ is config.access \"read-write\" }}",
-          "profile": "read_write",
-          "values": [
-            "email",
-            "https://www.googleapis.com/auth/gmail.compose",
-            "https://www.googleapis.com/auth/gmail.labels",
-            "https://www.googleapis.com/auth/gmail.metadata",
-            "https://www.googleapis.com/auth/gmail.modify",
-            "https://www.googleapis.com/auth/gmail.readonly",
-            "https://www.googleapis.com/auth/gmail.send",
-            "https://www.googleapis.com/auth/gmail.settings.basic",
-            "openid",
-            "profile"
-          ]
-        }
-      ],
-      "type": "pipedream"
     }
   },
   "publisher": {
@@ -159,35 +113,16 @@
       "order": 2,
       "type": "secret"
     },
-    "pipedream_client_id": {
-      "label": "Pipedream OAuth client ID",
-      "order": 3,
-      "type": "string"
-    },
-    "pipedream_client_secret": {
-      "label": "Pipedream OAuth client secret",
+    "composio_api_key": {
+      "description": "Use an API key from the project that owns the Gmail auth config, with Proxy execute enabled. Composio is offered only when both fields are filled in.",
+      "label": "Composio project API key",
       "order": 4,
       "type": "secret"
     },
-    "pipedream_environment": {
-      "default": "development",
-      "label": "Pipedream environment",
-      "options": [
-        {
-          "label": "Development",
-          "value": "development"
-        },
-        {
-          "label": "Production",
-          "value": "production"
-        }
-      ],
-      "order": 6,
-      "type": "string"
-    },
-    "pipedream_project_id": {
-      "label": "Pipedream project ID",
-      "order": 5,
+    "composio_auth_config_id": {
+      "description": "Create a Gmail OAuth2 auth config using Composio-managed credentials and the https://mail.google.com/ scope. Copy its ac_ ID here. Leave blank to offer only direct Google sign-in.",
+      "label": "Composio Gmail auth config ID",
+      "order": 3,
       "type": "string"
     }
   },
@@ -231,6 +166,7 @@
       }
     },
     {
+      "if": "{{ is config.access \"read-write\" }}",
       "action": {
         "headers": {
           "remove": [
@@ -244,7 +180,6 @@
           }
         }
       },
-      "if": "{{ is config.access \"read-write\" }}",
       "match": {
         "host": [
           "gmail.googleapis.com"
@@ -269,6 +204,7 @@
       }
     },
     {
+      "if": "{{ is config.access \"read-write\" }}",
       "action": {
         "headers": {
           "remove": [
@@ -282,7 +218,6 @@
           }
         }
       },
-      "if": "{{ is config.access \"read-write\" }}",
       "match": {
         "host": [
           "gmail.googleapis.com"
@@ -298,6 +233,7 @@
       }
     },
     {
+      "if": "{{ is config.access \"read-write\" }}",
       "action": {
         "headers": {
           "remove": [
@@ -311,7 +247,6 @@
           }
         }
       },
-      "if": "{{ is config.access \"read-write\" }}",
       "match": {
         "host": [
           "gmail.googleapis.com"
@@ -326,6 +261,7 @@
       }
     },
     {
+      "if": "{{ is config.access \"read-write\" }}",
       "action": {
         "headers": {
           "remove": [
@@ -339,7 +275,6 @@
           }
         }
       },
-      "if": "{{ is config.access \"read-write\" }}",
       "match": {
         "host": [
           "gmail.googleapis.com"
@@ -354,6 +289,7 @@
       }
     },
     {
+      "if": "{{ is config.access \"custom\" }}",
       "action": {
         "headers": {
           "remove": [
@@ -367,7 +303,6 @@
           }
         }
       },
-      "if": "{{ is config.access \"custom\" }}",
       "match": {
         "host": [
           "gmail.googleapis.com"
@@ -382,6 +317,7 @@
       }
     },
     {
+      "if": "{{ is config.access \"custom\" }}",
       "action": {
         "headers": {
           "remove": [
@@ -395,7 +331,6 @@
           }
         }
       },
-      "if": "{{ is config.access \"custom\" }}",
       "match": {
         "host": [
           "gmail.googleapis.com"
@@ -410,6 +345,7 @@
       }
     },
     {
+      "if": "{{ is config.access \"custom\" }}",
       "action": {
         "headers": {
           "remove": [
@@ -423,7 +359,6 @@
           }
         }
       },
-      "if": "{{ is config.access \"custom\" }}",
       "match": {
         "host": [
           "gmail.googleapis.com"

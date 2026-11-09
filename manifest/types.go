@@ -49,8 +49,8 @@ type Option struct {
 }
 type AuthMethod struct {
 	Availability    *AuthAvailability `json:"availability,omitempty"`
-	ProjectID       string            `json:"project_id,omitempty"`
-	Environment     string            `json:"environment,omitempty"`
+	AuthConfigID    string            `json:"auth_config_id,omitempty"`
+	APIKey          string            `json:"api_key,omitempty"`
 	App             string            `json:"app,omitempty"`
 	If              string            `json:"if,omitempty"`
 	Type            string            `json:"type"`
@@ -87,20 +87,19 @@ type AuthAvailability struct {
 	Message string `json:"message,omitempty"`
 }
 
-func (a AuthMethod) RequiresAuthorization() bool { return a.Type == "oauth2" || a.Type == "pipedream" }
+func (a AuthMethod) RequiresAuthorization() bool { return a.Type == "oauth2" || a.Type == "composio" }
 
 // AuthorizationSettings returns private settings needed to start sign-in.
 func (a AuthMethod) AuthorizationSettings() []string {
-	if a.Type == "pipedream" {
-		return []string{a.ClientID, a.ClientSecret, a.ProjectID, a.Environment}
+	if a.Type == "composio" {
+		return []string{a.APIKey, a.AuthConfigID}
 	}
 	return []string{a.ClientID, a.ClientSecret}
 }
 
 type ScopeGroup struct {
-	If      string   `json:"if,omitempty"`
-	Profile string   `json:"profile,omitempty"`
-	Values  []string `json:"values"`
+	If     string   `json:"if,omitempty"`
+	Values []string `json:"values"`
 }
 type TokenResponse struct {
 	AccessToken      string            `json:"access_token,omitempty"`

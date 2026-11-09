@@ -248,8 +248,8 @@ func (m *Manifest) Validate() error {
 			if e := m.validateOAuth(k, a, used); e != nil {
 				return fmt.Errorf("auth.%s: %w", k, e)
 			}
-		case "pipedream":
-			if e := m.validatePipedream(a, used); e != nil {
+		case "composio":
+			if e := m.validateComposio(a, used); e != nil {
 				return fmt.Errorf("auth.%s: %w", k, e)
 			}
 		default:
@@ -523,11 +523,6 @@ func (m *Manifest) validateOAuth(key string, a AuthMethod, used map[string]bool)
 	if e := m.validateScopes(a.Scopes, used); e != nil {
 		return e
 	}
-	for _, group := range a.Scopes {
-		if group.Profile != "" {
-			return fmt.Errorf("scope profiles require Pipedream authentication")
-		}
-	}
 	for mode, params := range map[string]map[string]string{"public": a.AuthorizeParams, "token": a.TokenParams, "refresh": a.RefreshParams} {
 		for k, v := range params {
 			if !paramRE.MatchString(k) || reservedParams[k] || k == "scope" || k == a.ScopeParameter {
@@ -578,9 +573,6 @@ func (m *Manifest) validateOAuth(key string, a AuthMethod, used map[string]bool)
 
 func (m *Manifest) validateScopes(groups []ScopeGroup, used map[string]bool) error {
 	for _, g := range groups {
-		if g.Profile != "" && !slices.Contains(pipedreamScopeProfiles, g.Profile) {
-			return fmt.Errorf("invalid Pipedream scope profile")
-		}
 		if len(g.Values) == 0 {
 			return fmt.Errorf("empty scope group")
 		}
@@ -632,37 +624,34 @@ func (m *Manifest) validateAccount(a AuthMethod, used map[string]bool) error {
 	return nil
 }
 
-func (m *Manifest) validatePipedream(a AuthMethod, used map[string]bool) error {
+func (m *Manifest) validateComposio(a AuthMethod, used map[string]bool) error {
 	if a.Brand != "" && !slices.Contains(Brands, a.Brand) {
 		return fmt.Errorf("invalid brand")
 	}
 	if !brokerAppRE.MatchString(a.App) {
-		return fmt.Errorf("Pipedream app must be a literal slug")
+		return fmt.Errorf("Composio app must be a literal slug")
 	}
-	for _, input := range []struct{ value, mode string }{{a.ClientID, "client_id"}, {a.ClientSecret, "client_secret"}, {a.ProjectID, "client_id"}, {a.Environment, "client_id"}} {
+	for _, input := range []struct{ value, mode string }{{a.AuthConfigID, "client_id"}, {a.APIKey, "client_secret"}} {
 		if err := m.template(input.value, input.mode, used); err != nil {
 			return err
 		}
 		if clientOwner(input.value) != "publisher" {
-			return fmt.Errorf("Pipedream credentials and project settings must be publisher-owned")
+			return fmt.Errorf("Composio API key and auth config must be publisher-owned")
 		}
-	}
-	if err := m.validateScopes(a.Scopes, used); err != nil {
-		return err
 	}
 	if err := m.validateAccount(a, used); err != nil {
 		return err
 	}
 	if a.Account != nil {
 		if a.Account.Method != "" && a.Account.Method != "GET" {
-			return fmt.Errorf("Pipedream account lookup must use GET")
+			return fmt.Errorf("Composio account lookup must use GET")
 		}
 		for _, header := range a.Account.Headers {
 			refs, _ := TemplateReferences(header.Value)
 			for _, ref := range refs {
 				field, err := m.reference(ref)
 				if err != nil || field.Type == "secret" {
-					return fmt.Errorf("Pipedream account headers cannot contain credentials")
+					return fmt.Errorf("Composio account headers cannot contain credentials")
 				}
 			}
 		}
@@ -670,7 +659,7 @@ func (m *Manifest) validatePipedream(a AuthMethod, used map[string]bool) error {
 	// The broker can attach account credentials to every allowed destination.
 	// Keep those destinations controlled by the publication, as for OAuth tokens.
 	for _, rule := range m.Proxy {
-		if err := m.publisherRecipient([]string{a.ClientSecret}, rule.Match.Host); err != nil {
+		if err := m.publisherRecipient([]string{a.APIKey}, rule.Match.Host); err != nil {
 			return err
 		}
 	}
@@ -819,7 +808,7 @@ func checkPresence(data []byte) error {
 					return e
 				}
 			} else if typ == "oauth2" {
-				for _, field := range []string{"project_id", "environment", "app"} {
+				for _, field := range []string{"api_key", "auth_config_id", "app"} {
 					if _, exists := a[field]; exists {
 						return fmt.Errorf("OAuth forbids %s", field)
 					}
@@ -841,12 +830,12 @@ func checkPresence(data []byte) error {
 						}
 					}
 				}
-			} else if typ == "pipedream" {
+			} else if typ == "composio" {
 				for field := range a {
 					switch field {
-					case "if", "type", "label", "description", "order", "brand", "availability", "client_id", "client_secret", "project_id", "environment", "app", "scopes", "account":
+					case "if", "type", "label", "description", "order", "brand", "availability", "api_key", "auth_config_id", "app", "account":
 					default:
-						return fmt.Errorf("Pipedream method forbids %s", field)
+						return fmt.Errorf("Composio method forbids %s", field)
 					}
 				}
 			}
@@ -904,7 +893,9 @@ func clientOwner(s string) string {
 
 // PublisherClient reports whether the publication, not each connection, owns the OAuth client.
 // Its connections share one registered redirect URI per publication.
-func (a AuthMethod) PublisherClient() bool { return clientOwner(a.ClientID) == "publisher" }
+func (a AuthMethod) PublisherClient() bool {
+	return a.Type == "composio" || clientOwner(a.ClientID) == "publisher"
+}
 
 // oauthMethod returns the OAuth method an auth.<method>[.<field>] reference names.
 func (m *Manifest) oauthMethod(ref string) (AuthMethod, bool) {
