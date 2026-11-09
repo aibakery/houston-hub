@@ -275,10 +275,10 @@ of the scopes Google actually granted. Explain the broad provider permission in
 the method description and user setup instructions without presenting Houston's
 restriction as a narrower Google grant.
 
-When offering direct OAuth as an alternative, leave the Composio auth config ID
-optional and make the API key required only when that ID is supplied, using
-`if: "{{ isDefined publisher.composio_auth_config_id }}"`. Each method becomes
-available when its own referenced publisher settings are complete.
+When offering direct OAuth as an alternative, leave both Composio publisher
+fields optional. Houston hides the Composio method from connection choices until
+both referenced settings are supplied and nonempty. Clearing either setting hides
+it again; direct OAuth keeps its own availability and approval status.
 
 Houston creates a Composio connection link and saves its connected account ID
 with the pending authorization before redirecting the browser. Google returns to

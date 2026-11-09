@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "name": "Gmail",
-  "warning": "**Direct Google sign-in is pending approval.** Connect with Composio while Google reviews Houston's application.",
+  "warning": "**Direct Google sign-in is pending approval.**",
   "files": [
     "connector.luau"
   ],
@@ -114,11 +114,9 @@
       "type": "secret"
     },
     "composio_api_key": {
-      "if": "{{ isDefined publisher.composio_auth_config_id }}",
-      "description": "Use an API key from the project that owns the Gmail auth config, with Proxy execute enabled.",
+      "description": "Use an API key from the project that owns the Gmail auth config, with Proxy execute enabled. Composio is offered only when both fields are filled in.",
       "label": "Composio project API key",
       "order": 4,
-      "required": true,
       "type": "secret"
     },
     "composio_auth_config_id": {

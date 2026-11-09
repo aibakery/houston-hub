@@ -3,10 +3,10 @@
 1. Choose **Access**: **Read-only** to search and read mail, **Read and draft**
    to also prepare drafts you send yourself, or **Read and write** to send mail
    and organize your inbox too.
-2. Select **Connect Gmail with Composio**.
+2. Choose an available sign-in option and select **Connect Gmail**.
 3. Choose your Google account and approve access. You will return to Houston.
 
-> Composio requires full Gmail access. Houston limits its use to the access level
+> If you connect with Composio, it requires full Gmail access. Houston limits its use to the access level
 > you select. With **Read and draft**, you review and send drafts yourself in Gmail.
 
 ## Advanced

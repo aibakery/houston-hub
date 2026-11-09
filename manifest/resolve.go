@@ -223,7 +223,6 @@ func (m *Manifest) resolve(publisher, config, auth map[string]any, selected stri
 			continue
 		}
 		if yes {
-			eligible++
 			if a.RequiresAuthorization() {
 				for _, s := range a.AuthorizationSettings() {
 					if s == "" {
@@ -235,6 +234,12 @@ func (m *Manifest) resolve(publisher, config, auth map[string]any, selected stri
 						status.Error = "Authorization settings are incomplete"
 					}
 				}
+			}
+			if a.Type == "composio" && !status.Available {
+				status.Eligible = false
+			}
+			if status.Eligible {
+				eligible++
 			}
 			if selected == key {
 				selectedOK = status.Available

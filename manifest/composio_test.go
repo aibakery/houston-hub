@@ -20,7 +20,7 @@ func TestComposioResolutionAndDiscovery(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !r.Methods[0].Available || !r.Methods[0].PublisherClient || len(r.Scopes) != 0 || len(r.PublicConfig) != 0 {
+	if !r.Methods[0].Eligible || !r.Methods[0].Available || !r.Methods[0].PublisherClient || len(r.Scopes) != 0 || len(r.PublicConfig) != 0 {
 		t.Fatalf("unexpected resolution: %#v", r)
 	}
 	auth := m.DiscoveryAuth("broker", nil, map[string]string{"token": "private"})
@@ -37,18 +37,23 @@ func TestComposioResolutionAndDiscovery(t *testing.T) {
 		}
 	}
 	for _, key := range []string{"id", "secret"} {
-		incomplete := map[string]any{}
-		for field, value := range publisher {
-			if field != key {
-				incomplete[field] = value
+		for _, blank := range []any{nil, ""} {
+			incomplete := map[string]any{}
+			for field, value := range publisher {
+				if field != key {
+					incomplete[field] = value
+				}
 			}
-		}
-		draft, err := m.ResolveDraft(incomplete, nil, nil, "broker")
-		if err != nil || draft.Methods[0].Available {
-			t.Fatalf("missing %s available: %v", key, err)
-		}
-		if _, err := m.Resolve(incomplete, nil, nil, "broker"); err == nil {
-			t.Fatalf("incomplete %s resolved", key)
+			if blank != nil {
+				incomplete[key] = blank
+			}
+			draft, err := m.ResolveDraft(incomplete, nil, nil, "broker")
+			if err != nil || draft.Methods[0].Eligible || draft.Methods[0].Available {
+				t.Fatalf("incomplete %s offered: %v", key, err)
+			}
+			if _, err := m.Resolve(incomplete, nil, nil, "broker"); err == nil {
+				t.Fatalf("incomplete %s resolved", key)
+			}
 		}
 	}
 	serialized, err := json.Marshal(m)
