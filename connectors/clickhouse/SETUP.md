@@ -13,4 +13,4 @@
    issued by a public certificate authority for the host name you enter, and
    never connects without TLS.
 3. In Houston, choose the access level, then enter the host, HTTPS port,
-   database, username, and password, and select **Add connector**.
+   database, username, and password, and select **Add connection**.

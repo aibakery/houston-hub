@@ -6,7 +6,7 @@
 3. Choose **Read-only**, **Read and draft** to manage drafts for you to send, or
    **Read and write** to also organize mail. This connector cannot send email.
 4. Keep **TLS mode** on **Verify certificate and host name (recommended)** and
-   select **Add connector**. For a private server, see
+   select **Add connection**. For a private server, see
    [Self-signed and private certificates](#self-signed-and-private-certificates).
 
 > Use the dedicated Gmail or Fastmail connector for those services. Outlook.com

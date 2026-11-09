@@ -13,7 +13,7 @@
 2. Make the server reachable from Houston with TLS enabled.
 3. Enter **Host**, **Port**, **Database**, **Username** and **Password** in Houston.
 4. Choose **Read-only** or **Read and write**, keep **TLS mode** on
-   **Verify certificate and host name (recommended)**, and select **Add connector**.
+   **Verify certificate and host name (recommended)**, and select **Add connection**.
    For a private certificate, see
    [Self-signed and private certificates](#self-signed-and-private-certificates).
 
