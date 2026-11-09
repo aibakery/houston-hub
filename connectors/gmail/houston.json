@@ -160,17 +160,22 @@
       "type": "secret"
     },
     "pipedream_client_id": {
+      "description": "Required to enable Pipedream sign-in. Leave blank to offer only direct Google sign-in.",
       "label": "Pipedream OAuth client ID",
       "order": 3,
       "type": "string"
     },
     "pipedream_client_secret": {
+      "if": "{{ isDefined publisher.pipedream_client_id }}",
       "label": "Pipedream OAuth client secret",
       "order": 4,
+      "required": true,
       "type": "secret"
     },
     "pipedream_environment": {
       "default": "development",
+      "description": "Development is free for personal testing and requires signing in to Pipedream in the same browser. Production requires a paid Pipedream plan, independently of where Houston is deployed.",
+      "if": "{{ isDefined publisher.pipedream_client_id }}",
       "label": "Pipedream environment",
       "options": [
         {
@@ -183,11 +188,15 @@
         }
       ],
       "order": 6,
+      "required": true,
       "type": "string"
     },
     "pipedream_project_id": {
+      "description": "Copy the project ID beginning with proj_ from your Pipedream project settings.",
+      "if": "{{ isDefined publisher.pipedream_client_id }}",
       "label": "Pipedream project ID",
       "order": 5,
+      "required": true,
       "type": "string"
     }
   },
