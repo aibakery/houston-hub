@@ -264,10 +264,18 @@ such as `gmail`. Publishers enter these values in the normal Hub publication for
 They are never exposed to connector Luau. No platform-owned Pipedream account or
 hidden connector registration is required.
 
-Use `production` for normal user connections. In `development`, the person
+Use `production` for normal user connections; this requires a paid Pipedream plan.
+The free plan supports personal testing in `development`, even when Houston
+itself is deployed in production. In `development`, the person
 connecting must also sign in to Pipedream in the same browser, and the project
 supports up to ten external users. Keep these publisher setup details out of
 connector README and SETUP files.
+
+If a connector offers direct authentication as well, leave its Pipedream client
+ID optional and explain that it enables Pipedream. Make the secret, project ID,
+and environment required with `if: "{{ isDefined publisher.pipedream_client_id }}"`
+(using your own client ID field name). This keeps direct-only publications valid
+and presents the complete Pipedream settings as required once enabled.
 
 Pipedream handles the provider callback and redirects to Houston after connecting.
 Houston verifies the resulting account before binding it to the pending connection.
