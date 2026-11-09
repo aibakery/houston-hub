@@ -18,8 +18,8 @@ connect Outlook.
 - To revoke every permission you granted Houston, remove Houston from
   [your Microsoft account's apps](https://account.live.com/consent/Manage) (personal
   accounts) or [My Apps](https://myapps.microsoft.com) (work or school accounts).
-  This disconnects all your Microsoft connections in Houston, including
-  Outlook. To stop using only OneDrive, remove its connection in Houston.
+  This disconnects all your Microsoft connections in Houston. To stop using
+  only OneDrive, remove its connection in Houston.
 - Work or school accounts can require an administrator's approval for new apps.
   If Microsoft shows **Need admin approval**, ask your administrator to approve
   Houston.
