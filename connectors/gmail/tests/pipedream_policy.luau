@@ -1,6 +1,14 @@
 return {
 	contract = function(m)
 		local publisher = {pipedream_client_id = "fixture-client", pipedream_client_secret = "fixture-secret", pipedream_project_id = "proj_fixture", pipedream_environment = "development"}
+		for _, field in {"pipedream_client_secret", "pipedream_project_id"} do
+			local incomplete = table.clone(publisher)
+			incomplete[field] = nil
+			local _, err = m.resolve(incomplete, {access = "read-only"}, nil, "pipedream")
+			assert(err, "Incomplete Pipedream settings must require " .. field)
+		end
+		local direct, directError = m.resolve({client_id = "google-client", client_secret = "google-secret"}, {access = "read-only"}, nil, "oauth")
+		assert(direct and not directError, "Direct Google sign-in must work without Pipedream settings")
 		local api = "https://gmail.googleapis.com/gmail/v1/users/me"
 		local upload = "https://gmail.googleapis.com/upload/gmail/v1/users/me"
 		for _, access in {"read-only", "custom", "read-write"} do
