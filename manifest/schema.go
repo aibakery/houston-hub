@@ -139,7 +139,7 @@ func Schema() ([]byte, error) {
 		},
 	}
 
-	revoked := "Any listed check that passes proves the provider revoked the grant, and Houston removes the connection."
+	revoked := "Equals checks, on paths that checks never test, evaluated on 2xx responses. Any listed check that passes proves the provider revoked the grant, and Houston removes the connection."
 	props("TokenResponse")["revoked"].(map[string]any)["description"] = "refresh_response only: checks on a refresh response. " + revoked
 	props("OAuthAccount")["revoked"].(map[string]any)["description"] = "Checks on an account response, which Houston requests about once a day. " + revoked
 	props("AuthMethod")["token_response"] = map[string]any{"allOf": []any{props("AuthMethod")["token_response"], forbid("revoked")}}

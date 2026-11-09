@@ -438,10 +438,23 @@ func validateResponse(r TokenResponse) error {
 			}
 		}
 	}
-	if e := validateChecks(r.Revoked); e != nil {
-		return e
-	}
 	return validateChecks(r.Checks)
+}
+
+// validateRevoked keeps revocation proof narrow: a match deletes the connection, so
+// each check names an exact value on a path the success checks never test.
+func validateRevoked(revoked, checks []ResponseCheck) error {
+	for _, c := range revoked {
+		if c.Op != "equals" {
+			return fmt.Errorf("revoked checks require equals")
+		}
+		for _, s := range checks {
+			if overlapPointer(c.Path, s.Path) {
+				return fmt.Errorf("revoked checks cannot test a path that checks test")
+			}
+		}
+	}
+	return validateChecks(revoked)
 }
 
 // MaxFacts bounds the public values one OAuth authorization can bind to a connection.
@@ -558,6 +571,9 @@ func (m *Manifest) validateOAuth(key string, a AuthMethod, used map[string]bool)
 	if e := validateInitialResponse(a); e != nil {
 		return e
 	}
+	if e := validateRevoked(a.RefreshResponse.Revoked, a.RefreshResponse.Checks); e != nil {
+		return e
+	}
 	if e := m.validateAccount(a, used); e != nil {
 		return e
 	}
@@ -617,7 +633,7 @@ func (m *Manifest) validateAccount(a AuthMethod, used map[string]bool) error {
 		if e := validateChecks(c.Checks); e != nil {
 			return e
 		}
-		if e := validateChecks(c.Revoked); e != nil {
+		if e := validateRevoked(c.Revoked, c.Checks); e != nil {
 			return e
 		}
 		if e := m.validateHeaders(c.Headers, used); e != nil {

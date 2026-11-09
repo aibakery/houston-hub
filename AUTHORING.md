@@ -392,11 +392,13 @@ cannot be combined with `scopes` or set in `refresh_response`.
 When a provider can revoke Houston's access outside Houston, for example when a
 user removes the app in the provider's settings, declare `revoked` checks so Houston
 can delete the stored credential. They use the same shape as `checks`, but a single
-passing check is enough. Put them on `refresh_response`, for refresh errors that
-prove revocation, and on `account`, which Houston then requests about once a day
-for each connection. When one passes, Houston removes the connection and its
-credential. Match only error codes that prove revocation, never configuration or
-rate-limit errors. Slack, for example, declares
+passing check is enough. Each one must use `equals`, on a path that `checks` don't
+test. Put them on `refresh_response`, for refresh errors that prove revocation,
+and on `account`, which Houston then requests about once a day for each
+connection. Houston evaluates them only on 2xx response bodies, so they suit
+providers that report errors with HTTP 200, as Slack does. When one passes,
+Houston removes the connection and its credential. Match only error codes that
+prove revocation, never configuration or rate-limit errors. Slack, for example, declares
 `{"op": "equals", "path": "/error", "value": "token_revoked"}`
 (see the [Slack manifest](connectors/slack/houston.json)).
 

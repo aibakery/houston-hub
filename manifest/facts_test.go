@@ -56,7 +56,10 @@ func TestOAuthFactsValidation(t *testing.T) {
 		{`"pkce":"none",`, `"pkce":"none","refresh_response":{"scopes_unreported":true},`, "refresh_response forbids facts, label and scopes_unreported"},
 		{`"token_response":{"checks":[{"op":"exists","path":"/team/id"}],`, `"token_response":{"scopes_unreported":true,`, "scopes_unreported requires checks"},
 		{`"token_response":{"checks":`, `"token_response":{"revoked":[{"op":"exists","path":"/error"}],"checks":`, "token_response forbids revoked"},
-		{`"pkce":"none",`, `"pkce":"none","refresh_response":{"revoked":[{"op":"matches","path":"/error"}]},`, "unknown response check"},
+		{`"pkce":"none",`, `"pkce":"none","refresh_response":{"revoked":[{"op":"matches","path":"/error"}]},`, "revoked checks require equals"},
+		{`"pkce":"none",`, `"pkce":"none","refresh_response":{"revoked":[{"op":"exists","path":"/error"}]},`, "revoked checks require equals"},
+		{`"pkce":"none",`, `"pkce":"none","refresh_response":{"checks":[{"op":"equals","path":"/ok","value":true}],"revoked":[{"op":"equals","path":"/ok","value":false}]},`, "revoked checks cannot test a path that checks test"},
+		{`"token_response":{"checks":`, `"token_response":{"revoked":[{"op":"matches","path":"/error"}],"checks":`, "token_response forbids revoked"},
 		{`"label":"/team/name"}`, `"label":"/team/name","scopes":"/scope","scopes_unreported":true}`, "token scopes conflict with scopes_unreported"},
 	} {
 		raw := strings.Replace(factsManifest, tc.old, tc.new, 1)
