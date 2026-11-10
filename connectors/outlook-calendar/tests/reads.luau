@@ -63,6 +63,11 @@ return {
 		assert(last().url == API .. "/events/AAMk-_%3D" and last().headers.Prefer[1] == 'outlook.timezone="Pacific Standard Time"', last().url)
 		assert(#c.listEventInstances({id = "S1", startDateTime = "2026-11-01T00:00:00Z", endDateTime = "2027-01-01T00:00:00Z", top = 2}).value == 2)
 		assert(last().url == API .. "/events/S1/instances?startDateTime=2026-11-01T00%3A00%3A00Z&endDateTime=2027-01-01T00%3A00%3A00Z&" .. LIST .. "&$top=2", last().url)
+		-- Events of a shared calendar are reached through that calendar.
+		responses = {{body = '{"id":"E5"}'}, {body = '{"value":[]}'}}
+		assert(c.getEvent({calendarId = "C-1=", id = "E5"}).id == "E5" and last().url == API .. "/calendars/C-1%3D/events/E5", last().url)
+		c.listEventInstances({calendarId = "C1", id = "S1", startDateTime = "2026-11-01", endDateTime = "2026-12-01"})
+		assert(last().url == API .. "/calendars/C1/events/S1/instances?startDateTime=2026-11-01&endDateTime=2026-12-01&" .. LIST, last().url)
 		local instances = "https://graph.microsoft.com/v1.0/me/events('S1')/instances?startDateTime=2026-11-01T00%3a00%3a00Z&endDateTime=2027-01-01T00%3a00%3a00Z&%24top=2&%24skip=2"
 		responses = {{body = '{"value":[]}'}}
 		assert(json.encode(c.listEventInstances({nextLink = instances}).value) == "[]")

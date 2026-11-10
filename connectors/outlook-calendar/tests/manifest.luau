@@ -11,6 +11,7 @@ return {
 				"GET " .. api .. "/calendarView?startDateTime=2026-11-09T00%3A00%3A00Z&endDateTime=2026-11-16T00%3A00%3A00Z",
 				"GET " .. api .. "/calendars/C1/calendarView?startDateTime=2026-11-09&endDateTime=2026-11-16&$skip=10",
 				"GET " .. api .. "/events/AAMk-_%3D", "GET " .. api .. "/events/E1/instances?startDateTime=2026-11-09&endDateTime=2026-12-09",
+				"GET " .. api .. "/calendars/C1/events/E1", "GET " .. api .. "/calendars/C1/events/E1/instances?startDateTime=2026-11-09&endDateTime=2026-12-09",
 				"POST " .. api .. "/calendar/getSchedule",
 			}
 			m.routes(r, "Bearer fixture-token", true, reads)
@@ -18,7 +19,9 @@ return {
 			local writes = {
 				"POST " .. api .. "/events", "POST " .. api .. "/calendars/C1/events", "PATCH " .. api .. "/events/E1", "DELETE " .. api .. "/events/E1",
 				"POST " .. api .. "/events/E1/accept", "POST " .. api .. "/events/E1/tentativelyAccept", "POST " .. api .. "/events/E1/decline",
-				"POST " .. api .. "/events/E1/cancel",
+				"POST " .. api .. "/events/E1/cancel", "PATCH " .. api .. "/calendars/C1/events/E1", "DELETE " .. api .. "/calendars/C1/events/E1",
+				"POST " .. api .. "/calendars/C1/events/E1/accept", "POST " .. api .. "/calendars/C1/events/E1/tentativelyAccept",
+				"POST " .. api .. "/calendars/C1/events/E1/decline", "POST " .. api .. "/calendars/C1/events/E1/cancel",
 			}
 			m.routes(r, "Bearer fixture-token", access == "read-write", writes)
 			if access == "read-write" then m.rejectOverrides(r, writes) end
@@ -35,7 +38,7 @@ return {
 				"PATCH " .. api .. "/calendars/C1", "DELETE " .. api .. "/calendars/C1", "POST " .. api .. "/events/E1/forward",
 				"GET " .. api .. "/events/E1/attachments", "POST " .. api .. "/events/E1/attachments", "POST " .. api .. "/events/E1/snoozeReminder",
 				"POST " .. api .. "/events/E1/dismissReminder", "POST " .. api .. "/findMeetingTimes", "PUT " .. api .. "/events/E1",
-				"PATCH " .. api .. "/calendars/C1/events/E1", "DELETE " .. api .. "/calendars/C1/events/E1",
+				"GET " .. api .. "/calendars/C1/events", "POST " .. api .. "/calendars/C1/events/E1/forward",
 				"POST " .. api .. "/events/E1/permanentDelete", "POST " .. api .. "/calendars/C1/permanentDelete", "PATCH " .. api .. "/calendar",
 				"GET " .. api .. "/calendar/events", "POST https://graph.microsoft.com/v1.0/users/other@example.com/calendar/getSchedule",
 				"GET " .. api .. "/calendars/../calendarView", "GET " .. api .. "/events/E1/../../messages",

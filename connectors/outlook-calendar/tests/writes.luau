@@ -52,12 +52,21 @@ return {
 		assert(last().url == API .. "/events/E3/decline" and json.decode(last().body).proposedNewTime.start.timeZone == "Europe/Paris", last().url)
 		c.cancelEvent({id = "E4"})
 		assert(last().url == API .. "/events/E4/cancel" and last().body == "{}", tostring(last().body))
+		-- Events of a shared calendar are changed and answered through that calendar.
+		responses = {{body = '{"id":"E5"}'}, {status = 204}, {status = 202}}
+		c.updateEvent({calendarId = "C1", id = "E5", subject = "Moved"})
+		body = json.decode(last().body)
+		assert(last().url == API .. "/calendars/C1/events/E5" and body.subject == "Moved" and body.calendarId == nil and body.id == nil, last().url)
+		assert(c.deleteEvent({calendarId = "C1", id = "E5"}).success and last().method == "DELETE" and last().url == API .. "/calendars/C1/events/E5", last().url)
+		c.declineEvent({calendarId = "C1", id = "E6", sendResponse = false})
+		assert(last().url == API .. "/calendars/C1/events/E6/decline" and last().body == '{"sendResponse":false}', tostring(last().body))
 
 		-- Invalid input never reaches the network.
 		local before = #requests
 		fails({"createEvent requires start and end"}, c.createEvent, {subject = "No time"})
 		fails({"calendarId must be a nonempty string"}, c.createEvent, {calendarId = "", start = start, ["end"] = finish})
 		fails({"updateEvent requires fields to change"}, c.updateEvent, {id = "E1"})
+		fails({"updateEvent requires fields to change"}, c.updateEvent, {id = "E1", calendarId = "C1"})
 		fails({"id must be a nonempty string"}, c.updateEvent, {subject = "x"})
 		fails({"id must be a nonempty string"}, c.acceptEvent, {comment = "ok"})
 		fails({"deleteEvent received an unknown option"}, c.deleteEvent, {id = "E1", sendUpdates = "all"})

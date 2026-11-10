@@ -115,7 +115,9 @@
           "/v1.0/me/calendarView",
           "/v1.0/me/calendars/{calendarId}/calendarView",
           "/v1.0/me/events/{id}",
-          "/v1.0/me/events/{id}/instances"
+          "/v1.0/me/events/{id}/instances",
+          "/v1.0/me/calendars/{calendarId}/events/{id}",
+          "/v1.0/me/calendars/{calendarId}/events/{id}/instances"
         ]
       },
       "action": {
@@ -163,7 +165,11 @@
           "/v1.0/me/events/{id}/accept",
           "/v1.0/me/events/{id}/tentativelyAccept",
           "/v1.0/me/events/{id}/decline",
-          "/v1.0/me/events/{id}/cancel"
+          "/v1.0/me/events/{id}/cancel",
+          "/v1.0/me/calendars/{calendarId}/events/{id}/accept",
+          "/v1.0/me/calendars/{calendarId}/events/{id}/tentativelyAccept",
+          "/v1.0/me/calendars/{calendarId}/events/{id}/decline",
+          "/v1.0/me/calendars/{calendarId}/events/{id}/cancel"
         ]
       },
       "action": {
@@ -186,7 +192,8 @@
           "DELETE"
         ],
         "path": [
-          "/v1.0/me/events/{id}"
+          "/v1.0/me/events/{id}",
+          "/v1.0/me/calendars/{calendarId}/events/{id}"
         ]
       },
       "action": {

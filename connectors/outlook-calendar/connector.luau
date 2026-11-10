@@ -169,11 +169,12 @@ local help = {
 	text = [[Microsoft Graph v1.0 for the connected account's Outlook calendars. Operations take one named
 options object with Graph's camelCase fields and return Graph's JSON unchanged; deletes and replies
 return {success=true}. Connector calls return completed values: use them directly, without await.
-calendarId defaults to the user's default calendar; other IDs come from listCalendars. Event IDs
-work across calendars. Event times are {dateTime='2026-11-12T10:00:00', timeZone='Romance Standard
-Time'}; reads return UTC unless timeZone names another zone. Use Windows time zone names, such as
-'UTC', 'Romance Standard Time' (Paris) or 'Eastern Standard Time': Graph accepts only some IANA
-names. Luau reserves end: write event['end'] and {['end']=...}.
+calendarId defaults to the user's default calendar; other IDs come from listCalendars. Events of a
+calendar someone shared take its calendarId as well as their id. Event times are
+{dateTime='2026-11-12T10:00:00', timeZone='Romance Standard Time'}; reads return UTC unless timeZone
+names another zone. Use Windows time zone names, such as 'UTC', 'Romance Standard Time' (Paris) or
+'Eastern Standard Time': Graph accepts only some IANA names.
+Luau reserves end: write event['end'] and {['end']=...}.
 Lists return one page: while ['@odata.nextLink'] is present, pass it back as nextLink (alone, with
 timeZone or bodyFormat if used). Example: listEvents({startDateTime='2026-11-09T00:00:00Z',
 endDateTime='2026-11-16T00:00:00Z', timeZone='Romance Standard Time', top=100}).
@@ -285,7 +286,8 @@ local function prefer(args: Options, events: boolean): HttpHeaders
 		assert(format == "text" or format == "html", "bodyFormat must be text or html")
 		table.insert(values, "outlook.body-content-type=\"" .. format .. "\"")
 	end
-	args.timeZone, args.bodyFormat = nil, nil
+	args.timeZone = nil
+	if events then args.bodyFormat = nil end
 	return if #values > 0 then {Prefer = values} else {}
 end
 
@@ -296,8 +298,14 @@ local function range(args: Options)
 	text(args.endDateTime, "endDateTime")
 end
 
+-- An event, or one of its actions, by id; events of a calendar someone shared are reached through
+-- that calendar.
+local function event(args: Options, action: string): string
+	return (if args.calendarId == nil then "/events/{id}" else "/calendars/{calendarId}/events/{id}") .. action
+end
+
 help.functions.listCalendars = {
-	description = "One page of the user's calendars: {value={{id, name, color, isDefaultCalendar, canEdit, owner, allowedOnlineMeetingProviders, ...}}, ['@odata.nextLink']?}. Calendars others shared with the user are listed too: their events read like the user's own" .. (if config.access == "read-write" then ", and change where canEdit is true." else "."),
+	description = "One page of the user's calendars: {value={{id, name, color, isDefaultCalendar, canEdit, owner, allowedOnlineMeetingProviders, ...}}, ['@odata.nextLink']?}. Calendars others shared with the user are listed too; a shared custom calendar's events are readable" .. (if config.access == "read-write" then ", and changeable where canEdit is true" else "") .. ", but a colleague's main calendar may refuse access.",
 	inputSchema = {
 		type = "object",
 		properties = {select = SELECT, filter = {type = "string"}, top = {type = "integer", minimum = 1}, nextLink = NEXT},
@@ -364,7 +372,7 @@ status={response, time}}}, responseStatus, recurrence?, type, seriesMasterId?, o
 webLink, ...}. A recurring series' master (type seriesMaster) carries recurrence.]],
 	inputSchema = {
 		type = "object",
-		properties = {id = ID, select = SELECT, timeZone = ZONE, bodyFormat = BODY_FORMAT},
+		properties = {id = ID, calendarId = ID, select = SELECT, timeZone = ZONE, bodyFormat = BODY_FORMAT},
 		required = {"id"},
 		additionalProperties = false,
 		examples = {{id = EVENT_ID, timeZone = "Romance Standard Time"}},
@@ -374,7 +382,7 @@ webLink, ...}. A recurring series' master (type seriesMaster) carries recurrence
 function exports.getEvent(input: any): Options
 	local args = options(input)
 	local headers = prefer(args, true)
-	return request("getEvent", "GET", "/events/{id}", args, {headers = headers, query = {"$select"}})
+	return request("getEvent", "GET", event(args, ""), args, {headers = headers, query = {"$select"}})
 end
 
 help.functions.listEventInstances = {
@@ -382,7 +390,7 @@ help.functions.listEventInstances = {
 	inputSchema = {
 		type = "object",
 		properties = {
-			id = ID, startDateTime = INSTANT, endDateTime = INSTANT, filter = {type = "string"}, orderby = {type = "string"}, select = SELECT,
+			id = ID, calendarId = ID, startDateTime = INSTANT, endDateTime = INSTANT, filter = {type = "string"}, orderby = {type = "string"}, select = SELECT,
 			top = {type = "integer", minimum = 1, maximum = 1000}, skip = {type = "integer", minimum = 0}, timeZone = ZONE,
 			bodyFormat = BODY_FORMAT, nextLink = NEXT,
 		},
@@ -396,7 +404,7 @@ function exports.listEventInstances(input: any): Options
 	local args = options(input)
 	local headers = prefer(args, true)
 	range(args)
-	return request("listEventInstances", "GET", "/events/{id}/instances", args,
+	return request("listEventInstances", "GET", event(args, "/instances"), args,
 		{list = "/instances$", headers = headers, defaults = {select = LIST}, query = VIEW_QUERY})
 end
 
@@ -473,7 +481,7 @@ meeting stops working. A series master's id changes the whole series; an occurre
 listEvents or listEventInstances, changes only that occurrence.]],
 		inputSchema = {
 			type = "object",
-			properties = with(EVENT, {id = ID}),
+			properties = with(EVENT, {id = ID, calendarId = ID}),
 			required = {"id"},
 			minProperties = 2,
 			additionalProperties = true,
@@ -483,28 +491,27 @@ listEvents or listEventInstances, changes only that occurrence.]],
 	}
 	function exports.updateEvent(input: any): Options
 		local args = options(input)
-		local fields = 0
-		for key in args do
-			if key ~= "id" then fields += 1 end
-		end
-		assert(fields > 0, "updateEvent requires fields to change")
-		return request("updateEvent", "PATCH", "/events/{id}", args, {body = true})
+		local fields = table.clone(args)
+		fields.id, fields.calendarId = nil, nil
+		assert(next(fields) ~= nil, "updateEvent requires fields to change")
+		return request("updateEvent", "PATCH", event(args, ""), args, {body = true})
 	end
 
 	help.functions.deleteEvent = {
 		description = "Deletes an event and returns {success=true}. As organizer of a meeting, Outlook sends attendees a cancellation without a message; cancelEvent adds one. To answer an invitation, use declineEvent instead.",
-		inputSchema = {type = "object", properties = {id = ID}, required = {"id"}, additionalProperties = false, examples = {{id = EVENT_ID}}},
+		inputSchema = {type = "object", properties = {id = ID, calendarId = ID}, required = {"id"}, additionalProperties = false, examples = {{id = EVENT_ID}}},
 		annotations = DESTRUCTIVE,
 	}
-	function exports.deleteEvent(args: Options?): Options
-		return request("deleteEvent", "DELETE", "/events/{id}", args)
+	function exports.deleteEvent(input: any): Options
+		local args = options(input)
+		return request("deleteEvent", "DELETE", event(args, ""), args)
 	end
 
 	help.functions.cancelEvent = {
 		description = "Cancels a meeting the user organizes, emailing attendees the cancellation with comment, moves it to Deleted Items and returns {success=true}. An occurrence's id cancels only that occurrence.",
 		inputSchema = {
 			type = "object",
-			properties = {id = ID, comment = {type = "string"}},
+			properties = {id = ID, calendarId = ID, comment = {type = "string"}},
 			required = {"id"},
 			additionalProperties = false,
 			examples = {{id = EVENT_ID, comment = "Moving this to next week."}},
@@ -512,11 +519,13 @@ listEvents or listEventInstances, changes only that occurrence.]],
 		annotations = DESTRUCTIVE,
 	}
 	function exports.cancelEvent(input: any): Options
-		return request("cancelEvent", "POST", "/events/{id}/cancel", input, {body = true})
+		local args = options(input)
+		return request("cancelEvent", "POST", event(args, "/cancel"), args, {body = true})
 	end
 
 	local REPLY = {
 		id = ID,
+		calendarId = ID,
 		comment = {type = "string"},
 		sendResponse = {type = "boolean", description = "Whether the organizer gets the reply by email; defaults to true."},
 	}
@@ -528,7 +537,8 @@ listEvents or listEventInstances, changes only that occurrence.]],
 		annotations = WRITE,
 	}
 	function exports.acceptEvent(input: any): Options
-		return request("acceptEvent", "POST", "/events/{id}/accept", input, {body = true})
+		local args = options(input)
+		return request("acceptEvent", "POST", event(args, "/accept"), args, {body = true})
 	end
 
 	help.functions.tentativelyAcceptEvent = {
@@ -543,11 +553,12 @@ listEvents or listEventInstances, changes only that occurrence.]],
 		annotations = WRITE,
 	}
 	function exports.tentativelyAcceptEvent(input: any): Options
-		return request("tentativelyAcceptEvent", "POST", "/events/{id}/tentativelyAccept", input, {body = true})
+		local args = options(input)
+		return request("tentativelyAcceptEvent", "POST", event(args, "/tentativelyAccept"), args, {body = true})
 	end
 
 	help.functions.declineEvent = {
-		description = "Declines an invitation, optionally proposing a new time, and returns {success=true}.",
+		description = "Declines an invitation, optionally proposing a new time, and returns {success=true}. Outlook removes the event from the calendar.",
 		inputSchema = {
 			type = "object",
 			properties = with(REPLY, {proposedNewTime = PROPOSAL}),
@@ -556,10 +567,11 @@ listEvents or listEventInstances, changes only that occurrence.]],
 			examples = {{id = EVENT_ID, comment = "I'm out that day.", proposedNewTime = {
 				start = {dateTime = "2026-11-13T10:00:00", timeZone = "Romance Standard Time"}, ["end"] = {dateTime = "2026-11-13T11:00:00", timeZone = "Romance Standard Time"}}}},
 		},
-		annotations = WRITE,
+		annotations = DESTRUCTIVE,
 	}
 	function exports.declineEvent(input: any): Options
-		return request("declineEvent", "POST", "/events/{id}/decline", input, {body = true})
+		local args = options(input)
+		return request("declineEvent", "POST", event(args, "/decline"), args, {body = true})
 	end
 end
 

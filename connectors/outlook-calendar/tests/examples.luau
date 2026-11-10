@@ -1,4 +1,5 @@
--- Every documented example runs as a real call against a permissive Graph mock, at each access level.
+-- Every documented example runs as a real call against a permissive Graph mock; read-write documents
+-- every operation.
 local function run(c)
 	local names = {}
 	for name in c do table.insert(names, name) end
