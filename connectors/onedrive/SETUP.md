@@ -8,7 +8,7 @@
 
 Houston keeps your Microsoft authorization on its server; agent scripts never
 see it. A OneDrive connection only reaches your files, even if you also
-connect Outlook.
+connect other Microsoft services.
 
 ## Advanced: changing access and troubleshooting
 

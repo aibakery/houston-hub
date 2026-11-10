@@ -15,7 +15,7 @@ request or ask your administrator to approve Houston, then connect again.
 
 Houston keeps your Microsoft authorization on its server; agent scripts never
 see it. An Outlook connection only reaches your mail, even if you also
-connect OneDrive.
+connect other Microsoft services.
 
 ## Advanced: changing access and troubleshooting
 

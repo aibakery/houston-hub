@@ -14,7 +14,7 @@ the request or ask your administrator to approve Houston, then connect again.
 Houston keeps your Microsoft authorization on its server; agent scripts never
 see it. An Outlook Calendar connection only reaches your calendars, calendars
 others share with you, and your colleagues' free/busy times, even if you also
-connect Outlook or OneDrive.
+connect other Microsoft services.
 
 ## Advanced: changing access and troubleshooting
 
@@ -26,6 +26,7 @@ connect Outlook or OneDrive.
   accounts) or [My Apps](https://myapps.microsoft.com) (work or school accounts).
   This disconnects all your Microsoft connections in Houston. To stop using
   only Outlook Calendar, remove its connection in Houston.
-- With Read and write access, agents can also change events in calendars
-  other people share with you, where you have edit permission.
+- Agents can read events in calendars other people share with you, and with
+  Read and write access change them where you have edit permission. A
+  colleague's shared main calendar may not be readable.
 - Free/busy lookups for colleagues work only with work or school accounts.
