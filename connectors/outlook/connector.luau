@@ -49,7 +49,8 @@ local function query(args: Options, names: {string}): string
 	return if #parts > 0 then "?" .. table.concat(parts, "&") else ""
 end
 
--- Graph errors are {error = {code, message}}; throttling answers 429 or 503 with Retry-After.
+-- Graph errors are {error = {code, message, innerError?}}; Excel puts its actionable code, such as
+-- invalidSessionReCreatable, in innerError.code. Throttling answers 429 or 503 with Retry-After.
 -- Quota (507) and other server refusals are not transient.
 local function fail(operation: string, response: HttpResponse): never
 	local ok, decoded = pcall(json.decode, await(response.body:readPrefix(4096)))
@@ -58,6 +59,8 @@ local function fail(operation: string, response: HttpResponse): never
 	local message = "Microsoft Graph HTTP " .. tostring(status)
 	if type(problem.code) == "string" then message ..= " (" .. problem.code .. ")" end
 	if type(problem.message) == "string" then message ..= ": " .. string.sub(problem.message, 1, 600) end
+	local inner = if type(problem.innerError) == "table" then problem.innerError.code else nil
+	if type(inner) == "string" and inner ~= problem.code and not string.match(inner, "^%d+$") then message ..= "; innerError: " .. inner end
 	local retry = response.headers["retry-after"]
 	if retry and retry[1] then message ..= "; Retry-After: " .. retry[1] end
 	return houston.fail({operation = operation, layer = "upstream", upstream_status = status, message = message,
