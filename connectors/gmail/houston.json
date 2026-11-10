@@ -1,6 +1,7 @@
 {
   "schema_version": 1,
   "name": "Gmail",
+  "verification_key": "f8f70b3e9c1ae4e9b94e4cabb680db1c7ac85847721986fa399925cfdc79b980",
   "warning": "**Direct Google sign-in is pending approval.**",
   "files": [
     "connector.luau"
