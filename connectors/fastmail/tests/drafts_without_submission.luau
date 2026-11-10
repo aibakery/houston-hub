@@ -1,0 +1,123 @@
+-- A token without Email submission prepares drafts but never sends.
+return {scenario={["auth_config"]={["token"]="fixture-private-password !@#"},["auth_method"]="token",["config"]={},["publisher"]={}},config={access="read-write"}, configure=function()
+
+        requests, responses = {}, {}
+        http = {request = function(req)
+            requests[#requests + 1] = req
+            if req.body ~= nil and type(req.body) ~= "string" then
+                assert(await(req.body:readAll()) == "payload")
+                await(req.body:close())
+            end
+            assert(#responses > 0, "unexpected request: " .. tostring(req.url))
+            local response = table.remove(responses, 1)
+            return fixture.operation({statusCode=200, headers={}, body=fixture.reader(json.encode(response))})
+        end}
+        fs = fixture.files()
+        local input = fs.open("files/brief.pdf", "w")
+        input:write("payload")
+        await(input:close())
+        local MAIL="urn:ietf:params:jmap:mail"
+        local CORE="urn:ietf:params:jmap:core"
+        function session()
+            return {username="me@example.com", primaryAccounts={[MAIL]="u1"}, accounts={u1={name="Me"}},
+                capabilities={[CORE]={}, [MAIL]={}}, apiUrl="https://api.fastmail.com/jmap/api/",
+                uploadUrl="https://api.fastmail.com/jmap/upload/{accountId}/"}
+        end
+        function result(name, args) return {methodResponses={{name, args, "0"}}} end
+        folders={{id="in", role="inbox", name="Inbox"}, {id="dr", role="drafts", name="Drafts"}, {id="se", role="sent", name="Sent"}}
+        function original()
+            return {id="m", messageId={"<m@example.com>"}, references={"<old@example.com>"},
+                from={{name="Sender", email="sender@example.com"}}, replyTo=json.decode("null"),
+                to={{email="me@example.com"}, {email="other@example.com"}}, cc={{email="cc@example.com"}}, subject="Hello"}
+        end
+        function saved(id, extra)
+            local msg = {id=id, keywords={["$draft"]=true, ["$seen"]=true}, mailboxIds={dr=true},
+                from={{name=json.decode("null"), email="me@example.com"}}, to={{email="sender@example.com"}},
+                cc={{email="other@example.com"}}, bcc=json.decode("null"), replyTo=json.decode("null"), subject="Re: Hello",
+                inReplyTo={"<m@example.com>"}, references={"<old@example.com>", "<m@example.com>"},
+                attachments={{blobId="b1", name="a.pdf", type="application/pdf", disposition="attachment", cid=json.decode("null")}}}
+            for key, value in extra or {} do msg[key] = value end
+            return msg
+        end
+        function jmapSince(start)
+            local out = {}
+            for i = start + 1, #requests do
+                local req = requests[i]
+                if type(req.body) == "string" then
+                    local decoded = json.decode(req.body)
+                    out[#out + 1] = {name=decoded.methodCalls[1][1], args=decoded.methodCalls[1][2]}
+                elseif req.body ~= nil then
+                    out[#out + 1] = {name="upload", req=req}
+                end
+            end
+            return out
+        end
+
+end, run=function(fastmail)
+        responses={session(), result("Mailbox/get", {list=folders}), {blobId="blob1", type="application/pdf", size=7},
+            result("Email/set", {created={draft={id="d1", threadId="t1"}}})}
+        local made = fastmail.createDraft({subject="Plan", text="Draft body", attachments={{path="files/brief.pdf", mimeType="application/pdf"}}})
+        assert(made.id == "d1" and made.threadId == "t1")
+        local calls = jmapSince(0)
+        assert(#calls == 3 and calls[1].name == "Mailbox/get" and calls[2].name == "upload" and calls[3].name == "Email/set")
+        local draft = calls[3].args.create.draft
+        assert(draft.from[1].email == "me@example.com" and draft.to == nil and draft.subject == "Plan")
+        assert(draft.mailboxIds.dr and draft.keywords["$draft"] and draft.keywords["$seen"])
+        assert(draft.bodyValues.text.value == "Draft body" and draft.htmlBody == nil)
+        assert(draft.attachments[1].blobId == "blob1" and draft.attachments[1].name == "brief.pdf")
+
+        local mark = #requests
+        local ok, err = pcall(function() fastmail.createDraft({text="x", identityId="i"}) end)
+        assert(not ok and string.find(tostring(err), "Email submission", 1, true) and #requests == mark)
+
+        responses={result("Email/get", {list={original()}}), result("Mailbox/get", {list=folders}),
+            result("Email/set", {created={draft={id="d2", threadId="t-orig"}}})}
+        mark = #requests
+        made = fastmail.createReplyDraft({id="m", text="Thanks", all=true})
+        assert(made.id == "d2" and made.threadId == "t-orig")
+        calls = jmapSince(mark)
+        assert(#calls == 3 and calls[1].name == "Email/get" and calls[2].name == "Mailbox/get")
+        draft = calls[3].args.create.draft
+        assert(draft.from[1].email == "me@example.com" and draft.subject == "Re: Hello")
+        assert(draft.to[1].email == "sender@example.com" and #draft.cc == 2 and draft.cc[1].email == "other@example.com")
+        assert(draft.inReplyTo[1] == "<m@example.com>" and draft.references[1] == "<old@example.com>" and draft.references[2] == "<m@example.com>")
+        assert(draft.keywords["$draft"] and draft.mailboxIds.dr)
+
+        responses={result("Email/get", {list={saved("d2", {textBody={{partId="1", type="text/plain"}}, htmlBody={{partId="2", type="text/html"}},
+                bodyValues={["1"]={value="Hi"}, ["2"]={value="<p>Hi</p>"}}})}}),
+            result("Email/set", {created={draft={id="d3", threadId="t-orig"}}}), result("Email/set", {destroyed={"d2"}})}
+        mark = #requests
+        made = fastmail.updateDraft({id="d2", subject="Re: Hello again", cc={}})
+        assert(made.id == "d3")
+        calls = jmapSince(mark)
+        assert(#calls == 3 and calls[1].args.fetchTextBodyValues and calls[1].args.fetchHTMLBodyValues)
+        draft = calls[2].args.create.draft
+        assert(draft.subject == "Re: Hello again" and draft.cc == nil and draft.to[1].email == "sender@example.com")
+        assert(draft.from[1].email == "me@example.com" and draft.keywords["$draft"] and draft.mailboxIds.dr)
+        assert(draft.bodyValues.text.value == "Hi" and draft.bodyValues.html.value == "<p>Hi</p>" and draft.htmlBody[1].type == "text/html")
+        assert(draft.attachments[1].blobId == "b1" and draft.attachments[1].name == "a.pdf" and draft.attachments[1].disposition == "attachment")
+        assert(draft.inReplyTo[1] == "<m@example.com>" and #draft.references == 2)
+        assert(calls[3].args.destroy[1] == "d2" and calls[3].args.create == nil)
+
+        responses={result("Email/get", {list={saved("d3")}}), result("Email/set", {created={draft={id="d4"}}}), result("Email/set", {destroyed={"d3"}})}
+        mark = #requests
+        made = fastmail.updateDraft({id="d3", text="New body", from="alias@example.com", attachments={}})
+        assert(made.id == "d4" and made.threadId == nil)
+        calls = jmapSince(mark)
+        assert(#calls == 3 and not calls[1].args.fetchTextBodyValues)
+        for _, property in calls[1].args.properties do assert(property ~= "bodyValues") end
+        draft = calls[2].args.create.draft
+        assert(draft.from[1].email == "alias@example.com" and draft.bodyValues.text.value == "New body")
+        assert(draft.htmlBody == nil and draft.attachments == nil and draft.subject == "Re: Hello")
+
+        responses={result("Email/get", {list={saved("m", {keywords={["$seen"]=true}})}})}
+        mark = #requests
+        ok, err = pcall(function() fastmail.updateDraft({id="m", subject="x"}) end)
+        assert(not ok and string.find(tostring(err), "not a draft", 1, true) and #requests == mark + 1)
+
+        mark = #requests
+        ok, err = pcall(function() fastmail.sendDraft("d4") end)
+        assert(not ok and string.find(tostring(err), "Email submission", 1, true) and #requests == mark)
+        assert(#responses == 0)
+
+end}

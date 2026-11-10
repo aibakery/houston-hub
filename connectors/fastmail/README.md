@@ -1,5 +1,5 @@
 ---
-description: Give agents access to Fastmail to find conversations, organize your inbox, and send replies.
+description: Give agents access to Fastmail to find conversations, organize your inbox, prepare drafts, and send replies.
 ---
 # Fastmail
 
@@ -16,10 +16,13 @@ read messages, and help you stay on top of email.
 
 When you grant permission to send and organize mail, agents can also:
 
-- Send emails or reply to a person or an entire conversation.
+- Prepare drafts and replies, with attachments, for you to review and send from
+  Fastmail. Reply drafts open in the original conversation.
+- Send emails, drafts, or replies to a person or an entire conversation.
 - Choose which email address to send from and include attachments.
 - Create folders, move messages, archive finished conversations, and clear out
   mail you no longer need.
 - Mark individual messages or batches as read or unread.
 
-You choose whether agents can only read your mail or also make changes.
+You choose whether agents can only read your mail or also make changes. A token
+without **Email submission** lets agents prepare drafts but never send them.
