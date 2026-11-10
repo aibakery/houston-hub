@@ -639,6 +639,15 @@
           },
           "type": "object"
         },
+        "connections": {
+          "description": "Which connections Houston accepts: personal-only, shared-only, or unrestricted (the default). Set personal-only when the provider forbids sharing one person's authorization with other users.",
+          "enum": [
+            "unrestricted",
+            "personal-only",
+            "shared-only"
+          ],
+          "type": "string"
+        },
         "description": {
           "type": "string"
         },

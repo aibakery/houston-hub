@@ -30,6 +30,9 @@ options under Advanced. Use headings, quotes and setup code blocks where useful.
 Agents learn signatures and examples through `help()`, never these user documents. Keep credentials in
 manifest injection rules and initialization and help free of network calls.
 Expose only operations available under the configured access and permissions.
+Check whether the provider's terms forbid letting other people use one person's
+authorization; if they do, set `connections` to `personal-only` (see
+AUTHORING.md).
 
 ## Make each operation easy to review
 
