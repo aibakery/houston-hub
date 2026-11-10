@@ -38,7 +38,7 @@ return {
 		}
 		local page = c.findWorkbooks({q = "Ana's budget", top = 25})
 		assert(#page.value == 1 and page.value[1].id == "I1" and page["@odata.nextLink"] == link)
-		assert(last().url == API .. "/drive/root/search(q='Ana%27%27s%20budget')?$select=id%2Cname%2Csize%2CwebUrl%2ClastModifiedDateTime%2CparentReference%2Cfile&$top=25", last().url)
+		assert(last().url == API .. "/drive/root/search(q='Ana%27%27s%20budget')?$select=id%2Cname%2Csize%2CwebUrl%2ClastModifiedDateTime%2CparentReference%2Cfile%2CremoteItem&$top=25", last().url)
 		local filtered = c.findWorkbooks({nextLink = link})
 		assert(last().url == link and json.encode(filtered.value) == "[]" and filtered["@odata.nextLink"] == link, last().url)
 		assert(json.encode(c.findWorkbooks({q = "none"}).value) == "[]")
@@ -98,6 +98,7 @@ return {
 		fails({"q must be a nonempty string"}, c.findWorkbooks, {top = 5})
 		fails({"top must be a positive integer"}, c.findWorkbooks, {q = "x", top = 0})
 		assert(not pcall(c.findWorkbooks, {q = "a/b"}), "q with a slash reached the network")
+		fails({"findWorkbooks received an unknown option select"}, c.findWorkbooks, {q = "x", select = "id"})
 		fails({"findWorkbooks takes nextLink alone"}, c.findWorkbooks, {nextLink = link, top = 5})
 		fails({"nextLink must come from the same list"}, c.findWorkbooks, {nextLink = "https://graph.microsoft.com/v1.0/me/drive/items/I1/children"})
 		fails({"nextLink may carry only paging options"}, c.findWorkbooks, {nextLink = link .. "&$expand=children"})
@@ -106,14 +107,16 @@ return {
 
 		-- Graph errors keep the status, code and message; throttling and timeouts are retryable.
 		responses = {
-			{status = 404, body = '{"error":{"code":"itemNotFound","message":"The requested resource doesn\'t exist.","innerError":{"code":"itemNotFound"}}}'},
+			{status = 404, body = '{"error":{"code":"itemNotFound","message":"The requested resource doesn\'t exist.","innerError":{"code":"ItemNotFound"}}}'},
 			{status = 429, headers = {["retry-after"] = {"7"}}, body = '{"error":{"code":"tooManyRequests","message":"Too many requests"}}'},
 			{status = 504, body = '{"error":{"code":"gatewayTimeout","message":"The request timed out."}}'},
 			{status = 401, body = '{"error":{"code":"FileOpenUserUnauthorized","message":"You do not have permissions to open this file in the browser."}}'},
 			{status = 413, body = '{"error":{"code":"payloadTooLarge","message":"The response is too large."}}'},
 			{status = 200, body = "[]"},
 		}
-		fails({"Microsoft Graph HTTP 404 (itemNotFound)", '"retryable":false'}, c.getRange, {itemId = "I1", name = "Missing"})
+		local ok, err = pcall(c.getRange, {itemId = "I1", name = "Missing"})
+		assert(not ok and string.find(tostring(err), "Microsoft Graph HTTP 404 (itemNotFound)", 1, true) and string.find(tostring(err), '"retryable":false', 1, true), tostring(err))
+		assert(not string.find(tostring(err), "innerError", 1, true), "an innerError code differing only in case repeats the code")
 		fails({"HTTP 429 (tooManyRequests)", "Retry-After: 7", '"retryable":true'}, c.listWorksheets, {itemId = "I1"})
 		fails({"HTTP 504 (gatewayTimeout)", '"retryable":true'}, c.getRange, {itemId = "I1", worksheet = "Sheet1"})
 		fails({"HTTP 401 (FileOpenUserUnauthorized)", '"retryable":false'}, c.listTables, {itemId = "I1"})

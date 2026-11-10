@@ -91,7 +91,7 @@ return {
 		fails({"formulas must be an array of rows"}, c.updateRange, {itemId = "I1", address = "Sheet1!A1", formulas = {{"=1"}, extra = {"=2"}}})
 		fails({"table is only for reading"}, c.updateRange, {itemId = "I1", table = "Table1", values = {{1}}})
 		fails({"address or name is required"}, c.clearRange, {itemId = "I1", worksheet = "Sheet1"})
-		fails({"values must be rows of cells"}, c.addTableRows, {itemId = "I1", table = "Table1"})
+		fails({"addTableRows requires values"}, c.addTableRows, {itemId = "I1", table = "Table1"})
 		fails({"address needs its worksheet"}, c.addTable, {itemId = "I1", address = "A1:B2"})
 		fails({"name the worksheet in address or in worksheet"}, c.addTable, {itemId = "I1", address = "Sales!A1:B2", worksheet = "Sales"})
 		fails({"updateWorksheet requires name, position or visibility"}, c.updateWorksheet, {itemId = "I1", worksheet = "Sheet1"})
@@ -108,17 +108,20 @@ return {
 		fails({"persistChanges must be a boolean"}, c.createSession, {itemId = "I1", persistChanges = "yes"})
 		fails({"addWorksheet received an unknown option tabColor"}, c.addWorksheet, {itemId = "I1", tabColor = "red"})
 		fails({"name must be a nonempty string"}, c.addWorksheet, {itemId = "I1", name = ""})
+		fails({"values cells must be strings, numbers, booleans or null"}, c.updateRange, {itemId = "I1", address = "Sheet1!A1", values = {{{a = 1}}}})
+		fails({"values cells must be strings, numbers, booleans or null"}, c.addTableRows, {itemId = "I1", table = "Table1", values = {{1, 2, x = 3} :: {any}}})
+		fails({"numberFormat cells must be strings or null"}, c.updateRange, {itemId = "I1", address = "Sheet1!A1", numberFormat = {{0}}})
 		fails({"index must be an integer of at least 0"}, c.addTableRows, {itemId = "I1", table = "Table1", values = {{1}}, index = 2 ^ 53})
 		assert(#requests == before, "invalid input reached the network")
 
 		-- A refused write keeps Graph's reason; an expired session and a timeout read as such.
 		responses = {
 			{status = 404, body = '{"error":{"code":"itemNotFound","message":"The session specified in the request does not exist or is invalid due to a transient error.","innerError":{"code":"invalidSessionReCreatable"}}}'},
-			{status = 409, body = '{"error":{"code":"conflict","message":"A table can\'t overlap another table.","innerError":{"code":"itemAlreadyExists"}}}'},
+			{status = 409, body = '{"error":{"code":"conflict","message":"A table can\'t overlap another table.","innererror":{"code":"itemAlreadyExists"}}}'},
 			{status = 503, headers = {["retry-after"] = {"30"}}, body = '{"error":{"code":"serviceUnavailable","message":"Try later"}}'},
 		}
 		fails({"HTTP 404 (itemNotFound)", "session specified in the request", "; innerError: invalidSessionReCreatable", '"retryable":false'}, c.updateRange, {itemId = "I1", address = "Sheet1!A1", values = {{1}}, sessionId = "old"})
 		fails({"HTTP 409 (conflict)", "overlap another table", "; innerError: itemAlreadyExists", '"retryable":false'}, c.addTable, {itemId = "I1", address = "Sheet1!A1:B2"})
-		fails({"HTTP 503 (serviceUnavailable)", "Retry-After: 30", '"retryable":true'}, c.addTableRows, {itemId = "I1", table = "Table1", values = {{1, 2, 3}}})
+		fails({"HTTP 503 (serviceUnavailable)", "Retry-After: 30", '"retryable":false'}, c.addTableRows, {itemId = "I1", table = "Table1", values = {{1, 2, 3}}})
 	end,
 }

@@ -51,24 +51,28 @@ end
 
 -- Graph errors are {error = {code, message, innerError?}}; Excel puts its actionable code, such as
 -- invalidSessionReCreatable, in innerError.code. Throttling answers 429 or 503 with Retry-After.
--- Quota (507) and other server refusals are not transient.
-local function fail(operation: string, response: HttpResponse): never
+-- Quota (507) and other server refusals are not transient. A write that failed with a server error
+-- may still have been applied, so only a refused (429) write is retryable.
+local function fail(operation: string, response: HttpResponse, write: boolean?): never
 	local ok, decoded = pcall(json.decode, await(response.body:readPrefix(4096)))
 	local problem = if ok and type(decoded) == "table" and type(decoded.error) == "table" then decoded.error else {}
 	local status = response.statusCode
 	local message = "Microsoft Graph HTTP " .. tostring(status)
 	if type(problem.code) == "string" then message ..= " (" .. problem.code .. ")" end
 	if type(problem.message) == "string" then message ..= ": " .. string.sub(problem.message, 1, 600) end
-	local inner = if type(problem.innerError) == "table" then problem.innerError.code else nil
-	if type(inner) == "string" and inner ~= problem.code and not string.match(inner, "^%d+$") then message ..= "; innerError: " .. inner end
+	local detail = problem.innerError or problem.innererror
+	local inner = if type(detail) == "table" then detail.code else nil
+	if type(inner) == "string" and string.lower(inner) ~= string.lower(tostring(problem.code)) and not string.match(inner, "^%d+$") then
+		message ..= "; innerError: " .. inner
+	end
 	local retry = response.headers["retry-after"]
 	if retry and retry[1] then message ..= "; Retry-After: " .. retry[1] end
 	return houston.fail({operation = operation, layer = "upstream", upstream_status = status, message = message,
-		retryable = status == 429 or status == 500 or status == 502 or status == 503 or status == 504 or status == 509})
+		retryable = status == 429 or (not write and (status == 500 or status == 502 or status == 503 or status == 504 or status == 509))})
 end
 
-local function decode(operation: string, response: HttpResponse): any
-	if response.statusCode < 200 or response.statusCode >= 300 then fail(operation, response) end
+local function decode(operation: string, response: HttpResponse, write: boolean?): any
+	if response.statusCode < 200 or response.statusCode >= 300 then fail(operation, response, write) end
 	local raw = await(response.body:readAll())
 	if string.match(raw, "^%s*$") then return {success = true} end
 	local ok, value = pcall(json.decode, raw)
@@ -89,7 +93,7 @@ local function call(operation: string, method: string, href: string, body: any?,
 	local sent: HttpHeaders = if headers then table.clone(headers) else {}
 	if body ~= nil then sent["Content-Type"] = {"application/json"} end
 	return decode(operation, await(http.request({method = method, url = href, headers = sent,
-		body = if body ~= nil then json.encode(body) elseif method == "POST" then "" else nil})))
+		body = if body ~= nil then json.encode(body) elseif method == "POST" then "" else nil})), method ~= "GET")
 end
 
 -- Streams fetch()'s response to a session file; the path changes only when the whole body arrived.
@@ -188,8 +192,8 @@ blocks, such as 'Sheet1!A1:Z5000': a request or response is limited to about 5 M
 Send one request at a time per workbook: parallel calls on one workbook cause throttling,
 timeouts and conflicts. Errors report the HTTP status, Graph's code and message, and Excel's
 innerError code when there is one, e.g. 'Microsoft Graph HTTP 409 (conflict): ...; innerError:
-itemAlreadyExists'. Errors marked retryable (429, 500, 502, 503, 504, 509) carry Retry-After
-when Graph sends one; an Excel 500 seldom succeeds when repeated unchanged. Houston itself retries only a short 429 wait.]] .. (if config.access == "read-write" then [[
+itemAlreadyExists'. Errors marked retryable (429, and on reads 500, 502, 503, 504 or 509) carry
+Retry-After when Graph sends one; an Excel 500 seldom succeeds when repeated unchanged. Houston itself retries only a short 429 wait.]] .. (if config.access == "read-write" then [[
 
 Writes save to the file in OneDrive, with or without a session; the file's version history is
 the only undo. Strings in values are read as if typed: '00123' becomes 123 and '2026-11-10' a
@@ -217,6 +221,11 @@ local GRID = {
 	type = "array", minItems = 1,
 	items = {type = "array", minItems = 1, items = {type = {"string", "number", "boolean", "null"}}},
 	description = "Rows of cells, all the same length and matching the range's size.",
+}
+local FORMATS = {
+	type = "array", minItems = 1,
+	items = {type = "array", minItems = 1, items = {type = {"string", "null"}}},
+	description = "Rows of number formats such as '0.00' or 'yyyy-mm-dd', matching the range's size.",
 }
 local READ = {readOnlyHint = true, openWorldHint = true}
 local WRITE = {readOnlyHint = false, destructiveHint = false, openWorldHint = true}
@@ -296,13 +305,21 @@ local function list(result: Options): Options
 	return result
 end
 
-local function grid(value: any, field: string)
+local NULL = json.decode("null")
+
+-- A grid of cells: strings, numbers, booleans or null, or for formats strings or null.
+local function grid(value: any, field: string, formats: boolean?)
 	assert(type(value) == "table" and type(value[1]) == "table", field .. " must be rows of cells, such as {{'Item', 'Qty'}, {'Pear', 4}}")
 	local width, count = #value[1], 0
 	for index, row in value do
 		count += 1
 		assert(type(index) == "number", field .. " must be an array of rows")
 		assert(type(row) == "table" and #row == width and width > 0, field .. " rows must all have the same, nonzero number of cells")
+		for key, cell in row do
+			local kind = type(cell)
+			assert(type(key) == "number" and (cell == NULL or kind == "string" or (not formats and (kind == "number" or kind == "boolean"))),
+				field .. (if formats then " cells must be strings or null" else " cells must be strings, numbers, booleans or null"))
+		end
 	end
 	assert(count == #value, field .. " must be an array of rows")
 end
@@ -313,8 +330,8 @@ local function fields(name: string, args: Options, kinds: {[string]: any})
 	for key, value in args do
 		local kind = kinds[key]
 		assert(kind ~= nil, name .. " received an unknown option " .. key)
-		if kind == "grid" then
-			grid(value, key)
+		if kind == "grid" or kind == "formats" then
+			grid(value, key, kind == "formats")
 		elseif kind == "index" then
 			assert(type(value) == "number" and value >= 0 and value < 2 ^ 53 and math.floor(value) == value, key .. " must be an integer of at least 0")
 		elseif type(kind) == "table" then
@@ -348,8 +365,10 @@ function exports.findWorkbooks(input: any): Options
 		-- OData quotes a literal by doubling its single quotes.
 		path = "/drive/root/search(q='" .. url.segment((string.gsub(text(args.q, "q"), "'", "''")), "q") .. "')"
 		assert(args.top == nil or (type(args.top) == "number" and args.top >= 1 and math.floor(args.top) == args.top), "top must be a positive integer")
+		assert(args.select == nil, "findWorkbooks received an unknown option select")
 		args.q = nil
-		args.select = ITEM_FIELDS
+		-- remoteItem marks files shared from other drives, which are dropped below.
+		args.select = ITEM_FIELDS .. ",remoteItem"
 	end
 	local result = request("findWorkbooks", "GET", path, args, {list = "[/%.]search%(.*%)$", query = {"$select", "$top"}})
 	local workbooks = json.decode("[]")
@@ -374,7 +393,7 @@ end
 
 help.functions.listWorksheets = {
 	description = "The workbook's worksheets in order: {value={{id, name, position, visibility}}}. An id stays the same when the sheet is renamed.",
-	inputSchema = {type = "object", properties = with({itemId = ITEM}, SESSION), required = {"itemId"}, additionalProperties = false, examples = {{itemId = ITEM_ID}}},
+	inputSchema = {type = "object", properties = with({itemId = ITEM, select = SELECT}, SESSION), required = {"itemId"}, additionalProperties = false, examples = {{itemId = ITEM_ID}}},
 	annotations = READ,
 }
 function exports.listWorksheets(input: any): Options
@@ -453,7 +472,7 @@ if config.access == "read-write" then
 formula. Write dates as serial numbers with a numberFormat such as 'yyyy-mm-dd'.]],
 		inputSchema = {
 			type = "object",
-			properties = with({itemId = ITEM, address = ADDRESS, worksheet = SHEET, name = NAME, values = GRID, formulas = GRID, numberFormat = GRID, select = SELECT}, SESSION),
+			properties = with({itemId = ITEM, address = ADDRESS, worksheet = SHEET, name = NAME, values = GRID, formulas = GRID, numberFormat = FORMATS, select = SELECT}, SESSION),
 			required = {"itemId"},
 			allOf = {
 				{anyOf = {{required = {"address"}}, {required = {"name"}}}},
@@ -472,7 +491,7 @@ formula. Write dates as serial numbers with a numberFormat such as 'yyyy-mm-dd'.
 		local headers = session(args)
 		local path = rangePath(args, false)
 		assert(args.values ~= nil or args.formulas ~= nil or args.numberFormat ~= nil, "updateRange requires values, formulas or numberFormat")
-		fields("updateRange", args, {itemId = true, select = true, values = "grid", formulas = "grid", numberFormat = "grid"})
+		fields("updateRange", args, {itemId = true, select = true, values = "grid", formulas = "grid", numberFormat = "formats"})
 		return request("updateRange", "PATCH", path, args, {body = true, headers = headers, query = {"$select"}, defaults = {select = RANGE_FIELDS}})
 	end
 
@@ -554,8 +573,8 @@ still have added the rows: read the table before repeating the call.]],
 	function exports.addTableRows(input: any): Options
 		local args = options(input)
 		local headers = session(args)
-		grid(args.values, "values")
-		fields("addTableRows", args, {itemId = true, table = true, values = true, index = "index"})
+		assert(args.values ~= nil, "addTableRows requires values")
+		fields("addTableRows", args, {itemId = true, table = true, values = "grid", index = "index"})
 		return request("addTableRows", "POST", W .. "/tables/{table}/rows/add", args, {body = true, headers = headers})
 	end
 

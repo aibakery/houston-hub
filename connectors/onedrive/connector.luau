@@ -50,24 +50,28 @@ end
 
 -- Graph errors are {error = {code, message, innerError?}}; Excel puts its actionable code, such as
 -- invalidSessionReCreatable, in innerError.code. Throttling answers 429 or 503 with Retry-After.
--- Quota (507) and other server refusals are not transient.
-local function fail(operation: string, response: HttpResponse): never
+-- Quota (507) and other server refusals are not transient. A write that failed with a server error
+-- may still have been applied, so only a refused (429) write is retryable.
+local function fail(operation: string, response: HttpResponse, write: boolean?): never
 	local ok, decoded = pcall(json.decode, await(response.body:readPrefix(4096)))
 	local problem = if ok and type(decoded) == "table" and type(decoded.error) == "table" then decoded.error else {}
 	local status = response.statusCode
 	local message = "Microsoft Graph HTTP " .. tostring(status)
 	if type(problem.code) == "string" then message ..= " (" .. problem.code .. ")" end
 	if type(problem.message) == "string" then message ..= ": " .. string.sub(problem.message, 1, 600) end
-	local inner = if type(problem.innerError) == "table" then problem.innerError.code else nil
-	if type(inner) == "string" and inner ~= problem.code and not string.match(inner, "^%d+$") then message ..= "; innerError: " .. inner end
+	local detail = problem.innerError or problem.innererror
+	local inner = if type(detail) == "table" then detail.code else nil
+	if type(inner) == "string" and string.lower(inner) ~= string.lower(tostring(problem.code)) and not string.match(inner, "^%d+$") then
+		message ..= "; innerError: " .. inner
+	end
 	local retry = response.headers["retry-after"]
 	if retry and retry[1] then message ..= "; Retry-After: " .. retry[1] end
 	return houston.fail({operation = operation, layer = "upstream", upstream_status = status, message = message,
-		retryable = status == 429 or status == 500 or status == 502 or status == 503 or status == 504 or status == 509})
+		retryable = status == 429 or (not write and (status == 500 or status == 502 or status == 503 or status == 504 or status == 509))})
 end
 
-local function decode(operation: string, response: HttpResponse): any
-	if response.statusCode < 200 or response.statusCode >= 300 then fail(operation, response) end
+local function decode(operation: string, response: HttpResponse, write: boolean?): any
+	if response.statusCode < 200 or response.statusCode >= 300 then fail(operation, response, write) end
 	local raw = await(response.body:readAll())
 	if string.match(raw, "^%s*$") then return {success = true} end
 	local ok, value = pcall(json.decode, raw)
@@ -88,7 +92,7 @@ local function call(operation: string, method: string, href: string, body: any?,
 	local sent: HttpHeaders = if headers then table.clone(headers) else {}
 	if body ~= nil then sent["Content-Type"] = {"application/json"} end
 	return decode(operation, await(http.request({method = method, url = href, headers = sent,
-		body = if body ~= nil then json.encode(body) elseif method == "POST" then "" else nil})))
+		body = if body ~= nil then json.encode(body) elseif method == "POST" then "" else nil})), method ~= "GET")
 end
 
 -- Streams fetch()'s response to a session file; the path changes only when the whole body arrived.
@@ -178,8 +182,8 @@ Lists return one page: while ['@odata.nextLink'] is present, pass it back as nex
 Files move through session paths: downloads save to a path and return a signed Houston URL, uploads
 read from a path. Never inline file bytes. Results omit preauthenticated download links.
 No hidden paging; Houston itself retries only a short 429 wait. Errors report the HTTP status and
-Graph's code and message, e.g. 'Microsoft Graph HTTP 404 (itemNotFound)'; 429, 503 and other
-transient server errors are retryable, a full drive (507) is not. A failed or timed-out write may
+Graph's code and message, e.g. 'Microsoft Graph HTTP 404 (itemNotFound)'; 429 is retryable,
+and so are 503 and other transient server errors on reads; a full drive (507) is not. A failed or timed-out write may
 already have succeeded: check before repeating.]],
 	functions = {} :: {[string]: any},
 }
@@ -449,7 +453,7 @@ or a complete file: check with listChildren before retrying.]],
 		done("uploadFile", args)
 		assert(await(fs.stat(path)).size <= MAX_UPLOAD, "uploadFile handles files up to 250 MB")
 		return decode("uploadFile", await(http.request({method = "PUT", url = href,
-			headers = {["Content-Type"] = {contentType}}, body = fs.open(path, "r")})))
+			headers = {["Content-Type"] = {contentType}}, body = fs.open(path, "r")})), true)
 	end
 
 	help.functions.updateItem = {
