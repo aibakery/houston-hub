@@ -106,10 +106,11 @@ local function save(operation: string, path: string, fetch: () -> HttpResponse):
 end
 
 -- Follows an @odata.nextLink of the list whose path ends with the pattern ending. It may carry only
--- paging options: an $expand, or another route such as thumbnails, could return attachment bytes
--- or signed links. Graph may name entities by OData key, as in mailFolders('inbox'), which the
--- routes accept in their path form, mailFolders/inbox.
-local PAGING = {select = true, top = true, skip = true, skiptoken = true, orderby = true, filter = true, search = true, count = true}
+-- paging options and a calendar view's time range: an $expand, or another route such as
+-- thumbnails, could return attachment bytes or signed links. Graph may name entities by OData
+-- key, as in mailFolders('inbox'), which the routes accept in their path form, mailFolders/inbox.
+local PAGING = {select = true, top = true, skip = true, skiptoken = true, orderby = true, filter = true, search = true, count = true,
+	startdatetime = true, enddatetime = true}
 local function pageLink(link: string, ending: string): string
 	local raw, search = string.match(link, "^([^?#]*)(%??[^#]*)$")
 	assert(raw and search and string.sub(raw, 1, #GRAPH + 1) == GRAPH .. "/", "nextLink must be an @odata.nextLink from Microsoft Graph")

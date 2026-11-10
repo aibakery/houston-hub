@@ -15,7 +15,7 @@ request or ask your administrator to approve Houston, then connect again.
 
 Houston keeps your Microsoft authorization on its server; agent scripts never
 see it. An Outlook connection only reaches your mail, even if you also
-connect OneDrive.
+connect other Microsoft services.
 
 ## Advanced: changing access and troubleshooting
 
@@ -25,8 +25,8 @@ connect OneDrive.
 - To revoke every permission you granted Houston, remove Houston from
   [your Microsoft account's apps](https://account.live.com/consent/Manage) (personal
   accounts) or [My Apps](https://myapps.microsoft.com) (work or school accounts).
-  This disconnects all your Microsoft connections in Houston, including
-  OneDrive. To stop using only Outlook, remove its connection in Houston.
+  This disconnects all your Microsoft connections in Houston. To stop using
+  only Outlook, remove its connection in Houston.
 - A work or school account without an Exchange Online mailbox connects, but
   reading mail then fails: Microsoft reports that the mailbox is not enabled for
   this access.

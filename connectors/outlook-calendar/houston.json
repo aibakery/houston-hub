@@ -1,0 +1,208 @@
+{
+  "schema_version": 1,
+  "name": "Microsoft Outlook Calendar",
+  "files": [
+    "connector.luau"
+  ],
+  "icon": "icon.svg",
+  "config": {
+    "access": {
+      "type": "string",
+      "label": "Access",
+      "default": "read-only",
+      "description": "Read and write lets agents create, change and cancel events and answer invitations; Outlook emails attendees when an event they are invited to changes.",
+      "options": [
+        {
+          "label": "Read-only",
+          "value": "read-only"
+        },
+        {
+          "label": "Read and write",
+          "value": "read-write"
+        }
+      ]
+    }
+  },
+  "auth": {
+    "oauth": {
+      "type": "oauth2",
+      "label": "Connect with Microsoft",
+      "brand": "microsoft",
+      "authorize_url": "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
+      "token_url": "https://login.microsoftonline.com/common/oauth2/v2.0/token",
+      "client_id": "{{publisher.client_id}}",
+      "client_secret": "{{publisher.client_secret}}",
+      "client_auth": "body",
+      "pkce": "S256",
+      "require_refresh": true,
+      "authorize_params": {
+        "prompt": "select_account"
+      },
+      "scopes": [
+        {
+          "values": [
+            "offline_access",
+            "User.Read"
+          ]
+        },
+        {
+          "if": "{{ is config.access \"read-only\" }}",
+          "values": [
+            "Calendars.Read"
+          ]
+        },
+        {
+          "if": "{{ is config.access \"read-write\" }}",
+          "values": [
+            "Calendars.ReadWrite"
+          ]
+        }
+      ],
+      "account": {
+        "method": "GET",
+        "url": "https://graph.microsoft.com/v1.0/me?$select=userPrincipalName",
+        "headers": {
+          "Authorization": {
+            "value": "Bearer {{auth.oauth.access_token}}"
+          }
+        },
+        "label": "/userPrincipalName"
+      },
+      "token_response": {
+        "scopes_unreported": true,
+        "checks": [
+          {
+            "op": "equals",
+            "path": "/token_type",
+            "value": "Bearer"
+          },
+          {
+            "op": "exists",
+            "path": "/refresh_token"
+          }
+        ]
+      }
+    }
+  },
+  "publisher": {
+    "client_id": {
+      "type": "string",
+      "label": "Microsoft application (client) ID",
+      "required": true,
+      "order": 1
+    },
+    "client_secret": {
+      "type": "secret",
+      "label": "Microsoft client secret value",
+      "required": true,
+      "order": 2
+    }
+  },
+  "proxy": [
+    {
+      "match": {
+        "protocol": "http",
+        "host": [
+          "graph.microsoft.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/v1.0/me/calendar",
+          "/v1.0/me/calendars",
+          "/v1.0/me/calendars/{calendarId}",
+          "/v1.0/me/calendarView",
+          "/v1.0/me/calendars/{calendarId}/calendarView",
+          "/v1.0/me/events/{id}",
+          "/v1.0/me/events/{id}/instances",
+          "/v1.0/me/calendars/{calendarId}/events/{id}",
+          "/v1.0/me/calendars/{calendarId}/events/{id}/instances"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      }
+    },
+    {
+      "match": {
+        "protocol": "http",
+        "host": [
+          "graph.microsoft.com"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/v1.0/me/calendar/getSchedule"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "graph.microsoft.com"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/v1.0/me/events",
+          "/v1.0/me/calendars/{calendarId}/events",
+          "/v1.0/me/events/{id}/accept",
+          "/v1.0/me/events/{id}/tentativelyAccept",
+          "/v1.0/me/events/{id}/decline",
+          "/v1.0/me/events/{id}/cancel",
+          "/v1.0/me/calendars/{calendarId}/events/{id}/accept",
+          "/v1.0/me/calendars/{calendarId}/events/{id}/tentativelyAccept",
+          "/v1.0/me/calendars/{calendarId}/events/{id}/decline",
+          "/v1.0/me/calendars/{calendarId}/events/{id}/cancel"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "graph.microsoft.com"
+        ],
+        "method": [
+          "PATCH",
+          "DELETE"
+        ],
+        "path": [
+          "/v1.0/me/events/{id}",
+          "/v1.0/me/calendars/{calendarId}/events/{id}"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      }
+    }
+  ]
+}
