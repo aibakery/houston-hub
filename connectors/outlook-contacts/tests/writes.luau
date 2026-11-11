@@ -77,9 +77,11 @@ return {
 		fails({"homeAddress received an unknown field zip"}, c.createContact, {homeAddress = {zip = "75001"}})
 		fails({"businessPhones[2] must be a string"}, c.createContact, {businessPhones = {"+1 425 555 0100", 4255550101}})
 		fails({"categories must be an array"}, c.updateContact, {id = "C1", categories = {first = "VIP"}})
+		fails({"businessPhones must be an array"}, c.createContact, {businessPhones = {[1] = "+1 425 555 0100", [3] = "+1 425 555 0101"}})
 		assert(#requests == before, "invalid writes reached Graph")
 
 		-- A refused write keeps Graph's reason; a server error on a write may still have been applied.
+		-- Microsoft Q&A reports, reproduced by Microsoft staff, show folder deletes refused with 403 ErrorCannotDeleteObject.
 		responses = {
 			{status = 403, body = '{"error":{"code":"ErrorCannotDeleteObject","message":"Object cannot be deleted."}}'},
 			{status = 409, body = '{"error":{"code":"ErrorFolderExists","message":"A folder with the specified name already exists."}}'},

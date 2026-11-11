@@ -176,10 +176,11 @@ local help = {
 options object with Graph's camelCase fields and return Graph's JSON unchanged. Connector calls
 return completed values: use them directly, without await.
 Contacts live in the default Contacts folder unless folderId names one of its folders, from
-listContactFolders; folders can nest. Each list covers one folder: to see every contact, list the
-default folder, then each folder from listContactFolders and their subfolders. Some accounts list
-the default folder itself among the folders: skip the folder whose id is the parentFolderId of
-default-folder contacts, but walk its subfolders, and treat contacts with the same id as one.
+listContactFolders; folders can nest. Each list covers one folder. To see every contact, list the
+default folder, then walk listContactFolders and each folder's subfolders, skipping folder ids
+already seen, and list each folder's contacts. Some accounts list the default folder itself among
+the folders, as Contacts: its id is the parentFolderId of default-folder contacts, and its
+contacts are the ones already listed.
 Lists return one page: while ['@odata.nextLink'] is present, pass it back as nextLink (alone).
 Example: listContacts({filter="emailAddresses/any(a:a/address eq 'ana@example.com')", top=50}).
 Houston itself retries only a short 429 wait. Errors report the HTTP status and Graph's code and
@@ -222,7 +223,7 @@ local CONTACT = {
 	businessAddress = ADDRESS, homeAddress = ADDRESS, otherAddress = ADDRESS,
 	companyName = TEXT, department = TEXT, jobTitle = TEXT, officeLocation = TEXT, profession = TEXT,
 	manager = TEXT, assistantName = TEXT, businessHomePage = TEXT,
-	birthday = {type = "string", description = "A date and time such as 1990-07-22T00:00:00Z."},
+	birthday = {type = "string", description = "A date such as 1974-07-22, as in Microsoft's example; Graph returns it as a UTC date and time."},
 	spouseName = TEXT, children = STRINGS, personalNotes = TEXT, categories = STRINGS,
 }
 local READ = {readOnlyHint = true, openWorldHint = true}
@@ -242,6 +243,7 @@ local function check(value: any, schema: Options, path: string): any
 		assert(type(value) == "string" and #value >= (schema.minLength or 0), path .. " must be a " .. (if schema.minLength then "nonempty " else "") .. "string")
 		return value
 	end
+	assert(schema.type == "array" or schema.type == "object", path .. " has a schema type check() does not handle")
 	assert(type(value) == "table", path .. " must be " .. (if schema.type == "array" then "an array" else "an object"))
 	if schema.type == "array" then
 		local count = 0
@@ -280,8 +282,8 @@ end
 
 help.functions.listContactFolders = {
 	description = [[One page of the folders in the default Contacts folder, or of folderId's subfolders:
-{value={{id, displayName, parentFolderId}}, ['@odata.nextLink']?}. Top-level folders' parentFolderId
-is the default Contacts folder's id; some accounts list that folder too, as Contacts.]],
+{value={{id, displayName, parentFolderId}}, ['@odata.nextLink']?}. Some accounts list the default
+Contacts folder itself here, with the other folders as its subfolders.]],
 	inputSchema = {
 		type = "object",
 		properties = {folderId = {type = "string", minLength = 1, description = "A folder whose subfolders to list."}, select = SELECT,
