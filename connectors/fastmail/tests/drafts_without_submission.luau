@@ -93,7 +93,7 @@ end, run=function(fastmail)
         assert(#requests == mark + 2, "the original message and folders share one request")
         local wanted = {}
         for _, property in calls[1].args.properties do wanted[property] = true end
-        assert(wanted["header:Delivered-To:asAddresses:all"] and wanted["header:X-Delivered-To:asAddresses:all"])
+        assert(wanted["header:X-Delivered-To:asAddresses:all"] and wanted["header:X-Resolved-To:asAddresses:all"])
         draft = calls[3].args.create.draft
         assert(draft.from[1].email == "me@example.com" and draft.subject == "Re: Hello")
         assert(draft.to[1].email == "sender@example.com" and #draft.cc == 2 and draft.cc[1].email == "other@example.com")
@@ -102,8 +102,9 @@ end, run=function(fastmail)
 
         local toAlias = original()
         toAlias.to = {{email="support@example.com"}, {email="other@example.com"}}
-        toAlias["header:X-Delivered-To:asAddresses:all"] = {{{email="Support@example.com"}}}
-        toAlias["header:Delivered-To:asAddresses:all"] = json.decode("null")
+        -- Fastmail's header comes first; a later instance from the sender must not count as yours.
+        toAlias["header:X-Delivered-To:asAddresses:all"] = {{{email="Support@example.com"}}, {{email="other@example.com"}}}
+        toAlias["header:X-Resolved-To:asAddresses:all"] = {{{email="me@example.com"}}}
         responses={results({"Email/get", {list={toAlias}}}, {"Mailbox/get", {list=folders}}),
             result("Email/set", {created={draft={id="d-alias"}}})}
         mark = #requests

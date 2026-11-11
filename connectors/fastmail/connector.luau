@@ -901,17 +901,16 @@ local function reply_subject(subject: any): string
 	return "Re: " .. subject
 end
 
--- Headers naming the addresses a message was delivered to, which are the account's own.
-local DELIVERED_HEADERS = { "header:Delivered-To:asAddresses:all", "header:X-Delivered-To:asAddresses:all", "header:X-Resolved-To:asAddresses:all" }
+-- Fastmail adds X-Delivered-To (the address that received the message, often an alias) and X-Resolved-To
+-- (the account) above the sender's headers. Only the first instance is Fastmail's; later ones may be forged.
+local DELIVERED_HEADERS = { "header:X-Delivered-To:asAddresses:all", "header:X-Resolved-To:asAddresses:all" }
 
 -- Without Identity/get, the account address and the addresses a message was delivered to stand in for
 -- your sending identities, so a reply comes from the alias that received it and reply-all leaves it out.
 local function own_addresses(msg: any): {Sender}
 	local own: {Sender} = { { email = session().username } }
 	for _, key in DELIVERED_HEADERS do
-		for _, list in as_list(msg[key]) do
-			for _, addr in address_objects(list) do own[#own + 1] = { email = addr.email } end
-		end
+		for _, addr in address_objects(as_list(msg[key])[1]) do own[#own + 1] = { email = addr.email } end
 	end
 	return own
 end
@@ -1208,7 +1207,7 @@ if config.access == "read-write" or config.access == "custom" then
 		return save_draft("createDraft", compose("createDraft", body, true))
 	end
 
-	operationHelp.createReplyDraft = [==[createReplyDraft({id,text,all?,subject?,identityId?,from?,to?,cc?,bcc?,replyTo?,attachments?}) -> {id,threadId}. Saves a reply in Drafts without sending, so it opens in the original thread. Replies to Reply-To, otherwise From; to replaces that list. all=true adds the original To/Cc except your addresses; cc replaces that list. Subject gets a Re: prefix unless supplied. Keeps In-Reply-To/References. Without Email submission, your addresses are the account address and those the message was delivered to (Delivered-To, X-Delivered-To or X-Resolved-To): the reply comes from the one it was sent to and all=true leaves them out of Cc; other aliases are unknown, so pass from and cc to override. ]==] .. DRAFT_SCOPE .. " " .. REVIEW
+	operationHelp.createReplyDraft = [==[createReplyDraft({id,text,all?,subject?,identityId?,from?,to?,cc?,bcc?,replyTo?,attachments?}) -> {id,threadId}. Saves a reply in Drafts without sending, so it opens in the original thread. Replies to Reply-To, otherwise From; to replaces that list. all=true adds the original To/Cc except your addresses; cc replaces that list. Subject gets a Re: prefix unless supplied. Keeps In-Reply-To/References. Without Email submission, your addresses are the account address and those the message was delivered to (Fastmail's X-Delivered-To and X-Resolved-To headers): the reply comes from the one it was sent to and all=true leaves them out of Cc; other aliases are unknown, so pass from and cc to override. ]==] .. DRAFT_SCOPE .. " " .. REVIEW
 	function functions.createReplyDraft(input: Id | ReplyOptions, options: ReplyOptions?): DraftResult
 		return save_draft("createReplyDraft", compose_reply("createReplyDraft", input, options, true))
 	end
