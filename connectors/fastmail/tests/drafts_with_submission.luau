@@ -54,7 +54,8 @@ end, run=function(fastmail)
         local submission = calls[4].args
         assert(submission.create.send.emailId == "d1" and submission.create.send.identityId == "i-sup")
         assert(calls[4].using[3] == "urn:ietf:params:jmap:submission")
-        assert(submission.onSuccessUpdateEmail["#send"].mailboxIds.se and submission.onSuccessUpdateEmail["#send"].keywords == nil)
+        assert(submission.onSuccessUpdateEmail["#send"]["mailboxIds/se"] == true and submission.onSuccessUpdateEmail["#send"].keywords == nil)
+        assert(string.find(requests[#requests].body, "\"mailboxIds/dr\":null", 1, true))
         assert(string.find(requests[#requests].body, "\"keywords/$draft\":null", 1, true))
 
         responses={result("Identity/get", identities), result("Email/get", {list={draft("d1")}}),

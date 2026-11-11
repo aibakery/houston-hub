@@ -70,7 +70,7 @@ local FOLDER_PROPERTIES = { "id", "name", "role", "parentId", "totalEmails", "un
 
 type Session = {
 	accountId: string, apiUrl: string, username: string, name: string,
-	capabilities: {[string]: any}, maskedAccountId: string?, downloadUrl: string?, uploadUrl: string?,
+	capabilities: {[string]: any}, accountCapabilities: {[string]: any}?, maskedAccountId: string?, downloadUrl: string?, uploadUrl: string?,
 }
 -- Execution-local discovery cache: keep only fields used by this connector.
 local cachedSession: Session? = nil
@@ -144,11 +144,26 @@ local function session(): Session
 	local discovered: Session = {
 		accountId = account, apiUrl = s.apiUrl, username = s.username, name = primaryAccount.name,
 		capabilities = if type(s.capabilities) == "table" then (s.capabilities :: {[string]: any}) else {},
+		accountCapabilities = if type(primaryAccount.accountCapabilities) == "table" then primaryAccount.accountCapabilities else nil,
 		maskedAccountId = if type(maskedAccount) == "string" and maskedAccount ~= "" then maskedAccount else nil,
 		downloadUrl = s.downloadUrl, uploadUrl = s.uploadUrl,
 	}
 	cachedSession = discovered
 	return discovered
+end
+
+-- Session capabilities are what the server supports; account capabilities are what this token may use (RFC 8620).
+-- Masked Email lives in its own account, so only the session lists it for the mail account.
+local function has_cap(s: Session, cap: string): boolean
+	if s.capabilities[cap] == nil then return false end
+	local account = if cap == MASKED then nil else s.accountCapabilities
+	return account == nil or account[cap] ~= nil
+end
+
+local function require_cap(s: Session, cap: string, operation: string)
+	if not has_cap(s, cap) then
+		fail(operation, "Fastmail token needs " .. (if cap == SUBMISSION then "Email submission" else "Masked Email") .. " scope")
+	end
 end
 
 local function call(name: string, arguments: {[string]: any}?, operationName: string?): any
@@ -159,10 +174,7 @@ local function call(name: string, arguments: {[string]: any}?, operationName: st
 	local using = { CORE, MAIL }
 	local cap = REQUIRED[name]
 	if cap then
-		local label = if cap == SUBMISSION then "Email submission" else "Masked Email"
-		if type(s.capabilities) ~= "table" or s.capabilities[cap] == nil then
-			fail(operation, "Fastmail token needs " .. label .. " scope")
-		end
+		require_cap(s, cap, operation)
 		using[#using + 1] = cap
 	end
 	local methodCall: {any} = { name, args, "0" }
@@ -239,7 +251,7 @@ function functions.getProfile()
 	table.sort(caps)
 	return {
 		emailAddress = s.username, accountId = s.accountId, name = s.name,
-		capabilities = caps, canSend = type(s.capabilities) == "table" and s.capabilities[SUBMISSION] ~= nil,
+		capabilities = caps, canSend = has_cap(s, SUBMISSION),
 	}
 end
 
@@ -355,12 +367,16 @@ local function remove_nulls(value: any)
 	end
 end
 
+local function is_inline(part: any): boolean
+	return part.disposition == "inline" or (part.disposition ~= "attachment" and part.cid ~= nil)
+end
+
 local function attachment_metadata(parts: any): {Attachment}
 	local attachments: {Attachment} = json.decode("[]")
 	for _, part in parts or {} do
 		attachments[#attachments + 1] = {
 			id = part.blobId, filename = part.name, mimeType = part.type, size = part.size,
-			inline = part.disposition == "inline" or (part.disposition ~= "attachment" and part.cid ~= nil), contentId = part.cid,
+			inline = is_inline(part), contentId = part.cid,
 		}
 	end
 	return attachments
@@ -377,8 +393,8 @@ local function hasContent(value: string): boolean
 	return false
 end
 
--- Joins the fetched values of body parts of one MIME type (nil: any); found is false when none matched.
-local function join_parts(msg: any, parts: any, mimeType: string?): (string, boolean, boolean)
+-- Joins the fetched values of body parts of one MIME type (nil: any).
+local function join_parts(msg: any, parts: any, mimeType: string?): (string, boolean)
 	local out = {}
 	local truncated = false
 	for _, part in parts or {} do
@@ -388,7 +404,7 @@ local function join_parts(msg: any, parts: any, mimeType: string?): (string, boo
 			if value.isTruncated then truncated = true end
 		end
 	end
-	return table.concat(out, "\n"), truncated, #out > 0
+	return table.concat(out, "\n"), truncated
 end
 
 local function decorate(msg: any, bodyFormat: string): Message
@@ -559,10 +575,6 @@ function functions.getAttachment(input: Id | DownloadOptions, attachment: Downlo
 		path, attachmentId = attachmentId.path or path, attachmentId.id
 	end
 	return functions.getAttachments(messageId, { { id = id_of(attachmentId), path = path } })[1]
-end
-
-local function has_cap(s: any, cap: string)
-	return type(s.capabilities) == "table" and s.capabilities[cap] ~= nil
 end
 
 operationHelp.listAliases = [==[listAliases() -> {aliases,notes}. Each alias has email,canSend,masked. Sending identities add identityId,name; masked addresses add maskedId,state,description,forDomain. Combines addresses shared by both lists. Missing Email submission or Masked Email scope is explained in notes; fails if neither scope is available.]==]
@@ -758,13 +770,15 @@ local function save_draft(operation: string, message: Composed, folders: any?): 
 end
 
 -- No automatic retries: a failed/ambiguous submission leaves the draft in place.
-local function send_email(operation: string, identity: Sender, emailId: string, sent: string): SendResult
+local function send_email(operation: string, identity: Sender, emailId: string, folders: any): SendResult
+	local drafts, sent = folder_id(folders, "drafts"), folder_id(folders, "sent")
 	assert(identity.id, "sending identity has no id")
 	local submitted = call("EmailSubmission/set", {
 		create = { send = { identityId = identity.id, emailId = emailId } },
-		-- Patch keywords so a draft's flags and labels survive sending.
+		-- Patch rather than replace, so a draft's other mailboxes (labels) and keywords (flags) survive sending.
 		onSuccessUpdateEmail = { ["#send"] = {
-			mailboxIds = { [sent] = true }, ["keywords/$draft"] = json.decode("null"), ["keywords/$seen"] = true,
+			["mailboxIds/" .. drafts] = json.decode("null"), ["mailboxIds/" .. sent] = true,
+			["keywords/$draft"] = json.decode("null"), ["keywords/$seen"] = true,
 		} },
 	}, operation)
 	local submission = submitted.created and submitted.created.send
@@ -774,8 +788,8 @@ end
 
 local function submit(operation: string, message: Composed): SendResult
 	local folders = functions.listFolders().folders
-	local sent = folder_id(folders, "sent")
-	return send_email(operation, message.sender, save_draft(operation, message, folders).id, sent)
+	folder_id(folders, "sent") -- Fail before saving a draft when there is no Sent folder.
+	return send_email(operation, message.sender, save_draft(operation, message, folders).id, folders)
 end
 
 -- Identity/get needs Email submission. Drafts skip it on tokens without that scope.
@@ -792,7 +806,7 @@ end
 local function sender_of(identities: {Identity}?, body: any): Sender
 	if identities then return require_identity(identities, body) end
 	if body.identityId ~= nil then error("fastmail: identityId needs the Email submission scope; pass from instead") end
-	if body.from ~= nil and (type(body.from) ~= "string" or body.from == "") then error("fastmail from must be an email address") end
+	if body.from ~= nil and (type(body.from) ~= "string" or not string.find(body.from, "@", 1, true)) then error("fastmail from must be an email address") end
 	return { email = body.from or session().username }
 end
 
@@ -859,6 +873,7 @@ local function compose_reply(operation: string, input: Id | ReplyOptions, option
 	id = id_of(id)
 	if type(body) ~= "table" or type(body.text) ~= "string" then error("fastmail." .. operation .. " requires text") end
 	check_addresses(body, operation)
+	if not draft then require_cap(session(), SUBMISSION, operation) end
 	local to = address_objects(body.to)
 	if body.to ~= nil and (#to == 0 or #to ~= #body.to) then error("fastmail." .. operation .. " to must be a nonempty array of { email = ... }") end
 	local data = call("Email/get", {
@@ -963,8 +978,8 @@ local function draft_of(operation: string, id: string, properties: {string}, bod
 end
 
 local function part_text(msg: any, parts: any, mimeType: string): string?
-	local text, _, found = join_parts(msg, parts, mimeType)
-	return if found then text else nil
+	local text = join_parts(msg, parts, mimeType)
+	return if text ~= "" then text else nil
 end
 
 local function update_ids(ids: {string}, patch: {[string]: any}, operation: string): {string}
@@ -1103,7 +1118,7 @@ if config.access == "read-write" then
 		return submit("replyMessage", compose_reply("replyMessage", input, options, false))
 	end
 
-	operationHelp.sendDraft = [==[sendDraft({id,identityId?}) -> {id,submissionId}. Sends an existing draft, such as one from createDraft or createReplyDraft, and moves it to Sent, keeping its other keywords. Uses the sending identity matching the draft's From unless identityId is given. Positional sendDraft(id) is supported. Refuses messages that are not drafts. Email submission scope required. On timeout inspect Drafts and Sent before retrying: delivery may have succeeded.]==]
+	operationHelp.sendDraft = [==[sendDraft({id,identityId?}) -> {id,submissionId}. Sends an existing draft, such as one from createDraft or createReplyDraft, and moves it from Drafts to Sent, keeping its other folders and keywords. Uses the sending identity matching the draft's From unless identityId is given. Positional sendDraft(id) is supported. Refuses messages that are not drafts. Email submission scope required. On timeout inspect Drafts and Sent before retrying: delivery may have succeeded.]==]
 	function functions.sendDraft(input: Id | SendDraftOptions): SendResult
 		local id = id_of(input)
 		local opts: any = input
@@ -1116,7 +1131,7 @@ if config.access == "read-write" then
 			if #addresses > 0 then from = addresses[1].email end
 		end
 		local identity = require_identity(identities, { identityId = identityId, from = from })
-		return send_email("sendDraft", identity, id, folder_id(functions.listFolders().folders, "sent"))
+		return send_email("sendDraft", identity, id, functions.listFolders().folders)
 	end
 
 end
@@ -1134,7 +1149,7 @@ if config.access == "read-write" or config.access == "custom" then
 		return save_draft("createDraft", compose("createDraft", body, true))
 	end
 
-	operationHelp.createReplyDraft = [==[createReplyDraft({id,text,all?,subject?,identityId?,from?,to?,cc?,bcc?,replyTo?,attachments?}) -> {id,threadId}. Saves a reply in Drafts without sending, so it opens in the original thread. Replies to Reply-To, otherwise From; to replaces that list. all=true adds the original To/Cc except your addresses; cc replaces that list. Subject gets a Re: prefix unless supplied. Keeps In-Reply-To/References. ]==] .. DRAFT_SCOPE .. " " .. REVIEW
+	operationHelp.createReplyDraft = [==[createReplyDraft({id,text,all?,subject?,identityId?,from?,to?,cc?,bcc?,replyTo?,attachments?}) -> {id,threadId}. Saves a reply in Drafts without sending, so it opens in the original thread. Replies to Reply-To, otherwise From; to replaces that list. all=true adds the original To/Cc except your addresses; cc replaces that list. Subject gets a Re: prefix unless supplied. Keeps In-Reply-To/References. Without Email submission your aliases are unknown, so the sender defaults to the account address and all=true may copy your other addresses into Cc: pass from and cc to control them. ]==] .. DRAFT_SCOPE .. " " .. REVIEW
 	function functions.createReplyDraft(input: Id | ReplyOptions, options: ReplyOptions?): DraftResult
 		return save_draft("createReplyDraft", compose_reply("createReplyDraft", input, options, true))
 	end
@@ -1156,14 +1171,19 @@ if config.access == "read-write" or config.access == "custom" then
 		local from = old.from
 		if input.identityId ~= nil or input.from ~= nil then
 			local sender = sender_of(identities_for("updateDraft", true), input)
-			from = { { email = sender.email, name = sender.name } }
+			local name = sender.name
+			for _, addr in address_objects(old.from) do
+				if name == nil and lower_email(addr.email) == lower_email(sender.email) then name = addr.name end
+			end
+			from = { { email = sender.email, name = name } }
 		end
 		local text, html = input.text, nil
 		if keepBody then text, html = part_text(old, old.textBody, "text/plain"), part_text(old, old.htmlBody, "text/html") end
-		-- Parts with a Content-ID belong to the HTML body; attachments replaces only the others.
+		-- Inline parts belong to the body they appear in; attachments replaces only the others.
 		local attachments = attachment_parts(input.attachments, "updateDraft") or {}
 		for _, part in old.attachments or {} do
-			if (part.cid ~= nil and html ~= nil) or (part.cid == nil and input.attachments == nil) then
+			local keep = if is_inline(part) then keepBody else input.attachments == nil
+			if keep then
 				attachments[#attachments + 1] = {
 					blobId = part.blobId, name = part.name, type = part.type, charset = part.charset, disposition = part.disposition, cid = part.cid,
 				}
