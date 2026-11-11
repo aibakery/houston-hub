@@ -112,9 +112,9 @@ func Check(ctx context.Context, binary string, m manifest.Manifest, modules map[
 		if err := os.WriteFile(path, []byte(generated.String()), 0600); err != nil {
 			return err
 		}
-		// The pinned 0.728 new solver accepts string values inside optional
+		// The pinned Luau new solver accepts string values inside optional
 		// HttpHeaders arguments. The old solver checks that boundary correctly.
-		// TestRuntimeIOContracts guards this until the analyzer can be upgraded.
+		// TestRuntimeIOContracts guards this until the new solver does.
 		cmd := exec.CommandContext(ctx, binary, "--solver=old", path)
 		cmd.Env = []string{"PATH=" + os.Getenv("PATH"), "LANG=C", "HOME=" + directory}
 		output := &boundedOutput{}
