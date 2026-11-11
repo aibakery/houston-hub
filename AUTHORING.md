@@ -1104,20 +1104,26 @@ end
 archive, so pass it as a request body or write it to a file. Bodies are strings,
 Readers or readable Files, which stream on demand; the helper takes ownership of
 them, and validation errors leave them usable. `method` is `"deflate"` (default)
-or `"store"`, for already compressed media or an EPUB's leading `mimetype`. Names
+or `"store"`, for already compressed media or an EPUB's leading `mimetype`. String
+entries record their sizes up front; Reader entries are followed by a data
+descriptor, which some streaming readers (such as Java's `ZipInputStream`) refuse
+for stored entries, so pass such a body as a string when that matters. Names
 are unique relative paths with `/` separators, at most 4 KiB each, without empty,
 `.` or `..` segments, a drive prefix, `\`, control characters or look-alikes of
-those (judged in NFKC form, as `url.segment` judges a segment). Directories are
-implied by names. Entries carry a fixed 1980-01-01 timestamp, so equal inputs
-make equal archives. An archive holds at most 65,535 entries, 8 MiB of string
+those (judged in NFKC form, as `url.segment` judges a segment), and no name may
+also be another entry's directory. Directories are implied by names. Entries carry a fixed 1980-01-01 timestamp, so equal inputs
+make equal archives. An archive holds at most 65,534 entries, 8 MiB of string
 bodies and names, and 4 GiB in all.
 
 `compression.unzip(archive)` reads a byte string of at most 16 MiB or takes
 ownership of a File opened for reading; write an HTTP body to a session file
 first. It returns an operation whose result lists `archive.entries` as
-`{name, size, compressedSize}` in archive order, omitting directory entries.
-`archive:open(name)` returns a lazy Reader; several may be open at once, and
-`archive:close()` releases the archive, failing Readers still open. ZIP64
+`{name, size, compressedSize}` in archive order, omitting directory entries; a
+name without the UTF-8 flag that is not valid UTF-8 is read as code page 437.
+`archive:open(name)` returns a lazy Reader. Several may be open at once, but
+reading them alternately re-seeks the archive on each chunk, so read entries in
+turn. `archive:close()` releases the archive and its memory, failing Readers
+still open. ZIP64
 archives are read; nested archives are never opened automatically.
 
 `unzip` refuses, with `decoding_error`, a malformed or multi-disk archive and any
