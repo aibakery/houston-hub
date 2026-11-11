@@ -35,7 +35,8 @@ return {scenario={["auth_config"]={["token"]="fixture-private-password !@#"},["a
                 from={{name=json.decode("null"), email="me@example.com"}}, to={{email="sender@example.com"}},
                 cc={{email="other@example.com"}}, bcc=json.decode("null"), replyTo=json.decode("null"), subject="Re: Hello",
                 inReplyTo={"<m@example.com>"}, references={"<old@example.com>", "<m@example.com>"},
-                attachments={{blobId="b1", name="a.pdf", type="application/pdf", disposition="attachment", cid=json.decode("null")}}}
+                attachments={{blobId="b1", name="a.csv", type="text/csv", charset="iso-8859-1", disposition="attachment", cid=json.decode("null")},
+                    {blobId="img", name="logo.png", type="image/png", disposition="inline", cid="c1"}}}
             for key, value in extra or {} do msg[key] = value end
             return msg
         end
@@ -95,7 +96,8 @@ end, run=function(fastmail)
         assert(draft.subject == "Re: Hello again" and draft.cc == nil and draft.to[1].email == "sender@example.com")
         assert(draft.from[1].email == "me@example.com" and draft.keywords["$draft"] and draft.mailboxIds.dr)
         assert(draft.bodyValues.text.value == "Hi" and draft.bodyValues.html.value == "<p>Hi</p>" and draft.htmlBody[1].type == "text/html")
-        assert(draft.attachments[1].blobId == "b1" and draft.attachments[1].name == "a.pdf" and draft.attachments[1].disposition == "attachment")
+        assert(#draft.attachments == 2 and draft.attachments[1].blobId == "b1" and draft.attachments[1].name == "a.csv" and draft.attachments[1].disposition == "attachment")
+        assert(draft.attachments[1].charset == "iso-8859-1" and draft.attachments[2].cid == "c1" and draft.attachments[2].disposition == "inline")
         assert(draft.inReplyTo[1] == "<m@example.com>" and #draft.references == 2)
         assert(calls[3].args.destroy[1] == "d2" and calls[3].args.create == nil)
 
@@ -113,6 +115,30 @@ end, run=function(fastmail)
         responses={result("Email/get", {list={saved("m", {keywords={["$seen"]=true}})}})}
         mark = #requests
         ok, err = pcall(function() fastmail.updateDraft({id="m", subject="x"}) end)
+        assert(not ok and string.find(tostring(err), "not a draft", 1, true) and #requests == mark + 1)
+
+        responses={result("Email/get", {list={saved("d4", {textBody={{partId="1", type="text/plain"}}, htmlBody={{partId="2", type="text/html"}},
+                bodyValues={["1"]={value="Hi"}, ["2"]={value="<p>Hi <img src=\"cid:c1\"></p>"}}})}}),
+            {blobId="blob1", type="application/pdf", size=7}, result("Email/set", {created={draft={id="d5"}}}),
+            result("Email/set", {notDestroyed={d4={type="serverFail"}}})}
+        mark = #requests
+        ok, err = pcall(function() fastmail.updateDraft({id="d4", attachments={{path="files/brief.pdf"}}}) end)
+        assert(not ok and string.find(tostring(err), "Saved new draft d5", 1, true) and string.find(tostring(err), "old draft d4", 1, true))
+        calls = jmapSince(mark)
+        assert(#calls == 4 and calls[2].name == "upload")
+        draft = calls[3].args.create.draft
+        assert(#draft.attachments == 2 and draft.attachments[1].blobId == "blob1" and draft.attachments[2].blobId == "img")
+        assert(draft.bodyValues.html.value == "<p>Hi <img src=\"cid:c1\"></p>")
+
+        responses={result("Email/get", {list={saved("d5")}}), result("Email/set", {destroyed={"d5"}})}
+        mark = #requests
+        assert(fastmail.deleteDraft({id="d5"}).id == "d5")
+        calls = jmapSince(mark)
+        assert(#calls == 2 and calls[2].args.destroy[1] == "d5")
+
+        responses={result("Email/get", {list={saved("m", {keywords={["$seen"]=true}})}})}
+        mark = #requests
+        ok, err = pcall(function() fastmail.deleteDraft("m") end)
         assert(not ok and string.find(tostring(err), "not a draft", 1, true) and #requests == mark + 1)
 
         mark = #requests

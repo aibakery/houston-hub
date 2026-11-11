@@ -42,8 +42,9 @@ type Alias = {
 type MoveResult = {ids: {string}, folderId: string}
 type SendResult = {id: string, submissionId: string}
 type DraftResult = {id: string, threadId: string?}
+-- createDraft and updateDraft options: every field is optional, but createDraft needs text and updateDraft needs id.
 type DraftOptions = {
-	id: string, text: string?, subject: string?, identityId: string?, from: string?,
+	id: string?, text: string?, subject: string?, identityId: string?, from: string?,
 	to: {Address}?, cc: {Address}?, bcc: {Address}?, replyTo: {Address}?, attachments: {Upload}?,
 }
 type SendDraftOptions = {id: string, identityId: string?}
@@ -63,6 +64,7 @@ local REQUIRED: {[string]: string} = { ["Identity/get"] = SUBMISSION, ["EmailSub
 local SET_ERROR_FIELDS = { "notCreated", "notUpdated", "notDestroyed" }
 local SEARCH_FIELDS = { "from", "to", "subject", "text" }
 local ADDRESS_FIELDS = { "from", "to", "cc", "bcc", "replyTo" }
+local RECIPIENT_FIELDS = { "to", "cc", "bcc", "replyTo" }
 local MESSAGE_PROPERTIES = { "id", "threadId", "mailboxIds", "keywords", "from", "to", "cc", "bcc", "replyTo", "subject", "sentAt", "receivedAt", "messageId", "headers", "preview", "textBody", "htmlBody", "attachments", "bodyValues" }
 local FOLDER_PROPERTIES = { "id", "name", "role", "parentId", "totalEmails", "unreadEmails" }
 
@@ -375,6 +377,20 @@ local function hasContent(value: string): boolean
 	return false
 end
 
+-- Joins the fetched values of body parts of one MIME type (nil: any); found is false when none matched.
+local function join_parts(msg: any, parts: any, mimeType: string?): (string, boolean, boolean)
+	local out = {}
+	local truncated = false
+	for _, part in parts or {} do
+		local value = msg.bodyValues and msg.bodyValues[part.partId]
+		if value and (mimeType == nil or part.type == nil or part.type == mimeType) then
+			out[#out + 1] = value.value
+			if value.isTruncated then truncated = true end
+		end
+	end
+	return table.concat(out, "\n"), truncated, #out > 0
+end
+
 local function decorate(msg: any, bodyFormat: string): Message
 	remove_nulls(msg)
 	for _, key in ADDRESS_FIELDS do msg[key] = addresses(msg[key]) end
@@ -384,22 +400,10 @@ local function decorate(msg: any, bodyFormat: string): Message
 	for _, header in msg.headers or {} do
 		if string.lower(header.name) == "received" then msg.received[#msg.received + 1] = header.value end
 	end
-	local function body(parts: any, mimeType: string?)
-		local out = {}
-		local truncated = false
-		for _, part in parts or {} do
-			local value = msg.bodyValues and msg.bodyValues[part.partId]
-			if value and (mimeType == nil or part.type == nil or part.type == mimeType) then
-				out[#out + 1] = value.value
-				if value.isTruncated then truncated = true end
-			end
-		end
-		return table.concat(out, "\n"), truncated
-	end
-	if bodyFormat == "html" then msg.body, msg.bodyTruncated = body(msg.htmlBody, "text/html")
-	else msg.body, msg.bodyTruncated = body(msg.textBody, if bodyFormat == "text" then "text/plain" else nil) end
+	if bodyFormat == "html" then msg.body, msg.bodyTruncated = join_parts(msg, msg.htmlBody, "text/html")
+	else msg.body, msg.bodyTruncated = join_parts(msg, msg.textBody, if bodyFormat == "text" then "text/plain" else nil) end
 	if bodyFormat == "auto" then
-		if not msg.bodyTruncated and not hasContent(msg.body) then msg.body, msg.bodyTruncated = body(msg.htmlBody, nil) end
+		if not msg.bodyTruncated and not hasContent(msg.body) then msg.body, msg.bodyTruncated = join_parts(msg, msg.htmlBody, nil) end
 		if not msg.bodyTruncated and not hasContent(msg.body) then msg.body = msg.preview or "" end
 	end
 	msg.attachments = attachment_metadata(msg.attachments)
@@ -758,7 +762,10 @@ local function send_email(operation: string, identity: Sender, emailId: string, 
 	assert(identity.id, "sending identity has no id")
 	local submitted = call("EmailSubmission/set", {
 		create = { send = { identityId = identity.id, emailId = emailId } },
-		onSuccessUpdateEmail = { ["#send"] = { mailboxIds = { [sent] = true }, keywords = { ["$seen"] = true } } },
+		-- Patch keywords so a draft's flags and labels survive sending.
+		onSuccessUpdateEmail = { ["#send"] = {
+			mailboxIds = { [sent] = true }, ["keywords/$draft"] = json.decode("null"), ["keywords/$seen"] = true,
+		} },
 	}, operation)
 	local submission = submitted.created and submitted.created.send
 	if type(submission) ~= "table" or type(submission.id) ~= "string" or submission.id == "" then fail(operation, "Missing submission confirmation; draft " .. emailId) end
@@ -790,8 +797,8 @@ local function sender_of(identities: {Identity}?, body: any): Sender
 end
 
 local function check_addresses(body: any, operation: string)
-	for _, key in ADDRESS_FIELDS do
-		if body[key] ~= nil and key ~= "from" and type(body[key]) ~= "table" then
+	for _, key in RECIPIENT_FIELDS do
+		if body[key] ~= nil and type(body[key]) ~= "table" then
 			error("fastmail." .. operation .. " " .. key .. " must be an array of { email = ... }")
 		end
 	end
@@ -955,15 +962,9 @@ local function draft_of(operation: string, id: string, properties: {string}, bod
 	return msg
 end
 
--- Concatenates a draft's body parts of one MIME type; nil when it has none.
 local function part_text(msg: any, parts: any, mimeType: string): string?
-	local out = {}
-	for _, part in parts or {} do
-		local value = msg.bodyValues and msg.bodyValues[part.partId]
-		if value and part.type == mimeType then out[#out + 1] = value.value end
-	end
-	if #out == 0 then return nil end
-	return table.concat(out, "\n")
+	local text, _, found = join_parts(msg, parts, mimeType)
+	return if found then text else nil
 end
 
 local function update_ids(ids: {string}, patch: {[string]: any}, operation: string): {string}
@@ -1102,21 +1103,45 @@ if config.access == "read-write" then
 		return submit("replyMessage", compose_reply("replyMessage", input, options, false))
 	end
 
-	local DRAFT_SCOPE = "Needs only the Email scope: without Email submission, identityId is refused and from (default: the account address) is not checked against sending identities."
+	operationHelp.sendDraft = [==[sendDraft({id,identityId?}) -> {id,submissionId}. Sends an existing draft, such as one from createDraft or createReplyDraft, and moves it to Sent, keeping its other keywords. Uses the sending identity matching the draft's From unless identityId is given. Positional sendDraft(id) is supported. Refuses messages that are not drafts. Email submission scope required. On timeout inspect Drafts and Sent before retrying: delivery may have succeeded.]==]
+	function functions.sendDraft(input: Id | SendDraftOptions): SendResult
+		local id = id_of(input)
+		local opts: any = input
+		local identityId = if type(opts) == "table" then opts.identityId else nil
+		local identities = identities_for("sendDraft", false) :: {Identity}
+		local draft = draft_of("sendDraft", id, { "id", "keywords", "from" })
+		local from = nil
+		if identityId == nil then
+			local addresses = address_objects(draft.from)
+			if #addresses > 0 then from = addresses[1].email end
+		end
+		local identity = require_identity(identities, { identityId = identityId, from = from })
+		return send_email("sendDraft", identity, id, folder_id(functions.listFolders().folders, "sent"))
+	end
 
-	operationHelp.createDraft = [==[createDraft({to?,text,subject?,identityId?,from?,cc?,bcc?,replyTo?,attachments?}) -> {id,threadId}. Saves a draft in Drafts without sending. Same options as sendMessage, but to may be empty. ]==] .. DRAFT_SCOPE .. [==[ The person can review and send it in Fastmail, or send it later with sendDraft. List drafts with listMessages({folder="drafts"}); deleteMessage moves one to Trash.]==]
-	function functions.createDraft(body: SendOptions): DraftResult
+end
+
+-- Read and draft (custom) connections add only draft operations to the reads; the person sends from Fastmail.
+if config.access == "read-write" or config.access == "custom" then
+
+	local DRAFT_SCOPE = "Needs only the Email scope: without Email submission, identityId is refused and from (default: the account address) is not checked against sending identities."
+	local REVIEW = if config.access == "read-write"
+		then "The person can review and send it in Fastmail, or send it later with sendDraft."
+		else "Read and draft connection: this connector never sends; the person reviews and sends drafts in Fastmail."
+
+	operationHelp.createDraft = [==[createDraft({to?,text,subject?,identityId?,from?,cc?,bcc?,replyTo?,attachments?}) -> {id,threadId}. Saves a draft in Drafts without sending. Options as for sending: address arrays use {email,name?}, but to may be empty; attachments={{path,filename?,mimeType?}} uploads session files. ]==] .. DRAFT_SCOPE .. " " .. REVIEW .. [==[ List drafts with listMessages({folder="drafts"}) and read them with getMessage.]==]
+	function functions.createDraft(body: DraftOptions): DraftResult
 		return save_draft("createDraft", compose("createDraft", body, true))
 	end
 
-	operationHelp.createReplyDraft = [==[createReplyDraft({id,text,all?,subject?,identityId?,from?,to?,cc?,bcc?,replyTo?,attachments?}) -> {id,threadId}. Saves a reply in Drafts without sending. Same options, recipients, subject and In-Reply-To/References as replyMessage, so the draft opens in the original thread. ]==] .. DRAFT_SCOPE
+	operationHelp.createReplyDraft = [==[createReplyDraft({id,text,all?,subject?,identityId?,from?,to?,cc?,bcc?,replyTo?,attachments?}) -> {id,threadId}. Saves a reply in Drafts without sending, so it opens in the original thread. Replies to Reply-To, otherwise From; to replaces that list. all=true adds the original To/Cc except your addresses; cc replaces that list. Subject gets a Re: prefix unless supplied. Keeps In-Reply-To/References. ]==] .. DRAFT_SCOPE .. " " .. REVIEW
 	function functions.createReplyDraft(input: Id | ReplyOptions, options: ReplyOptions?): DraftResult
 		return save_draft("createReplyDraft", compose_reply("createReplyDraft", input, options, true))
 	end
 
 	local DRAFT_PROPERTIES = { "id", "keywords", "mailboxIds", "from", "to", "cc", "bcc", "replyTo", "subject", "inReplyTo", "references", "attachments" }
 
-	operationHelp.updateDraft = [==[updateDraft({id,to?,cc?,bcc?,replyTo?,subject?,text?,identityId?,from?,attachments?}) -> {id,threadId}. Changes only the given fields of a draft and keeps the rest, including its thread headers. text replaces the body with plain text; attachments replaces the list ({} removes all); an empty address list such as cc={} clears that field. Refuses messages that are not drafts. JMAP messages are immutable, so this saves a new draft and destroys the old one: use the returned id. If removing the old version fails, both remain; check Drafts before retrying. ]==] .. DRAFT_SCOPE
+	operationHelp.updateDraft = [==[updateDraft({id,to?,cc?,bcc?,replyTo?,subject?,text?,identityId?,from?,attachments?}) -> {id,threadId}. Changes only the given fields of a draft and keeps the rest, including its thread headers. text replaces the body with plain text and drops its inline images; attachments replaces the regular attachments ({} removes them); an empty address list such as cc={} clears that field. Refuses messages that are not drafts. JMAP messages are immutable, so this saves a new draft and destroys the old one: use the returned id. If removing the old version fails, the error names the new draft; delete the old one instead of retrying. ]==] .. DRAFT_SCOPE
 	function functions.updateDraft(input: DraftOptions): DraftResult
 		if type(input) ~= "table" then error("fastmail.updateDraft requires {id, ...}") end
 		local id = id_of(input.id)
@@ -1133,11 +1158,15 @@ if config.access == "read-write" then
 			local sender = sender_of(identities_for("updateDraft", true), input)
 			from = { { email = sender.email, name = sender.name } }
 		end
-		local attachments = attachment_parts(input.attachments, "updateDraft")
-		if input.attachments == nil and type(old.attachments) == "table" then
-			attachments = {}
-			for _, part in old.attachments do
-				attachments[#attachments + 1] = { blobId = part.blobId, name = part.name, type = part.type, disposition = part.disposition, cid = part.cid }
+		local text, html = input.text, nil
+		if keepBody then text, html = part_text(old, old.textBody, "text/plain"), part_text(old, old.htmlBody, "text/html") end
+		-- Parts with a Content-ID belong to the HTML body; attachments replaces only the others.
+		local attachments = attachment_parts(input.attachments, "updateDraft") or {}
+		for _, part in old.attachments or {} do
+			if (part.cid ~= nil and html ~= nil) or (part.cid == nil and input.attachments == nil) then
+				attachments[#attachments + 1] = {
+					blobId = part.blobId, name = part.name, type = part.type, charset = part.charset, disposition = part.disposition, cid = part.cid,
+				}
 			end
 		end
 		local function pick(key: string): any
@@ -1147,28 +1176,19 @@ if config.access == "read-write" then
 		local made = create_email("updateDraft", {
 			mailboxIds = old.mailboxIds, keywords = old.keywords, from = from,
 			to = pick("to"), cc = pick("cc"), bcc = pick("bcc"), replyTo = pick("replyTo"), subject = pick("subject"),
-			text = if keepBody then part_text(old, old.textBody, "text/plain") else input.text,
-			html = if keepBody then part_text(old, old.htmlBody, "text/html") else nil,
-			inReplyTo = old.inReplyTo, references = old.references, attachments = nonempty(attachments),
+			text = text, html = html, inReplyTo = old.inReplyTo, references = old.references, attachments = nonempty(attachments),
 		})
-		destroy_ids(id, "updateDraft")
+		-- Separate from the create, so a failed create never loses the old draft.
+		local ok, problem = pcall(destroy_ids, id, "updateDraft")
+		if not ok then fail("updateDraft", "Saved new draft " .. made.id .. " but could not remove old draft " .. id .. ": " .. tostring(problem)) end
 		return made
 	end
 
-	operationHelp.sendDraft = [==[sendDraft({id,identityId?}) -> {id,submissionId}. Sends an existing draft, such as one from createDraft or createReplyDraft, and moves it to Sent. Uses the sending identity matching the draft's From unless identityId is given. Positional sendDraft(id) is supported. Refuses messages that are not drafts. Email submission scope required. On timeout inspect Drafts and Sent before retrying: delivery may have succeeded.]==]
-	function functions.sendDraft(input: Id | SendDraftOptions): SendResult
+	operationHelp.deleteDraft = [==[deleteDraft(id) -> {id}. Permanently destroys a draft; {id} is also accepted. Refuses messages that are not drafts.]==]
+	function functions.deleteDraft(input: Id): {id: string}
 		local id = id_of(input)
-		local opts: any = input
-		local identityId = if type(opts) == "table" then opts.identityId else nil
-		local identities = identities_for("sendDraft", false) :: {Identity}
-		local draft = draft_of("sendDraft", id, { "id", "keywords", "from" })
-		local from = nil
-		if identityId == nil then
-			local addresses = address_objects(draft.from)
-			if #addresses > 0 then from = addresses[1].email end
-		end
-		local identity = require_identity(identities, { identityId = identityId, from = from })
-		return send_email("sendDraft", identity, id, folder_id(functions.listFolders().folders, "sent"))
+		draft_of("deleteDraft", id, { "id", "keywords" })
+		return { id = destroy_ids(id, "deleteDraft").ids[1] }
 	end
 
 end

@@ -34,7 +34,7 @@ end, run=function(fastmail)
         local a=args(5)
         assert(a.create.send.emailId=="m" and a.create.send.identityId=="i")
         assert(a.onSuccessUpdateEmail["#send"].mailboxIds.se)
-        assert(a.onSuccessUpdateEmail["#send"].keywords["$draft"]==nil)
+        assert(string.find(requests[5].body, "\"keywords/$draft\":null", 1, true) and a.onSuccessUpdateEmail["#send"]["keywords/$seen"] == true and a.onSuccessUpdateEmail["#send"].keywords == nil)
         assert(fastmail.trashMessage("m").id=="m")
         assert(args(7).update.m.mailboxIds.tr and not args(7).update.m.mailboxIds.dr)
 
