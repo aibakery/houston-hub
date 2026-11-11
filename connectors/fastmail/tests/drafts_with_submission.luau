@@ -15,6 +15,11 @@ return {scenario={["auth_config"]={["token"]="fixture-private-password !@#"},["a
                 capabilities={[MAIL]={}, [SUB]={}}, apiUrl="https://api.fastmail.com/jmap/api/"}
         end
         function result(name, args) return {methodResponses={{name, args, "0"}}} end
+        function results(...)
+            local out = {}
+            for index, item in {...} do out[index] = {item[1], item[2], tostring(index - 1)} end
+            return {methodResponses=out}
+        end
         folders={{id="in", role="inbox", name="Inbox"}, {id="dr", role="drafts", name="Drafts"}, {id="se", role="sent", name="Sent"}}
         identities={list={{id="i-me", email="me@example.com", name="Me"}, {id="i-sup", email="support@example.com", name="Support"}}}
         function draft(id, keywords)
@@ -24,33 +29,35 @@ return {scenario={["auth_config"]={["token"]="fixture-private-password !@#"},["a
             local out = {}
             for i = start + 1, #requests do
                 local decoded = json.decode(requests[i].body)
-                out[#out + 1] = {name=decoded.methodCalls[1][1], args=decoded.methodCalls[1][2], using=decoded.using}
+                for _, methodCall in decoded.methodCalls do
+                    out[#out + 1] = {name=methodCall[1], args=methodCall[2], using=decoded.using}
+                end
             end
             return out
         end
 
 end, run=function(fastmail)
-        responses={session(), result("Identity/get", identities), result("Mailbox/get", {list=folders}),
+        responses={session(), results({"Mailbox/get", {list=folders}}, {"Identity/get", identities}),
             result("Email/set", {created={draft={id="d1", threadId="t1"}}})}
         local made = fastmail.createDraft({to={{email="to@example.com"}}, text="Body", from="support@example.com"})
         assert(made.id == "d1")
         local calls = jmapSince(1)
-        assert(#calls == 3 and calls[1].name == "Identity/get")
+        assert(#calls == 3 and calls[2].name == "Identity/get" and #requests == 3)
         local created = calls[3].args.create.draft
         assert(created.from[1].email == "support@example.com" and created.from[1].name == "Support")
 
-        responses={result("Identity/get", identities)}
+        responses={results({"Mailbox/get", {list=folders}}, {"Identity/get", identities})}
         local mark = #requests
         local ok, err = pcall(function() fastmail.createDraft({text="x", from="missing@example.com"}) end)
         assert(not ok and string.find(tostring(err), "listAliases", 1, true) and #requests == mark + 1)
 
-        responses={result("Identity/get", identities), result("Email/get", {list={draft("d1")}}),
-            result("Mailbox/get", {list=folders}), result("EmailSubmission/set", {created={send={id="s1"}}})}
+        responses={results({"Email/get", {list={draft("d1")}}}, {"Mailbox/get", {list=folders}}, {"Identity/get", identities}),
+            result("EmailSubmission/set", {created={send={id="s1"}}})}
         mark = #requests
         local sent = fastmail.sendDraft({id="d1"})
         assert(sent.id == "d1" and sent.submissionId == "s1")
         calls = jmapSince(mark)
-        assert(#calls == 4 and calls[2].name == "Email/get" and calls[4].name == "EmailSubmission/set")
+        assert(#calls == 4 and calls[1].name == "Email/get" and calls[4].name == "EmailSubmission/set" and #requests == mark + 2)
         local submission = calls[4].args
         assert(submission.create.send.emailId == "d1" and submission.create.send.identityId == "i-sup")
         assert(calls[4].using[3] == "urn:ietf:params:jmap:submission")
@@ -58,16 +65,16 @@ end, run=function(fastmail)
         assert(string.find(requests[#requests].body, "\"mailboxIds/dr\":null", 1, true))
         assert(string.find(requests[#requests].body, "\"keywords/$draft\":null", 1, true))
 
-        responses={result("Identity/get", identities), result("Email/get", {list={draft("d1")}}),
-            result("Mailbox/get", {list=folders}), result("EmailSubmission/set", {created={send={id="s2"}}})}
+        responses={results({"Email/get", {list={draft("d1")}}}, {"Mailbox/get", {list=folders}}, {"Identity/get", identities}),
+            result("EmailSubmission/set", {created={send={id="s2"}}})}
         mark = #requests
         sent = fastmail.sendDraft({id="d1", identityId="i-me"})
         assert(sent.submissionId == "s2" and jmapSince(mark)[4].args.create.send.identityId == "i-me")
 
-        responses={result("Identity/get", identities), result("Email/get", {list={draft("m", {["$seen"]=true})}})}
+        responses={results({"Email/get", {list={draft("m", {["$seen"]=true})}}}, {"Mailbox/get", {list=folders}}, {"Identity/get", identities})}
         mark = #requests
         ok, err = pcall(function() fastmail.sendDraft("m") end)
-        assert(not ok and string.find(tostring(err), "not a draft", 1, true) and #requests == mark + 2)
+        assert(not ok and string.find(tostring(err), "not a draft", 1, true) and #requests == mark + 1)
 
         responses={result("Email/get", {list={draft("d1")}}), result("Identity/get", identities),
             result("Email/set", {created={draft={id="d2"}}}), result("Email/set", {destroyed={"d1"}})}

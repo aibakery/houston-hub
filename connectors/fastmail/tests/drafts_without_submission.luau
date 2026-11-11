@@ -26,6 +26,11 @@ return {scenario={["auth_config"]={["token"]="fixture-private-password !@#"},["a
                 uploadUrl="https://api.fastmail.com/jmap/upload/{accountId}/"}
         end
         function result(name, args) return {methodResponses={{name, args, "0"}}} end
+        function results(...)
+            local out = {}
+            for index, item in {...} do out[index] = {item[1], item[2], tostring(index - 1)} end
+            return {methodResponses=out}
+        end
         folders={{id="in", role="inbox", name="Inbox"}, {id="dr", role="drafts", name="Drafts"}, {id="se", role="sent", name="Sent"}}
         function original()
             return {id="m", messageId={"<m@example.com>"}, references={"<old@example.com>"},
@@ -49,7 +54,7 @@ return {scenario={["auth_config"]={["token"]="fixture-private-password !@#"},["a
                 local req = requests[i]
                 if type(req.body) == "string" then
                     local decoded = json.decode(req.body)
-                    out[#out + 1] = {name=decoded.methodCalls[1][1], args=decoded.methodCalls[1][2]}
+                    for _, methodCall in decoded.methodCalls do out[#out + 1] = {name=methodCall[1], args=methodCall[2]} end
                 elseif req.body ~= nil then
                     out[#out + 1] = {name="upload", req=req}
                 end
@@ -78,18 +83,34 @@ end, run=function(fastmail)
         ok, err = pcall(function() fastmail.replyMessage("m", {text="x"}) end)
         assert(not ok and string.find(tostring(err), "Email submission", 1, true) and #requests == mark)
 
-        responses={result("Email/get", {list={original()}}), result("Mailbox/get", {list=folders}),
+        responses={results({"Email/get", {list={original()}}}, {"Mailbox/get", {list=folders}}),
             result("Email/set", {created={draft={id="d2", threadId="t-orig"}}})}
         mark = #requests
         made = fastmail.createReplyDraft({id="m", text="Thanks", all=true})
         assert(made.id == "d2" and made.threadId == "t-orig")
         calls = jmapSince(mark)
         assert(#calls == 3 and calls[1].name == "Email/get" and calls[2].name == "Mailbox/get")
+        assert(#requests == mark + 2, "the original message and folders share one request")
+        local wanted = {}
+        for _, property in calls[1].args.properties do wanted[property] = true end
+        assert(wanted["header:Delivered-To:asAddresses:all"] and wanted["header:X-Delivered-To:asAddresses:all"])
         draft = calls[3].args.create.draft
         assert(draft.from[1].email == "me@example.com" and draft.subject == "Re: Hello")
         assert(draft.to[1].email == "sender@example.com" and #draft.cc == 2 and draft.cc[1].email == "other@example.com")
         assert(draft.inReplyTo[1] == "<m@example.com>" and draft.references[1] == "<old@example.com>" and draft.references[2] == "<m@example.com>")
         assert(draft.keywords["$draft"] and draft.mailboxIds.dr)
+
+        local toAlias = original()
+        toAlias.to = {{email="support@example.com"}, {email="other@example.com"}}
+        toAlias["header:X-Delivered-To:asAddresses:all"] = {{{email="Support@example.com"}}}
+        toAlias["header:Delivered-To:asAddresses:all"] = json.decode("null")
+        responses={results({"Email/get", {list={toAlias}}}, {"Mailbox/get", {list=folders}}),
+            result("Email/set", {created={draft={id="d-alias"}}})}
+        mark = #requests
+        assert(fastmail.createReplyDraft({id="m", text="Thanks", all=true}).id == "d-alias")
+        draft = jmapSince(mark)[3].args.create.draft
+        assert(draft.from[1].email == "Support@example.com", "a reply comes from the alias the message was delivered to")
+        assert(#draft.cc == 2 and draft.cc[1].email == "other@example.com" and draft.cc[2].email == "cc@example.com")
 
         responses={result("Email/get", {list={saved("d2", {textBody={{partId="1", type="text/plain"}}, htmlBody={{partId="2", type="text/html"}},
                 bodyValues={["1"]={value="Hi"}, ["2"]={value="<p>Hi</p>"}}})}}),

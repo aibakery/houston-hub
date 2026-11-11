@@ -10,6 +10,12 @@ return {
             return fixture.operation({statusCode=200, headers={}, body=fixture.reader(json.encode(response))})
         end}
         function result(name, data) return {methodResponses = {{name, data, "0"}}} end
+        -- One request carrying several method calls, answered in order.
+        function results(...)
+            local out = {}
+            for index, item in {...} do out[index] = {item[1], item[2], tostring(index - 1)} end
+            return {methodResponses = out}
+        end
         function args(index) return json.decode(requests[index].body).methodCalls[1][2] end
         folders = {{id = "ar", role = "archive"}, {id = "dr", role = "drafts"}, {id = "se", role = "sent"}}
         responses[1] = {
@@ -44,23 +50,23 @@ return {
 
         local identities = {list = {{id = "me", email = "me@example.com"}}}
         responses = {
-            result("Identity/get", identities), result("Mailbox/get", {list = folders}),
+            results({"Mailbox/get", {list = folders}}, {"Identity/get", identities}),
             result("Email/set", {created = {draft = {id = "draft"}}}),
             result("EmailSubmission/set", {created = {send = {}}}),
         }
         before = #requests
         ok, err = pcall(fastmail.sendMessage, {to = {{email = "to@example.com"}}, text = "Hello"})
         assert(not ok and string.find(tostring(err), "Missing submission confirmation", 1, true))
-        assert(#requests == before + 4, "an ambiguous send must never replay")
+        assert(#requests == before + 3, "an ambiguous send must never replay")
 
         responses = {
-            result("Identity/get", identities), result("Mailbox/get", {list = folders}),
+            results({"Mailbox/get", {list = folders}}, {"Identity/get", identities}),
             result("Email/set", {created = {draft = {id = ""}}}),
         }
         before = #requests
         ok, err = pcall(fastmail.sendMessage, {to = {{email = "to@example.com"}}, text = "Hello"})
         assert(not ok and string.find(tostring(err), "Missing draft creation confirmation", 1, true))
-        assert(#requests == before + 3, "invalid draft IDs must never be submitted")
+        assert(#requests == before + 2, "invalid draft IDs must never be submitted")
         assert(#responses == 0)
     end,
 }
