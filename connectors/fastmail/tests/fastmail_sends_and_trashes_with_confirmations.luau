@@ -17,25 +17,34 @@ return {scenario={["auth_config"]={["token"]="fixture-private-password !@#"},["a
                 downloadUrl="https://www.fastmailusercontent.com/jmap/download/{accountId}/{blobId}/{name}?type={type}"}
         end
         function result(name, args) return {methodResponses={{name,args,"0"}}} end
+        function results(...)
+            local out = {}
+            for index, item in {...} do out[index] = {item[1], item[2], tostring(index - 1)} end
+            return {methodResponses=out}
+        end
         folders={{id="in",role="inbox",name="Inbox"},{id="tr",role="trash"},{id="sp",role="junk"},
             {id="dr",role="drafts"},{id="se",role="sent"}}
         function args(n) return json.decode(requests[n].body).methodCalls[1][2] end
 
 
 end, run=function(fastmail)
-        responses={session(),result("Identity/get",{list={{id="i",email="me@example.com",name="Me"}}}),
-            result("Mailbox/get",{list=folders}),result("Email/set",{created={draft={id="m"}}}),
+        responses={session(),results({"Mailbox/get",{list=folders}},{"Identity/get",{list={{id="i",email="me@example.com",name="Me"}}}}),
+            result("Email/set",{created={draft={id="m"}}}),
             result("EmailSubmission/set",{created={send={id="s"}}}),result("Mailbox/get",{list=folders}),
             result("Email/set",json.decode([[{"updated":{"m":null},"notUpdated":null}]]))}
         local sent=fastmail.sendMessage({to={{email="to@example.com"}},subject="Hi",text="Body"})
         assert(sent.id=="m" and sent.submissionId=="s")
-        assert(args(4).create.draft.mailboxIds.dr and args(4).create.draft.bodyValues.text.value=="Body")
-        assert(args(4).create.draft.attachments == nil and args(4).create.draft.inReplyTo == nil)
-        local a=args(5)
+        local reads=json.decode(requests[2].body)
+        assert(#reads.methodCalls==2 and reads.methodCalls[1][1]=="Mailbox/get" and reads.methodCalls[2][1]=="Identity/get")
+        assert(reads.methodCalls[2][3]=="1" and reads.using[3]=="urn:ietf:params:jmap:submission")
+        assert(args(3).create.draft.mailboxIds.dr and args(3).create.draft.bodyValues.text.value=="Body")
+        assert(args(3).create.draft.attachments == nil and args(3).create.draft.inReplyTo == nil)
+        local a=args(4)
         assert(a.create.send.emailId=="m" and a.create.send.identityId=="i")
-        assert(a.onSuccessUpdateEmail["#send"].mailboxIds.se)
-        assert(a.onSuccessUpdateEmail["#send"].keywords["$draft"]==nil)
+        assert(a.onSuccessUpdateEmail["#send"]["mailboxIds/se"] == true and a.onSuccessUpdateEmail["#send"].mailboxIds == nil)
+        assert(string.find(requests[4].body, "\"mailboxIds/dr\":null", 1, true))
+        assert(string.find(requests[4].body, "\"keywords/$draft\":null", 1, true) and a.onSuccessUpdateEmail["#send"]["keywords/$seen"] == true and a.onSuccessUpdateEmail["#send"].keywords == nil)
         assert(fastmail.trashMessage("m").id=="m")
-        assert(args(7).update.m.mailboxIds.tr and not args(7).update.m.mailboxIds.dr)
+        assert(args(6).update.m.mailboxIds.tr and not args(6).update.m.mailboxIds.dr)
 
 end}

@@ -41,6 +41,13 @@ type Alias = {
 }
 type MoveResult = {ids: {string}, folderId: string}
 type SendResult = {id: string, submissionId: string}
+type DraftResult = {id: string, threadId: string?}
+-- createDraft and updateDraft options: every field is optional, but createDraft needs text and updateDraft needs id.
+type DraftOptions = {
+	id: string?, text: string?, subject: string?, identityId: string?, from: string?,
+	to: {Address}?, cc: {Address}?, bcc: {Address}?, replyTo: {Address}?, attachments: {Upload}?,
+}
+type SendDraftOptions = {id: string, identityId: string?}
 
 -- Fastmail's JMAP transport uses the shared Houston HTTP/error/file plumbing.
 local SESSION_URL = "https://api.fastmail.com/jmap/session"
@@ -57,20 +64,33 @@ local REQUIRED: {[string]: string} = { ["Identity/get"] = SUBMISSION, ["EmailSub
 local SET_ERROR_FIELDS = { "notCreated", "notUpdated", "notDestroyed" }
 local SEARCH_FIELDS = { "from", "to", "subject", "text" }
 local ADDRESS_FIELDS = { "from", "to", "cc", "bcc", "replyTo" }
+local RECIPIENT_FIELDS = { "to", "cc", "bcc", "replyTo" }
 local MESSAGE_PROPERTIES = { "id", "threadId", "mailboxIds", "keywords", "from", "to", "cc", "bcc", "replyTo", "subject", "sentAt", "receivedAt", "messageId", "headers", "preview", "textBody", "htmlBody", "attachments", "bodyValues" }
 local FOLDER_PROPERTIES = { "id", "name", "role", "parentId", "totalEmails", "unreadEmails" }
 
 type Session = {
 	accountId: string, apiUrl: string, username: string, name: string,
-	capabilities: {[string]: any}, maskedAccountId: string?, downloadUrl: string?, uploadUrl: string?,
+	capabilities: {[string]: any}, accountCapabilities: {[string]: any}?, maskedAccountId: string?, downloadUrl: string?, uploadUrl: string?,
 }
 -- Execution-local discovery cache: keep only fields used by this connector.
 local cachedSession: Session? = nil
 
 type RequestOptions = {method: string, url: string, operation: string, body: string?}
+type Invocation = {name: string, args: {[string]: any}?}
 type IdentityOptions = {identityId: string?, from: string?}
 type UploadOptions = {path: string, mimeType: string, operation: string}
-type SubmitOptions = {operation: string, identity: Identity, fields: any}
+-- A sender without an id comes from a draft-only token and cannot submit.
+type Sender = {id: string?, email: string, name: string?}
+type Fields = {
+	to: {Address}?, cc: {Address}?, bcc: {Address}?, replyTo: {Address}?, subject: string, text: string?,
+	attachments: {Upload}?, inReplyTo: {string}?, references: {string}?,
+}
+type Composed = {sender: Sender, fields: Fields, folders: {any}}
+type EmailFields = {
+	mailboxIds: {[string]: boolean}, keywords: {[string]: boolean}, from: {Address}?,
+	to: {Address}?, cc: {Address}?, bcc: {Address}?, replyTo: {Address}?, subject: string?, text: string?, html: string?,
+	inReplyTo: {string}?, references: {string}?, attachments: any,
+}
 
 local function fail(operation: string, message: string): never
 	error(json.encode({ connector = "fastmail", operation = operation, layer = "upstream", message = message, retryable = false }))
@@ -125,6 +145,7 @@ local function session(): Session
 	local discovered: Session = {
 		accountId = account, apiUrl = s.apiUrl, username = s.username, name = primaryAccount.name,
 		capabilities = if type(s.capabilities) == "table" then (s.capabilities :: {[string]: any}) else {},
+		accountCapabilities = if type(primaryAccount.accountCapabilities) == "table" then primaryAccount.accountCapabilities else nil,
 		maskedAccountId = if type(maskedAccount) == "string" and maskedAccount ~= "" then maskedAccount else nil,
 		downloadUrl = s.downloadUrl, uploadUrl = s.uploadUrl,
 	}
@@ -132,45 +153,83 @@ local function session(): Session
 	return discovered
 end
 
-local function call(name: string, arguments: {[string]: any}?, operationName: string?): any
-	local operation = operationName or name
+-- Session capabilities are what the server supports; account capabilities are what this token may use (RFC 8620).
+-- Masked Email lives in its own account, so only the session lists it for the mail account.
+local function has_cap(s: Session, cap: string): boolean
+	if s.capabilities[cap] == nil then return false end
+	local account = if cap == MASKED then nil else s.accountCapabilities
+	return account == nil or account[cap] ~= nil
+end
+
+local function require_cap(s: Session, cap: string, operation: string)
+	if not has_cap(s, cap) then
+		fail(operation, "Fastmail token needs " .. (if cap == SUBMISSION then "Email submission" else "Masked Email") .. " scope")
+	end
+end
+
+-- Sends method calls in one JMAP request and returns their results in order. Calls must not depend on
+-- each other's results; any error or set failure in the request fails the whole operation.
+local function call_many(invocations: {Invocation}, operation: string): {any}
 	local s = session()
-	local args = table.clone(arguments or {})
-	if args.accountId == nil then args.accountId = s.accountId end
 	local using = { CORE, MAIL }
-	local cap = REQUIRED[name]
-	if cap then
-		local label = if cap == SUBMISSION then "Email submission" else "Masked Email"
-		if type(s.capabilities) ~= "table" or s.capabilities[cap] == nil then
-			fail(operation, "Fastmail token needs " .. label .. " scope")
+	local methodCalls: {any} = {}
+	for index, item in invocations do
+		local cap = REQUIRED[item.name]
+		if cap then
+			require_cap(s, cap, operation)
+			if not table.find(using, cap) then using[#using + 1] = cap end
 		end
-		using[#using + 1] = cap
+		local args: {[string]: any} = table.clone(item.args or {})
+		if args.accountId == nil then args.accountId = s.accountId end
+		local methodCall: {any} = { item.name, args, tostring(index - 1) }
+		methodCalls[index] = methodCall
 	end
-	local methodCall: {any} = { name, args, "0" }
 	local response = request({method = "POST", url = s.apiUrl, operation = operation, body = json.encode({
-		using = using, methodCalls = { methodCall },
+		using = using, methodCalls = methodCalls,
 	})})
-	local result = type(response) == "table" and type(response.methodResponses) == "table" and (response.methodResponses :: {any})[1]
-	if type(result) ~= "table" or result[3] ~= "0" or type(result[2]) ~= "table" then fail(operation, "Invalid JMAP response") end
-	if result[1] == "error" then
-		fail(operation, tostring(result[2].type) .. ": " .. tostring(result[2].description or "JMAP request failed"))
-	end
-	if result[1] ~= name or type(result[2]) ~= "table" then fail(operation, "Unexpected JMAP method response") end
-	for _, invocation in response.methodResponses do
-		if type(invocation) ~= "table" or type(invocation[2]) ~= "table" then fail(operation, "Invalid JMAP response") end
-		local data = invocation[2]
-		if invocation[1] == "error" then fail(operation, tostring(data.type)) end
+	local responses = type(response) == "table" and response.methodResponses
+	if type(responses) ~= "table" then fail(operation, "Invalid JMAP response") end
+	local results: {any} = {}
+	local function set_problem(data: any): string?
 		for _, field in SET_ERROR_FIELDS do
 			if type(data[field]) == "table" then
 				for id, problem in data[field] do
 					if type(problem) ~= "table" then fail(operation, "Invalid JMAP set error") end
-					fail(operation, tostring(id) .. ": " .. tostring(problem.type) .. ": " .. tostring(problem.description or "JMAP operation failed"))
+					return tostring(id) .. ": " .. tostring(problem.type) .. ": " .. tostring(problem.description or "JMAP operation failed")
 				end
 			end
 		end
-		if type(data.notFound) == "table" and #data.notFound > 0 then fail(operation, "Not found: " .. table.concat(data.notFound, ", ")) end
+		return nil
 	end
-	return result[2]
+	-- An implicit follow-up, such as the Email/set from onSuccessUpdateEmail, runs only after its call succeeded.
+	local followUp: string? = nil
+	for _, invocation in responses :: {any} do
+		if type(invocation) ~= "table" or type(invocation[2]) ~= "table" then fail(operation, "Invalid JMAP response") end
+		local data = invocation[2]
+		if invocation[1] == "error" then
+			fail(operation, tostring(data.type) .. ": " .. tostring(data.description or "JMAP request failed"))
+		end
+		if type(data.notFound) == "table" and #data.notFound > 0 then fail(operation, "Not found: " .. table.concat(data.notFound, ", ")) end
+		-- Implicit responses share their call's tag and follow its own response.
+		local index = (tonumber(invocation[3]) or -1) + 1
+		local expected = invocations[index]
+		local primary = expected ~= nil and results[index] == nil and invocation[1] == expected.name
+		local problem = set_problem(data)
+		if problem and primary then fail(operation, problem) end
+		followUp = followUp or problem
+		if primary then results[index] = data end
+	end
+	for index in invocations do
+		if results[index] == nil then fail(operation, "Unexpected JMAP method response") end
+	end
+	if followUp then
+		fail(operation, operation .. " completed, but its automatic follow-up update failed (" .. followUp .. "). The change, such as a sent message, has already happened: do not retry.")
+	end
+	return results
+end
+
+local function call(name: string, arguments: {[string]: any}?, operationName: string?): any
+	return call_many({ { name = name, args = arguments } }, operationName or name)[1]
 end
 
 local function id_of(value: any): string
@@ -214,13 +273,14 @@ function functions.getProfile()
 	local caps: {string} = json.decode("[]") :: {string}
 	if type(s.capabilities) == "table" then
 		for name in (s.capabilities :: {[string]: any}) do
-			if type(name) == "string" then caps[#caps + 1] = name end
+			-- Match canSend: submission is listed only when this account may use it.
+			if type(name) == "string" and (name ~= SUBMISSION or has_cap(s, SUBMISSION)) then caps[#caps + 1] = name end
 		end
 	end
 	table.sort(caps)
 	return {
 		emailAddress = s.username, accountId = s.accountId, name = s.name,
-		capabilities = caps, canSend = type(s.capabilities) == "table" and s.capabilities[SUBMISSION] ~= nil,
+		capabilities = caps, canSend = has_cap(s, SUBMISSION),
 	}
 end
 
@@ -336,12 +396,25 @@ local function remove_nulls(value: any)
 	end
 end
 
+-- Identity/get rows without JSON nulls, as every caller expects.
+local function identity_list(data: any): {any}
+	local identities = as_list(data.list)
+	for _, item in identities do
+		if type(item) == "table" then remove_nulls(item) end
+	end
+	return identities
+end
+
+local function is_inline(part: any): boolean
+	return part.disposition == "inline" or (part.disposition ~= "attachment" and part.cid ~= nil)
+end
+
 local function attachment_metadata(parts: any): {Attachment}
 	local attachments: {Attachment} = json.decode("[]")
 	for _, part in parts or {} do
 		attachments[#attachments + 1] = {
 			id = part.blobId, filename = part.name, mimeType = part.type, size = part.size,
-			inline = part.disposition == "inline" or (part.disposition ~= "attachment" and part.cid ~= nil), contentId = part.cid,
+			inline = is_inline(part), contentId = part.cid,
 		}
 	end
 	return attachments
@@ -358,6 +431,20 @@ local function hasContent(value: string): boolean
 	return false
 end
 
+-- Joins the fetched values of body parts of one MIME type (nil: any).
+local function join_parts(msg: any, parts: any, mimeType: string?): (string, boolean)
+	local out = {}
+	local truncated = false
+	for _, part in parts or {} do
+		local value = msg.bodyValues and msg.bodyValues[part.partId]
+		if value and (mimeType == nil or part.type == nil or part.type == mimeType) then
+			out[#out + 1] = value.value
+			if value.isTruncated then truncated = true end
+		end
+	end
+	return table.concat(out, "\n"), truncated
+end
+
 local function decorate(msg: any, bodyFormat: string): Message
 	remove_nulls(msg)
 	for _, key in ADDRESS_FIELDS do msg[key] = addresses(msg[key]) end
@@ -367,22 +454,10 @@ local function decorate(msg: any, bodyFormat: string): Message
 	for _, header in msg.headers or {} do
 		if string.lower(header.name) == "received" then msg.received[#msg.received + 1] = header.value end
 	end
-	local function body(parts: any, mimeType: string?)
-		local out = {}
-		local truncated = false
-		for _, part in parts or {} do
-			local value = msg.bodyValues and msg.bodyValues[part.partId]
-			if value and (mimeType == nil or part.type == nil or part.type == mimeType) then
-				out[#out + 1] = value.value
-				if value.isTruncated then truncated = true end
-			end
-		end
-		return table.concat(out, "\n"), truncated
-	end
-	if bodyFormat == "html" then msg.body, msg.bodyTruncated = body(msg.htmlBody, "text/html")
-	else msg.body, msg.bodyTruncated = body(msg.textBody, if bodyFormat == "text" then "text/plain" else nil) end
+	if bodyFormat == "html" then msg.body, msg.bodyTruncated = join_parts(msg, msg.htmlBody, "text/html")
+	else msg.body, msg.bodyTruncated = join_parts(msg, msg.textBody, if bodyFormat == "text" then "text/plain" else nil) end
 	if bodyFormat == "auto" then
-		if not msg.bodyTruncated and not hasContent(msg.body) then msg.body, msg.bodyTruncated = body(msg.htmlBody, nil) end
+		if not msg.bodyTruncated and not hasContent(msg.body) then msg.body, msg.bodyTruncated = join_parts(msg, msg.htmlBody, nil) end
 		if not msg.bodyTruncated and not hasContent(msg.body) then msg.body = msg.preview or "" end
 	end
 	msg.attachments = attachment_metadata(msg.attachments)
@@ -540,10 +615,6 @@ function functions.getAttachment(input: Id | DownloadOptions, attachment: Downlo
 	return functions.getAttachments(messageId, { { id = id_of(attachmentId), path = path } })[1]
 end
 
-local function has_cap(s: any, cap: string)
-	return type(s.capabilities) == "table" and s.capabilities[cap] ~= nil
-end
-
 operationHelp.listAliases = [==[listAliases() -> {aliases,notes}. Each alias has email,canSend,masked. Sending identities add identityId,name; masked addresses add maskedId,state,description,forDomain. Combines addresses shared by both lists. Missing Email submission or Masked Email scope is explained in notes; fails if neither scope is available.]==]
 function functions.listAliases(): {aliases: {Alias}, notes: {string}}
 	local s = session()
@@ -563,8 +634,7 @@ function functions.listAliases(): {aliases: {Alias}, notes: {string}}
 	end
 	local notes: {string} = json.decode("[]") :: {string}
 	if has_cap(s, SUBMISSION) then
-		for _, item in as_list(call("Identity/get", nil, "listAliases").list) do
-			if type(item) == "table" then remove_nulls(item) end
+		for _, item in identity_list(call("Identity/get", nil, "listAliases")) do
 			if type(item.email) == "string" and item.email ~= "" then
 				local alias = row(item.email)
 				alias.canSend = true
@@ -597,7 +667,7 @@ end
 
 operationHelp.listIdentities = [==[listIdentities() -> {identities}, raw JMAP sending identities. Requires the provider Email submission scope, which may be unknown before the first real call.]==]
 function functions.listIdentities(): {identities: {Identity}}
-	return { identities = as_list(call("Identity/get", nil, "listIdentities").list) }
+	return { identities = identity_list(call("Identity/get", nil, "listIdentities")) }
 end
 
 local function lower_email(value: any): string?
@@ -617,9 +687,15 @@ local function pick_identity(identities: {Identity}, options: IdentityOptions): 
 	end
 	if fromEmail then
 		local want = lower_email(fromEmail)
+		local domain = want and string.match(want, "(@[^@]+)$")
+		local wildcard: Identity? = nil
 		for _, item in identities do
-			if lower_email(item.email) == want then return item end
+			local email = lower_email(item.email)
+			if email == want then return item end
+			-- RFC 8621: an identity such as *@example.com may send from any address at that domain.
+			if wildcard == nil and domain and email == "*" .. domain then wildcard = item end
 		end
+		if wildcard then return { id = wildcard.id, email = fromEmail, name = wildcard.name } end
 		return nil
 	end
 	local username = lower_email(session().username)
@@ -693,29 +769,119 @@ local function attachment_parts(items: any, operation: any): any
 	return out
 end
 
-local function submit(options: SubmitOptions): SendResult
-	local operation, identity, fields = options.operation, options.identity, options.fields
-	local folders = functions.listFolders().folders
-	local drafts, sent = folder_id(folders, "drafts"), folder_id(folders, "sent")
-	local parts = attachment_parts(fields.attachments, operation)
-	local draft = {
-		mailboxIds = { [drafts] = true }, keywords = { ["$draft"] = true },
-		from = { { email = identity.email, name = identity.name } }, to = fields.to, cc = fields.cc, bcc = fields.bcc,
-		replyTo = fields.replyTo, subject = fields.subject or "", textBody = { { partId = "text", type = "text/plain" } },
-		bodyValues = { text = { value = fields.text } },
-		inReplyTo = fields.inReplyTo, references = fields.references, attachments = parts,
+local function nonempty(list: any): any
+	if type(list) == "table" and next(list) == nil then return nil end
+	return list
+end
+
+-- Builds a JMAP Email from structured fields; Fastmail generates the MIME message.
+local function email_object(email: EmailFields): any
+	local out: {[string]: any} = {
+		mailboxIds = email.mailboxIds, keywords = email.keywords, from = email.from,
+		to = nonempty(email.to), cc = nonempty(email.cc), bcc = nonempty(email.bcc), replyTo = nonempty(email.replyTo),
+		subject = email.subject or "", inReplyTo = email.inReplyTo, references = email.references,
+		attachments = email.attachments, bodyValues = {},
 	}
-	local created = call("Email/set", { create = { draft = draft } }, operation)
+	if email.text ~= nil or email.html == nil then
+		out.textBody = { { partId = "text", type = "text/plain" } }
+		out.bodyValues.text = { value = email.text or "" }
+	end
+	if email.html ~= nil then
+		out.htmlBody = { { partId = "html", type = "text/html" } }
+		out.bodyValues.html = { value = email.html }
+	end
+	return out
+end
+
+local function create_email(operation: string, email: EmailFields): DraftResult
+	local created = call("Email/set", { create = { draft = email_object(email) } }, operation)
 	local made = created.created and created.created.draft
 	if type(made) ~= "table" or type(made.id) ~= "string" or made.id == "" then fail(operation, "Missing draft creation confirmation") end
-	-- No automatic retries: a failed/ambiguous submission may leave this draft.
+	return { id = made.id, threadId = if type(made.threadId) == "string" then made.threadId else nil }
+end
+
+-- Saves a composed message in Drafts; only sending it needs Email submission.
+local function save_draft(operation: string, message: Composed): DraftResult
+	local drafts = folder_id(message.folders, "drafts")
+	local sender, fields = message.sender, message.fields
+	return create_email(operation, {
+		mailboxIds = { [drafts] = true }, keywords = { ["$draft"] = true, ["$seen"] = true },
+		from = { { email = sender.email, name = sender.name } }, to = fields.to, cc = fields.cc, bcc = fields.bcc,
+		replyTo = fields.replyTo, subject = fields.subject, text = fields.text,
+		inReplyTo = fields.inReplyTo, references = fields.references, attachments = attachment_parts(fields.attachments, operation),
+	})
+end
+
+-- No automatic retries: a failed/ambiguous submission leaves the draft in place.
+local function send_email(operation: string, identity: Sender, emailId: string, folders: {any}): SendResult
+	local drafts, sent = folder_id(folders, "drafts"), folder_id(folders, "sent")
+	assert(identity.id, "sending identity has no id")
 	local submitted = call("EmailSubmission/set", {
-		create = { send = { identityId = identity.id, emailId = made.id } },
-		onSuccessUpdateEmail = { ["#send"] = { mailboxIds = { [sent] = true }, keywords = { ["$seen"] = true } } },
+		create = { send = { identityId = identity.id, emailId = emailId } },
+		-- Patch rather than replace, so a draft's other mailboxes (labels) and keywords (flags) survive sending.
+		onSuccessUpdateEmail = { ["#send"] = {
+			["mailboxIds/" .. drafts] = json.decode("null"), ["mailboxIds/" .. sent] = true,
+			["keywords/$draft"] = json.decode("null"), ["keywords/$seen"] = true,
+		} },
 	}, operation)
 	local submission = submitted.created and submitted.created.send
-	if type(submission) ~= "table" or type(submission.id) ~= "string" or submission.id == "" then fail(operation, "Missing submission confirmation; draft " .. made.id) end
-	return { id = made.id, submissionId = submission.id }
+	if type(submission) ~= "table" or type(submission.id) ~= "string" or submission.id == "" then fail(operation, "Missing submission confirmation; draft " .. emailId) end
+	return { id = emailId, submissionId = submission.id }
+end
+
+local function submit(operation: string, message: Composed): SendResult
+	folder_id(message.folders, "sent") -- Fail before saving a draft when there is no Sent folder.
+	return send_email(operation, message.sender, save_draft(operation, message).id, message.folders)
+end
+
+-- Sending always verifies its sender against Identity/get, which needs Email submission;
+-- drafts verify only when the token has that scope.
+local function verifies(draft: boolean): boolean
+	return not draft or has_cap(session(), SUBMISSION)
+end
+
+-- Reads what composing needs in one request: an optional message, the folders, and the sending identities when verified.
+local function mail_context(operation: string, verified: boolean, message: Invocation?): ({any}, {Identity}?, any)
+	local reads: {Invocation} = {}
+	if message then reads[1] = message end
+	reads[#reads + 1] = { name = "Mailbox/get", args = { properties = FOLDER_PROPERTIES } }
+	if verified then reads[#reads + 1] = { name = "Identity/get" } end
+	local results = call_many(reads, operation)
+	local base = if message then 1 else 0
+	local identities = if verified then identity_list(results[base + 2]) else nil
+	return as_list(results[base + 1].list), identities, if message then results[1] else nil
+end
+
+-- Without identities, a draft is from `from` as given, or from the account address.
+local function sender_of(identities: {Identity}?, body: any): Sender
+	if identities then return require_identity(identities, body) end
+	if body.identityId ~= nil then error("fastmail: identityId needs the Email submission scope; pass from instead") end
+	if body.from ~= nil and (type(body.from) ~= "string" or not string.find(body.from, "@", 1, true)) then error("fastmail from must be an email address") end
+	return { email = body.from or session().username }
+end
+
+local function check_addresses(body: any, operation: string)
+	for _, key in RECIPIENT_FIELDS do
+		if body[key] ~= nil and type(body[key]) ~= "table" then
+			error("fastmail." .. operation .. " " .. key .. " must be an array of { email = ... }")
+		end
+	end
+end
+
+-- Drafts may have no recipients yet; sending requires at least one.
+local function compose(operation: string, body: any, draft: boolean): Composed
+	if type(body) ~= "table" then error("fastmail." .. operation .. " requires options") end
+	if not draft and (type(body.to) ~= "table" or #body.to == 0) then error("fastmail." .. operation .. " requires to = { { email = ... } }") end
+	check_addresses(body, operation)
+	if type(body.text) ~= "string" then error("fastmail." .. operation .. " requires text") end
+	local verified = verifies(draft)
+	-- An unverified sender needs no request, so a bad one is refused before any.
+	local unverified = if verified then nil else sender_of(nil, body)
+	local folders, identities = mail_context(operation, verified)
+	return { sender = unverified or sender_of(identities, body), folders = folders, fields = {
+		to = body.to, cc = body.cc, bcc = body.bcc, replyTo = body.replyTo,
+		subject = body.subject or "", text = body.text, attachments = body.attachments,
+	} }
 end
 
 local function address_objects(values: any): {Address}
@@ -748,6 +914,152 @@ local function reply_subject(subject: any): string
 	if string.match(subject, "^[Rr][Ee]:") then return subject end
 	if subject == "" then return "Re:" end
 	return "Re: " .. subject
+end
+
+-- Fastmail adds X-Delivered-To (the address that received the message, often an alias) and X-Resolved-To
+-- (the account) above the sender's headers. Only the first instance is Fastmail's; later ones may be forged.
+local DELIVERED_HEADERS = { "header:X-Delivered-To:asAddresses:all", "header:X-Resolved-To:asAddresses:all" }
+
+-- Without Identity/get, the account address and the addresses a message was delivered to stand in for
+-- your sending identities, so a reply comes from the alias that received it and reply-all leaves it out.
+local function own_addresses(msg: any): {Sender}
+	local own: {Sender} = { { email = session().username } }
+	for _, key in DELIVERED_HEADERS do
+		for _, addr in address_objects(as_list(msg[key])[1]) do own[#own + 1] = { email = addr.email } end
+	end
+	return own
+end
+
+-- Shared by replyMessage and createReplyDraft so both thread and address replies alike.
+local function compose_reply(operation: string, input: Id | ReplyOptions, options: ReplyOptions?, draft: boolean): Composed
+	local id: any = input
+	local body: any = options
+	if type(id) == "table" and body == nil then
+		body = id
+		id = id.id or id.messageId
+	end
+	id = id_of(id)
+	if type(body) ~= "table" or type(body.text) ~= "string" then error("fastmail." .. operation .. " requires text") end
+	check_addresses(body, operation)
+	local to = address_objects(body.to)
+	if body.to ~= nil and (#to == 0 or #to ~= #body.to) then error("fastmail." .. operation .. " to must be a nonempty array of { email = ... }") end
+	local verified = verifies(draft)
+	local explicit = body.identityId ~= nil or body.from ~= nil
+	-- An unverified sender needs no request, so a bad one is refused before any.
+	local unverified = if explicit and not verified then sender_of(nil, body) else nil
+	local properties = { "id", "messageId", "inReplyTo", "references", "from", "to", "cc", "replyTo", "subject" }
+	if not verified then table.move(DELIVERED_HEADERS, 1, #DELIVERED_HEADERS, #properties + 1, properties) end
+	local folders, identities, data = mail_context(operation, verified, { name = "Email/get", args = { ids = { id }, properties = properties } })
+	local msg = data.list and data.list[1]
+	if type(msg) ~= "table" then fail(operation, "Missing message " .. id) end
+	remove_nulls(msg)
+	if body.to == nil then
+		local source = msg.replyTo
+		if type(source) ~= "table" or #source == 0 then source = msg.from end
+		to = address_objects(source)
+		if #to == 0 then error("fastmail." .. operation .. ": the message has no reply address") end
+	end
+	local own: {Sender} = identities or own_addresses(msg)
+	local identity: Sender? = nil
+	if explicit then
+		identity = unverified or sender_of(identities, body)
+	else
+		local byEmail: {[string]: any} = {}
+		for _, item in own do
+			local key = lower_email(item.email)
+			if key ~= nil and byEmail[key] == nil then byEmail[key] = item end
+		end
+		for _, list in { msg.to, msg.cc } do
+			for _, addr in address_objects(list) do
+				local key = lower_email(addr.email)
+				if key ~= nil then
+					local hit = byEmail[key]
+					if hit then identity = hit; break end
+				end
+			end
+			if identity then break end
+		end
+		if not identity then identity = require_identity(own :: any, {}) end
+	end
+	assert(identity, "reply identity was not resolved")
+	local cc = body.cc
+	if body.all and cc == nil then
+		-- Leave out your own addresses, including an explicit from that is not one of them.
+		local skip: {[string]: boolean} = {}
+		for _, item in own do
+			local key = lower_email(item.email)
+			if key ~= nil then skip[key] = true end
+		end
+		local sender = lower_email(identity.email)
+		if sender ~= nil then skip[sender] = true end
+		for _, addr in to do
+			local key = lower_email(addr.email)
+			if key ~= nil then skip[key] = true end
+		end
+		local combined = {}
+		local seen: {[string]: boolean} = {}
+		for _, list in { msg.to, msg.cc } do
+			for _, addr in address_objects(list) do
+				local key = lower_email(addr.email)
+				if key ~= nil and not skip[key] and not seen[key] then
+					seen[key] = true
+					combined[#combined + 1] = addr
+				end
+			end
+		end
+		if #combined > 0 then cc = combined end
+	end
+	local ids = message_ids(msg.messageId)
+	local inReplyTo = nil
+	local references = nil
+	if #ids > 0 then
+		inReplyTo = ids
+		local refs: {string} = json.decode("[]") :: {string}
+		local seen: {[string]: boolean} = {}
+		local function add(values: any)
+			for _, value in message_ids(values) do
+				if not seen[value] then
+					seen[value] = true
+					refs[#refs + 1] = value
+				end
+			end
+		end
+		add(msg.references)
+		add(ids)
+		references = refs
+	end
+	local subject = body.subject
+	if type(subject) ~= "string" then subject = reply_subject(msg.subject) end
+	return { sender = identity, folders = folders, fields = {
+		to = to, cc = cc, bcc = body.bcc, replyTo = body.replyTo, subject = subject, text = body.text,
+		attachments = body.attachments, inReplyTo = inReplyTo, references = references,
+	} }
+end
+
+local function draft_get(id: string, properties: {string}, bodies: boolean?): Invocation
+	return { name = "Email/get", args = { ids = { id }, properties = properties, fetchTextBodyValues = bodies, fetchHTMLBodyValues = bodies } }
+end
+
+-- Refuses a loaded message without the $draft keyword.
+local function as_draft(operation: string, id: string, data: any): any
+	local msg = data.list and data.list[1]
+	if type(msg) ~= "table" or msg.id ~= id then fail(operation, "Missing message " .. id) end
+	remove_nulls(msg)
+	if type(msg.keywords) ~= "table" or msg.keywords["$draft"] ~= true then
+		error("fastmail." .. operation .. ": message " .. id .. " is not a draft")
+	end
+	return msg
+end
+
+local function draft_of(operation: string, id: string, properties: {string}, bodies: boolean?): any
+	return as_draft(operation, id, call_many({ draft_get(id, properties, bodies) }, operation)[1])
+end
+
+local function part_text(msg: any, parts: any, mimeType: string): string?
+	local text, truncated = join_parts(msg, parts, mimeType)
+	-- Saving a truncated body would silently shorten the draft.
+	if truncated then error("fastmail: the draft body was truncated; pass text to replace it") end
+	return if text ~= "" then text else nil
 end
 
 local function update_ids(ids: {string}, patch: {[string]: any}, operation: string): {string}
@@ -878,116 +1190,125 @@ if config.access == "read-write" then
 	-- A structured message avoids adding a second MIME/base64 implementation.
 	operationHelp.sendMessage = [==[sendMessage({to={{email=...}},text=...,subject?,identityId?,from?,cc?,bcc?,replyTo?,attachments?}) -> {id,submissionId}. text and nonempty to required; subject defaults empty. Address arrays use {email,name?}. identityId takes precedence over from. Without either, selects identity matching account username or sole identity; ambiguous sender fails. attachments={{path,filename?,mimeType?}} uploads private session files, never inline base64; MIME defaults application/octet-stream, filename defaults path basename. Moves from Drafts to Sent. Email submission scope required. On timeout inspect Drafts and Sent before retrying: delivery may have succeeded.]==]
 	function functions.sendMessage(body: SendOptions): SendResult
-		if type(body) ~= "table" or type(body.to) ~= "table" or #body.to == 0 then error("fastmail.sendMessage requires to = { { email = ... } }") end
-		if type(body.text) ~= "string" then error("fastmail.sendMessage requires text") end
-		local identities = as_list(call("Identity/get", nil, "sendMessage").list)
-		local identity = require_identity(identities, body)
-		return submit({operation = "sendMessage", identity = identity, fields = {
-			to = body.to, cc = body.cc, bcc = body.bcc, replyTo = body.replyTo,
-			subject = body.subject or "", text = body.text, attachments = body.attachments,
-		}})
+		return submit("sendMessage", compose("sendMessage", body, false))
 	end
 
 	operationHelp.replyMessage = [==[replyMessage({id:string,text:string,all:boolean?,subject:string?,identityId:string?,from:string?,to?,cc?,bcc?,replyTo?,attachments?}) -> {id,submissionId}. messageId is also accepted instead of id. Positional replyMessage(id,options) remains supported. Replies to Reply-To, otherwise From; to={{email,name?}} replaces that recipient list. Always preserves thread message IDs/references. all defaults false. Default sender is receiving identity (To then Cc), then primary identity. all=true adds original To/Cc excluding your identities and the To recipients; cc explicitly replaces that list. Subject derives a Re: prefix unless supplied. Attachments use private session paths as in sendMessage. Email submission scope required. Never automatically replay a partial send.]==]
 	function functions.replyMessage(input: Id | ReplyOptions, options: ReplyOptions?): SendResult
-		local id: any = input
-		local body: any = options
-		if type(id) == "table" and body == nil then
-			body = id
-			id = id.id or id.messageId
+		return submit("replyMessage", compose_reply("replyMessage", input, options, false))
+	end
+
+	operationHelp.sendDraft = [==[sendDraft({id,identityId?}) -> {id,submissionId}. Sends an existing draft, such as one from createDraft or createReplyDraft, and moves it from Drafts to Sent, keeping its other folders and keywords. Uses the sending identity matching the draft's From unless identityId is given. Positional sendDraft(id) is supported. Refuses messages that are not drafts. Email submission scope required. On timeout inspect Drafts and Sent before retrying: delivery may have succeeded.]==]
+	function functions.sendDraft(input: Id | SendDraftOptions): SendResult
+		local id = id_of(input)
+		local opts: any = input
+		local identityId = if type(opts) == "table" then opts.identityId else nil
+		local folders, identities, data = mail_context("sendDraft", true, draft_get(id, { "id", "keywords", "from" }))
+		local draft = as_draft("sendDraft", id, data)
+		local from = nil
+		if identityId == nil then
+			local addresses = address_objects(draft.from)
+			if #addresses > 0 then from = addresses[1].email end
 		end
-		id = id_of(id)
-		if type(body) ~= "table" or type(body.text) ~= "string" then error("fastmail.replyMessage requires text") end
-		local to = address_objects(body.to)
-		if body.to ~= nil and (#to == 0 or #to ~= #body.to) then error("fastmail.replyMessage to must be a nonempty array of { email = ... }") end
-		local data = call("Email/get", {
-			ids = { id },
-			properties = { "id", "messageId", "inReplyTo", "references", "from", "to", "cc", "replyTo", "subject" },
-		}, "replyMessage")
-		local msg = data.list and data.list[1]
-		if type(msg) ~= "table" then fail("replyMessage", "Missing message " .. id) end
-		remove_nulls(msg)
-		if body.to == nil then
-			local source = msg.replyTo
-			if type(source) ~= "table" or #source == 0 then source = msg.from end
-			to = address_objects(source)
-			if #to == 0 then error("fastmail.replyMessage: the message has no reply address") end
+		local identity = require_identity(identities :: {Identity}, { identityId = identityId, from = from })
+		return send_email("sendDraft", identity, id, folders)
+	end
+
+end
+
+-- Read and draft (custom) connections add only draft operations to the reads; the person sends from Fastmail.
+if config.access == "read-write" or config.access == "custom" then
+
+	local DRAFT_SCOPE = "Needs only the Email scope: without Email submission, identityId is refused and from (default: the account address) is not checked against sending identities."
+	local REVIEW = if config.access == "read-write"
+		then "The person can review and send it in Fastmail, or send it later with sendDraft."
+		else "Read and draft connection: this connector never sends; the person reviews and sends drafts in Fastmail."
+
+	operationHelp.createDraft = [==[createDraft({to?,text,subject?,identityId?,from?,cc?,bcc?,replyTo?,attachments?}) -> {id,threadId}. Saves a draft in Drafts without sending. Options as for sending: address arrays use {email,name?}, but to may be empty; attachments={{path,filename?,mimeType?}} uploads session files. ]==] .. DRAFT_SCOPE .. " " .. REVIEW .. [==[ List drafts with listMessages({folder="drafts"}) and read them with getMessage.]==]
+	function functions.createDraft(body: DraftOptions): DraftResult
+		return save_draft("createDraft", compose("createDraft", body, true))
+	end
+
+	operationHelp.createReplyDraft = [==[createReplyDraft({id,text,all?,subject?,identityId?,from?,to?,cc?,bcc?,replyTo?,attachments?}) -> {id,threadId}. Saves a reply in Drafts without sending, so it opens in the original thread. Replies to Reply-To, otherwise From; to replaces that list. all=true adds the original To/Cc except your addresses; cc replaces that list. Subject gets a Re: prefix unless supplied. Keeps In-Reply-To/References. Without Email submission, your addresses are the account address and those the message was delivered to (Fastmail's X-Delivered-To and X-Resolved-To headers): the reply comes from the one it was sent to and all=true leaves them out of Cc; other aliases are unknown, so pass from and cc to override. ]==] .. DRAFT_SCOPE .. " " .. REVIEW
+	function functions.createReplyDraft(input: Id | ReplyOptions, options: ReplyOptions?): DraftResult
+		return save_draft("createReplyDraft", compose_reply("createReplyDraft", input, options, true))
+	end
+
+	local DRAFT_PROPERTIES = { "id", "keywords", "mailboxIds", "from", "to", "cc", "bcc", "replyTo", "subject", "inReplyTo", "references", "attachments" }
+
+	operationHelp.updateDraft = [==[updateDraft({id,to?,cc?,bcc?,replyTo?,subject?,text?,identityId?,from?,attachments?}) -> {id,threadId}. Changes only the given fields of a draft and keeps the rest, including its thread headers. text replaces the body with plain text and drops its inline images; attachments replaces the regular attachments ({} removes them); an empty address list such as cc={} clears that field. Refuses messages that are not drafts. JMAP messages are immutable, so this saves a new draft and destroys the old one: use the returned id. If removing the old version fails, the error names the new draft; delete the old one instead of retrying. ]==] .. DRAFT_SCOPE
+	function functions.updateDraft(input: DraftOptions): DraftResult
+		if type(input) ~= "table" then error("fastmail.updateDraft requires {id, ...}") end
+		local id = id_of(input.id)
+		check_addresses(input, "updateDraft")
+		for _, key in { "subject", "text" } do
+			if input[key] ~= nil and type(input[key]) ~= "string" then error("fastmail.updateDraft " .. key .. " must be a string") end
 		end
-		local identities = as_list(call("Identity/get", nil, "replyMessage").list)
-		for _, item in identities do
-			if type(item) == "table" then remove_nulls(item) end
-		end
-		local identity = nil
-		if body.identityId ~= nil or body.from ~= nil then
-			identity = require_identity(identities, body)
-		else
-			local byEmail: {[string]: any} = {}
-			for _, item in identities do
-				local key = lower_email(item.email)
-				if key ~= nil and byEmail[key] == nil then byEmail[key] = item end
+		local keepBody = input.text == nil
+		local properties = table.clone(DRAFT_PROPERTIES)
+		if keepBody then table.move({ "textBody", "htmlBody", "bodyValues" }, 1, 3, #properties + 1, properties) end
+		local explicit = input.identityId ~= nil or input.from ~= nil
+		local verified = verifies(true)
+		-- An unverified sender needs no request, so a bad one is refused before any.
+		local unverified = if explicit and not verified then sender_of(nil, input) else nil
+		local reads = { draft_get(id, properties, keepBody) }
+		if explicit and verified then reads[2] = { name = "Identity/get" } end
+		local results = call_many(reads, "updateDraft")
+		local old = as_draft("updateDraft", id, results[1])
+		local from = old.from
+		if explicit then
+			local sender = unverified or sender_of(identity_list(results[2]), input)
+			local name = sender.name
+			for _, addr in address_objects(old.from) do
+				if name == nil and lower_email(addr.email) == lower_email(sender.email) then name = addr.name end
 			end
-			for _, list in { msg.to, msg.cc } do
-				for _, addr in address_objects(list) do
-					local key = lower_email(addr.email)
-					if key ~= nil then
-						local hit = byEmail[key]
-						if hit then identity = hit; break end
-					end
+			from = { { email = sender.email, name = name } }
+		end
+		local text, html = input.text, nil
+		if keepBody then text, html = part_text(old, old.textBody, "text/plain"), part_text(old, old.htmlBody, "text/html") end
+		-- Inline parts belong to the body they appear in; attachments replaces only the others.
+		local attachments = attachment_parts(input.attachments, "updateDraft") or {}
+		local carried: {[string]: boolean} = {}
+		local function carry(part: any, inline: boolean)
+			if type(part.blobId) ~= "string" or carried[part.blobId] then return end
+			carried[part.blobId] = true
+			attachments[#attachments + 1] = {
+				blobId = part.blobId, name = part.name, type = part.type, charset = part.charset, cid = part.cid,
+				disposition = if inline then "inline" else part.disposition,
+			}
+		end
+		if keepBody then
+			-- Media shown inline in the body, outside multipart/related, is listed with the body parts.
+			for _, list in { old.textBody, old.htmlBody } do
+				for _, part in list or {} do
+					if type(part.type) == "string" and string.sub(part.type, 1, 5) ~= "text/" then carry(part, true) end
 				end
-				if identity then break end
 			end
-			if not identity then identity = require_identity(identities, {}) end
 		end
-		local cc = body.cc
-		if body.all and cc == nil then
-			local skip: {[string]: boolean} = {}
-			for _, item in identities do
-				local key = lower_email(item.email)
-				if key ~= nil then skip[key] = true end
-			end
-			for _, addr in to do
-				local key = lower_email(addr.email)
-				if key ~= nil then skip[key] = true end
-			end
-			local combined = {}
-			local seen: {[string]: boolean} = {}
-			for _, list in { msg.to, msg.cc } do
-				for _, addr in address_objects(list) do
-					local key = lower_email(addr.email)
-					if key ~= nil and not skip[key] and not seen[key] then
-						seen[key] = true
-						combined[#combined + 1] = addr
-					end
-				end
-			end
-			if #combined > 0 then cc = combined end
+		for _, part in old.attachments or {} do
+			local inline = is_inline(part)
+			if (if inline then keepBody else input.attachments == nil) then carry(part, inline) end
 		end
-		local ids = message_ids(msg.messageId)
-		local inReplyTo = nil
-		local references = nil
-		if #ids > 0 then
-			inReplyTo = ids
-			local refs: {string} = json.decode("[]") :: {string}
-			local seen: {[string]: boolean} = {}
-			local function add(values: any)
-				for _, value in message_ids(values) do
-					if not seen[value] then
-						seen[value] = true
-						refs[#refs + 1] = value
-					end
-				end
-			end
-			add(msg.references)
-			add(ids)
-			references = refs
+		local function pick(key: string): any
+			if input[key] ~= nil then return input[key] end
+			return old[key]
 		end
-		local subject = body.subject
-		if type(subject) ~= "string" then subject = reply_subject(msg.subject) end
-		assert(identity, "reply identity was not resolved")
-		return submit({operation = "replyMessage", identity = identity, fields = {
-			to = to, cc = cc, bcc = body.bcc, replyTo = body.replyTo, subject = subject, text = body.text,
-			attachments = body.attachments, inReplyTo = inReplyTo, references = references,
-		}})
+		local made = create_email("updateDraft", {
+			mailboxIds = old.mailboxIds, keywords = old.keywords, from = from,
+			to = pick("to"), cc = pick("cc"), bcc = pick("bcc"), replyTo = pick("replyTo"), subject = pick("subject"),
+			text = text, html = html, inReplyTo = old.inReplyTo, references = old.references, attachments = nonempty(attachments),
+		})
+		-- Separate from the create, so a failed create never loses the old draft.
+		local ok, problem = pcall(destroy_ids, id, "updateDraft")
+		if not ok then fail("updateDraft", "Saved new draft " .. made.id .. " but could not remove old draft " .. id .. ": " .. tostring(problem)) end
+		return made
+	end
+
+	operationHelp.deleteDraft = [==[deleteDraft(id) -> {id}. Permanently destroys a draft; {id} is also accepted. Refuses messages that are not drafts.]==]
+	function functions.deleteDraft(input: Id): {id: string}
+		local id = id_of(input)
+		draft_of("deleteDraft", id, { "id", "keywords" })
+		return { id = destroy_ids(id, "deleteDraft").ids[1] }
 	end
 
 end

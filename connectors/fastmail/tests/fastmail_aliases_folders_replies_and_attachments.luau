@@ -29,6 +29,11 @@ return {scenario={["auth_config"]={["token"]="fixture-private-password !@#"},["a
                 downloadUrl="https://www.fastmailusercontent.com/jmap/download/{accountId}/{blobId}/{name}?type={type}"}
         end
         function result(name, args) return {methodResponses={{name, args, "0"}}} end
+        function results(...)
+            local out = {}
+            for index, item in {...} do out[index] = {item[1], item[2], tostring(index - 1)} end
+            return {methodResponses=out}
+        end
         folders={{id="in", role="inbox", name="Inbox"}, {id="tr", role="trash", name="Trash"},
             {id="sp", role="junk", name="Spam"}, {id="dr", role="drafts", name="Drafts"},
             {id="se", role="sent", name="Sent"}, {id="ar", role="archive", name="Archive"}}
@@ -52,7 +57,9 @@ return {scenario={["auth_config"]={["token"]="fixture-private-password !@#"},["a
                     out[#out + 1] = {upload=req}
                 elseif type(req.body) == "string" then
                     local decoded = json.decode(req.body)
-                    out[#out + 1] = {name=decoded.methodCalls[1][1], args=decoded.methodCalls[1][2], using=decoded.using, req=req}
+                    for _, methodCall in decoded.methodCalls do
+                        out[#out + 1] = {name=methodCall[1], args=methodCall[2], using=decoded.using, req=req}
+                    end
                 end
             end
             return out
@@ -61,21 +68,21 @@ return {scenario={["auth_config"]={["token"]="fixture-private-password !@#"},["a
 end, run=function(fastmail)
         responses={session(), result("Identity/get", identities), result("MaskedEmail/get", masked),
             result("Mailbox/get", {list=folders}), result("Email/query", {ids={"m"}, position=0, total=1}),
-            result("Email/get", {list={original()}}), result("Identity/get", identities), result("Mailbox/get", {list=folders}),
+            results({"Email/get", {list={original()}}}, {"Mailbox/get", {list=folders}}, {"Identity/get", identities}),
             result("Email/set", {created={draft={id="d1"}}}), result("EmailSubmission/set", {created={send={id="s1"}}}),
-            result("Email/get", {list={bare()}}), result("Identity/get", identities), result("Mailbox/get", {list=folders}),
+            results({"Email/get", {list={bare()}}}, {"Mailbox/get", {list=folders}}, {"Identity/get", identities}),
             result("Email/set", {created={draft={id="d2"}}}), result("EmailSubmission/set", {created={send={id="s2"}}}),
-            result("Email/get", {list={original()}}), result("Identity/get", identities), result("Mailbox/get", {list=folders}),
+            results({"Email/get", {list={original()}}}, {"Mailbox/get", {list=folders}}, {"Identity/get", identities}),
             result("Email/set", {created={draft={id="d3"}}}), result("EmailSubmission/set", {created={send={id="s3"}}}),
-            result("Email/get", {list={original()}}), result("Identity/get", identities), result("Mailbox/get", {list=folders}),
+            results({"Email/get", {list={original()}}}, {"Mailbox/get", {list=folders}}, {"Identity/get", identities}),
             result("Email/set", {created={draft={id="d5"}}}), result("EmailSubmission/set", {created={send={id="s5"}}}),
-            result("Email/get", {list={original()}}), result("Identity/get", identities),
+            results({"Email/get", {list={original()}}}, {"Mailbox/get", {list=folders}}, {"Identity/get", identities}),
             result("Mailbox/get", {list=folders}), result("Mailbox/set", {created={folder={id="f1", name="Projects"}}}),
             result("Mailbox/get", {list=folders}), result("Email/set", json.decode([[{"updated":{"a":null,"b":null}}]])),
             result("Mailbox/get", {list=folders}), result("Email/set", json.decode([[{"updated":{"c":null}}]])),
             result("Mailbox/get", {list=folders}), result("Email/set", json.decode([[{"updated":{"a":null,"b":null}}]])),
             result("Email/set", {destroyed={"a"}}),
-            result("Identity/get", identities), result("Mailbox/get", {list=folders}),
+            results({"Mailbox/get", {list=folders}}, {"Identity/get", identities}),
             {blobId="blob1", type="application/pdf", size=10},
             result("Email/set", {created={draft={id="d4"}}}), result("EmailSubmission/set", {created={send={id="s4"}}})}
 
@@ -151,7 +158,7 @@ end, run=function(fastmail)
         local ok, err = pcall(function() fastmail.replyMessage("m", {text="Nope", from="missing@example.com"}) end)
         assert(not ok and string.find(tostring(err), "missing@example.com", 1, true) and string.find(tostring(err), "listAliases", 1, true))
         calls = jmapSince(mark)
-        assert(#calls == 2 and calls[2].name == "Identity/get")
+        assert(#calls == 3 and calls[3].name == "Identity/get")
 
         mark = #requests
         local folder = fastmail.createFolder("Projects", "INBOX")
@@ -189,7 +196,7 @@ end, run=function(fastmail)
             attachments={{path="files/brief.pdf", mimeType="application/pdf"}}})
         assert(sent.id == "d4" and sent.submissionId == "s4")
         calls = jmapSince(mark)
-        assert(calls[1].name == "Identity/get" and calls[2].name == "Mailbox/get" and calls[3].upload)
+        assert(calls[1].name == "Mailbox/get" and calls[2].name == "Identity/get" and calls[3].upload)
         local upload = calls[3].upload
         assert(upload.method == "POST" and upload.url == "https://phl.api.fastmail.com/jmap/upload/u1/" )
         assert(upload.body ~= nil and upload.headers["Content-Type"][1] == "application/pdf")
