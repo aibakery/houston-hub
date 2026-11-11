@@ -1071,6 +1071,65 @@ handles supported Content-Encoding automatically; a `.gz` filename by itself doe
 not trigger decoding. File paths refer to the user's execution session, not the
 server's general filesystem. Close files after explicit reads and seeks too.
 
+### ZIP archives
+
+Office files (`.xlsx`, `.docx`, `.pptx`), EPUBs and many exports are ZIP archives.
+
+```lua
+-- parts maps each package part name, such as "xl/workbook.xml", to its XML.
+local function createWorkbook(filename: string, parts: {[string]: string})
+    local entries = {}
+    for _, name in {"[Content_Types].xml", "_rels/.rels", "xl/workbook.xml",
+        "xl/_rels/workbook.xml.rels", "xl/worksheets/sheet1.xml"} do
+        table.insert(entries, {name = name, body = parts[name]})
+    end
+    return responseJSON(await(http.request({
+        method = "PUT",
+        url = "https://graph.microsoft.com/v1.0/me/drive/root:/" .. url.segment(filename, "filename")
+            .. ":/content?@microsoft.graph.conflictBehavior=fail",
+        headers = {["Content-Type"] = {"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}},
+        body = compression.zip(entries),
+    })), "createWorkbook")
+end
+
+local function readSheetXml(path: string)
+    local archive = await(compression.unzip(fs.open(path, "r")))
+    local xml = await(archive:open("xl/worksheets/sheet1.xml"):readAll(4 * 1024 * 1024))
+    archive:close()
+    return xml
+end
+```
+
+`compression.zip({{name, body, method?}, ...})` returns a lazy Reader of the
+archive, so pass it as a request body or write it to a file. Bodies are strings,
+Readers or readable Files, which stream on demand; the helper takes ownership of
+them, and validation errors leave them usable. `method` is `"deflate"` (default)
+or `"store"`, for already compressed media or an EPUB's leading `mimetype`. Names
+are unique relative paths with `/` separators, at most 4 KiB each, without empty,
+`.` or `..` segments, a drive prefix, `\`, control characters or look-alikes of
+those (judged in NFKC form, as `url.segment` judges a segment). Directories are
+implied by names. Entries carry a fixed 1980-01-01 timestamp, so equal inputs
+make equal archives. An archive holds at most 65,535 entries, 8 MiB of string
+bodies and names, and 4 GiB in all.
+
+`compression.unzip(archive)` reads a byte string of at most 16 MiB or takes
+ownership of a File opened for reading; write an HTTP body to a session file
+first. It returns an operation whose result lists `archive.entries` as
+`{name, size, compressedSize}` in archive order, omitting directory entries.
+`archive:open(name)` returns a lazy Reader; several may be open at once, and
+`archive:close()` releases the archive, failing Readers still open. ZIP64
+archives are read; nested archives are never opened automatically.
+
+`unzip` refuses, with `decoding_error`, a malformed or multi-disk archive and any
+entry that is a symbolic link, has an unsafe or repeated name, or overlaps another
+entry. `open` raises `not_found` for a missing name, `decoding_error` for an
+encrypted entry or a method other than store and deflate, and `limit_exceeded`
+for an entry declared over 1 GiB or, above 1 MiB, compressed more than 200:1.
+A Reader fails with `decoding_error` as soon as its bytes exceed the declared
+size, and at the end when they fall short of it or fail the CRC-32 check. All
+Readers of one archive produce at most 4 GiB together, and its central directory
+may hold 65,535 entries in 16 MiB.
+
 ### Bounded independent work
 
 ```lua
