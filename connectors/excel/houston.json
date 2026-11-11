@@ -11,7 +11,7 @@
       "type": "string",
       "label": "Access",
       "default": "read-only",
-      "description": "Read and write lets agents change cells and formulas, insert and delete cells or rows, add table rows and tables, and add, rename, hide or delete worksheets; changes are saved to the file in OneDrive.",
+      "description": "Read and write lets agents create workbooks, change cells and formulas, insert and delete cells or rows, add table rows and tables, and add, rename, hide or delete worksheets; changes are saved to the file in OneDrive. To create workbooks it can also write a file by name in your OneDrive, which could replace a file with that name.",
       "options": [
         {
           "label": "Read-only",
@@ -158,6 +158,57 @@
         ],
         "colon_path_parameters": [
           "range"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "graph.microsoft.com"
+        ],
+        "method": [
+          "PUT"
+        ],
+        "path": [
+          "/v1.0/me/drive/root:/{fileName}/content"
+        ],
+        "colon_path_parameters": [
+          "fileName"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "graph.microsoft.com"
+        ],
+        "method": [
+          "PUT"
+        ],
+        "path": [
+          "/v1.0/me/drive/items/{parentId}/{fileName}/content"
+        ],
+        "colon_path_parameters": [
+          "parentId",
+          "fileName"
         ]
       },
       "action": {

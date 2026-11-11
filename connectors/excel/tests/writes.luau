@@ -25,7 +25,7 @@ return {
 		local names = {}
 		for name in c do table.insert(names, name) end
 		table.sort(names)
-		assert(table.concat(names, ",") == "addTable,addTableRows,addWorksheet,clearRange,closeSession,createSession,deleteRange,deleteWorksheet,findWorkbooks,getRange,getWorkbook,insertRange,listNames,listTables,listWorksheets,updateRange,updateWorksheet",
+		assert(table.concat(names, ",") == "addTable,addTableRows,addWorksheet,clearRange,closeSession,createSession,createWorkbook,deleteRange,deleteWorksheet,findWorkbooks,getRange,getWorkbook,insertRange,listNames,listTables,listWorksheets,updateRange,updateWorksheet",
 			"read-write got " .. table.concat(names, ","))
 
 		-- A session's id travels as workbook-session-id on every call that names it.
@@ -83,8 +83,35 @@ return {
 		assert(c.closeSession({itemId = "I1", sessionId = opened.id}).success and last().url == W .. "/closeSession", last().url)
 		assert(last().headers["workbook-session-id"][1] == opened.id and last().body == "", tostring(last().body))
 
+		-- A new workbook is an .xlsx package uploaded by path, never over an existing file; the result
+		-- keeps the workbook's item fields, without the signed download link.
+		local ME = "https://graph.microsoft.com/v1.0/me/drive"
+		local item = '{"id":"N1","name":"Budget 2026.xlsx","size":1290,"webUrl":"https://contoso-my.sharepoint.com/x","file":{"mimeType":"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"},'
+			.. '"parentReference":{"id":"P1"},"lastModifiedDateTime":"2026-11-11T10:00:00Z","createdBy":{"user":{"displayName":"Ada"}},"@microsoft.graph.downloadUrl":"https://signed.example/x"}'
+		responses = {{status = 201, body = item}, {status = 201, body = item}}
+		local created = c.createWorkbook({name = "Budget 2026.xlsx"})
+		assert(last().method == "PUT" and last().url == ME .. "/root:/Budget%202026.xlsx:/content?@microsoft.graph.conflictBehavior=fail", last().url)
+		assert(last().headers["Content-Type"][1] == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+		assert(created.id == "N1" and created.parentReference.id == "P1" and created.file.mimeType ~= nil and created.createdBy == nil and created["@microsoft.graph.downloadUrl"] == nil)
+		local archive = await(compression.unzip(last().body))
+		local parts = {}
+		for _, entry in archive.entries do table.insert(parts, entry.name) end
+		assert(table.concat(parts, ",") == "[Content_Types].xml,_rels/.rels,xl/workbook.xml,xl/_rels/workbook.xml.rels,xl/worksheets/sheet1.xml,xl/styles.xml", table.concat(parts, ","))
+		assert(string.find(await(archive:open("xl/workbook.xml"):readAll()), '<sheet name="Sheet1" sheetId="1" r:id="rId1"/>', 1, true))
+		archive:close()
+		local first = last().body
+		c.createWorkbook({name = "Q3 sales.XLSX", parentId = "P1!101"})
+		assert(last().url == ME .. "/items/P1%21101:/Q3%20sales.XLSX:/content?@microsoft.graph.conflictBehavior=fail" and last().body == first, last().url)
+		-- A success without the new item fails where it happened.
+		responses = {{status = 201}}
+		fails({"Microsoft Graph returned no item for the new workbook"}, c.createWorkbook, {name = "Budget 2026.xlsx"})
+
 		-- Invalid input never reaches the network.
 		local before = #requests
+		fails({"name must end in .xlsx"}, c.createWorkbook, {name = "Budget.xls"})
+		fails({"name must end in .xlsx"}, c.createWorkbook, {name = ".xlsx"})
+		fails({"name cannot contain ':'"}, c.createWorkbook, {name = "10:30 notes.xlsx"})
+		fails({"createWorkbook received an unknown option conflictBehavior"}, c.createWorkbook, {name = "Budget.xlsx", conflictBehavior = "replace"})
 		fails({"updateRange requires values, formulas or numberFormat"}, c.updateRange, {itemId = "I1", address = "Sheet1!A1"})
 		fails({"values rows must all have the same, nonzero number of cells"}, c.updateRange, {itemId = "I1", address = "Sheet1!A1:B2", values = {{1, 2}, {3}}})
 		fails({"values must be rows of cells"}, c.updateRange, {itemId = "I1", address = "Sheet1!A1:B1", values = {1, 2}})
@@ -119,9 +146,11 @@ return {
 			{status = 404, body = '{"error":{"code":"itemNotFound","message":"The session specified in the request does not exist or is invalid due to a transient error.","innerError":{"code":"invalidSessionReCreatable"}}}'},
 			{status = 409, body = '{"error":{"code":"conflict","message":"A table can\'t overlap another table.","innererror":{"code":"itemAlreadyExists"}}}'},
 			{status = 503, headers = {["retry-after"] = {"30"}}, body = '{"error":{"code":"serviceUnavailable","message":"Try later"}}'},
+			{status = 409, body = '{"error":{"code":"nameAlreadyExists","message":"The specified item name already exists."}}'},
 		}
 		fails({"HTTP 404 (itemNotFound)", "session specified in the request", "; innerError: invalidSessionReCreatable", '"retryable":false'}, c.updateRange, {itemId = "I1", address = "Sheet1!A1", values = {{1}}, sessionId = "old"})
 		fails({"HTTP 409 (conflict)", "overlap another table", "; innerError: itemAlreadyExists", '"retryable":false'}, c.addTable, {itemId = "I1", address = "Sheet1!A1:B2"})
 		fails({"HTTP 503 (serviceUnavailable)", "Retry-After: 30", '"retryable":false'}, c.addTableRows, {itemId = "I1", table = "Table1", values = {{1, 2, 3}}})
+		fails({"HTTP 409 (nameAlreadyExists)", "already exists", '"retryable":false'}, c.createWorkbook, {name = "Budget 2026.xlsx"})
 	end,
 }

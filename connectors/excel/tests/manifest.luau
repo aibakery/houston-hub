@@ -29,11 +29,13 @@ return {
 				"POST " .. w .. "/names/Totals/range/insert", "POST " .. w .. "/names/Totals/range/delete",
 				"POST " .. w .. "/tables/Table1/rows/add", "POST " .. w .. "/worksheets/Sales/tables/add", "POST " .. w .. "/worksheets/add",
 				"POST " .. w .. "/createSession", "POST " .. w .. "/closeSession",
+				"PUT " .. api .. "/drive/root:/Budget%202026.xlsx:/content?@microsoft.graph.conflictBehavior=fail",
+				"PUT " .. api .. "/drive/items/P1%21101:/Q3%20sales.xlsx:/content?@microsoft.graph.conflictBehavior=fail",
 			}
 			m.routes(r, "Bearer fixture-token", access == "read-write", writes)
 			if access == "read-write" then m.rejectOverrides(r, writes) end
 			-- The token stays off Microsoft's token endpoints, batches that could wrap writes, other users,
-			-- drives and APIs, file contents and sharing, lookalike hosts, and workbook features the
+			-- drives and APIs, file contents by item id and sharing, lookalike hosts, and workbook features the
 			-- connector never calls: functions, charts, protection, formats, table and name changes,
 			-- row-by-index access, calculation and session refreshes. A {search} or {range} placeholder
 			-- still admits any one segment there, such as root/children or a chart collection.
@@ -58,7 +60,7 @@ return {
 				"PATCH " .. w .. "/tables/T/rows/0", "PATCH " .. w .. "/names/N", "PATCH " .. w .. "/worksheets/S/range(address='A1')/format",
 				"DELETE " .. w .. "/tables/T", "DELETE " .. w .. "/tables/T/rows/0", "PUT " .. w .. "/worksheets/S/range(address='A1')",
 				"DELETE " .. api .. "/drive/items/I1", "PATCH " .. api .. "/drive/items/I1", "POST " .. api .. "/drive/root/children",
-				"PUT " .. api .. "/drive/items/I1/content", "POST " .. api .. "/drive/items/I1/copy",
+				"PUT " .. api .. "/drive/items/I1/content", "PUT " .. api .. "/drive/root:/Reports%2FBudget.xlsx:/content", "POST " .. api .. "/drive/items/I1/copy",
 				"POST " .. api .. "/drive/items/I1/createUploadSession",
 			})
 		end
