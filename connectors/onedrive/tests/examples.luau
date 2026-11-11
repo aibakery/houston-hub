@@ -6,6 +6,7 @@ return {
 		calls = 0
 		fs = fixture.files()
 		http = {request = function(req)
+			if type(req.body) == "userdata" then req.body = await(req.body:readAll()) end
 			calls += 1
 			assert(string.find(req.url, "https://graph.microsoft.com/v1.0/me/", 1, true) == 1, req.url)
 			return fixture.operation({statusCode = 200, headers = {}, body = fixture.reader('{"id":"x","name":"x","size":1,"value":[]}')})
