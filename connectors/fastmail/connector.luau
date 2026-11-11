@@ -190,28 +190,40 @@ local function call_many(invocations: {Invocation}, operation: string): {any}
 	local responses = type(response) == "table" and response.methodResponses
 	if type(responses) ~= "table" then fail(operation, "Invalid JMAP response") end
 	local results: {any} = {}
+	local function set_problem(data: any): string?
+		for _, field in SET_ERROR_FIELDS do
+			if type(data[field]) == "table" then
+				for id, problem in data[field] do
+					if type(problem) ~= "table" then fail(operation, "Invalid JMAP set error") end
+					return tostring(id) .. ": " .. tostring(problem.type) .. ": " .. tostring(problem.description or "JMAP operation failed")
+				end
+			end
+		end
+		return nil
+	end
+	-- An implicit follow-up, such as the Email/set from onSuccessUpdateEmail, runs only after its call succeeded.
+	local followUp: string? = nil
 	for _, invocation in responses :: {any} do
 		if type(invocation) ~= "table" or type(invocation[2]) ~= "table" then fail(operation, "Invalid JMAP response") end
 		local data = invocation[2]
 		if invocation[1] == "error" then
 			fail(operation, tostring(data.type) .. ": " .. tostring(data.description or "JMAP request failed"))
 		end
-		for _, field in SET_ERROR_FIELDS do
-			if type(data[field]) == "table" then
-				for id, problem in data[field] do
-					if type(problem) ~= "table" then fail(operation, "Invalid JMAP set error") end
-					fail(operation, tostring(id) .. ": " .. tostring(problem.type) .. ": " .. tostring(problem.description or "JMAP operation failed"))
-				end
-			end
-		end
 		if type(data.notFound) == "table" and #data.notFound > 0 then fail(operation, "Not found: " .. table.concat(data.notFound, ", ")) end
-		-- Implicit responses, such as the Email/set from onSuccessUpdateEmail, share their call's tag.
+		-- Implicit responses share their call's tag and follow its own response.
 		local index = (tonumber(invocation[3]) or -1) + 1
 		local expected = invocations[index]
-		if expected and results[index] == nil and invocation[1] == expected.name then results[index] = data end
+		local primary = expected ~= nil and results[index] == nil and invocation[1] == expected.name
+		local problem = set_problem(data)
+		if problem and primary then fail(operation, problem) end
+		followUp = followUp or problem
+		if primary then results[index] = data end
 	end
 	for index in invocations do
 		if results[index] == nil then fail(operation, "Unexpected JMAP method response") end
+	end
+	if followUp then
+		fail(operation, operation .. " completed, but its automatic follow-up update failed (" .. followUp .. "). The change, such as a sent message, has already happened: do not retry.")
 	end
 	return results
 end
@@ -261,7 +273,8 @@ function functions.getProfile()
 	local caps: {string} = json.decode("[]") :: {string}
 	if type(s.capabilities) == "table" then
 		for name in (s.capabilities :: {[string]: any}) do
-			if type(name) == "string" then caps[#caps + 1] = name end
+			-- Match canSend: submission is listed only when this account may use it.
+			if type(name) == "string" and (name ~= SUBMISSION or has_cap(s, SUBMISSION)) then caps[#caps + 1] = name end
 		end
 	end
 	table.sort(caps)
@@ -381,6 +394,15 @@ local function remove_nulls(value: any)
 		if type(item) == "userdata" then value[key] = nil
 		elseif type(item) == "table" then remove_nulls(item) end
 	end
+end
+
+-- Identity/get rows without JSON nulls, as every caller expects.
+local function identity_list(data: any): {any}
+	local identities = as_list(data.list)
+	for _, item in identities do
+		if type(item) == "table" then remove_nulls(item) end
+	end
+	return identities
 end
 
 local function is_inline(part: any): boolean
@@ -612,8 +634,7 @@ function functions.listAliases(): {aliases: {Alias}, notes: {string}}
 	end
 	local notes: {string} = json.decode("[]") :: {string}
 	if has_cap(s, SUBMISSION) then
-		for _, item in as_list(call("Identity/get", nil, "listAliases").list) do
-			if type(item) == "table" then remove_nulls(item) end
+		for _, item in identity_list(call("Identity/get", nil, "listAliases")) do
 			if type(item.email) == "string" and item.email ~= "" then
 				local alias = row(item.email)
 				alias.canSend = true
@@ -646,7 +667,7 @@ end
 
 operationHelp.listIdentities = [==[listIdentities() -> {identities}, raw JMAP sending identities. Requires the provider Email submission scope, which may be unknown before the first real call.]==]
 function functions.listIdentities(): {identities: {Identity}}
-	return { identities = as_list(call("Identity/get", nil, "listIdentities").list) }
+	return { identities = identity_list(call("Identity/get", nil, "listIdentities")) }
 end
 
 local function lower_email(value: any): string?
@@ -666,9 +687,15 @@ local function pick_identity(identities: {Identity}, options: IdentityOptions): 
 	end
 	if fromEmail then
 		local want = lower_email(fromEmail)
+		local domain = want and string.match(want, "(@[^@]+)$")
+		local wildcard: Identity? = nil
 		for _, item in identities do
-			if lower_email(item.email) == want then return item end
+			local email = lower_email(item.email)
+			if email == want then return item end
+			-- RFC 8621: an identity such as *@example.com may send from any address at that domain.
+			if wildcard == nil and domain and email == "*" .. domain then wildcard = item end
 		end
+		if wildcard then return { id = wildcard.id, email = fromEmail, name = wildcard.name } end
 		return nil
 	end
 	local username = lower_email(session().username)
@@ -813,19 +840,6 @@ local function verifies(draft: boolean): boolean
 	return not draft or has_cap(session(), SUBMISSION)
 end
 
-local function identity_list(data: any): {Identity}
-	local identities = as_list(data.list)
-	for _, item in identities do
-		if type(item) == "table" then remove_nulls(item) end
-	end
-	return identities
-end
-
-local function identities_for(operation: string, draft: boolean): {Identity}?
-	if not verifies(draft) then return nil end
-	return identity_list(call("Identity/get", nil, operation))
-end
-
 -- Reads what composing needs in one request: an optional message, the folders, and the sending identities when verified.
 local function mail_context(operation: string, verified: boolean, message: Invocation?): ({any}, {Identity}?, any)
 	local reads: {Invocation} = {}
@@ -861,9 +875,10 @@ local function compose(operation: string, body: any, draft: boolean): Composed
 	check_addresses(body, operation)
 	if type(body.text) ~= "string" then error("fastmail." .. operation .. " requires text") end
 	local verified = verifies(draft)
-	if not verified then sender_of(nil, body) end -- Refuse a bad unverified sender before any request.
+	-- An unverified sender needs no request, so a bad one is refused before any.
+	local unverified = if verified then nil else sender_of(nil, body)
 	local folders, identities = mail_context(operation, verified)
-	return { sender = sender_of(identities, body), folders = folders, fields = {
+	return { sender = unverified or sender_of(identities, body), folders = folders, fields = {
 		to = body.to, cc = body.cc, bcc = body.bcc, replyTo = body.replyTo,
 		subject = body.subject or "", text = body.text, attachments = body.attachments,
 	} }
@@ -929,7 +944,9 @@ local function compose_reply(operation: string, input: Id | ReplyOptions, option
 	local to = address_objects(body.to)
 	if body.to ~= nil and (#to == 0 or #to ~= #body.to) then error("fastmail." .. operation .. " to must be a nonempty array of { email = ... }") end
 	local verified = verifies(draft)
-	if not verified then sender_of(nil, body) end -- Refuse a bad unverified sender before any request.
+	local explicit = body.identityId ~= nil or body.from ~= nil
+	-- An unverified sender needs no request, so a bad one is refused before any.
+	local unverified = if explicit and not verified then sender_of(nil, body) else nil
 	local properties = { "id", "messageId", "inReplyTo", "references", "from", "to", "cc", "replyTo", "subject" }
 	if not verified then table.move(DELIVERED_HEADERS, 1, #DELIVERED_HEADERS, #properties + 1, properties) end
 	local folders, identities, data = mail_context(operation, verified, { name = "Email/get", args = { ids = { id }, properties = properties } })
@@ -944,8 +961,8 @@ local function compose_reply(operation: string, input: Id | ReplyOptions, option
 	end
 	local own: {Sender} = identities or own_addresses(msg)
 	local identity: Sender? = nil
-	if body.identityId ~= nil or body.from ~= nil then
-		identity = sender_of(identities, body)
+	if explicit then
+		identity = unverified or sender_of(identities, body)
 	else
 		local byEmail: {[string]: any} = {}
 		for _, item in own do
@@ -967,11 +984,14 @@ local function compose_reply(operation: string, input: Id | ReplyOptions, option
 	assert(identity, "reply identity was not resolved")
 	local cc = body.cc
 	if body.all and cc == nil then
+		-- Leave out your own addresses, including an explicit from that is not one of them.
 		local skip: {[string]: boolean} = {}
 		for _, item in own do
 			local key = lower_email(item.email)
 			if key ~= nil then skip[key] = true end
 		end
+		local sender = lower_email(identity.email)
+		if sender ~= nil then skip[sender] = true end
 		for _, addr in to do
 			local key = lower_email(addr.email)
 			if key ~= nil then skip[key] = true end
@@ -1036,7 +1056,9 @@ local function draft_of(operation: string, id: string, properties: {string}, bod
 end
 
 local function part_text(msg: any, parts: any, mimeType: string): string?
-	local text = join_parts(msg, parts, mimeType)
+	local text, truncated = join_parts(msg, parts, mimeType)
+	-- Saving a truncated body would silently shorten the draft.
+	if truncated then error("fastmail: the draft body was truncated; pass text to replace it") end
 	return if text ~= "" then text else nil
 end
 
@@ -1225,10 +1247,17 @@ if config.access == "read-write" or config.access == "custom" then
 		local keepBody = input.text == nil
 		local properties = table.clone(DRAFT_PROPERTIES)
 		if keepBody then table.move({ "textBody", "htmlBody", "bodyValues" }, 1, 3, #properties + 1, properties) end
-		local old = draft_of("updateDraft", id, properties, keepBody)
+		local explicit = input.identityId ~= nil or input.from ~= nil
+		local verified = verifies(true)
+		-- An unverified sender needs no request, so a bad one is refused before any.
+		local unverified = if explicit and not verified then sender_of(nil, input) else nil
+		local reads = { draft_get(id, properties, keepBody) }
+		if explicit and verified then reads[2] = { name = "Identity/get" } end
+		local results = call_many(reads, "updateDraft")
+		local old = as_draft("updateDraft", id, results[1])
 		local from = old.from
-		if input.identityId ~= nil or input.from ~= nil then
-			local sender = sender_of(identities_for("updateDraft", true), input)
+		if explicit then
+			local sender = unverified or sender_of(identity_list(results[2]), input)
 			local name = sender.name
 			for _, addr in address_objects(old.from) do
 				if name == nil and lower_email(addr.email) == lower_email(sender.email) then name = addr.name end
@@ -1239,13 +1268,26 @@ if config.access == "read-write" or config.access == "custom" then
 		if keepBody then text, html = part_text(old, old.textBody, "text/plain"), part_text(old, old.htmlBody, "text/html") end
 		-- Inline parts belong to the body they appear in; attachments replaces only the others.
 		local attachments = attachment_parts(input.attachments, "updateDraft") or {}
-		for _, part in old.attachments or {} do
-			local keep = if is_inline(part) then keepBody else input.attachments == nil
-			if keep then
-				attachments[#attachments + 1] = {
-					blobId = part.blobId, name = part.name, type = part.type, charset = part.charset, disposition = part.disposition, cid = part.cid,
-				}
+		local carried: {[string]: boolean} = {}
+		local function carry(part: any, inline: boolean)
+			if type(part.blobId) ~= "string" or carried[part.blobId] then return end
+			carried[part.blobId] = true
+			attachments[#attachments + 1] = {
+				blobId = part.blobId, name = part.name, type = part.type, charset = part.charset, cid = part.cid,
+				disposition = if inline then "inline" else part.disposition,
+			}
+		end
+		if keepBody then
+			-- Media shown inline in the body, outside multipart/related, is listed with the body parts.
+			for _, list in { old.textBody, old.htmlBody } do
+				for _, part in list or {} do
+					if type(part.type) == "string" and string.sub(part.type, 1, 5) ~= "text/" then carry(part, true) end
+				end
 			end
+		end
+		for _, part in old.attachments or {} do
+			local inline = is_inline(part)
+			if (if inline then keepBody else input.attachments == nil) then carry(part, inline) end
 		end
 		local function pick(key: string): any
 			if input[key] ~= nil then return input[key] end

@@ -43,7 +43,7 @@ return {scenario={["auth_config"]={["token"]="fixture-private-password !@#"},["a
                 cc={{email="other@example.com"}}, bcc=json.decode("null"), replyTo=json.decode("null"), subject="Re: Hello",
                 inReplyTo={"<m@example.com>"}, references={"<old@example.com>", "<m@example.com>"},
                 attachments={{blobId="b1", name="a.csv", type="text/csv", charset="iso-8859-1", disposition="attachment", cid=json.decode("null")},
-                    {blobId="img", name="logo.png", type="image/png", disposition="inline", cid="c1"},
+                    {blobId="img", name="logo.png", type="image/png", disposition=json.decode("null"), cid="c1"},
                     {blobId="b2", name="b.pdf", type="application/pdf", disposition="attachment", cid="x2"}}}
             for key, value in extra or {} do msg[key] = value end
             return msg
@@ -146,7 +146,7 @@ end, run=function(fastmail)
         ok, err = pcall(function() fastmail.updateDraft({id="m", subject="x"}) end)
         assert(not ok and string.find(tostring(err), "not a draft", 1, true) and #requests == mark + 1)
 
-        responses={result("Email/get", {list={saved("d4", {textBody={{partId="1", type="text/plain"}}, htmlBody={{partId="2", type="text/html"}},
+        responses={result("Email/get", {list={saved("d4", {textBody={{partId="1", type="text/plain"}, {blobId="pic", name="pic.jpg", type="image/jpeg", disposition="inline"}}, htmlBody={{partId="2", type="text/html"}},
                 bodyValues={["1"]={value="Hi"}, ["2"]={value="<p>Hi <img src=\"cid:c1\"></p>"}}})}}),
             {blobId="blob1", type="application/pdf", size=7}, result("Email/set", {created={draft={id="d5"}}}),
             result("Email/set", {notDestroyed={d4={type="serverFail"}}})}
@@ -156,7 +156,8 @@ end, run=function(fastmail)
         calls = jmapSince(mark)
         assert(#calls == 4 and calls[2].name == "upload")
         draft = calls[3].args.create.draft
-        assert(#draft.attachments == 2 and draft.attachments[1].blobId == "blob1" and draft.attachments[2].blobId == "img")
+        assert(#draft.attachments == 3 and draft.attachments[1].blobId == "blob1" and draft.attachments[2].blobId == "pic" and draft.attachments[3].blobId == "img")
+        assert(draft.attachments[2].disposition == "inline" and draft.attachments[3].disposition == "inline")
         assert(draft.bodyValues.html.value == "<p>Hi <img src=\"cid:c1\"></p>")
 
         responses={result("Email/get", {list={saved("d5")}}), result("Email/set", {destroyed={"d5"}})}
@@ -173,6 +174,28 @@ end, run=function(fastmail)
         mark = #requests
         ok, err = pcall(function() fastmail.sendDraft("d4") end)
         assert(not ok and string.find(tostring(err), "Email submission", 1, true) and #requests == mark)
+
+        mark = #requests
+        ok, err = pcall(function() fastmail.updateDraft({id="d1", identityId="i"}) end)
+        assert(not ok and string.find(tostring(err), "Email submission", 1, true) and #requests == mark)
+
+        responses={result("Email/get", {list={saved("d6", {textBody={{partId="1", type="text/plain"}}, htmlBody={{partId="1", type="text/plain"}},
+            bodyValues={["1"]={value="Cut", isTruncated=true}}})}})}
+        mark = #requests
+        ok, err = pcall(function() fastmail.updateDraft({id="d6", subject="x"}) end)
+        assert(not ok and string.find(tostring(err), "truncated", 1, true) and #requests == mark + 1)
+
+        -- An explicit from stays out of reply-all Cc even when it is not a delivery address.
+        responses={results({"Email/get", {list={original()}}}, {"Mailbox/get", {list=folders}}),
+            result("Email/set", {created={draft={id="d7"}}})}
+        mark = #requests
+        fastmail.createReplyDraft({id="m", text="Thanks", all=true, from="other@example.com"})
+        draft = jmapSince(mark)[3].args.create.draft
+        assert(draft.from[1].email == "other@example.com" and #draft.cc == 1 and draft.cc[1].email == "cc@example.com")
+
+        local profile = fastmail.getProfile()
+        assert(not profile.canSend)
+        for _, name in profile.capabilities do assert(name ~= "urn:ietf:params:jmap:submission") end
         assert(#responses == 0)
 
 end}

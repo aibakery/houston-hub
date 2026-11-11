@@ -21,7 +21,8 @@ return {scenario={["auth_config"]={["token"]="fixture-private-password !@#"},["a
             return {methodResponses=out}
         end
         folders={{id="in", role="inbox", name="Inbox"}, {id="dr", role="drafts", name="Drafts"}, {id="se", role="sent", name="Sent"}}
-        identities={list={{id="i-me", email="me@example.com", name="Me"}, {id="i-sup", email="support@example.com", name="Support"}}}
+        identities={list={{id="i-me", email="me@example.com", name="Me"}, {id="i-sup", email="support@example.com", name="Support"},
+            {id="i-any", email="*@team.example.com", name="Team"}}}
         function draft(id, keywords)
             return {id=id, keywords=keywords or {["$draft"]=true}, from={{name="Support", email="Support@example.com"}}}
         end
@@ -76,15 +77,29 @@ end, run=function(fastmail)
         ok, err = pcall(function() fastmail.sendDraft("m") end)
         assert(not ok and string.find(tostring(err), "not a draft", 1, true) and #requests == mark + 1)
 
-        responses={result("Email/get", {list={draft("d1")}}), result("Identity/get", identities),
+        responses={results({"Email/get", {list={draft("d1")}}}, {"Identity/get", identities}),
             result("Email/set", {created={draft={id="d2"}}}), result("Email/set", {destroyed={"d1"}})}
         mark = #requests
         made = fastmail.updateDraft({id="d1", from="me@example.com", text="Changed"})
         assert(made.id == "d2")
+        assert(#requests == mark + 3, "the draft and identities share one request")
         calls = jmapSince(mark)
         created = calls[3].args.create.draft
         assert(created.from[1].email == "me@example.com" and created.from[1].name == "Me" and created.bodyValues.text.value == "Changed")
         assert(calls[4].args.destroy[1] == "d1")
+
+        -- A wildcard identity sends from any address at its domain.
+        local wild = {id="dw", keywords={["$draft"]=true}, from={{email="ana@Team.example.com"}}}
+        responses={results({"Email/get", {list={wild}}}, {"Mailbox/get", {list=folders}}, {"Identity/get", identities}),
+            result("EmailSubmission/set", {created={send={id="s4"}}})}
+        mark = #requests
+        assert(fastmail.sendDraft("dw").submissionId == "s4" and jmapSince(mark)[4].args.create.send.identityId == "i-any")
+
+        -- A failed follow-up update after a successful submission must not invite a resend.
+        responses={results({"Email/get", {list={draft("d2")}}}, {"Mailbox/get", {list=folders}}, {"Identity/get", identities}),
+            {methodResponses={{"EmailSubmission/set", {created={send={id="s5"}}}, "0"}, {"Email/set", {notUpdated={d2={type="serverFail"}}}, "0"}}}}
+        ok, err = pcall(function() fastmail.sendDraft("d2") end)
+        assert(not ok and string.find(tostring(err), "do not retry", 1, true) and string.find(tostring(err), "d2: serverFail", 1, true))
         assert(#responses == 0)
 
 end}
