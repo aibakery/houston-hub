@@ -26,7 +26,8 @@ return {
 			-- APIs and mailboxes, lookalike hosts and contact routes the connector never calls: photos,
 			-- extensions, folder delta, permanent deletes, folder reads by id, deeper paths and other methods.
 			-- An {id} placeholder still admits any one segment, so contacts/delta, which returns the same
-			-- contacts, stays reachable.
+			-- contacts, stays reachable, and queries are not filtered, so $expand still reaches extensions;
+			-- the connector itself sends neither.
 			m.routes(r, "Bearer fixture-token", false, {
 				"POST https://login.microsoftonline.com/common/oauth2/v2.0/token", "POST https://graph.microsoft.com/v1.0/$batch",
 				"GET https://graph.microsoft.com/v1.0/users/other@example.com/contacts", "GET https://graph.microsoft.com/beta/me/contacts",

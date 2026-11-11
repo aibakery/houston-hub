@@ -201,21 +201,22 @@ local FOLDER_ID = "AAMkAGI2TGuLAAA="
 local SELECT = {type = {"string", "array"}, items = {type = "string"}, description = "Fields, comma-separated or as an array."}
 local NEXT = {type = "string", description = "The previous page's @odata.nextLink; pass it alone."}
 local FOLDER = {type = "string", minLength = 1, description = "A contact folder's id from listContactFolders; defaults to the default Contacts folder."}
-local TEXT = {type = "string"}
-local STRINGS = {type = "array", items = {type = "string"}}
+-- Contact fields take null, json.decode('null'), to clear them.
+local TEXT = {type = {"string", "null"}}
+local STRINGS = {type = {"array", "null"}, items = {type = "string"}}
 local ADDRESS = {
-	type = "object",
+	type = {"object", "null"},
 	properties = {street = TEXT, city = TEXT, state = TEXT, countryOrRegion = TEXT, postalCode = TEXT},
 	additionalProperties = false,
 	description = "A postal address; an update replaces the whole address, so send every part.",
 }
 local CONTACT = {
-	displayName = {type = "string", description = "Outlook may regenerate it from the name parts: send it with every update that should keep it."},
+	displayName = {type = {"string", "null"}, description = "Outlook may regenerate it from the name parts: send it with every update that should keep it."},
 	givenName = TEXT, middleName = TEXT, surname = TEXT, nickName = TEXT, initials = TEXT, title = TEXT,
-	generation = {type = "string", description = "A suffix such as Jr."},
+	generation = {type = {"string", "null"}, description = "A suffix such as Jr."},
 	fileAs = TEXT, yomiGivenName = TEXT, yomiSurname = TEXT, yomiCompanyName = TEXT,
 	emailAddresses = {
-		type = "array",
+		type = {"array", "null"},
 		items = {type = "object", properties = {address = ID, name = TEXT}, required = {"address"}, additionalProperties = false},
 		description = "The contact's email addresses, the only email field this connector writes; Outlook shows three.",
 	},
@@ -223,7 +224,7 @@ local CONTACT = {
 	businessAddress = ADDRESS, homeAddress = ADDRESS, otherAddress = ADDRESS,
 	companyName = TEXT, department = TEXT, jobTitle = TEXT, officeLocation = TEXT, profession = TEXT,
 	manager = TEXT, assistantName = TEXT, businessHomePage = TEXT,
-	birthday = {type = "string", description = "A date such as 1974-07-22, as in Microsoft's example; Graph returns it as a UTC date and time."},
+	birthday = {type = {"string", "null"}, description = "A date such as 1974-07-22, as in Microsoft's example; Graph returns it as a UTC date and time."},
 	spouseName = TEXT, children = STRINGS, personalNotes = TEXT, categories = STRINGS,
 }
 local READ = {readOnlyHint = true, openWorldHint = true}
@@ -236,16 +237,23 @@ local function with(base: Options, extra: Options): Options
 	return merged
 end
 
--- Checks a value against its string, array or object schema; returns it, with an empty array as
--- [] rather than {}.
+local NULL = json.decode("null")
+
+-- Checks a value against its string, array or object schema, whose type may also allow null, and
+-- returns it; a top-level empty array becomes [] rather than {}. No schema here nests arrays.
 local function check(value: any, schema: Options, path: string): any
-	if schema.type == "string" then
+	local kind = schema.type
+	if type(kind) == "table" then
+		if value == NULL and table.find(kind, "null") then return value end
+		kind = kind[1]
+	end
+	if kind == "string" then
 		assert(type(value) == "string" and #value >= (schema.minLength or 0), path .. " must be a " .. (if schema.minLength then "nonempty " else "") .. "string")
 		return value
 	end
-	assert(schema.type == "array" or schema.type == "object", path .. " has a schema type check() does not handle")
-	assert(type(value) == "table", path .. " must be " .. (if schema.type == "array" then "an array" else "an object"))
-	if schema.type == "array" then
+	assert(kind == "array" or kind == "object", path .. " has a schema type check() does not handle")
+	assert(type(value) == "table", path .. " must be " .. (if kind == "array" then "an array" else "an object"))
+	if kind == "array" then
 		local count = 0
 		for index, item in value do
 			count += 1
@@ -378,6 +386,7 @@ businessPhones and homePhones (arrays) and mobilePhone (one number).]],
 	help.functions.updateContact = {
 		description = [[Changes the given fields of a contact and returns it. Arrays such as emailAddresses and
 businessPhones are replaced whole, and so are addresses: read the contact and send the full value.
+json.decode('null') clears a field, such as birthday.
 Graph documents no move action, and updateContact does not send parentFolderId: to move a
 contact, create it in the target folder and delete the original, which gives it a new id.]],
 		inputSchema = {
