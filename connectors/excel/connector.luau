@@ -500,9 +500,10 @@ if config.access == "read-write" then
 	help.functions.createWorkbook = {
 		description = [[Creates an empty workbook with one worksheet, Sheet1, in parentId or the root folder and returns
 its OneDrive item: {id, name, size, webUrl, lastModifiedDateTime, parentReference, file}. name
-ends in .xlsx and cannot contain /, % or :. An existing file is never replaced: its name fails
-with HTTP 409 (nameAlreadyExists), as does retrying a call that did create the file. Fill the
-sheet with updateRange and rename it with updateWorksheet.]],
+ends in .xlsx, does not start with a space and has none of " * : < > ? / \ | %. An existing
+file is never replaced: its name fails with HTTP 409 (nameAlreadyExists). A failed call may
+still have created the workbook, and repeating it then also fails with 409: look for it with
+findWorkbooks. Fill the sheet with updateRange and rename it with updateWorksheet.]],
 		inputSchema = {
 			type = "object",
 			properties = {
@@ -519,8 +520,10 @@ sheet with updateRange and rename it with updateWorksheet.]],
 		local args = options(input)
 		local name = text(args.name, "name")
 		assert(string.lower(string.sub(name, -5)) == ".xlsx" and #name > 5, "name must end in .xlsx, such as 'Budget 2026.xlsx'")
-		-- A colon would end Graph's path-based addressing early.
-		assert(not string.find(name, ":", 1, true), "name cannot contain ':'")
+		-- OneDrive refuses these characters in names; a colon would also end Graph's path-based
+		-- addressing early.
+		assert(not string.find(name, '[%c"*:<>?/\\|%%]') and not string.find(name, "^%s"),
+			'name cannot start with a space or contain " * : < > ? / \\ | %')
 		local folder = if args.parentId == nil then "/drive/root" else "/drive/items/" .. url.segment(text(args.parentId, "parentId"), "parentId")
 		args.name, args.parentId = nil, nil
 		done("createWorkbook", args)

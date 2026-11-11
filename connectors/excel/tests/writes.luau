@@ -110,7 +110,10 @@ return {
 		local before = #requests
 		fails({"name must end in .xlsx"}, c.createWorkbook, {name = "Budget.xls"})
 		fails({"name must end in .xlsx"}, c.createWorkbook, {name = ".xlsx"})
-		fails({"name cannot contain ':'"}, c.createWorkbook, {name = "10:30 notes.xlsx"})
+		for _, bad in {"10:30 notes.xlsx", "Reports/Budget.xlsx", "Q3 <draft>.xlsx", "What?.xlsx", "100%.xlsx", " Budget.xlsx"} do
+			fails({"name cannot start with a space or contain"}, c.createWorkbook, {name = bad})
+		end
+		assert(not pcall(c.createWorkbook, {name = "Budget.xlsx", parentId = "P1/../P2"}), "a parentId with a slash reached the network")
 		fails({"createWorkbook received an unknown option conflictBehavior"}, c.createWorkbook, {name = "Budget.xlsx", conflictBehavior = "replace"})
 		fails({"updateRange requires values, formulas or numberFormat"}, c.updateRange, {itemId = "I1", address = "Sheet1!A1"})
 		fails({"values rows must all have the same, nonzero number of cells"}, c.updateRange, {itemId = "I1", address = "Sheet1!A1:B2", values = {{1, 2}, {3}}})

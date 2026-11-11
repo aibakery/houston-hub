@@ -14,7 +14,7 @@ Let agents work with the numbers in your spreadsheets.
 Works with Excel workbooks (`.xlsx`) in your own work or school OneDrive.
 Microsoft's Excel API does not support personal Microsoft accounts, and the
 connection does not reach SharePoint sites or files others share with you.
-Read-only access cannot change your workbooks. Read and write access can also
-write a file by name in your OneDrive, which creating workbooks needs. Changes with Read and write
-access are saved to the file right away; the file's version history in
-OneDrive restores an earlier version.
+Read-only access cannot change your workbooks. To create workbooks, Read and
+write access can also write a file by name in your OneDrive. Changes with Read
+and write access are saved to the file right away; the file's version history
+in OneDrive restores an earlier version.
