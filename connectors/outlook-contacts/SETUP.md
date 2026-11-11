@@ -7,9 +7,10 @@
 2. Select **Continue with Microsoft**, sign in with your Outlook.com, work or
    school account, and select **Accept** on the permissions Microsoft lists.
 
-Some work and school organizations require an administrator to approve new
-apps. If Microsoft shows **Need admin approval**, send the request or ask your
-administrator to approve Houston, then connect again.
+Many work and school organizations require an administrator to approve
+**Read and write** access for new apps; **Read-only** usually needs no
+approval. If Microsoft shows **Need admin approval**, send the request or ask
+your administrator to approve Houston, then connect again.
 
 Houston keeps your Microsoft authorization on its server; agent scripts never
 see it. An Outlook Contacts connection only reaches your own contacts and
