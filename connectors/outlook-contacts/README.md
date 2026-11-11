@@ -13,5 +13,5 @@ Let agents find the people in your Outlook address book and keep it tidy.
 
 Works with Outlook.com and Microsoft 365 work or school accounts. It reaches
 only your own contacts, not your organization's directory or contacts others
-share with you. Deleted contacts and folders go to Deleted Items, and changes
-notify nobody.
+share with you. Deleted contacts and folders normally go to Deleted Items, and
+changes notify nobody.

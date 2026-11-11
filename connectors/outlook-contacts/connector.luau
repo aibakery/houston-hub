@@ -173,20 +173,22 @@ local LIST = "id,displayName,givenName,surname,emailAddresses,businessPhones,hom
 
 local help = {
 	text = [[Microsoft Graph v1.0 for the connected account's Outlook contacts. Operations take one named
-options object with Graph's camelCase fields and return Graph's JSON unchanged; deletes return
-{success=true}. Connector calls return completed values: use them directly, without await.
+options object with Graph's camelCase fields and return Graph's JSON unchanged. Connector calls
+return completed values: use them directly, without await.
 Contacts live in the default Contacts folder unless folderId names one of its folders, from
 listContactFolders; folders can nest. Each list covers one folder: to see every contact, list the
-default folder, then each folder from listContactFolders and their subfolders.
+default folder, then each folder from listContactFolders and their subfolders. Some accounts list
+the default folder itself among the folders: skip the folder whose id is the parentFolderId of
+default-folder contacts, but walk its subfolders, and treat contacts with the same id as one.
 Lists return one page: while ['@odata.nextLink'] is present, pass it back as nextLink (alone).
 Example: listContacts({filter="emailAddresses/any(a:a/address eq 'ana@example.com')", top=50}).
 Houston itself retries only a short 429 wait. Errors report the HTTP status and Graph's code and
 message, e.g. 'Microsoft Graph HTTP 404 (ErrorItemNotFound)'; 429 is retryable, and so are
 503 and other transient server errors on reads. Graph serves at most 4 concurrent requests per mailbox.]] .. (if config.access == "read-write" then [[
 
-Writes change only the user's own contacts and contact folders, and notify nobody. Deleted
-contacts and folders go to Deleted Items. A failed or timed-out create may already have
-succeeded: check with listContacts before repeating it.]] else ""),
+Writes change only the user's own contacts and contact folders, and notify nobody. Deletes return
+{success=true}; Outlook normally keeps deleted contacts and folders in Deleted Items. A failed or
+timed-out create may already have succeeded: check with listContacts before repeating it.]] else ""),
 	functions = {} :: {[string]: any},
 }
 local exports: {[string]: any} = {help = help}
@@ -214,13 +216,13 @@ local CONTACT = {
 	emailAddresses = {
 		type = "array",
 		items = {type = "object", properties = {address = ID, name = TEXT}, required = {"address"}, additionalProperties = false},
-		description = "Outlook keeps up to three addresses.",
+		description = "The contact's email addresses, the only email field this connector writes; Outlook shows three.",
 	},
 	imAddresses = STRINGS, businessPhones = STRINGS, homePhones = STRINGS, mobilePhone = TEXT,
 	businessAddress = ADDRESS, homeAddress = ADDRESS, otherAddress = ADDRESS,
 	companyName = TEXT, department = TEXT, jobTitle = TEXT, officeLocation = TEXT, profession = TEXT,
 	manager = TEXT, assistantName = TEXT, businessHomePage = TEXT,
-	birthday = {type = "string", description = "A date such as 1990-07-22."},
+	birthday = {type = "string", description = "A date and time such as 1990-07-22T00:00:00Z."},
 	spouseName = TEXT, children = STRINGS, personalNotes = TEXT, categories = STRINGS,
 }
 local READ = {readOnlyHint = true, openWorldHint = true}
@@ -233,14 +235,41 @@ local function with(base: Options, extra: Options): Options
 	return merged
 end
 
--- Write bodies are closed: Graph's schema makes contact an open type, so a misspelt field might be
--- kept or dropped rather than refused. Checks each field's JSON type before any request.
+-- Checks a value against its string, array or object schema; returns it, with an empty array as
+-- [] rather than {}.
+local function check(value: any, schema: Options, path: string): any
+	if schema.type == "string" then
+		assert(type(value) == "string" and #value >= (schema.minLength or 0), path .. " must be a " .. (if schema.minLength then "nonempty " else "") .. "string")
+		return value
+	end
+	assert(type(value) == "table", path .. " must be " .. (if schema.type == "array" then "an array" else "an object"))
+	if schema.type == "array" then
+		local count = 0
+		for index, item in value do
+			count += 1
+			assert(type(index) == "number", path .. " must be an array")
+			check(item, schema.items, path .. "[" .. index .. "]")
+		end
+		assert(count == #value, path .. " must be an array")
+		return if count == 0 then json.decode("[]") else value
+	end
+	for key, item in value do
+		local property = schema.properties[key]
+		assert(property ~= nil, path .. " received an unknown field " .. tostring(key))
+		check(item, property, path .. "." .. key)
+	end
+	local required: {string} = schema.required or {}
+	for _, key in required do assert(value[key] ~= nil, path .. "." .. key .. " is required") end
+	return value
+end
+
+-- Write bodies are closed and checked before any request: Graph's schema makes contact an open
+-- type, so a misspelt field might be kept or dropped rather than refused.
 local function fields(name: string, args: Options, schema: Options)
 	for key, value in args do
 		local field = schema[key]
 		assert(field ~= nil, name .. " received an unknown option " .. key)
-		local kind = if field.type == "array" or field.type == "object" then "table" else field.type
-		assert(type(value) == kind, key .. " must be " .. (if field.type == "array" then "an array" elseif field.type == "object" then "an object" else "a " .. field.type))
+		args[key] = check(value, field, key)
 	end
 end
 
@@ -265,25 +294,25 @@ is the default Contacts folder's id; some accounts list that folder too, as Cont
 function exports.listContactFolders(input: any): Options
 	local args = options(input)
 	return request("listContactFolders", "GET", if args.folderId == nil then "/contactFolders" else "/contactFolders/{folderId}/childFolders", args,
-		{list = "/[cC][a-zA-Z]+[fF]olders$", query = {"$select", "$filter", "$top"}})
+		{list = "/c[a-z]+Folders$", query = {"$select", "$filter", "$top"}}) -- contactFolders or childFolders; the proxy refuses any other
 end
 
 help.functions.listContacts = {
 	description = [[One page of the contacts in the default Contacts folder, or in folderId: {value={contact},
-['@odata.nextLink']?}. Default fields: ]] .. LIST .. [[; add others to select, such as homeAddress,
-birthday or personalNotes. Graph documents one filter, an exact email address:
-"emailAddresses/any(a:a/address eq 'ana@example.com')"; others, such as
-"startswith(displayName,'Ana')", may be refused. orderby takes a field such as displayName.
-Pages hold 10 contacts unless top asks for more.]],
+['@odata.nextLink']?}. Default fields: ]] .. LIST .. [[. select replaces them, so name every field
+needed, such as "id,displayName,homeAddress,birthday". Graph documents one filter, an exact email
+address: "emailAddresses/any(a:a/address eq 'ana@example.com')". Other filters, such as
+"startswith(displayName,'Ana')", and orderby, such as displayName, are undocumented for contacts
+and may be refused. Pages are small unless top asks for more, such as 100.]],
 	inputSchema = {
 		type = "object",
 		properties = {
 			folderId = FOLDER, filter = {type = "string"}, orderby = {type = "string"}, select = SELECT,
-			top = {type = "integer", minimum = 1, maximum = 1000}, nextLink = NEXT,
+			top = {type = "integer", minimum = 1}, nextLink = NEXT,
 		},
 		additionalProperties = false,
 		examples = {
-			{top = 100, orderby = "displayName"},
+			{top = 100},
 			{folderId = FOLDER_ID, filter = "emailAddresses/any(a:a/address eq 'ana@example.com')"},
 		} :: {any},
 	},
@@ -299,7 +328,8 @@ help.functions.getContact = {
 	description = [[One contact with every field unless select narrows them: {id, displayName, givenName, surname,
 emailAddresses={{name, address}}, businessPhones, homePhones, mobilePhone, businessAddress,
 homeAddress, otherAddress, companyName, jobTitle, birthday, personalNotes, categories,
-parentFolderId, changeKey, ...}. Pass folderId for a contact outside the default folder.]],
+parentFolderId, changeKey, ...}. folderId is optional: if Graph answers 404 for a contact outside
+the default folder, pass the contact's parentFolderId as folderId.]],
 	inputSchema = {
 		type = "object",
 		properties = {id = ID, folderId = FOLDER, select = SELECT},
@@ -315,13 +345,15 @@ function exports.getContact(input: any): Options
 end
 
 if config.access == "read-write" then
+	local NEW = with(CONTACT, {folderId = FOLDER})
+	local CHANGE = with(CONTACT, {id = ID, folderId = FOLDER})
+
 	help.functions.createContact = {
 		description = [[Creates a contact in the default Contacts folder, or in folderId, and returns it. Phones are
 businessPhones and homePhones (arrays) and mobilePhone (one number).]],
 		inputSchema = {
 			type = "object",
-			properties = with(CONTACT, {folderId = FOLDER}),
-			minProperties = 1,
+			properties = NEW,
 			additionalProperties = false,
 			examples = {
 				{givenName = "Ana", surname = "Silva", emailAddresses = {{address = "ana@example.com", name = "Ana Silva"}},
@@ -334,23 +366,22 @@ businessPhones and homePhones (arrays) and mobilePhone (one number).]],
 	}
 	function exports.createContact(input: any): Options
 		local args = options(input)
+		fields("createContact", args, NEW)
 		local body = table.clone(args)
 		body.folderId = nil
 		assert(next(body) ~= nil, "createContact requires contact fields")
-		fields("createContact", body, CONTACT)
 		return request("createContact", "POST", if args.folderId == nil then "/contacts" else "/contactFolders/{folderId}/contacts", args, {body = true})
 	end
 
 	help.functions.updateContact = {
 		description = [[Changes the given fields of a contact and returns it. Arrays such as emailAddresses and
 businessPhones are replaced whole, and so are addresses: read the contact and send the full value.
-Graph cannot move a contact to another folder: create it there and delete the original, which
-gives it a new id.]],
+Graph documents no move action, and updateContact does not send parentFolderId: to move a
+contact, create it in the target folder and delete the original, which gives it a new id.]],
 		inputSchema = {
 			type = "object",
-			properties = with(CONTACT, {id = ID, folderId = FOLDER}),
+			properties = CHANGE,
 			required = {"id"},
-			minProperties = 2,
 			additionalProperties = false,
 			examples = {{id = CONTACT_ID, jobTitle = "CTO", emailAddresses = {{address = "ana@example.com"}, {address = "ana.silva@example.org"}}}},
 		},
@@ -358,15 +389,15 @@ gives it a new id.]],
 	}
 	function exports.updateContact(input: any): Options
 		local args = options(input)
+		fields("updateContact", args, CHANGE)
 		local body = table.clone(args)
 		body.id, body.folderId = nil, nil
 		assert(next(body) ~= nil, "updateContact requires fields to change")
-		fields("updateContact", body, CONTACT)
 		return request("updateContact", "PATCH", contact(args), args, {body = true})
 	end
 
 	help.functions.deleteContact = {
-		description = "Moves a contact to Deleted Items and returns {success=true}.",
+		description = "Deletes a contact and returns {success=true}; Outlook normally keeps it in Deleted Items.",
 		inputSchema = {type = "object", properties = {id = ID, folderId = FOLDER}, required = {"id"}, additionalProperties = false, examples = {{id = CONTACT_ID}}},
 		annotations = DESTRUCTIVE,
 	}
@@ -376,12 +407,14 @@ gives it a new id.]],
 	end
 
 	local NAME = {type = "string", minLength = 1, description = "The folder's name."}
+	local NEW_FOLDER = {displayName = NAME, parentFolderId = {type = "string", minLength = 1, description = "The folder to create it in."}}
+	local CHANGE_FOLDER = {folderId = ID, displayName = NAME, parentFolderId = {type = "string", minLength = 1, description = "The folder to move it into."}}
 
 	help.functions.createContactFolder = {
 		description = "Creates a contact folder in the default Contacts folder, or inside parentFolderId, and returns {id, displayName, parentFolderId}.",
 		inputSchema = {
 			type = "object",
-			properties = {displayName = NAME, parentFolderId = {type = "string", minLength = 1, description = "The folder to create it in."}},
+			properties = NEW_FOLDER,
 			required = {"displayName"},
 			additionalProperties = false,
 			examples = {{displayName = "Suppliers"}, {displayName = "Paris", parentFolderId = FOLDER_ID}} :: {any},
@@ -391,7 +424,7 @@ gives it a new id.]],
 	function exports.createContactFolder(input: any): Options
 		local args = options(input)
 		text(args.displayName, "displayName")
-		fields("createContactFolder", args, {displayName = NAME, parentFolderId = ID})
+		fields("createContactFolder", args, NEW_FOLDER)
 		return request("createContactFolder", "POST", if args.parentFolderId == nil then "/contactFolders" else "/contactFolders/{parentFolderId}/childFolders", args, {body = true})
 	end
 
@@ -399,7 +432,7 @@ gives it a new id.]],
 		description = "Renames a contact folder, or moves it into parentFolderId, and returns it.",
 		inputSchema = {
 			type = "object",
-			properties = {folderId = ID, displayName = NAME, parentFolderId = {type = "string", minLength = 1, description = "The folder to move it into."}},
+			properties = CHANGE_FOLDER,
 			required = {"folderId"},
 			anyOf = {{required = {"displayName"}}, {required = {"parentFolderId"}}} :: {any},
 			additionalProperties = false,
@@ -409,17 +442,13 @@ gives it a new id.]],
 	}
 	function exports.updateContactFolder(input: any): Options
 		local args = options(input)
-		local body = table.clone(args)
-		body.folderId = nil
-		assert(body.displayName ~= nil or body.parentFolderId ~= nil, "updateContactFolder requires displayName or parentFolderId")
-		if body.displayName ~= nil then text(body.displayName, "displayName") end
-		if body.parentFolderId ~= nil then text(body.parentFolderId, "parentFolderId") end
-		fields("updateContactFolder", body, {displayName = NAME, parentFolderId = ID})
+		fields("updateContactFolder", args, CHANGE_FOLDER)
+		assert(args.displayName ~= nil or args.parentFolderId ~= nil, "updateContactFolder requires displayName or parentFolderId")
 		return request("updateContactFolder", "PATCH", "/contactFolders/{folderId}", args, {body = true})
 	end
 
 	help.functions.deleteContactFolder = {
-		description = "Moves a contact folder, with its contacts and subfolders, to Deleted Items and returns {success=true}. The default Contacts folder cannot be deleted.",
+		description = "Deletes a contact folder with its contacts and subfolders and returns {success=true}; Outlook normally keeps them in Deleted Items. The default Contacts folder cannot be deleted, and Graph sometimes refuses other folders with 403 ErrorCannotDeleteObject.",
 		inputSchema = {type = "object", properties = {folderId = ID}, required = {"folderId"}, additionalProperties = false, examples = {{folderId = FOLDER_ID}}},
 		annotations = DESTRUCTIVE,
 	}

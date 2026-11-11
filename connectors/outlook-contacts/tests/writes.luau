@@ -35,7 +35,7 @@ return {
 		assert(sent.givenName == "Ana" and sent.emailAddresses[1].address == "ana@example.com" and sent.homeAddress.postalCode == "98052" and sent.folderId == nil, last().body)
 		c.createContact({folderId = "AQMk-F1==", displayName = "Bo Chen", businessPhones = {"+1 425 555 0100"}})
 		assert(last().url == API .. "/contactFolders/AQMk-F1%3D%3D/contacts" and last().body == '{"businessPhones":["+1 425 555 0100"],"displayName":"Bo Chen"}', last().body)
-		assert(c.updateContact({id = "C1", jobTitle = "CTO", categories = json.decode("[]")}).jobTitle == "CTO")
+		assert(c.updateContact({id = "C1", jobTitle = "CTO", categories = {}}).jobTitle == "CTO")
 		assert(last().method == "PATCH" and last().url == API .. "/contacts/C1" and last().body == '{"categories":[],"jobTitle":"CTO"}', last().body)
 		c.updateContact({id = "C2", folderId = "F1", mobilePhone = "+33 6 12 34 56 78"})
 		assert(last().url == API .. "/contactFolders/F1/contacts/C2" and last().body == '{"mobilePhone":"+33 6 12 34 56 78"}', last().body)
@@ -70,6 +70,13 @@ return {
 		fails({"updateContactFolder requires displayName or parentFolderId"}, c.updateContactFolder, {folderId = "F1"})
 		fails({"displayName must be a nonempty string"}, c.updateContactFolder, {folderId = "F1", displayName = ""})
 		fails({"folderId must be a nonempty string"}, c.deleteContactFolder, {})
+		fails({"parentFolderId must be a nonempty string"}, c.updateContactFolder, {folderId = "F1", parentFolderId = ""})
+		fails({"jobTitle must be a string"}, c.updateContact, {id = "C1", jobTitle = true})
+		fails({"emailAddresses[1] received an unknown field email"}, c.createContact, {emailAddresses = {{email = "ana@example.com"}}})
+		fails({"emailAddresses[1].address is required"}, c.createContact, {emailAddresses = {{name = "Ana"}}})
+		fails({"homeAddress received an unknown field zip"}, c.createContact, {homeAddress = {zip = "75001"}})
+		fails({"businessPhones[2] must be a string"}, c.createContact, {businessPhones = {"+1 425 555 0100", 4255550101}})
+		fails({"categories must be an array"}, c.updateContact, {id = "C1", categories = {first = "VIP"}})
 		assert(#requests == before, "invalid writes reached Graph")
 
 		-- A refused write keeps Graph's reason; a server error on a write may still have been applied.
@@ -77,10 +84,13 @@ return {
 			{status = 403, body = '{"error":{"code":"ErrorCannotDeleteObject","message":"Object cannot be deleted."}}'},
 			{status = 409, body = '{"error":{"code":"ErrorFolderExists","message":"A folder with the specified name already exists."}}'},
 			{status = 503, headers = {["retry-after"] = {"30"}}, body = '{"error":{"code":"ServiceUnavailable","message":"Try later"}}'},
+			{status = 429, headers = {["retry-after"] = {"5"}}, body = '{"error":{"code":"ApplicationThrottled","message":"Slow down"}}'},
 		}
 		fails({"HTTP 403 (ErrorCannotDeleteObject)", "Object cannot be deleted", '"retryable":false'}, c.deleteContactFolder, {folderId = "F0"})
 		fails({"HTTP 409 (ErrorFolderExists)", '"retryable":false'}, c.createContactFolder, {displayName = "Suppliers"})
 		fails({"HTTP 503 (ServiceUnavailable)", "Retry-After: 30", '"retryable":false'}, c.createContact, {givenName = "Ana"})
-		assert(#requests == before + 3 and #responses == 0)
+		-- Graph refuses a throttled write before acting, so repeating it is safe.
+		fails({"HTTP 429 (ApplicationThrottled)", "Retry-After: 5", '"retryable":true'}, c.updateContact, {id = "C1", jobTitle = "CTO"})
+		assert(#requests == before + 4 and #responses == 0)
 	end,
 }

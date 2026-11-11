@@ -26,4 +26,5 @@ contact folders, even if you also connect other Microsoft services.
   This disconnects all your Microsoft connections in Houston. To stop using
   only Outlook Contacts, remove its connection in Houston.
 - Contacts in folders other people share with you, your organization's
-  directory and public folders are out of reach.
+  directory, public folders, archive mailboxes and on-premises Exchange
+  mailboxes are out of reach.

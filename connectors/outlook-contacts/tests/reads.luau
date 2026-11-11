@@ -30,24 +30,27 @@ return {
 		local link = "https://graph.microsoft.com/v1.0/me/contactFolders('AQMk-F1%3D%3D')/contacts?%24select=id&%24top=2&%24skip=2"
 		responses = {
 			{body = '{"value":[{"id":"C1","displayName":"Ana Silva","emailAddresses":[{"name":"Ana Silva","address":"ana@example.com"}]}],"@odata.nextLink":"https://graph.microsoft.com/v1.0/me/contacts?%24top=1&%24skip=1"}'},
-			{body = '{"value":[]}'}, {body = '{}'}, {body = '{"value":[{"id":"C3"}]}'},
+			{body = '{"value":[]}'}, {body = '{}'}, {body = '{"value":[{"id":"C3"}]}'}, {body = '{}'},
 		}
-		local page = c.listContacts({top = 1, orderby = "displayName", filter = "emailAddresses/any(a:a/address eq 'ana@example.com')"})
+		local page = c.listContacts({top = 1, filter = "emailAddresses/any(a:a/address eq 'ana@example.com')"})
 		assert(page.value[1].emailAddresses[1].address == "ana@example.com" and page["@odata.nextLink"] ~= nil)
 		assert(last().method == "GET" and last().url == API .. "/contacts?" .. LIST
-			.. "&$filter=emailAddresses%2Fany%28a%3Aa%2Faddress%20eq%20%27ana%40example.com%27%29&$orderby=displayName&$top=1", last().url)
+			.. "&$filter=emailAddresses%2Fany%28a%3Aa%2Faddress%20eq%20%27ana%40example.com%27%29&$top=1", last().url)
 		assert(json.encode(c.listContacts({nextLink = page["@odata.nextLink"]}).value) == "[]" and last().url == API .. "/contacts?%24top=1&%24skip=1", last().url)
 		assert(json.encode(c.listContacts({folderId = "AQMk-F1==", select = {"id", "birthday"}}).value) == "[]")
 		assert(last().url == API .. "/contactFolders/AQMk-F1%3D%3D/contacts?$select=id,birthday", last().url)
 		assert(c.listContacts({nextLink = link}).value[1].id == "C3" and last().url == API .. "/contactFolders/AQMk-F1%3D%3D/contacts?%24select=id&%24top=2&%24skip=2", last().url)
+		assert(json.encode(c.listContacts({orderby = "displayName"}).value) == "[]" and last().url == API .. "/contacts?" .. LIST .. "&$orderby=displayName", last().url)
 
-		-- Folders: the default folder's children, or a folder's subfolders.
-		responses = {{body = '{"value":[{"id":"F1","displayName":"Suppliers","parentFolderId":"F0"}],"@odata.nextLink":"https://graph.microsoft.com/v1.0/me/contactFolders?%24skip=1"}'}, {body = '{}'}, {body = '{}'}}
+		-- Folders: the default folder's children, or a folder's subfolders, page by page.
+		responses = {{body = '{"value":[{"id":"F1","displayName":"Suppliers","parentFolderId":"F0"}],"@odata.nextLink":"https://graph.microsoft.com/v1.0/me/contactFolders?%24skip=1"}'}, {body = '{}'}, {body = '{}'}, {body = '{"value":[{"id":"F2"}]}'}}
 		local folders = c.listContactFolders({top = 1})
 		assert(folders.value[1].parentFolderId == "F0" and last().url == API .. "/contactFolders?$top=1", last().url)
 		assert(json.encode(c.listContactFolders({nextLink = folders["@odata.nextLink"]}).value) == "[]" and last().url == API .. "/contactFolders?%24skip=1", last().url)
 		assert(json.encode(c.listContactFolders({folderId = "F1", filter = "displayName eq 'Paris'"}).value) == "[]")
 		assert(last().url == API .. "/contactFolders/F1/childFolders?$filter=displayName%20eq%20%27Paris%27", last().url)
+		local sub = "https://graph.microsoft.com/v1.0/me/contactFolders('F1')/childFolders?%24skip=1"
+		assert(c.listContactFolders({nextLink = sub}).value[1].id == "F2" and last().url == API .. "/contactFolders/F1/childFolders?%24skip=1", last().url)
 
 		-- One contact, from the default folder or another.
 		responses = {{body = '{"id":"C1","displayName":"Ana Silva","homeAddress":{}}'}, {body = '{"id":"C2"}'}}
