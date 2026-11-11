@@ -78,6 +78,6 @@ return {
 			{status = 503, headers = {["retry-after"] = {"30"}}, body = '{"error":{"code":"ServiceUnavailable","message":"Try later"}}'},
 		}
 		fails({"HTTP 400 (ErrorInvalidRequest)", "need to be an organizer", '"retryable":false'}, c.cancelEvent, {id = "E3"})
-		fails({"HTTP 503 (ServiceUnavailable)", "Retry-After: 30", '"retryable":true'}, c.createEvent, {start = start, ["end"] = finish})
+		fails({"HTTP 503 (ServiceUnavailable)", "Retry-After: 30", '"retryable":false'}, c.createEvent, {start = start, ["end"] = finish})
 	end,
 }

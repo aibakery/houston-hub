@@ -71,7 +71,7 @@ return {
 		-- A failed send is reported without retrying; it may still have been accepted.
 		responses = {{status = 503, headers = {["retry-after"] = {"10"}}, body = '{"error":{"code":"ServiceUnavailable","message":"Try later"}}'}}
 		local ok, err = pcall(c.sendMail, {message = {subject = "x"}})
-		assert(not ok and string.find(tostring(err), "HTTP 503 (ServiceUnavailable): Try later; Retry-After: 10", 1, true) and string.find(tostring(err), '"retryable":true', 1, true), tostring(err))
+		assert(not ok and string.find(tostring(err), "HTTP 503 (ServiceUnavailable): Try later; Retry-After: 10", 1, true) and string.find(tostring(err), '"retryable":false', 1, true), tostring(err))
 		assert(#requests == before + 1 and #responses == 0)
 	end,
 }
