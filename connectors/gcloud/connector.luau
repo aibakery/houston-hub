@@ -177,16 +177,18 @@ local function decode(operation: string, response: HttpResponse): any
 end
 
 -- Replaces secret values in place, at any depth: Cloud Run env and probe httpHeaders {name, value},
--- source-build environmentVariables, Cloud Build env "KEY=VALUE" and substitutions, Compute metadata
--- items, and uptime-check headers, bodies and passwords. Names and secret references (valueSource)
--- stay. Audit log entries echo the same resources, so their protoPayload goes through this too.
+-- env maps of names to values, source-build environmentVariables, Cloud Build env "KEY=VALUE" and
+-- substitutions, Compute metadata items, and uptime-check headers, bodies and passwords. Names and
+-- secret references (valueSource) stay.
 local function redact(value: any): any
 	if type(value) ~= "table" then return value end
 	for key, item in value do
 		if type(item) ~= "table" then continue end
 		if key == "env" or key == "httpHeaders" then
 			for index, entry in item do
-				if type(entry) == "table" and entry.value ~= nil then
+				if type(index) == "string" then
+					item[index] = REDACTED
+				elseif type(entry) == "table" and entry.value ~= nil then
 					entry.value = REDACTED
 				elseif type(entry) == "string" then
 					item[index] = (string.match(entry, "^[^=]*") or "") .. "=" .. REDACTED
@@ -205,6 +207,36 @@ local function redact(value: any): any
 		end
 	end
 	return value
+end
+
+local AUDIT_LOG = "type.googleapis.com/google.cloud.audit.AuditLog"
+-- What an audit entry keeps: who did what to which resource, and how it ended. Its request,
+-- response, metadata and original state can echo any resource whole, secrets and IAM policies
+-- included, as can the request headers, claims and resource annotations kept for IAM conditions.
+local AUDIT_FIELDS = {
+	["@type"] = true, serviceName = true, methodName = true, resourceName = true, resourceLocation = true, numResponseItems = true,
+	status = {code = true, message = true},
+	authenticationInfo = {principalEmail = true, principalSubject = true, serviceAccountKeyName = true, oauthInfo = true,
+		serviceAccountDelegationInfo = {principalSubject = true, firstPartyPrincipal = {principalEmail = true}},
+		serviceDelegationHistory = {originalPrincipal = true}},
+	authorizationInfo = {resource = true, permission = true, granted = true, permissionType = true},
+	requestMetadata = {callerIp = true, callerSuppliedUserAgent = true, callerNetwork = true},
+}
+
+-- Copies the allowed fields of an object, or of each object in an array: true keeps a field
+-- whole, a table keeps that field's own allowed fields.
+local function pick(value: any, fields: {[string]: any}): any
+	if type(value) ~= "table" or next(value) == nil then return value end
+	if value[1] ~= nil then
+		local items = {}
+		for _, item in value do table.insert(items, pick(item, fields)) end
+		return items
+	end
+	local kept = {}
+	for name, rule in fields do
+		if value[name] ~= nil then kept[name] = if rule == true then value[name] else pick(value[name], rule) end
+	end
+	return kept
 end
 
 -- One request built from args: target() places the path and query fields, body names the JSON body
@@ -253,9 +285,10 @@ Monitoring, Compute Engine instances, billing metadata, enabled APIs and Artifac
 Every operation takes one named options object with Google's camelCase fields and returns Google's
 JSON unchanged, except that secret values are replaced with 'redacted': Cloud Run and Cloud Build
 environment values, probe headers and substitutions, Compute metadata values (startup scripts, ssh
-keys) and uptime-check headers, bodies and passwords, also where audit log entries echo them. Names
-and Secret Manager references stay; logs that applications write are returned as written. Connector
-calls return completed values: use them directly, without await.
+keys) and uptime-check headers, bodies and passwords. Names and Secret Manager references stay.
+Audit log entries keep only who did what, to which resource, and how it ended (see listLogEntries).
+Container args and commands, build steps and logs that applications write are returned as written.
+Connector calls return completed values: use them directly, without await.
 project is a project ID (my-project-123) or number; searchProjects finds them. Domain-scoped
 projects (example.com:project) are not supported. Google applies the account's own IAM roles on
 top of the connection's access level.
@@ -414,7 +447,11 @@ logName="projects/p/logs/cloudbuild" with resource.labels.build_id. orderBy is '
 (default) or 'timestamp desc'. pageSize defaults to 50 and is at most 1000; a page over 8 MiB fails,
 so keep pages of audit logs or large jsonPayload entries to a few hundred. The first project in
 resourceNames is charged the quota: Google allows 60 calls per minute per project, so prefer a
-narrow filter to many calls.]],
+narrow filter to many calls. An audit entry's protoPayload (@type google.cloud.audit.AuditLog) keeps
+serviceName, methodName, resourceName, resourceLocation, numResponseItems, status={code, message},
+authenticationInfo's principals and OAuth client, authorizationInfo=[{resource, permission, granted,
+permissionType}] and requestMetadata={callerIp, callerSuppliedUserAgent, callerNetwork}; its request,
+response, metadata and other fields are removed.]],
 	inputSchema = {
 		type = "object",
 		properties = {
@@ -459,7 +496,10 @@ function exports.listLogEntries(input: any): Options
 	local result = decode("listLogEntries", send("listLogEntries", "POST", LOGGING .. "/entries:list", body, project, false))
 	if result.entries == nil then result.entries = json.decode("[]") end
 	for _, entry in result.entries do
-		if type(entry) == "table" then redact(entry.protoPayload) end
+		local payload = if type(entry) == "table" then entry.protoPayload else nil
+		if type(payload) == "table" then
+			entry.protoPayload = if payload["@type"] == AUDIT_LOG then pick(payload, AUDIT_FIELDS) else redact(payload)
+		end
 	end
 	return result
 end
@@ -709,8 +749,8 @@ call with the same requestId run once.]]
 
 	-- Cloud Run writes
 
-	-- The service's own unredacted spec, never returned: writes that replace containers whole start
-	-- from it. args must hold only the service's project, location and name.
+	-- The service's own unredacted spec, never returned: writes start from it. args must hold only
+	-- the service's project, location and name.
 	local function runService(name: string, args: Options): (string, string?, Options)
 		local href, project = target(RUN .. "/v2/projects/{project}/locations/{location}/services/{service}", args)
 		done(name, args)
@@ -739,8 +779,10 @@ which this does not set, and fails.]],
 		end
 		assert(chosen, if container == nil then "the service has several containers: pass container" else "the service has no container named " .. tostring(container))
 		chosen.image = image
-		return redact(decode("updateRunServiceImage", send("updateRunServiceImage", "PATCH", href .. "?updateMask=template.containers",
-			{template = {containers = containers}, etag = service.etag}, project)))
+		-- The whole service goes back with only the image changed, so its other settings stay even
+		-- if Google applied more than the mask names. Its etag makes Google refuse the write when
+		-- the service changed after the read.
+		return redact(decode("updateRunServiceImage", send("updateRunServiceImage", "PATCH", href .. "?updateMask=template.containers", service, project)))
 	end
 
 	help.functions.updateRunServiceTraffic = {
