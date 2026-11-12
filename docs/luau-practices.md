@@ -107,7 +107,7 @@ followed by `await(output:close())` for downloads. Return session paths and
 awaited signed URLs, avoiding an extra in-memory representation of file bytes.
 Do not read a file into a Luau string just to upload it, or build MIME yourself
 when the provider already accepts structured messages. Use the runtime's `base64`
-global rather than a Luau codec.
+and `sha` globals rather than a Luau codec or digest.
 
 `await(http.request(...))` returns final headers and a body Reader. Read JSON
 explicitly with `await(response.body:readAll())`; inspect `statusCode` and close

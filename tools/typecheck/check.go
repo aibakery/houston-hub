@@ -56,6 +56,8 @@ local compression: {
 } = nil :: any
 local url: {encode:(string | number | boolean)->string,segment:(string,string?)->string} = nil :: any
 local base64: {encode:(string,{url:boolean?,pad:boolean?,wrap:boolean?}?)->string,decode:(string)->string} = nil :: any
+type ShaDigest = (string,{encoding:("hex" | "base64" | "raw")?}?)->string
+local sha: {sha1:ShaDigest,sha256:ShaDigest,sha512:ShaDigest} = nil :: any
 type DbParam = string | number | boolean
 type DbQuery = {sql:string,params:({DbParam} | {[string]:DbParam})?,maxRows:number?,readOnly:boolean?}
 type DbResult = {columns:{string},rows:{{[string]:any}},truncated:boolean,affectedRows:number?,lastInsertId:number?}

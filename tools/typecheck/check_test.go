@@ -55,6 +55,8 @@ func TestRuntimeIOContracts(t *testing.T) {
 		{"gzip a number", `return compression.gzip(42)`, true},
 		{"base64 helpers", `local encoded:string=base64.encode("x",{url=true,pad=false,wrap=false}); local decoded:string=base64.decode(encoded); return decoded`, false},
 		{"base64 option type", `return base64.encode("x",{wrap=1})`, true},
+		{"sha digests", `local hex:string=sha.sha256("x"); local text:string=sha.sha1("x",{encoding="base64"}); local raw:string=sha.sha512("x",{encoding="raw"}); return base64.encode(raw,{url=true,pad=false})..hex..text`, false},
+		{"sha encoding", `return sha.sha256("x",{encoding="base32"})`, true},
 		{"prefix without a limit", `local res=await(http.request({method="GET",url="https://example.com"})); return res.body:readPrefix()`, true},
 		{"prefix of a file", `return fs.open("x","r"):readPrefix(10)`, true},
 		{"packed nil", `local fd=fs.open("out","w"); local results:PackedResults<nil> = awaitAll({fd:close()},100); local count:number=results.n; return count`, false},
