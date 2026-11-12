@@ -39,17 +39,18 @@ return {
 		assert(table.concat(names, ",") == "cancelBuild,cancelRunExecution,deleteObject,downloadObject,getBucket,getBuild,getInstance,getObject,getProject,getProjectBillingInfo,getRunExecution,getRunJob,getRunOperation,getRunRevision,getRunService,getZoneOperation,listAlertPolicies,listBillingAccounts,listBuckets,listBuildTriggers,listBuilds,listDockerImages,listEnabledServices,listInstances,listLogEntries,listLogs,listObjects,listRepositories,listRunExecutions,listRunJobs,listRunLocations,listRunRevisions,listRunServices,listRunTasks,listTimeSeries,listUptimeChecks,queryPrometheus,queryPrometheusRange,resetInstance,retryBuild,runJob,searchProjects,startInstance,stopInstance,updateRunServiceImage,updateRunServiceTraffic,uploadObject",
 			"read-write got " .. table.concat(names, ","))
 
-		-- An image update replaces containers whole, so it starts from the unredacted service: the real
-		-- environment value goes back to Google and never reaches the caller.
-		local service = '{"name":"projects/p/locations/us-central1/services/api","etag":"\\"e1\\"","template":{"containers":[{"name":"app","image":"old","env":[{"name":"DB_PASSWORD","value":"hunter2"}]},{"name":"sidecar","image":"proxy:1"}]}}'
+		-- An image update sends back the unredacted service it read, with only the image changed: every
+		-- other setting, the real environment value and the etag go back to Google, and the value never
+		-- reaches the caller.
+		local service = '{"name":"projects/p/locations/us-central1/services/api","etag":"\\"e1\\"","ingress":"INGRESS_TRAFFIC_INTERNAL_ONLY","labels":{"team":"core"},"template":{"serviceAccount":"api@p.iam.gserviceaccount.com","scaling":{"minInstanceCount":2},"vpcAccess":{"connector":"projects/p/locations/us-central1/connectors/vpc"},"timeout":"30s","containers":[{"name":"app","image":"old","args":[],"env":[{"name":"DB_PASSWORD","value":"hunter2"}]},{"name":"sidecar","image":"proxy:1"}]},"traffic":[{"type":"TRAFFIC_TARGET_ALLOCATION_TYPE_REVISION","revision":"api-00041-abc","percent":100}]}'
 		local operation = '{"name":"projects/my-project-123/locations/us-central1/operations/op-1","metadata":{"template":{"containers":[{"env":[{"name":"DB_PASSWORD","value":"hunter2"}]}]}}}'
 		responses = {{body = service}, {body = operation}}
 		local result = c.updateRunServiceImage({project = P, location = "us-central1", service = "api", container = "app", image = "us-docker.pkg.dev/p/c/api:v42"})
 		assert(requests[1].method == "GET" and requests[1].url == RUN .. "/services/api")
 		local req = last("PATCH", RUN .. "/services/api?updateMask=template.containers", P)
-		local body = json.decode(req.body)
-		assert(body.etag == '"e1"' and #body.template.containers == 2, req.body)
-		assert(body.template.containers[1].image == "us-docker.pkg.dev/p/c/api:v42" and body.template.containers[1].env[1].value == "hunter2" and body.template.containers[2].image == "proxy:1", req.body)
+		local expected = json.decode(service)
+		expected.template.containers[1].image = "us-docker.pkg.dev/p/c/api:v42"
+		assert(json.encode(json.decode(req.body)) == json.encode(expected), req.body)
 		assert(result.name == "projects/my-project-123/locations/us-central1/operations/op-1" and not string.find(json.encode(result), "hunter2", 1, true))
 		-- With one container, container may be omitted; with several it is required and must exist.
 		responses = {{body = '{"template":{"containers":[{"image":"old"}]}}'}, {body = "{}"}}
