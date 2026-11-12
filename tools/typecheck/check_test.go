@@ -51,6 +51,8 @@ func TestRuntimeIOContracts(t *testing.T) {
 		{"unzip a byte string", `local archive=await(compression.unzip("PK")); local name:string=archive.entries[1].name; return name`, false},
 		{"unzip a stream", `local res=await(http.request({method="GET",url="https://example.com"})); return compression.unzip(res.body)`, true},
 		{"zip method", `return compression.zip({{name="a",body="x",method="bzip2"}})`, true},
+		{"gzip byte strings", `local packed:string=await(compression.gzip(json.encode({a=1})):readAll()); local plain:string=await(compression.gunzip(packed):readAll()); return plain`, false},
+		{"gzip a number", `return compression.gzip(42)`, true},
 		{"base64 helpers", `local encoded:string=base64.encode("x",{url=true,pad=false,wrap=false}); local decoded:string=base64.decode(encoded); return decoded`, false},
 		{"base64 option type", `return base64.encode("x",{wrap=1})`, true},
 		{"prefix without a limit", `local res=await(http.request({method="GET",url="https://example.com"})); return res.body:readPrefix()`, true},
