@@ -6,6 +6,7 @@ return {
 		calls = 0
 		fs = fixture.files()
 		http = {request = function(req)
+			if type(req.body) == "userdata" then req.body = await(req.body:readAll()) end
 			calls += 1
 			assert(string.match(req.url, "^https://[a-z]+%.googleapis%.com/"), req.url)
 			return fixture.operation({statusCode = 200, headers = {}, body = fixture.reader('{"name":"x","template":{"containers":[{"image":"old"}]}}')})

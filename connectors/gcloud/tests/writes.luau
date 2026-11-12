@@ -5,6 +5,7 @@ return {
 		requests, responses = {}, {}
 		fs = fixture.files()
 		http = {request = function(req)
+			if type(req.body) == "userdata" then req.body = await(req.body:readAll()) end
 			assert(req.headers == nil or req.headers.Authorization == nil, "the proxy injects Authorization")
 			table.insert(requests, req)
 			assert(#responses > 0, "unexpected request: " .. req.url)

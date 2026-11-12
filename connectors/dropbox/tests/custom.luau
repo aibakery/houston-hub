@@ -21,6 +21,7 @@ return {
 		local files = {["/reports/report.txt"] = true, ["/incoming/draft.txt"] = true, ["/incoming/approved/approved.txt"] = true,
 			["/incoming/k/secret.txt"] = true, ["/équipe/café.txt"] = true, ["/outside/secret.txt"] = true}
 		http = {request = function(req)
+			if type(req.body) == "userdata" then req.body = await(req.body:readAll()) end
 			table.insert(requests, req)
 			local response
 			if string.find(req.url, "files/get_metadata", 1, true) then
