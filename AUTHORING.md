@@ -223,6 +223,18 @@ Use it for bounded error snippets. Files have no `readPrefix`:
 `await(fd:read(maxBytes))` returns one `{done, data}` chunk of at most `maxBytes`
 bytes.
 
+Byte strings have fixed bounds; anything larger streams through a File or Reader:
+
+- 8 MiB: a connector call's arguments or result as JSON, a string `http.request`
+  body, the default `readAll` limit, and the string bodies of one `http.multipart`
+  or `compression.zip` call together.
+- 16 MiB: the input of `base64.encode`, `base64.decode`, and a string passed to
+  `compression.gzip`, `compression.gunzip` or `compression.unzip`.
+
+Base64 grows bytes by a third, so a JSON request or argument carrying base64 holds
+at most about 6 MiB of file. Say so in the connector's help when a provider
+accepts more, and name the larger route, such as a session file, a URL or save_as.
+
 Neither an error nor a timeout rolls back changes the provider has already
 accepted. Do not automatically replay partial batches or ambiguous writes;
 document how callers can inspect the outcome. Use `awaitAll` for bounded groups
