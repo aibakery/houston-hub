@@ -977,9 +977,10 @@ at multiples of 4 characters.
 `sha.sha1(data, {encoding?})`, `sha.sha256(data, {encoding?})` and
 `sha.sha512(data, {encoding?})` return the FIPS 180-4 digest of a byte string:
 lowercase hex by default, `encoding = "base64"` for standard padded base64 or
-`"raw"` for the digest bytes. They raise `invalid_argument` for non-string data or
-other options. These are plain digests, not signatures; use SHA-1 only where the
-provider requires it. A File or Reader must be read into a string first.
+`"raw"` for the digest bytes. They raise `invalid_argument` for non-string data,
+options other than `encoding`, or another encoding. These are plain digests, not
+signatures; use SHA-1 only where the provider requires it. A File or Reader must
+be read into a string first.
 
 Production helpers should also validate provider-specific error envelopes and
 mutation confirmations, and catch malformed JSON where a structured error helps.
