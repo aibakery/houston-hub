@@ -26,6 +26,7 @@ variable values, instance metadata, build substitutions, and probe and
 uptime-check headers and passwords. Audit log entries show who did what to which
 resource, and whether it worked, without the request or response. This hiding
 is not exhaustive: command-line arguments, build steps and the logs your
-applications write are shown as written. With **Read and write** access, an
+applications write are shown as written, and log searches can still match
+hidden values. With **Read and write** access, an
 image an agent deploys or a job it runs uses that workload's identity and
 secrets, and can print them to logs the agent reads.

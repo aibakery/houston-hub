@@ -186,10 +186,10 @@ local function redact(value: any): any
 		if type(item) ~= "table" then continue end
 		if key == "env" or key == "httpHeaders" then
 			for index, entry in item do
-				if type(index) == "string" then
+				if type(entry) == "table" then
+					if entry.value ~= nil then entry.value = REDACTED end
+				elseif type(index) == "string" then
 					item[index] = REDACTED
-				elseif type(entry) == "table" and entry.value ~= nil then
-					entry.value = REDACTED
 				elseif type(entry) == "string" then
 					item[index] = (string.match(entry, "^[^=]*") or "") .. "=" .. REDACTED
 				end
@@ -212,10 +212,11 @@ end
 local AUDIT_LOG = "type.googleapis.com/google.cloud.audit.AuditLog"
 -- What an audit entry keeps: who did what to which resource, and how it ended. Its request,
 -- response, metadata and original state can echo any resource whole, secrets and IAM policies
--- included, as can the request headers, claims and resource annotations kept for IAM conditions.
+-- included, as can the request headers, claims and resource annotations kept for IAM conditions,
+-- and an error message quoting a rejected value.
 local AUDIT_FIELDS = {
 	["@type"] = true, serviceName = true, methodName = true, resourceName = true, resourceLocation = true, numResponseItems = true,
-	status = {code = true, message = true},
+	status = {code = true},
 	authenticationInfo = {principalEmail = true, principalSubject = true, serviceAccountKeyName = true, oauthInfo = true,
 		serviceAccountDelegationInfo = {principalSubject = true, firstPartyPrincipal = {principalEmail = true}},
 		serviceDelegationHistory = {originalPrincipal = true}},
@@ -224,19 +225,31 @@ local AUDIT_FIELDS = {
 }
 
 -- Copies the allowed fields of an object, or of each object in an array: true keeps a field
--- whole, a table keeps that field's own allowed fields.
+-- whole, a table keeps that field's own allowed fields. Nothing left means nil, so the field
+-- is absent rather than empty.
 local function pick(value: any, fields: {[string]: any}): any
-	if type(value) ~= "table" or next(value) == nil then return value end
+	if type(value) ~= "table" then return value end
 	if value[1] ~= nil then
 		local items = {}
-		for _, item in value do table.insert(items, pick(item, fields)) end
-		return items
+		for _, item in value do
+			local kept = pick(item, fields)
+			if kept ~= nil then table.insert(items, kept) end
+		end
+		return if #items > 0 then items else nil
 	end
 	local kept = {}
 	for name, rule in fields do
 		if value[name] ~= nil then kept[name] = if rule == true then value[name] else pick(value[name], rule) end
 	end
-	return kept
+	return if next(kept) ~= nil then kept else nil
+end
+
+-- Names the allowed fields, nested ones in braces, in a stable order for help.
+local function fieldList(fields: {[string]: any}): string
+	local names = {}
+	for name, rule in fields do table.insert(names, if rule == true then name else name .. "={" .. fieldList(rule) .. "}") end
+	table.sort(names)
+	return table.concat(names, ", ")
 end
 
 -- One request built from args: target() places the path and query fields, body names the JSON body
@@ -448,10 +461,8 @@ logName="projects/p/logs/cloudbuild" with resource.labels.build_id. orderBy is '
 so keep pages of audit logs or large jsonPayload entries to a few hundred. The first project in
 resourceNames is charged the quota: Google allows 60 calls per minute per project, so prefer a
 narrow filter to many calls. An audit entry's protoPayload (@type google.cloud.audit.AuditLog) keeps
-serviceName, methodName, resourceName, resourceLocation, numResponseItems, status={code, message},
-authenticationInfo's principals and OAuth client, authorizationInfo=[{resource, permission, granted,
-permissionType}] and requestMetadata={callerIp, callerSuppliedUserAgent, callerNetwork}; its request,
-response, metadata and other fields are removed.]],
+only these fields, each item of an array keeping its own; its request, response, metadata, error
+message and other fields are removed: ]] .. fieldList(AUDIT_FIELDS) .. ".",
 	inputSchema = {
 		type = "object",
 		properties = {

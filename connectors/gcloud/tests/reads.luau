@@ -195,32 +195,40 @@ return {
 		responses = {{body = json.encode({entries = {
 			{timestamp = "2026-11-07T01:02:03Z", protoPayload = {["@type"] = AUDIT, serviceName = "run.googleapis.com", methodName = "google.cloud.run.v2.Services.UpdateService",
 				resourceName = "projects/my-project-123/locations/us-central1/services/api", resourceLocation = {currentLocations = {"us-central1"}},
-				status = {code = 9, message = "Revision is not ready", details = {{["@type"] = "type.googleapis.com/google.rpc.DebugInfo", detail = "DB_PASSWORD=hunter2"}}},
+				status = {code = 3, message = "Invalid value 'hunter2' for DB_PASSWORD", details = {{["@type"] = "type.googleapis.com/google.rpc.DebugInfo", detail = "DB_PASSWORD=hunter2"}}},
 				authenticationInfo = {principalEmail = "ana@example.com", thirdPartyPrincipal = {claims = {token = "hunter2"}}},
 				authorizationInfo = {{resource = "namespaces/my-project-123/services/api", permission = "run.services.update", granted = true, resourceAttributes = {annotations = {k = "hunter2"}}}},
 				requestMetadata = {callerIp = caller.callerIp, callerSuppliedUserAgent = caller.callerSuppliedUserAgent, requestAttributes = {headers = {authorization = "Bearer hunter2"}}},
+				policyViolationInfo = {orgPolicyViolationInfo = {payload = {k = "hunter2"}}},
 				request = {service = {template = {containers = {{env = {{name = "DB_PASSWORD", value = "hunter2"}}}}}}},
 				response = {spec = {template = {spec = {containers = {{env = {{name = "DB_PASSWORD", value = "hunter2"}}}}}}}},
 				resourceOriginalState = {template = {containers = {{args = {"--password=hunter2"}}}}}, metadata = {k = "hunter2"}}},
 			{protoPayload = {["@type"] = AUDIT, serviceName = "k8s.io", methodName = "io.k8s.apps.v1.deployments.create", resourceName = "apps/v1/namespaces/default/deployments/api",
+				requestMetadata = {requestAttributes = {headers = {authorization = "Bearer hunter2"}}},
 				request = {metadata = {annotations = {["kubectl.kubernetes.io/last-applied-configuration"] = '{"spec":{"template":{"spec":{"containers":[{"env":[{"name":"DB_PASSWORD","value":"hunter2"}]}]}}}}'}}}}},
 			{protoPayload = {["@type"] = AUDIT, serviceName = "cloudresourcemanager.googleapis.com", methodName = "SetIamPolicy", resourceName = "projects/my-project-123",
 				response = {bindings = {{role = "roles/owner", members = {"user:ana@example.com"}}}}, serviceData = {policyDelta = {bindingDeltas = {{action = "ADD", role = "roles/owner"}}}}}},
 			{protoPayload = {["@type"] = AUDIT, serviceName = "compute.googleapis.com", methodName = "v1.compute.projects.setCommonInstanceMetadata",
 				request = {["@type"] = "type.googleapis.com/compute.projects.setCommonInstanceMetadata", items = {{key = "ssh-keys", value = "ana:ssh-ed25519 TOKEN=abc"}}}}},
-			{protoPayload = {["@type"] = "type.googleapis.com/google.appengine.logging.v1.RequestLog", line = {{logMessage = "app-logged"}}, env = {DB_PASSWORD = "map-secret"}}},
+			{protoPayload = {["@type"] = "type.googleapis.com/google.appengine.logging.v1.RequestLog", line = {{logMessage = "app-logged"}},
+				env = {DB_PASSWORD = "map-secret", API_KEY = {secretKeyRef = {name = "api", key = "key"}}},
+				containers = {{env = {{name = "TOKEN", value = "list-secret"}}}}, metadata = {items = {{key = "startup-script", value = "export TOKEN=abc"}}}}},
 			{jsonPayload = {env = {{name = "APP", value = "app-logged"}}}},
 		}})}}
 		local logged = c.listLogEntries({project = P, filter = filter}).entries
 		assert(logged[1].timestamp == "2026-11-07T01:02:03Z" and json.encode(logged[1].protoPayload) == json.encode({["@type"] = AUDIT, serviceName = "run.googleapis.com",
 			methodName = "google.cloud.run.v2.Services.UpdateService", resourceName = "projects/my-project-123/locations/us-central1/services/api",
-			resourceLocation = {currentLocations = {"us-central1"}}, status = {code = 9, message = "Revision is not ready"}, authenticationInfo = {principalEmail = "ana@example.com"},
+			resourceLocation = {currentLocations = {"us-central1"}}, status = {code = 3}, authenticationInfo = {principalEmail = "ana@example.com"},
 			authorizationInfo = {{resource = "namespaces/my-project-123/services/api", permission = "run.services.update", granted = true}}, requestMetadata = caller}), json.encode(logged[1]))
+		-- Nothing allowed left in a field leaves it out, rather than empty.
+		assert(logged[2].protoPayload.methodName == "io.k8s.apps.v1.deployments.create" and logged[2].protoPayload.requestMetadata == nil and logged[2].protoPayload.request == nil)
 		assert(logged[3].protoPayload.methodName == "SetIamPolicy" and logged[3].protoPayload.response == nil and logged[3].protoPayload.serviceData == nil)
-		assert(logged[5].protoPayload.line[1].logMessage == "app-logged" and logged[5].protoPayload.env.DB_PASSWORD == "redacted")
+		local other = logged[5].protoPayload
+		assert(other.line[1].logMessage == "app-logged" and other.env.DB_PASSWORD == "redacted" and other.env.API_KEY.secretKeyRef.name == "api", json.encode(other))
+		assert(other.containers[1].env[1].name == "TOKEN" and other.containers[1].env[1].value == "redacted" and other.metadata.items[1].key == "startup-script", json.encode(other))
 		assert(logged[6].jsonPayload.env[1].value == "app-logged")
 		local audited = json.encode(logged)
-		assert(not string.find(audited, "hunter2", 1, true) and not string.find(audited, "TOKEN=abc", 1, true) and not string.find(audited, "map-secret", 1, true), audited)
+		assert(not string.find(audited, "hunter2", 1, true) and not string.find(audited, "TOKEN=abc", 1, true) and not string.find(audited, "map-secret", 1, true) and not string.find(audited, "list-secret", 1, true), audited)
 
 		-- Errors keep Google's status, message and reason; a disabled API links to its activation page.
 		-- The retry without the header reports a disabled API that the project itself needs.
