@@ -22,7 +22,7 @@ return {
   "cloud": true,
   "group": "account",
   "method": "POST",
-  "name": "disableTwoFactor",
+  "name": "profile.twoFactor.disable",
   "query": [],
   "read": false,
   "result": {
@@ -35,7 +35,7 @@ return {
   "cloud": true,
   "group": "account",
   "method": "POST",
-  "name": "cancelTwoFactorSetup",
+  "name": "profile.twoFactor.cancelSetup",
   "query": [],
   "read": false,
   "result": {
@@ -52,7 +52,7 @@ return {
   "cloud": true,
   "group": "account",
   "method": "POST",
-  "name": "confirmTwoFactorSetup",
+  "name": "profile.twoFactor.confirmSetup",
   "query": [],
   "read": false,
   "result": {
@@ -65,7 +65,7 @@ return {
   "cloud": true,
   "group": "account",
   "method": "POST",
-  "name": "initiateTwoFactorSetup",
+  "name": "profile.twoFactor.initiateSetup",
   "query": [],
   "read": false,
   "result": {
@@ -79,7 +79,7 @@ return {
   "cloud": true,
   "group": "account",
   "method": "GET",
-  "name": "getTwoFactorStatus",
+  "name": "profile.twoFactor.status",
   "query": [],
   "read": true,
   "result": {
@@ -100,7 +100,7 @@ return {
   "cloud": true,
   "group": "administration",
   "method": "POST",
-  "name": "postAdmin2faGlobal",
+  "name": "administration.setTwoFactorPolicy",
   "query": [],
   "read": false,
   "result": {
@@ -114,7 +114,7 @@ return {
   "cloud": true,
   "group": "administration",
   "method": "GET",
-  "name": "getAdminTeams",
+  "name": "administration.teams",
   "query": [],
   "read": true,
   "result": {
@@ -135,7 +135,7 @@ return {
   "cloud": true,
   "group": "administration",
   "method": "POST",
-  "name": "postAdminTeamsTeamId2fa",
+  "name": "administration.setTeamTwoFactorPolicy",
   "query": [],
   "read": false,
   "result": {
@@ -150,7 +150,7 @@ return {
   "cloud": true,
   "group": "administration",
   "method": "GET",
-  "name": "getAdminUsers",
+  "name": "administration.users.list",
   "query": [],
   "read": true,
   "result": {
@@ -168,7 +168,7 @@ return {
   "cloud": true,
   "group": "administration",
   "method": "DELETE",
-  "name": "deleteAdminUsersUserId2fa",
+  "name": "administration.users.twoFactor.disable",
   "query": [],
   "read": false,
   "result": {
@@ -190,7 +190,7 @@ return {
   "cloud": true,
   "group": "administration",
   "method": "GET",
-  "name": "getAdminUsersUserId2fa",
+  "name": "administration.users.twoFactor.status",
   "query": [],
   "read": true,
   "result": {
@@ -208,7 +208,7 @@ return {
   "cloud": true,
   "group": "administration",
   "method": "POST",
-  "name": "postAdminUsersUserId2fa",
+  "name": "administration.users.twoFactor.setPolicy",
   "query": [],
   "read": false,
   "result": {
@@ -223,7 +223,7 @@ return {
   "cloud": true,
   "group": "administration",
   "method": "GET",
-  "name": "getAdminWebsites",
+  "name": "administration.websites",
   "query": [],
   "read": true,
   "result": {
@@ -239,7 +239,7 @@ return {
   "cloud": true,
   "group": "account",
   "method": "POST",
-  "name": "logout",
+  "name": "profile.logout",
   "query": [],
   "read": false,
   "result": {
@@ -252,7 +252,7 @@ return {
   "cloud": true,
   "group": "account",
   "method": "POST",
-  "name": "sso",
+  "name": "profile.sso",
   "query": [],
   "read": false,
   "result": {
@@ -266,7 +266,7 @@ return {
   "cloud": true,
   "group": "account",
   "method": "GET",
-  "name": "getSubscription",
+  "name": "profile.subscription",
   "query": [],
   "read": true,
   "result": {
@@ -283,7 +283,7 @@ return {
   "cloud": true,
   "group": "account",
   "method": "POST",
-  "name": "verify",
+  "name": "profile.verify",
   "query": [],
   "read": true,
   "result": {
@@ -298,7 +298,7 @@ return {
   "cloud": true,
   "group": "collection",
   "method": "POST",
-  "name": "batch",
+  "name": "collection.batch",
   "query": [],
   "read": false,
   "result": {
@@ -315,7 +315,7 @@ return {
   "cloud": true,
   "group": "boards",
   "method": "GET",
-  "name": "getBoards",
+  "name": "boards.list",
   "query": [],
   "read": true,
   "result": {
@@ -336,7 +336,7 @@ return {
   "cloud": true,
   "group": "boards",
   "method": "POST",
-  "name": "createBoard",
+  "name": "boards.create",
   "query": [],
   "read": false,
   "result": {
@@ -359,7 +359,7 @@ return {
   "cloud": true,
   "group": "boards",
   "method": "DELETE",
-  "name": "deleteBoard",
+  "name": "boards.delete",
   "query": [],
   "read": false,
   "result": {
@@ -374,7 +374,7 @@ return {
   "cloud": true,
   "group": "boards",
   "method": "GET",
-  "name": "getBoard",
+  "name": "boards.get",
   "query": [],
   "read": true,
   "result": {
@@ -398,7 +398,7 @@ return {
   "cloud": true,
   "group": "boards",
   "method": "POST",
-  "name": "updateBoard",
+  "name": "boards.update",
   "query": [],
   "read": false,
   "result": {
@@ -422,7 +422,7 @@ return {
   "cloud": true,
   "group": "boards",
   "method": "POST",
-  "name": "cloneBoard",
+  "name": "boards.clone",
   "query": [],
   "read": false,
   "result": {
@@ -441,9 +441,11 @@ return {
 ]]==])
   for _,case in cases do
    responseValue=case.result
-   responseText=case.name=="getScriptsTelemetry"
+   responseText=case.name=="system.telemetryScript"
    local before=json.encode(case.args)
-   local result=c[case.name](case.args)
+   local fn=c
+   for part in string.gmatch(case.name,"[^.]+") do fn=fn[part] end
+   local result=fn(case.args)
    assert(json.encode(result)==json.encode(case.result),"response: "..case.name)
    assert(json.encode(case.args)==before,"mutated input: "..case.name)
    local req=requests[#requests]

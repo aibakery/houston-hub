@@ -19,7 +19,7 @@ return {
   "cloud": true,
   "group": "analytics",
   "method": "GET",
-  "name": "getWebsiteDateRange",
+  "name": "websites.analytics.dateRange",
   "query": [],
   "read": true,
   "result": {
@@ -37,7 +37,7 @@ return {
   "cloud": true,
   "group": "errors",
   "method": "GET",
-  "name": "getWebsiteErrors",
+  "name": "websites.errors.list",
   "query": [
    "endAt=1767312000000",
    "startAt=1767225600000"
@@ -60,7 +60,7 @@ return {
   "cloud": true,
   "group": "errors",
   "method": "GET",
-  "name": "getWebsiteErrorStats",
+  "name": "websites.errors.stats",
   "query": [
    "endAt=1767312000000",
    "startAt=1767225600000"
@@ -86,7 +86,7 @@ return {
   "cloud": true,
   "group": "errors",
   "method": "GET",
-  "name": "getWebsiteErrorValues",
+  "name": "websites.errors.values",
   "query": [
    "endAt=1767312000000",
    "startAt=1767225600000",
@@ -106,7 +106,7 @@ return {
   "cloud": true,
   "group": "errors",
   "method": "GET",
-  "name": "getWebsiteErrorIssue",
+  "name": "websites.errors.issue",
   "query": [
    "endAt=1767312000000",
    "startAt=1767225600000"
@@ -142,7 +142,7 @@ return {
   "cloud": true,
   "group": "errors",
   "method": "PATCH",
-  "name": "updateWebsiteErrorIssue",
+  "name": "websites.errors.updateIssue",
   "query": [],
   "read": false,
   "result": {
@@ -160,7 +160,7 @@ return {
   "cloud": true,
   "group": "errors",
   "method": "GET",
-  "name": "getWebsiteErrorEvents",
+  "name": "websites.errors.events",
   "query": [
    "endAt=1767312000000",
    "startAt=1767225600000"
@@ -183,7 +183,7 @@ return {
   "cloud": true,
   "group": "errors",
   "method": "GET",
-  "name": "getWebsiteErrorEvent",
+  "name": "websites.errors.event",
   "query": [],
   "read": true,
   "result": {
@@ -218,7 +218,7 @@ return {
   "cloud": true,
   "group": "errors",
   "method": "GET",
-  "name": "getWebsiteErrorIssueValues",
+  "name": "websites.errors.issueValues",
   "query": [
    "endAt=1767312000000",
    "startAt=1767225600000",
@@ -237,7 +237,7 @@ return {
   "cloud": true,
   "group": "analytics",
   "method": "GET",
-  "name": "getEventData",
+  "name": "websites.eventData.list",
   "query": [
    "endAt=1767312000000",
    "startAt=1767225600000"
@@ -261,7 +261,7 @@ return {
   "cloud": true,
   "group": "analytics",
   "method": "GET",
-  "name": "getEventDataPivot",
+  "name": "websites.eventData.pivot",
   "query": [
    "endAt=1767312000000",
    "eventName=xxxxxxxx",
@@ -287,7 +287,7 @@ return {
   "cloud": true,
   "group": "analytics",
   "method": "GET",
-  "name": "getEventDataArraySeries",
+  "name": "websites.eventData.arraySeries",
   "query": [
    "endAt=1767312000000",
    "eventName=xxxxxxxx",
@@ -309,7 +309,7 @@ return {
   "cloud": true,
   "group": "analytics",
   "method": "GET",
-  "name": "getEventDataDateSeries",
+  "name": "websites.eventData.dateSeries",
   "query": [
    "endAt=1767312000000",
    "eventName=xxxxxxxx",
@@ -331,7 +331,7 @@ return {
   "cloud": true,
   "group": "analytics",
   "method": "GET",
-  "name": "getEventDataNumericSeries",
+  "name": "websites.eventData.numericSeries",
   "query": [
    "endAt=1767312000000",
    "eventName=xxxxxxxx",
@@ -353,7 +353,7 @@ return {
   "cloud": true,
   "group": "analytics",
   "method": "GET",
-  "name": "getEventDataNumericStats",
+  "name": "websites.eventData.numericStats",
   "query": [
    "endAt=1767312000000",
    "eventName=xxxxxxxx",
@@ -381,7 +381,7 @@ return {
   "cloud": true,
   "group": "analytics",
   "method": "GET",
-  "name": "getEventDataPropertySeries",
+  "name": "websites.eventData.propertySeries",
   "query": [
    "endAt=1767312000000",
    "eventName=xxxxxxxx",
@@ -401,7 +401,7 @@ return {
   "cloud": true,
   "group": "analytics",
   "method": "GET",
-  "name": "getEventDataEvents",
+  "name": "websites.eventData.events",
   "query": [
    "endAt=1767312000000",
    "startAt=1767225600000"
@@ -419,7 +419,7 @@ return {
   "cloud": true,
   "group": "analytics",
   "method": "GET",
-  "name": "getEventDataFields",
+  "name": "websites.eventData.fields",
   "query": [
    "endAt=1767312000000",
    "startAt=1767225600000"
@@ -437,7 +437,7 @@ return {
   "cloud": true,
   "group": "analytics",
   "method": "GET",
-  "name": "getEventDataProperties",
+  "name": "websites.eventData.properties",
   "query": [
    "endAt=1767312000000",
    "startAt=1767225600000"
@@ -455,7 +455,7 @@ return {
   "cloud": true,
   "group": "analytics",
   "method": "GET",
-  "name": "getEventDataStats",
+  "name": "websites.eventData.stats",
   "query": [
    "endAt=1767312000000",
    "startAt=1767225600000"
@@ -478,7 +478,7 @@ return {
   "cloud": true,
   "group": "analytics",
   "method": "GET",
-  "name": "getEventDataValues",
+  "name": "websites.eventData.values",
   "query": [
    "endAt=1767312000000",
    "propertyName=xxxxxxxx",
@@ -496,7 +496,7 @@ return {
   "cloud": true,
   "group": "analytics",
   "method": "GET",
-  "name": "getEventDataById",
+  "name": "websites.eventData.get",
   "query": [],
   "read": true,
   "result": [],
@@ -511,7 +511,7 @@ return {
   "cloud": true,
   "group": "analytics",
   "method": "GET",
-  "name": "getWebsiteEvents",
+  "name": "websites.events.list",
   "query": [
    "endAt=1767312000000",
    "startAt=1767225600000"
@@ -535,7 +535,7 @@ return {
   "cloud": true,
   "group": "analytics",
   "method": "GET",
-  "name": "getWebsiteEventSeries",
+  "name": "websites.events.series",
   "query": [
    "endAt=1767312000000",
    "startAt=1767225600000",
@@ -548,9 +548,11 @@ return {
 ]]==])
   for _,case in cases do
    responseValue=case.result
-   responseText=case.name=="getScriptsTelemetry"
+   responseText=case.name=="system.telemetryScript"
    local before=json.encode(case.args)
-   local result=c[case.name](case.args)
+   local fn=c
+   for part in string.gmatch(case.name,"[^.]+") do fn=fn[part] end
+   local result=fn(case.args)
    assert(json.encode(result)==json.encode(case.result),"response: "..case.name)
    assert(json.encode(case.args)==before,"mutated input: "..case.name)
    local req=requests[#requests]

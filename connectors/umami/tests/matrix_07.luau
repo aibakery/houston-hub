@@ -19,7 +19,7 @@ return {
   "cloud": true,
   "group": "replays",
   "method": "GET",
-  "name": "getWebsiteRecorderConfig",
+  "name": "websites.replays.recorderConfig",
   "query": [],
   "read": true,
   "result": {
@@ -36,7 +36,7 @@ return {
   "cloud": true,
   "group": "replays",
   "method": "GET",
-  "name": "getWebsiteReplays",
+  "name": "websites.replays.list",
   "query": [
    "endAt=1767312000000",
    "startAt=1767225600000"
@@ -57,7 +57,7 @@ return {
   "cloud": true,
   "group": "replays",
   "method": "GET",
-  "name": "getWebsiteSavedReplays",
+  "name": "websites.replays.saved",
   "query": [],
   "read": true,
   "result": {
@@ -76,7 +76,7 @@ return {
   "cloud": true,
   "group": "replays",
   "method": "GET",
-  "name": "getWebsiteReplaySaved",
+  "name": "websites.replays.isSaved",
   "query": [],
   "read": true,
   "result": {
@@ -95,7 +95,7 @@ return {
   "cloud": true,
   "group": "replays",
   "method": "POST",
-  "name": "saveWebsiteReplay",
+  "name": "websites.replays.save",
   "query": [],
   "read": false,
   "result": {
@@ -111,7 +111,7 @@ return {
   "cloud": true,
   "group": "replays",
   "method": "GET",
-  "name": "getWebsiteReplay",
+  "name": "websites.replays.get",
   "query": [],
   "read": true,
   "result": {
@@ -131,7 +131,7 @@ return {
   "cloud": true,
   "group": "websites",
   "method": "POST",
-  "name": "resetWebsite",
+  "name": "websites.reset",
   "query": [],
   "read": false,
   "result": {
@@ -148,7 +148,7 @@ return {
   "cloud": true,
   "group": "analytics",
   "method": "GET",
-  "name": "getWebsiteRetention",
+  "name": "websites.analytics.retention",
   "query": [
    "endAt=1767312000000",
    "startAt=1767225600000"
@@ -167,7 +167,7 @@ return {
   "cloud": true,
   "group": "analytics",
   "method": "GET",
-  "name": "getWebsiteRevenueChart",
+  "name": "websites.revenue.chart",
   "query": [
    "currency=xxxxxxxx",
    "endAt=1767312000000",
@@ -190,7 +190,7 @@ return {
   "cloud": true,
   "group": "analytics",
   "method": "GET",
-  "name": "getWebsiteRevenueMetrics",
+  "name": "websites.revenue.metrics",
   "query": [
    "currency=xxxxxxxx",
    "endAt=1767312000000",
@@ -211,7 +211,7 @@ return {
   "cloud": true,
   "group": "analytics",
   "method": "GET",
-  "name": "getWebsiteRevenueSessions",
+  "name": "websites.revenue.sessions",
   "query": [
    "currency=xxxxxxxx",
    "endAt=1767312000000",
@@ -236,7 +236,7 @@ return {
   "cloud": true,
   "group": "analytics",
   "method": "GET",
-  "name": "getWebsiteRevenueStats",
+  "name": "websites.revenue.stats",
   "query": [
    "currency=xxxxxxxx",
    "endAt=1767312000000",
@@ -256,7 +256,7 @@ return {
   "cloud": true,
   "group": "reports",
   "method": "GET",
-  "name": "getWebsiteSegments",
+  "name": "websites.segments.list",
   "query": [],
   "read": true,
   "result": {
@@ -279,7 +279,7 @@ return {
   "cloud": true,
   "group": "reports",
   "method": "POST",
-  "name": "createWebsiteSegment",
+  "name": "websites.segments.create",
   "query": [],
   "read": false,
   "result": {
@@ -301,7 +301,7 @@ return {
   "cloud": true,
   "group": "reports",
   "method": "DELETE",
-  "name": "deleteWebsiteSegment",
+  "name": "websites.segments.delete",
   "query": [],
   "read": false,
   "result": {
@@ -317,7 +317,7 @@ return {
   "cloud": true,
   "group": "reports",
   "method": "GET",
-  "name": "getWebsiteSegment",
+  "name": "websites.segments.get",
   "query": [],
   "read": true,
   "result": {
@@ -344,7 +344,7 @@ return {
   "cloud": true,
   "group": "reports",
   "method": "POST",
-  "name": "updateWebsiteSegment",
+  "name": "websites.segments.update",
   "query": [],
   "read": false,
   "result": {
@@ -368,7 +368,7 @@ return {
   "cloud": true,
   "group": "analytics",
   "method": "GET",
-  "name": "getSessionDataPivot",
+  "name": "websites.sessionData.pivot",
   "query": [
    "endAt=1767312000000",
    "propertyName=xxxxxxxx",
@@ -393,7 +393,7 @@ return {
   "cloud": true,
   "group": "analytics",
   "method": "GET",
-  "name": "getSessionDataArraySeries",
+  "name": "websites.sessionData.arraySeries",
   "query": [
    "endAt=1767312000000",
    "propertyName=xxxxxxxx",
@@ -413,7 +413,7 @@ return {
   "cloud": true,
   "group": "analytics",
   "method": "GET",
-  "name": "getSessionDataDateSeries",
+  "name": "websites.sessionData.dateSeries",
   "query": [
    "endAt=1767312000000",
    "propertyName=xxxxxxxx",
@@ -433,7 +433,7 @@ return {
   "cloud": true,
   "group": "analytics",
   "method": "GET",
-  "name": "getSessionDataNumericSeries",
+  "name": "websites.sessionData.numericSeries",
   "query": [
    "endAt=1767312000000",
    "propertyName=xxxxxxxx",
@@ -453,7 +453,7 @@ return {
   "cloud": true,
   "group": "analytics",
   "method": "GET",
-  "name": "getSessionDataNumericStats",
+  "name": "websites.sessionData.numericStats",
   "query": [
    "endAt=1767312000000",
    "propertyName=xxxxxxxx",
@@ -478,7 +478,7 @@ return {
   "cloud": true,
   "group": "analytics",
   "method": "GET",
-  "name": "getSessionDataProperties",
+  "name": "websites.sessionData.properties",
   "query": [
    "endAt=1767312000000",
    "startAt=1767225600000"
@@ -497,7 +497,7 @@ return {
   "cloud": true,
   "group": "analytics",
   "method": "GET",
-  "name": "getSessionDataPropertySeries",
+  "name": "websites.sessionData.propertySeries",
   "query": [
    "endAt=1767312000000",
    "propertyName=xxxxxxxx",
@@ -510,9 +510,11 @@ return {
 ]]==])
   for _,case in cases do
    responseValue=case.result
-   responseText=case.name=="getScriptsTelemetry"
+   responseText=case.name=="system.telemetryScript"
    local before=json.encode(case.args)
-   local result=c[case.name](case.args)
+   local fn=c
+   for part in string.gmatch(case.name,"[^.]+") do fn=fn[part] end
+   local result=fn(case.args)
    assert(json.encode(result)==json.encode(case.result),"response: "..case.name)
    assert(json.encode(case.args)==before,"mutated input: "..case.name)
    local req=requests[#requests]

@@ -10,18 +10,18 @@ return {
  end,
  run=function(c)
   responseValue={data=json.decode('[]'),count=0,page=1,pageSize=20}
-  local empty=fixture.example("listWebsites")
+  local empty=fixture.example("websites.list")
   assert(empty.count==0 and json.encode(empty.data)=="[]")
   local req=requests[#requests]
   assert(string.find(req.url,"search=Store",1,true) and string.find(req.url,"includeTeams=true",1,true))
   responseValue={{x="/pricing",y=7}}
-  assert(fixture.example("getWebsiteMetrics")[1].y==7)
+  assert(fixture.example("websites.analytics.metrics")[1].y==7)
   req=requests[#requests]
   assert(string.find(req.url,"country=US",1,true) and string.find(req.url,"browser=Chrome",1,true))
   responseValue=json.decode('[]')
   local args={websiteId="site",type="path",period="7d",filter={path="c./pricing?plan=pro",country1="neq.US,CA",epf0="1.eq.plan.pro",spf0="1.eq.tier.paid"}}
   local snapshot=json.encode(args)
-  assert(json.encode(c.getWebsiteMetrics(args))=="[]")
+  assert(json.encode(c.websites.analytics.metrics(args))=="[]")
   req=requests[#requests]
   assert(string.find(req.url,"path=c.%2Fpricing%3Fplan%3Dpro",1,true))
   assert(string.find(req.url,"country1=neq.US%2CCA",1,true))
@@ -35,12 +35,12 @@ return {
    {websiteId="site",type="path",country="US",filter={country="CA"}},
    {websiteId="site",type="path",limit=0/0},
    {websiteId="site",type="path",body={}},
-  } do assert(not pcall(c.getWebsiteMetrics,bad)) end
+  } do assert(not pcall(c.websites.analytics.metrics,bad)) end
   assert(#requests==before,"invalid arguments reached transport")
   responseValue={data=json.decode('[]'),count=21,page=2,pageSize=20}
-  local page=c.listWebsites({page=2,pageSize=20})
+  local page=c.websites.list({page=2,pageSize=20})
   assert(page.page==2 and page.count==21 and #requests==before+1,"hidden pagination")
-  c.listWebsites({includeTeams=false,page=1})
+  c.websites.list({includeTeams=false,page=1})
   assert(requests[#requests].url=="https://api.umami.is/v1/websites?page=1","false must keep team websites excluded")
  end,
 }

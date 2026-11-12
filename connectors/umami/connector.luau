@@ -1,10 +1,11 @@
--- Umami's native names and JSON shapes are preserved. Every request is one
+-- Umami's JSON shapes are preserved. Resource namespaces guide discovery. Every request is one
 -- bounded operation; endpoint records own routes, access, schemas and help.
 type Options = {[string]: any}
 type Parameter = {name: string, location: string, required: boolean, schema: string, description: string?}
-type Endpoint = {method: string, path: string, group: string, read: boolean, cloud: boolean,
+type Endpoint = {export: string, method: string, path: string, group: string, read: boolean, cloud: boolean,
 	parameters: string, description: string, body: string?, response: string?, text: boolean?, filters: boolean, example: string}
 local endpoints: {[string]: Endpoint} = require("lib/endpoints.luau")
+local namespaceDescriptions: {[string]: string} = require("lib/namespaces.luau")
 local schemas = require("lib/schemas.luau")
 local validate = require("lib/validate.luau")
 local SELF_HOSTED = config.deployment == "self-hosted"
@@ -151,15 +152,17 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 	return value
 end
 
-local lines = {
-		"Umami 3.4.1 API. Call functions directly, without await. Read help('functionName') for complete request/response schemas. Only configured operations are listed.",
+local usage = {
+		"Umami 3.4.1 API. Call functions directly, without await. Read help() on a resource namespace, then help('functionName') for complete request/response schemas. Only configured operations are listed.",
 		"Each function takes one options object: path IDs and query options at the top level, JSON request bodies under body. A filter object accepts the operation's query fields (for example country, browser, path, event, search); do not repeat a field at both levels. Native filter strings preserve Umami operators such as eq.US and c.pricing. match='all' or 'any' applies where listed. Arrays for steps/fields are JSON-encoded automatically.",
 		"Dates use startAt/endAt Unix milliseconds or the operation's documented date/period alternatives. Lists fetch one page: increment page while page*pageSize<count, or use limit/offset where listed. No hidden paging, polling or mutation retries. Smaller pages/date ranges keep JSON responses within 8 MiB. Preserve null with json.decode('null') and empty arrays with json.decode('[]').",
 		"Results retain Umami fields and pagination. batch returns processed/errors/details: inspect each failure before resending. A failed or timed-out write may already have succeeded. HTTP errors include status, provider code/message and Retry-After. Cloud allows 50 calls per 15 seconds; provider roles and feature availability still apply.",
-		"Collection send/batch/record accept cache (the x-umami-cache token returned by send/batch). Nonempty record requires cache and accepts at most 200 events and 1,000,000 encoded bytes. exportWebsite optionally accepts destination to save the provider's base64 ZIP to a session file and return {path,size,url}; without it the original {zip} is returned. getScriptsTelemetry returns JavaScript as text, never executes it.",
+		"Collection send/batch/record accept cache (the x-umami-cache token returned by send/batch). Nonempty record requires cache and accepts at most 200 events and 1,000,000 encoded bytes. websites.export optionally accepts destination to save the provider's base64 ZIP to a session file and return {path,size,url}; without it the original {zip} is returned. system.telemetryScript returns JavaScript as text, never executes it.",
 		"API keys and bearer tokens are configured in connection settings, never operation arguments. Login and two-factor login verification happen outside caller scripts. Account write access includes credential administration and can issue new credentials; grant it only when intended. Cloud hides user-management and password-change operations.",
-		"Examples: listWebsites({page=1,pageSize=20,filter={search='Store',includeTeams=true}}); getWebsiteMetrics({websiteId='123e4567-e89b-42d3-a456-426614174000',startAt=1767225600000,endAt=1767312000000,type='path',filter={country='US',browser='Chrome'}}); createWebsite({body={name='Demo',domain='example.com'}}).",
+		"Examples: websites.list({page=1,pageSize=20,filter={search='Store',includeTeams=true}}); websites.analytics.metrics({websiteId='123e4567-e89b-42d3-a456-426614174000',startAt=1767225600000,endAt=1767312000000,type='path',filter={country='US',browser='Chrome'}}); websites.create({body={name='Demo',domain='example.com'}}).",
 	}
+
+local usageText = table.concat(usage, "\n")
 
 local function expand(schema: any): any
  if type(schema) ~= "table" then return schema end
@@ -171,7 +174,27 @@ local function expand(schema: any): any
  return result
 end
 
-local help = {text = table.concat(lines, "\n"), functions = {} :: {[string]: any}}
+-- Ordinary nested tables are the callable surface. Namespace metadata contains
+-- only local functions/children, so the root overview stays small.
+exports.help = {text = "Umami 3.4.1 API. Explore resource namespaces with help(), then call a namespace's help('functionName') for parameters and examples. Only configured operations are listed.",
+ functions = {}, namespaces = {}, sections = {usage = usageText}}
+local function namespace(path: string): (Options, string)
+ local parts = string.split(path, ".")
+ local node = exports
+ local prefix = ""
+ for index = 1, #parts - 1 do
+  local part = parts[index]
+  prefix = if prefix == "" then part else prefix .. "." .. part
+  if node[part] == nil then
+   local description = namespaceDescriptions[prefix]
+   assert(description ~= nil, "missing namespace summary: " .. prefix)
+   node[part] = {help = {text = description, functions = {}, namespaces = {}, sections = {usage = usageText}}}
+   node.help.namespaces[part] = description
+  end
+  node = node[part]
+ end
+ return node, parts[#parts]
+end
 for name, endpoint in endpoints do
  local access = if config.access == "custom" then config[endpoint.group] else config.access
  if (SELF_HOSTED or endpoint.cloud) and (access == "read-write" or (access == "read-only" and endpoint.read)) then
@@ -201,10 +224,10 @@ for name, endpoint in endpoints do
   elseif name == "getWebsiteMetrics" then input.examples = {{websiteId="123e4567-e89b-42d3-a456-426614174000",startAt=1767225600000,endAt=1767312000000,type="path",filter={country="US",browser="Chrome"}}}
   elseif name == "createWebsite" then input.examples = {{body={name="Demo",domain="example.com"}}} end
   local returns = if endpoint.text then "JavaScript source text (never executed)." elseif endpoint.response then json.encode(expand(schemas[endpoint.response])) else "Provider JSON."
-  help.functions[name] = {description=endpoint.description .. " Access area: " .. endpoint.group .. ". Returns: " .. returns,
+  local node, localName = namespace(endpoint.export)
+  node.help.functions[localName] = {description=endpoint.description .. " Access area: " .. endpoint.group .. ". Read help('usage') for shared request, filter and pagination conventions. Returns: " .. returns,
    inputSchema=input,annotations={readOnlyHint=endpoint.read,openWorldHint=true}}
-  exports[name] = function(args: Options?): any return request(name, endpoint, args) end
+  node[localName] = function(args: Options?): any return request(name, endpoint, args) end
  end
 end
-exports.help = help
 return exports

@@ -19,7 +19,7 @@ return {
   "cloud": true,
   "group": "pixels",
   "method": "GET",
-  "name": "getPixel",
+  "name": "pixels.get",
   "query": [],
   "read": true,
   "result": {
@@ -42,7 +42,7 @@ return {
   "cloud": true,
   "group": "pixels",
   "method": "POST",
-  "name": "updatePixel",
+  "name": "pixels.update",
   "query": [],
   "read": false,
   "result": {
@@ -64,7 +64,7 @@ return {
   "cloud": true,
   "group": "pixels",
   "method": "GET",
-  "name": "getPixelShares",
+  "name": "pixels.shares.list",
   "query": [],
   "read": true,
   "result": {
@@ -85,7 +85,7 @@ return {
   "cloud": true,
   "group": "pixels",
   "method": "POST",
-  "name": "createPixelShare",
+  "name": "pixels.shares.create",
   "query": [],
   "read": false,
   "result": {
@@ -107,7 +107,7 @@ return {
   "cloud": true,
   "group": "analytics",
   "method": "GET",
-  "name": "getRealtime",
+  "name": "websites.analytics.realtime",
   "query": [],
   "read": true,
   "result": {
@@ -142,7 +142,7 @@ return {
   "cloud": true,
   "group": "collection",
   "method": "POST",
-  "name": "record",
+  "name": "collection.record",
   "query": [],
   "read": false,
   "result": {
@@ -155,7 +155,7 @@ return {
   "cloud": true,
   "group": "system",
   "method": "GET",
-  "name": "getScriptsTelemetry",
+  "name": "system.telemetryScript",
   "query": [],
   "read": true,
   "result": "/* telemetry */",
@@ -179,7 +179,7 @@ return {
   "cloud": true,
   "group": "collection",
   "method": "POST",
-  "name": "send",
+  "name": "collection.send",
   "query": [],
   "read": false,
   "result": {
@@ -199,7 +199,7 @@ return {
   "cloud": true,
   "group": "shares",
   "method": "POST",
-  "name": "createShare",
+  "name": "shares.create",
   "query": [],
   "read": false,
   "result": {
@@ -221,7 +221,7 @@ return {
   "cloud": true,
   "group": "shares",
   "method": "DELETE",
-  "name": "deleteShare",
+  "name": "shares.delete",
   "query": [],
   "read": false,
   "result": {
@@ -236,7 +236,7 @@ return {
   "cloud": true,
   "group": "shares",
   "method": "GET",
-  "name": "getShare",
+  "name": "shares.get",
   "query": [],
   "read": true,
   "result": {
@@ -263,7 +263,7 @@ return {
   "cloud": true,
   "group": "shares",
   "method": "POST",
-  "name": "updateShare",
+  "name": "shares.update",
   "query": [],
   "read": false,
   "result": {
@@ -285,7 +285,7 @@ return {
   "cloud": true,
   "group": "shares",
   "method": "GET",
-  "name": "getShareBySlug",
+  "name": "shares.bySlug",
   "query": [],
   "read": true,
   "result": {},
@@ -296,7 +296,7 @@ return {
   "cloud": true,
   "group": "teams",
   "method": "GET",
-  "name": "getTeams",
+  "name": "teams.list",
   "query": [],
   "read": true,
   "result": {
@@ -316,7 +316,7 @@ return {
   "cloud": true,
   "group": "teams",
   "method": "POST",
-  "name": "createTeam",
+  "name": "teams.create",
   "query": [],
   "read": false,
   "result": [
@@ -334,7 +334,7 @@ return {
   "cloud": true,
   "group": "teams",
   "method": "POST",
-  "name": "joinTeam",
+  "name": "teams.join",
   "query": [],
   "read": false,
   "result": {
@@ -354,7 +354,7 @@ return {
   "cloud": true,
   "group": "teams",
   "method": "DELETE",
-  "name": "deleteTeam",
+  "name": "teams.delete",
   "query": [],
   "read": false,
   "result": {
@@ -369,7 +369,7 @@ return {
   "cloud": true,
   "group": "teams",
   "method": "GET",
-  "name": "getTeam",
+  "name": "teams.get",
   "query": [],
   "read": true,
   "result": {
@@ -392,7 +392,7 @@ return {
   "cloud": true,
   "group": "teams",
   "method": "POST",
-  "name": "updateTeam",
+  "name": "teams.update",
   "query": [],
   "read": false,
   "result": {
@@ -414,7 +414,7 @@ return {
   "cloud": true,
   "group": "teams",
   "method": "GET",
-  "name": "getTeamBoards",
+  "name": "teams.boards",
   "query": [],
   "read": true,
   "result": {
@@ -432,7 +432,7 @@ return {
   "cloud": true,
   "group": "teams",
   "method": "GET",
-  "name": "getTeamLinks",
+  "name": "teams.links",
   "query": [],
   "read": true,
   "result": {
@@ -450,7 +450,7 @@ return {
   "cloud": true,
   "group": "teams",
   "method": "GET",
-  "name": "getTeamPixels",
+  "name": "teams.pixels",
   "query": [],
   "read": true,
   "result": {
@@ -468,7 +468,7 @@ return {
   "cloud": true,
   "group": "teams",
   "method": "GET",
-  "name": "getTeamUsers",
+  "name": "teams.members.list",
   "query": [],
   "read": true,
   "result": {
@@ -490,7 +490,7 @@ return {
   "cloud": true,
   "group": "teams",
   "method": "POST",
-  "name": "createTeamUser",
+  "name": "teams.members.create",
   "query": [],
   "read": false,
   "result": {
@@ -506,9 +506,11 @@ return {
 ]]==])
   for _,case in cases do
    responseValue=case.result
-   responseText=case.name=="getScriptsTelemetry"
+   responseText=case.name=="system.telemetryScript"
    local before=json.encode(case.args)
-   local result=c[case.name](case.args)
+   local fn=c
+   for part in string.gmatch(case.name,"[^.]+") do fn=fn[part] end
+   local result=fn(case.args)
    assert(json.encode(result)==json.encode(case.result),"response: "..case.name)
    assert(json.encode(case.args)==before,"mutated input: "..case.name)
    local req=requests[#requests]

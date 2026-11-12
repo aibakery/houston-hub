@@ -20,7 +20,7 @@ return {
   "cloud": true,
   "group": "teams",
   "method": "DELETE",
-  "name": "deleteTeamUser",
+  "name": "teams.members.delete",
   "query": [],
   "read": false,
   "result": {
@@ -36,7 +36,7 @@ return {
   "cloud": true,
   "group": "teams",
   "method": "GET",
-  "name": "getTeamUser",
+  "name": "teams.members.get",
   "query": [],
   "read": true,
   "result": {
@@ -60,7 +60,7 @@ return {
   "cloud": true,
   "group": "teams",
   "method": "POST",
-  "name": "updateTeamUser",
+  "name": "teams.members.update",
   "query": [],
   "read": false,
   "result": {
@@ -80,7 +80,7 @@ return {
   "cloud": true,
   "group": "teams",
   "method": "GET",
-  "name": "getTeamWebsites",
+  "name": "teams.websites",
   "query": [],
   "read": true,
   "result": {
@@ -102,7 +102,7 @@ return {
   "cloud": false,
   "group": "administration",
   "method": "POST",
-  "name": "createUser",
+  "name": "administration.users.create",
   "query": [],
   "read": false,
   "result": {
@@ -119,7 +119,7 @@ return {
   "cloud": false,
   "group": "administration",
   "method": "DELETE",
-  "name": "deleteUser",
+  "name": "administration.users.delete",
   "query": [],
   "read": false,
   "result": {
@@ -134,7 +134,7 @@ return {
   "cloud": false,
   "group": "administration",
   "method": "GET",
-  "name": "getUser",
+  "name": "administration.users.get",
   "query": [],
   "read": true,
   "result": {
@@ -194,7 +194,7 @@ return {
   "cloud": false,
   "group": "administration",
   "method": "POST",
-  "name": "updateUser",
+  "name": "administration.users.update",
   "query": [],
   "read": false,
   "result": {
@@ -212,7 +212,7 @@ return {
   "cloud": false,
   "group": "administration",
   "method": "GET",
-  "name": "getUserTeams",
+  "name": "administration.users.teams",
   "query": [],
   "read": true,
   "result": {
@@ -230,7 +230,7 @@ return {
   "cloud": false,
   "group": "administration",
   "method": "GET",
-  "name": "getUserWebsites",
+  "name": "administration.users.websites",
   "query": [],
   "read": true,
   "result": {
@@ -246,7 +246,7 @@ return {
   "cloud": true,
   "group": "websites",
   "method": "GET",
-  "name": "listWebsites",
+  "name": "websites.list",
   "query": [],
   "read": true,
   "result": {
@@ -267,7 +267,7 @@ return {
   "cloud": true,
   "group": "websites",
   "method": "POST",
-  "name": "createWebsite",
+  "name": "websites.create",
   "query": [],
   "read": false,
   "result": {
@@ -296,7 +296,7 @@ return {
   "cloud": true,
   "group": "websites",
   "method": "GET",
-  "name": "getWebsitesCharts",
+  "name": "websites.charts",
   "query": [
    "endAt=1767312000000",
    "ids=123e4567-e89b-42d3-a456-426614174000",
@@ -315,7 +315,7 @@ return {
   "cloud": true,
   "group": "websites",
   "method": "DELETE",
-  "name": "deleteWebsite",
+  "name": "websites.delete",
   "query": [],
   "read": false,
   "result": {
@@ -330,7 +330,7 @@ return {
   "cloud": true,
   "group": "websites",
   "method": "GET",
-  "name": "getWebsite",
+  "name": "websites.get",
   "query": [],
   "read": true,
   "result": {
@@ -358,7 +358,7 @@ return {
   "cloud": true,
   "group": "websites",
   "method": "POST",
-  "name": "updateWebsite",
+  "name": "websites.update",
   "query": [],
   "read": false,
   "result": {
@@ -385,7 +385,7 @@ return {
   "cloud": true,
   "group": "analytics",
   "method": "GET",
-  "name": "getWebsiteActive",
+  "name": "websites.analytics.active",
   "query": [],
   "read": true,
   "result": {
@@ -402,7 +402,7 @@ return {
   "cloud": true,
   "group": "reports",
   "method": "GET",
-  "name": "getWebsiteAnnotations",
+  "name": "websites.annotations.list",
   "query": [
    "endAt=1767312000000",
    "startAt=1767225600000"
@@ -427,7 +427,7 @@ return {
   "cloud": true,
   "group": "reports",
   "method": "POST",
-  "name": "createWebsiteAnnotation",
+  "name": "websites.annotations.create",
   "query": [],
   "read": false,
   "result": {
@@ -450,7 +450,7 @@ return {
   "cloud": true,
   "group": "reports",
   "method": "DELETE",
-  "name": "deleteWebsiteAnnotation",
+  "name": "websites.annotations.delete",
   "query": [],
   "read": false,
   "result": {
@@ -466,7 +466,7 @@ return {
   "cloud": true,
   "group": "reports",
   "method": "GET",
-  "name": "getWebsiteAnnotation",
+  "name": "websites.annotations.get",
   "query": [],
   "read": true,
   "result": {
@@ -493,7 +493,7 @@ return {
   "cloud": true,
   "group": "reports",
   "method": "POST",
-  "name": "updateWebsiteAnnotation",
+  "name": "websites.annotations.update",
   "query": [],
   "read": false,
   "result": {
@@ -520,7 +520,7 @@ return {
   "cloud": true,
   "group": "analytics",
   "method": "GET",
-  "name": "getWebsiteAttribution",
+  "name": "websites.analytics.attribution",
   "query": [
    "endAt=1767312000000",
    "model=first-click",
@@ -555,7 +555,7 @@ return {
   "cloud": true,
   "group": "analytics",
   "method": "GET",
-  "name": "getWebsiteBreakdown",
+  "name": "websites.analytics.breakdown",
   "query": [
    "endAt=1767312000000",
    "fields=%5B%22browser%22%2C%22country%22%5D",
@@ -568,9 +568,11 @@ return {
 ]]==])
   for _,case in cases do
    responseValue=case.result
-   responseText=case.name=="getScriptsTelemetry"
+   responseText=case.name=="system.telemetryScript"
    local before=json.encode(case.args)
-   local result=c[case.name](case.args)
+   local fn=c
+   for part in string.gmatch(case.name,"[^.]+") do fn=fn[part] end
+   local result=fn(case.args)
    assert(json.encode(result)==json.encode(case.result),"response: "..case.name)
    assert(json.encode(case.args)==before,"mutated input: "..case.name)
    local req=requests[#requests]

@@ -21,7 +21,7 @@ return {
   "cloud": true,
   "group": "analytics",
   "method": "GET",
-  "name": "getWebsiteEventStats",
+  "name": "websites.events.stats",
   "query": [
    "endAt=1767312000000",
    "startAt=1767225600000"
@@ -44,7 +44,7 @@ return {
   "cloud": true,
   "group": "analytics",
   "method": "GET",
-  "name": "exportWebsite",
+  "name": "websites.export",
   "query": [
    "endAt=1767312000000",
    "startAt=1767225600000"
@@ -62,7 +62,7 @@ return {
   "cloud": true,
   "group": "reports",
   "method": "GET",
-  "name": "getWebsiteFunnels",
+  "name": "websites.funnels.list",
   "query": [],
   "read": true,
   "result": {
@@ -96,7 +96,7 @@ return {
   "cloud": true,
   "group": "reports",
   "method": "POST",
-  "name": "createWebsiteFunnel",
+  "name": "websites.funnels.create",
   "query": [],
   "read": false,
   "result": {
@@ -115,7 +115,7 @@ return {
   "cloud": true,
   "group": "reports",
   "method": "GET",
-  "name": "getWebsiteFunnelStats",
+  "name": "websites.funnels.stats",
   "query": [
    "endAt=1767312000000",
    "startAt=1767225600000",
@@ -133,7 +133,7 @@ return {
   "cloud": true,
   "group": "reports",
   "method": "DELETE",
-  "name": "deleteWebsiteFunnel",
+  "name": "websites.funnels.delete",
   "query": [],
   "read": false,
   "result": {
@@ -149,7 +149,7 @@ return {
   "cloud": true,
   "group": "reports",
   "method": "GET",
-  "name": "getWebsiteFunnel",
+  "name": "websites.funnels.get",
   "query": [],
   "read": true,
   "result": {
@@ -181,7 +181,7 @@ return {
   "cloud": true,
   "group": "reports",
   "method": "POST",
-  "name": "updateWebsiteFunnel",
+  "name": "websites.funnels.update",
   "query": [],
   "read": false,
   "result": {
@@ -199,7 +199,7 @@ return {
   "cloud": true,
   "group": "reports",
   "method": "GET",
-  "name": "getWebsiteSavedFunnelStats",
+  "name": "websites.funnels.savedStats",
   "query": [
    "endAt=1767312000000",
    "startAt=1767225600000"
@@ -215,7 +215,7 @@ return {
   "cloud": true,
   "group": "reports",
   "method": "GET",
-  "name": "getWebsiteGoals",
+  "name": "websites.goals.list",
   "query": [],
   "read": true,
   "result": {
@@ -240,7 +240,7 @@ return {
   "cloud": true,
   "group": "reports",
   "method": "POST",
-  "name": "createWebsiteGoal",
+  "name": "websites.goals.create",
   "query": [],
   "read": false,
   "result": {
@@ -259,7 +259,7 @@ return {
   "cloud": true,
   "group": "reports",
   "method": "GET",
-  "name": "getWebsiteGoalStats",
+  "name": "websites.goals.stats",
   "query": [
    "endAt=1767312000000",
    "startAt=1767225600000",
@@ -281,7 +281,7 @@ return {
   "cloud": true,
   "group": "reports",
   "method": "DELETE",
-  "name": "deleteWebsiteGoal",
+  "name": "websites.goals.delete",
   "query": [],
   "read": false,
   "result": {
@@ -297,7 +297,7 @@ return {
   "cloud": true,
   "group": "reports",
   "method": "GET",
-  "name": "getWebsiteGoal",
+  "name": "websites.goals.get",
   "query": [],
   "read": true,
   "result": {
@@ -320,7 +320,7 @@ return {
   "cloud": true,
   "group": "reports",
   "method": "POST",
-  "name": "updateWebsiteGoal",
+  "name": "websites.goals.update",
   "query": [],
   "read": false,
   "result": {
@@ -338,7 +338,7 @@ return {
   "cloud": true,
   "group": "reports",
   "method": "GET",
-  "name": "getWebsiteSavedGoalStats",
+  "name": "websites.goals.savedStats",
   "query": [
    "endAt=1767312000000",
    "startAt=1767225600000"
@@ -359,7 +359,7 @@ return {
   "cloud": true,
   "group": "analytics",
   "method": "GET",
-  "name": "getWebsiteHeatmaps",
+  "name": "websites.replays.heatmaps",
   "query": [
    "endAt=1767312000000",
    "startAt=1767225600000"
@@ -399,7 +399,7 @@ return {
   "cloud": true,
   "group": "analytics",
   "method": "GET",
-  "name": "getWebsiteJourneys",
+  "name": "websites.analytics.journeys",
   "query": [
    "endAt=1767312000000",
    "startAt=1767225600000"
@@ -418,7 +418,7 @@ return {
   "cloud": true,
   "group": "analytics",
   "method": "GET",
-  "name": "getWebsiteMetrics",
+  "name": "websites.analytics.metrics",
   "query": [
    "endAt=1767312000000",
    "startAt=1767225600000",
@@ -438,7 +438,7 @@ return {
   "cloud": true,
   "group": "analytics",
   "method": "GET",
-  "name": "getWebsiteExpandedMetrics",
+  "name": "websites.analytics.expandedMetrics",
   "query": [
    "endAt=1767312000000",
    "startAt=1767225600000",
@@ -457,7 +457,7 @@ return {
   "cloud": true,
   "group": "analytics",
   "method": "GET",
-  "name": "getWebsitePageviews",
+  "name": "websites.analytics.pageviews",
   "query": [
    "endAt=1767312000000",
    "startAt=1767225600000"
@@ -478,7 +478,7 @@ return {
   "cloud": true,
   "group": "analytics",
   "method": "GET",
-  "name": "getWebsitePerformanceChart",
+  "name": "websites.performance.chart",
   "query": [
    "endAt=1767312000000",
    "startAt=1767225600000"
@@ -499,7 +499,7 @@ return {
   "cloud": true,
   "group": "analytics",
   "method": "GET",
-  "name": "getWebsitePerformanceMetrics",
+  "name": "websites.performance.metrics",
   "query": [
    "endAt=1767312000000",
    "startAt=1767225600000",
@@ -518,7 +518,7 @@ return {
   "cloud": true,
   "group": "analytics",
   "method": "GET",
-  "name": "getWebsitePerformanceStats",
+  "name": "websites.performance.stats",
   "query": [
    "endAt=1767312000000",
    "startAt=1767225600000"
@@ -557,9 +557,11 @@ return {
 ]]==])
   for _,case in cases do
    responseValue=case.result
-   responseText=case.name=="getScriptsTelemetry"
+   responseText=case.name=="system.telemetryScript"
    local before=json.encode(case.args)
-   local result=c[case.name](case.args)
+   local fn=c
+   for part in string.gmatch(case.name,"[^.]+") do fn=fn[part] end
+   local result=fn(case.args)
    assert(json.encode(result)==json.encode(case.result),"response: "..case.name)
    assert(json.encode(case.args)==before,"mutated input: "..case.name)
    local req=requests[#requests]

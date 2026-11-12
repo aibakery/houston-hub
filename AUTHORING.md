@@ -88,7 +88,8 @@ The repository's `vet.yaml` enforces this source layout.
 `files` is a required nonempty array of entrypoints. Private imports use exact
 canonical paths relative to the manifest, such as `require("lib/pagination.luau")`.
 Every imported file belongs to the pinned release; imports cannot cross bundles.
-Entrypoints return function maps, without metadata or implicit context arguments.
+Entrypoints return functions or nested namespace tables, plus optional `help`
+metadata, without implicit context arguments.
 Duplicate export names fail publication. Initialization cannot make network calls.
 
 Set the optional root `stateless` boolean to `true` for service credentials that
@@ -678,13 +679,58 @@ rechecks current connection access and the configuration before each
 transport request. Do not infer permission from function names or HTTP verbs.
 Provider and database grants remain authoritative.
 
-Export a pure `help()` function returning a nonempty string for precisely those
-configured functions. Build the text from the same export table, including their
-arguments, return shapes, pagination, and meaningful provider caveats. Houston
+Supply structured `help` metadata for precisely the configured functions: a
+nonempty `text`, local `functions` records with descriptions, JSON Schema input
+schemas and valid examples, and optional prose `sections`. A pure zero-argument
+producer may return the same metadata. Include arguments, return shapes,
+pagination, and meaningful provider caveats. Houston
 evaluates help with native transports disabled and excludes it from the callable
 operation list. Help must be deterministic and must never probe credentials or
 call a provider. Keep README documentation for humans; agent help comes from Luau.
 There is no operation classification sidecar or exported metadata registry.
+
+Large connectors can group operations into plain namespace tables. Each namespace
+owns its local help and may contain child namespaces, up to eight levels. Every
+namespace and its parent supplies help metadata. For example:
+
+```lua
+local websites = {help = {text = "Manage websites.", functions = {}}}
+websites.help.functions.list = {
+    description = "List websites.",
+    inputSchema = {
+        type = "object",
+        properties = {page = {type = "integer", minimum = 1}},
+        examples = {{page = 1}},
+    },
+}
+function websites.list(options)
+    return listWebsites(options) -- The connector's private request helper.
+end
+return {
+    websites = websites,
+    help = {text = "Analytics.", functions = {},
+        namespaces = {websites = "Manage websites."}},
+}
+```
+
+Scripts call `connection.websites.list({page=1})`. Root `help()` shows immediate
+functions and namespaces; `connection.websites.help()` shows that namespace's
+index, and `.help("list")` shows the complete function reference. Each scope's
+`.functions` and `.namespaces` lists its immediate children. Namespace summaries
+come from child help text unless supplied in the optional `help.namespaces` map.
+Omit disabled operations and their documentation together, and omit namespaces
+with no enabled operations. Namespace export tables must be plain and acyclic;
+names cannot contain dots. Nested scopes reserve `help`, `functions`, and
+`namespaces`; root connection metadata names also remain reserved at the root.
+
+Fixtures call the same nested tables and use qualified names such as
+`fixture.example("websites.list")` for schema examples. Internally, discovery and
+invocation identify leaf operations by these qualified paths; native access and
+transport checks apply to every leaf. Legacy flat exports and string help remain
+supported. New and substantively reworked connectors use structured records.
+Namespace-bearing fixtures also expose scoped `help`, `functions`, and
+`namespaces` for testing discovery. Existing flat fixtures retain their
+operation-only table; production connections always have discovery metadata.
 
 Provider functions validate their arguments and upstream responses. Keep plain-data
 boundaries, nonempty IDs, finite safe integer sizes, explicit empty arrays, unique

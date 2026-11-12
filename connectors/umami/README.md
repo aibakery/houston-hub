@@ -24,5 +24,4 @@ files in the execution session. Large date ranges and replays may require smalle
 queries to stay within the response limit.
 
 See [setup](SETUP.md) to connect an account and [API coverage](COVERAGE.md) for the
-reviewed endpoint inventory. Callable details and examples are available through
-the connection's `help()`.
+reviewed endpoint inventory.

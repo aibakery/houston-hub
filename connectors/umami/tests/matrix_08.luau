@@ -22,7 +22,7 @@ return {
   "cloud": true,
   "group": "analytics",
   "method": "GET",
-  "name": "getSessionDataStats",
+  "name": "websites.sessionData.stats",
   "query": [
    "endAt=1767312000000",
    "propertyName=xxxxxxxx",
@@ -41,7 +41,7 @@ return {
   "cloud": true,
   "group": "analytics",
   "method": "GET",
-  "name": "getSessionDataValues",
+  "name": "websites.sessionData.values",
   "query": [
    "endAt=1767312000000",
    "startAt=1767225600000"
@@ -59,7 +59,7 @@ return {
   "cloud": true,
   "group": "analytics",
   "method": "GET",
-  "name": "getWebsiteSessions",
+  "name": "websites.sessions.list",
   "query": [
    "endAt=1767312000000",
    "startAt=1767225600000"
@@ -82,7 +82,7 @@ return {
   "cloud": true,
   "group": "analytics",
   "method": "GET",
-  "name": "getWebsiteSessionStats",
+  "name": "websites.sessions.stats",
   "query": [
    "endAt=1767312000000",
    "startAt=1767225600000"
@@ -101,7 +101,7 @@ return {
   "cloud": true,
   "group": "analytics",
   "method": "GET",
-  "name": "getWebsiteSessionsWeekly",
+  "name": "websites.sessions.weekly",
   "query": [
    "endAt=1767312000000",
    "startAt=1767225600000",
@@ -119,7 +119,7 @@ return {
   "cloud": true,
   "group": "analytics",
   "method": "DELETE",
-  "name": "deleteWebsiteSession",
+  "name": "websites.sessions.delete",
   "query": [],
   "read": false,
   "result": {
@@ -135,7 +135,7 @@ return {
   "cloud": true,
   "group": "analytics",
   "method": "GET",
-  "name": "getWebsiteSession",
+  "name": "websites.sessions.get",
   "query": [],
   "read": true,
   "result": {
@@ -171,7 +171,7 @@ return {
   "cloud": true,
   "group": "analytics",
   "method": "GET",
-  "name": "getWebsiteSessionActivity",
+  "name": "websites.sessions.activity",
   "query": [
    "endAt=1767312000000",
    "startAt=1767225600000"
@@ -188,7 +188,7 @@ return {
   "cloud": true,
   "group": "analytics",
   "method": "GET",
-  "name": "getWebsiteSessionProperties",
+  "name": "websites.sessions.properties",
   "query": [],
   "read": true,
   "result": [],
@@ -204,7 +204,7 @@ return {
   "cloud": true,
   "group": "replays",
   "method": "GET",
-  "name": "getWebsiteSessionReplays",
+  "name": "websites.sessions.replays",
   "query": [
    "endAt=1767312000000",
    "startAt=1767225600000"
@@ -225,7 +225,7 @@ return {
   "cloud": true,
   "group": "shares",
   "method": "GET",
-  "name": "getWebsiteShares",
+  "name": "websites.shares.list",
   "query": [],
   "read": true,
   "result": {
@@ -246,7 +246,7 @@ return {
   "cloud": true,
   "group": "shares",
   "method": "POST",
-  "name": "createWebsiteShare",
+  "name": "websites.shares.create",
   "query": [],
   "read": false,
   "result": {
@@ -270,7 +270,7 @@ return {
   "cloud": true,
   "group": "analytics",
   "method": "GET",
-  "name": "getWebsiteStats",
+  "name": "websites.analytics.stats",
   "query": [
    "endAt=1767312000000",
    "startAt=1767225600000"
@@ -300,7 +300,7 @@ return {
   "cloud": true,
   "group": "websites",
   "method": "POST",
-  "name": "transferWebsite",
+  "name": "websites.transfer",
   "query": [],
   "read": false,
   "result": {
@@ -329,7 +329,7 @@ return {
   "cloud": true,
   "group": "analytics",
   "method": "GET",
-  "name": "getWebsiteUtmMetrics",
+  "name": "websites.analytics.utmMetrics",
   "query": [
    "endAt=1767312000000",
    "startAt=1767225600000",
@@ -349,7 +349,7 @@ return {
   "cloud": true,
   "group": "analytics",
   "method": "GET",
-  "name": "getWebsiteValues",
+  "name": "websites.analytics.values",
   "query": [
    "endAt=1767312000000",
    "startAt=1767225600000",
@@ -362,9 +362,11 @@ return {
 ]]==])
   for _,case in cases do
    responseValue=case.result
-   responseText=case.name=="getScriptsTelemetry"
+   responseText=case.name=="system.telemetryScript"
    local before=json.encode(case.args)
-   local result=c[case.name](case.args)
+   local fn=c
+   for part in string.gmatch(case.name,"[^.]+") do fn=fn[part] end
+   local result=fn(case.args)
    assert(json.encode(result)==json.encode(case.result),"response: "..case.name)
    assert(json.encode(case.args)==before,"mutated input: "..case.name)
    local req=requests[#requests]

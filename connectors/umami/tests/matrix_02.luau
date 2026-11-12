@@ -19,7 +19,7 @@ return {
   "cloud": true,
   "group": "boards",
   "method": "GET",
-  "name": "getBoardShares",
+  "name": "boards.shares.list",
   "query": [],
   "read": true,
   "result": {
@@ -40,7 +40,7 @@ return {
   "cloud": true,
   "group": "boards",
   "method": "POST",
-  "name": "createBoardShare",
+  "name": "boards.shares.create",
   "query": [],
   "read": false,
   "result": {
@@ -60,7 +60,7 @@ return {
   "cloud": true,
   "group": "boards",
   "method": "GET",
-  "name": "getDashboard",
+  "name": "boards.dashboard.get",
   "query": [],
   "read": true,
   "result": {
@@ -83,7 +83,7 @@ return {
   "cloud": true,
   "group": "boards",
   "method": "POST",
-  "name": "postDashboard",
+  "name": "boards.dashboard.update",
   "query": [],
   "read": false,
   "result": {
@@ -104,7 +104,7 @@ return {
   "cloud": true,
   "group": "system",
   "method": "GET",
-  "name": "getHeartbeat",
+  "name": "system.heartbeat",
   "query": [],
   "read": true,
   "result": {
@@ -117,7 +117,7 @@ return {
   "cloud": true,
   "group": "links",
   "method": "GET",
-  "name": "getLinks",
+  "name": "links.list",
   "query": [],
   "read": true,
   "result": {
@@ -139,7 +139,7 @@ return {
   "cloud": true,
   "group": "links",
   "method": "POST",
-  "name": "createLink",
+  "name": "links.create",
   "query": [],
   "read": false,
   "result": {
@@ -164,7 +164,7 @@ return {
   "cloud": true,
   "group": "links",
   "method": "GET",
-  "name": "getLinksCharts",
+  "name": "links.charts",
   "query": [
    "endAt=1767312000000",
    "ids=123e4567-e89b-42d3-a456-426614174000",
@@ -183,7 +183,7 @@ return {
   "cloud": true,
   "group": "links",
   "method": "DELETE",
-  "name": "deleteLink",
+  "name": "links.delete",
   "query": [],
   "read": false,
   "result": {
@@ -198,7 +198,7 @@ return {
   "cloud": true,
   "group": "links",
   "method": "GET",
-  "name": "getLink",
+  "name": "links.get",
   "query": [],
   "read": true,
   "result": {
@@ -222,7 +222,7 @@ return {
   "cloud": true,
   "group": "links",
   "method": "POST",
-  "name": "updateLink",
+  "name": "links.update",
   "query": [],
   "read": false,
   "result": {
@@ -245,7 +245,7 @@ return {
   "cloud": true,
   "group": "links",
   "method": "GET",
-  "name": "getLinkShares",
+  "name": "links.shares.list",
   "query": [],
   "read": true,
   "result": {
@@ -266,7 +266,7 @@ return {
   "cloud": true,
   "group": "links",
   "method": "POST",
-  "name": "createLinkShare",
+  "name": "links.shares.create",
   "query": [],
   "read": false,
   "result": {
@@ -286,7 +286,7 @@ return {
   "cloud": true,
   "group": "account",
   "method": "GET",
-  "name": "getMe",
+  "name": "profile.get",
   "query": [],
   "read": true,
   "result": {},
@@ -297,7 +297,7 @@ return {
   "cloud": true,
   "group": "account",
   "method": "GET",
-  "name": "getMyApiKeys",
+  "name": "profile.apiKeys.list",
   "query": [],
   "read": true,
   "result": [],
@@ -312,7 +312,7 @@ return {
   "cloud": true,
   "group": "account",
   "method": "POST",
-  "name": "createMyApiKey",
+  "name": "profile.apiKeys.create",
   "query": [],
   "read": false,
   "result": {
@@ -331,7 +331,7 @@ return {
   "cloud": true,
   "group": "account",
   "method": "DELETE",
-  "name": "deleteMyApiKey",
+  "name": "profile.apiKeys.delete",
   "query": [],
   "read": false,
   "result": {
@@ -349,7 +349,7 @@ return {
   "cloud": false,
   "group": "account",
   "method": "POST",
-  "name": "updateMyPassword",
+  "name": "profile.updatePassword",
   "query": [],
   "read": false,
   "result": {
@@ -365,7 +365,7 @@ return {
   "cloud": true,
   "group": "account",
   "method": "GET",
-  "name": "getMyTeams",
+  "name": "profile.teams",
   "query": [],
   "read": true,
   "result": {
@@ -381,7 +381,7 @@ return {
   "cloud": true,
   "group": "account",
   "method": "GET",
-  "name": "getMyWebsites",
+  "name": "profile.websites",
   "query": [],
   "read": true,
   "result": {
@@ -397,7 +397,7 @@ return {
   "cloud": true,
   "group": "pixels",
   "method": "GET",
-  "name": "getPixels",
+  "name": "pixels.list",
   "query": [],
   "read": true,
   "result": {
@@ -418,7 +418,7 @@ return {
   "cloud": true,
   "group": "pixels",
   "method": "POST",
-  "name": "createPixel",
+  "name": "pixels.create",
   "query": [],
   "read": false,
   "result": {
@@ -442,7 +442,7 @@ return {
   "cloud": true,
   "group": "pixels",
   "method": "GET",
-  "name": "getPixelsCharts",
+  "name": "pixels.charts",
   "query": [
    "endAt=1767312000000",
    "ids=123e4567-e89b-42d3-a456-426614174000",
@@ -461,7 +461,7 @@ return {
   "cloud": true,
   "group": "pixels",
   "method": "DELETE",
-  "name": "deletePixel",
+  "name": "pixels.delete",
   "query": [],
   "read": false,
   "result": {
@@ -472,9 +472,11 @@ return {
 ]]==])
   for _,case in cases do
    responseValue=case.result
-   responseText=case.name=="getScriptsTelemetry"
+   responseText=case.name=="system.telemetryScript"
    local before=json.encode(case.args)
-   local result=c[case.name](case.args)
+   local fn=c
+   for part in string.gmatch(case.name,"[^.]+") do fn=fn[part] end
+   local result=fn(case.args)
    assert(json.encode(result)==json.encode(case.result),"response: "..case.name)
    assert(json.encode(case.args)==before,"mutated input: "..case.name)
    local req=requests[#requests]

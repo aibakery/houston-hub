@@ -10,19 +10,19 @@ return {
   end}
  end,
  run=function(c)
-  local ok,err=pcall(c.getMe)
+  local ok,err=pcall(c.profile.get)
   assert(not ok and string.find(tostring(err),"429",1,true) and string.find(tostring(err),"Retry-After: 15",1,true))
   assert(calls==1,"connector must not replay a rate-limited request")
   status=500
-  ok,err=pcall(c.createWebsite,{body={name="Demo",domain="example.com"}})
+  ok,err=pcall(c.websites.create,{body={name="Demo",domain="example.com"}})
   assert(not ok and calls==2,"mutation was replayed")
   status=200
   for _,body in {"not JSON",'{"error":{"message":"failure"}}','{"ok":false}',"{}","null"} do
    raw=body
-   assert(not pcall(c.createWebsite,{body={name="Demo",domain="example.com"}}))
+   assert(not pcall(c.websites.create,{body={name="Demo",domain="example.com"}}))
   end
   status=302
   raw="redirect"
-  assert(not pcall(c.getMe))
+  assert(not pcall(c.profile.get))
  end,
 }
