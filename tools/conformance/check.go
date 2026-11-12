@@ -119,7 +119,7 @@ func Check(ctx context.Context, binary string, m manifest.Manifest, modules, fix
 		if _, ok := resolved.PublicConfig["access"]; !ok {
 			resolved.PublicConfig["access"] = "read-only"
 		}
-		input := map[string]any{"files": m.Files, "modules": modules, "config": resolved.PublicConfig, "protocol": m.Proxy[resolved.ProxyIndices[0]].Match.Protocol, "args": []any{}}
+		input := map[string]any{"files": m.Files, "modules": modules, "config": resolved.PublicConfig, "protocol": m.Proxy[resolved.ProxyIndices[0]].Match.Protocol, "args": []any{}, "structured_help": true}
 		for fact := range scenario.Facts {
 			if _, declared := m.Auth[scenario.AuthMethod].TokenResponse.Facts[fact]; !declared {
 				return fmt.Errorf("fixture %s fact %s is not declared by auth method %q", name, fact, scenario.AuthMethod)
@@ -136,18 +136,13 @@ func Check(ctx context.Context, binary string, m manifest.Manifest, modules, fix
 			}
 		}
 		input["auth"] = m.DiscoveryAuth(scenario.AuthMethod, scenario.GrantedScopes, scenario.Facts)
-		var output struct {
-			Type    string   `json:"type"`
-			Exports []string `json:"exports"`
-			Help    string   `json:"help"`
-			Returns []any    `json:"returns"`
+		type result struct {
+			Type    string         `json:"type"`
+			Exports []string       `json:"exports"`
+			Help    map[string]any `json:"help"`
+			Returns []any          `json:"returns"`
 		}
-		var discovery struct {
-			Type    string   `json:"type"`
-			Exports []string `json:"exports"`
-			Help    string   `json:"help"`
-			Returns []any    `json:"returns"`
-		}
+		var output, discovery result
 		if err := call(ctx, binary, "connector-host", input, &discovery); err != nil || discovery.Type != "result" {
 			return fmt.Errorf("fixture %s initialization failed", name)
 		}
@@ -160,10 +155,11 @@ func Check(ctx context.Context, binary string, m manifest.Manifest, modules, fix
 		if !reflect.DeepEqual(discovery.Exports, output.Exports) {
 			return fmt.Errorf("fixture %s changed configured exports", name)
 		}
-		if strings.TrimSpace(discovery.Help) == "" {
+		text, _ := discovery.Help["text"].(string)
+		if strings.TrimSpace(text) == "" {
 			return fmt.Errorf("fixture %s requires connector Lua help", name)
 		}
-		if discovery.Help != output.Help {
+		if !reflect.DeepEqual(discovery.Help, output.Help) {
 			return fmt.Errorf("fixture %s changed configured help", name)
 		}
 		methods[scenario.AuthMethod] = true

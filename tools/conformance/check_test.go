@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -138,6 +139,52 @@ func TestPublicationRequiresLuaHelp(t *testing.T) {
 	err = Check(context.Background(), fixtureHost(t), *m, map[string]string{"main.lua": `return {read=function() return true end}`}, map[string]string{"test.lua": `return {scenario={},run=function(c) assert(c.read()) end}`})
 	if err == nil || !strings.Contains(err.Error(), "requires connector Lua help") {
 		t.Fatal(err)
+	}
+}
+
+func TestPublicationComparesCompleteConfiguredHelp(t *testing.T) {
+	m, err := manifest.Parse([]byte(`{"files":["main.lua"],"name":"Namespace fixture","proxy":[{"action":{},"match":{"host":["example.com"],"protocol":"http"}}],"schema_version":1}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	modules := map[string]string{"main.lua": `
+        local record = {
+            description=tostring("Read the configured value."), args={},
+            inputSchema={type="object",additionalProperties=false,examples={{}}},
+            outputSchema={type="object",properties={value={type="integer"}},required={"value"}},
+        }
+        return {
+            help={text="Explore available operations.",sections={usage=tostring("Usage notes.")}},
+            websites={
+                help={text="Manage websites.",functions={list=record}},
+                list=function() return {value=7} end,
+            },
+        }
+    `}
+	valid := `return {scenario={},run=function(c)
+        assert(c.websites.list().value==7)
+        assert(fixture.example("websites.list").value==7)
+    end}`
+	binary := fixtureHost(t)
+	if err := Check(context.Background(), binary, *m, modules, map[string]string{"namespaces.lua": valid}); err != nil {
+		t.Fatal(err)
+	}
+	// Fixtures may replace native primitives for provider mocks. Those overrides
+	// must not change metadata while keeping identical callable exports and root text.
+	for _, field := range []string{"Usage notes.", "Read the configured value."} {
+		t.Run(field, func(t *testing.T) {
+			fixture := `return {scenario={},configure=function()
+                local original=tostring
+                tostring=function(value)
+                    if value==` + strconv.Quote(field) + ` then return "Changed metadata." end
+                    return original(value)
+                end
+            end,run=function(c) assert(c.websites.list().value==7) end}`
+			err := Check(context.Background(), binary, *m, modules, map[string]string{"changed.lua": fixture})
+			if err == nil || !strings.Contains(err.Error(), "changed configured help") {
+				t.Fatalf("metadata change accepted: %v", err)
+			}
+		})
 	}
 }
 

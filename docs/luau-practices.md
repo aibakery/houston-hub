@@ -20,6 +20,13 @@ Use a simple ID argument for a simple lookup. Prefer a typed options table when 
 call has several related choices: named fields explain what each value means and
 leave room for optional additions without positional placeholders.
 
+When a collection can be filtered by several record properties, expose one list
+or query operation with a filter object. Combine the provider's supported criteria
+there instead of adding a separate list function for every property. Preserve
+provider filtering, sorting and pagination semantics; do not fetch every page to
+simulate a filter locally. Reject unsupported filters rather than silently
+returning a broader result.
+
 ```lua
 -- A caller can see what both values mean.
 local message = mail.getMessage({
