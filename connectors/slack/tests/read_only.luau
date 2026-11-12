@@ -17,7 +17,7 @@ return {
 		end
 		table.sort(names)
 		assert(table.concat(names, ",") == "downloadFile,getChannel,getFile,getPermalink,getProfile,getThread,getUser,"
-			.. "listChannels,listMembers,listMentions,listMessages,listUsers,searchMessages",
+			.. "listChannels,listMembers,listMessages,listUsers",
 			"read-only exposes only reads: " .. table.concat(names, ","))
 
 		responses = {'{"ok":true,"channels":[],"response_metadata":{"next_cursor":""}}'}

@@ -361,6 +361,11 @@ during initialization. Unknown upstream restrictions must produce clear errors
 when an operation is invoked. Publication fixtures can set synthetic
 `scenario.granted_scopes` to test known OAuth restrictions.
 
+When `scope_parameter` names another parameter, such as Slack's `user_scope`,
+`authorize_params` may also set `scope`. Slack uses this to grant the app's own
+bot scopes on the same consent screen. Houston doesn't check those grants, and
+`token_response` still selects the only credentials it keeps.
+
 For "app install" providers whose code exchange names the installed workspace or
 server, an OAuth method can bind public facts from the initial token response:
 `"token_response": {"facts": {"guild_id": "/guild/id"}, "label": "/guild/name"}`.
@@ -383,6 +388,19 @@ in `token_response`. Houston then keeps the requested scopes on the exchange and
 the previous ones on every refresh. The flag requires `checks` that prove the
 grant another way (for Discord, `{"op": "exists", "path": "/guild/id"}`), and it
 cannot be combined with `scopes` or set in `refresh_response`.
+
+When a provider can revoke Houston's access outside Houston, for example when a
+user removes the app in the provider's settings, declare `revoked` checks so Houston
+can delete the stored credential. They use the same shape as `checks`, but a single
+passing check is enough. Each one must use `equals`, on a path that `checks` don't
+test. Put them on `refresh_response`, for refresh errors that prove revocation,
+and on `account`, which Houston then requests about once a day for each
+connection. Houston evaluates them only on 2xx response bodies, so they suit
+providers that report errors with HTTP 200, as Slack does. When one passes,
+Houston removes the connection and its credential. Match only error codes that
+prove revocation, never configuration or rate-limit errors. Slack, for example, declares
+`{"op": "equals", "path": "/error", "value": "token_revoked"}`
+(see the [Slack manifest](connectors/slack/houston.json)).
 
 Luau selects the exports from the connection's public config. Discovery is
 recomputed from the current connection release, settings and authentication

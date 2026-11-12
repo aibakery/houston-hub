@@ -313,7 +313,16 @@
           "type": "object"
         },
         "token_response": {
-          "$ref": "#/$defs/TokenResponse"
+          "allOf": [
+            {
+              "$ref": "#/$defs/TokenResponse"
+            },
+            {
+              "properties": {
+                "revoked": false
+              }
+            }
+          ]
         },
         "token_url": {
           "type": "string"
@@ -742,6 +751,13 @@
             "POST"
           ],
           "type": "string"
+        },
+        "revoked": {
+          "description": "Checks on an account response, which Houston requests about once a day. Equals checks, on paths that checks never test, evaluated on 2xx responses. Any listed check that passes proves the provider revoked the grant, and Houston removes the connection.",
+          "items": {
+            "$ref": "#/$defs/ResponseCheck"
+          },
+          "type": "array"
         },
         "url": {
           "type": "string"
@@ -1192,6 +1208,13 @@
         },
         "refresh_token": {
           "type": "string"
+        },
+        "revoked": {
+          "description": "refresh_response only: checks on a refresh response. Equals checks, on paths that checks never test, evaluated on 2xx responses. Any listed check that passes proves the provider revoked the grant, and Houston removes the connection.",
+          "items": {
+            "$ref": "#/$defs/ResponseCheck"
+          },
+          "type": "array"
         },
         "scopes": {
           "type": "string"

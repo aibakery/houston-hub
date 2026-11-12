@@ -441,6 +441,22 @@ func validateResponse(r TokenResponse) error {
 	return validateChecks(r.Checks)
 }
 
+// validateRevoked keeps revocation proof narrow: a match deletes the connection, so
+// each check names an exact value on a path the success checks never test.
+func validateRevoked(revoked, checks []ResponseCheck) error {
+	for _, c := range revoked {
+		if c.Op != "equals" {
+			return fmt.Errorf("revoked checks require equals")
+		}
+		for _, s := range checks {
+			if overlapPointer(c.Path, s.Path) {
+				return fmt.Errorf("revoked checks cannot test a path that checks test")
+			}
+		}
+	}
+	return validateChecks(revoked)
+}
+
 // MaxFacts bounds the public values one OAuth authorization can bind to a connection.
 const MaxFacts = 16
 
@@ -451,6 +467,9 @@ func validateInitialResponse(a AuthMethod) error {
 	r := ResponseDefaults(a.TokenResponse)
 	if len(a.RefreshResponse.Facts) > 0 || a.RefreshResponse.Label != "" || a.RefreshResponse.ScopesUnreported {
 		return fmt.Errorf("refresh_response forbids facts, label and scopes_unreported")
+	}
+	if len(r.Revoked) > 0 {
+		return fmt.Errorf("token_response forbids revoked; declare it on refresh_response or account")
 	}
 	if r.ScopesUnreported && len(r.Checks) == 0 {
 		return fmt.Errorf("token_response.scopes_unreported requires checks that prove the grant")
@@ -531,7 +550,7 @@ func (m *Manifest) validateOAuth(key string, a AuthMethod, used map[string]bool)
 	}
 	for mode, params := range map[string]map[string]string{"public": a.AuthorizeParams, "token": a.TokenParams, "refresh": a.RefreshParams} {
 		for k, v := range params {
-			if !paramRE.MatchString(k) || reservedParams[k] || k == "scope" || k == a.ScopeParameter {
+			if !paramRE.MatchString(k) || reservedParams[k] || k == a.ScopeParameter || k == "scope" && mode != "public" {
 				return fmt.Errorf("reserved or invalid OAuth parameter %s", k)
 			}
 			sink := mode
@@ -550,6 +569,9 @@ func (m *Manifest) validateOAuth(key string, a AuthMethod, used map[string]bool)
 		return e
 	}
 	if e := validateInitialResponse(a); e != nil {
+		return e
+	}
+	if e := validateRevoked(a.RefreshResponse.Revoked, a.RefreshResponse.Checks); e != nil {
 		return e
 	}
 	if e := m.validateAccount(a, used); e != nil {
@@ -609,6 +631,9 @@ func (m *Manifest) validateAccount(a AuthMethod, used map[string]bool) error {
 			return fmt.Errorf("invalid account label pointer")
 		}
 		if e := validateChecks(c.Checks); e != nil {
+			return e
+		}
+		if e := validateRevoked(c.Revoked, c.Checks); e != nil {
 			return e
 		}
 		if e := m.validateHeaders(c.Headers, used); e != nil {

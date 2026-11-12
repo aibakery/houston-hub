@@ -139,6 +139,10 @@ func Schema() ([]byte, error) {
 		},
 	}
 
+	revoked := "Equals checks, on paths that checks never test, evaluated on 2xx responses. Any listed check that passes proves the provider revoked the grant, and Houston removes the connection."
+	props("TokenResponse")["revoked"].(map[string]any)["description"] = "refresh_response only: checks on a refresh response. " + revoked
+	props("OAuthAccount")["revoked"].(map[string]any)["description"] = "Checks on an account response, which Houston requests about once a day. " + revoked
+	props("AuthMethod")["token_response"] = map[string]any{"allOf": []any{props("AuthMethod")["token_response"], forbid("revoked")}}
 	props("AuthMethod")["refresh_response"] = map[string]any{"allOf": []any{props("AuthMethod")["refresh_response"], forbid("facts", "label")}}
 
 	manualKeys := []string{"brand", "authorize_url", "token_url", "client_id", "client_secret", "client_auth", "token_encoding", "token_headers", "pkce", "scopes", "scope_parameter", "scope_separator", "authorize_params", "token_params", "refresh_params", "token_response", "refresh_response", "require_refresh", "account", "shared", "api_key", "auth_config_id", "app"}

@@ -130,6 +130,7 @@ type TokenResponse struct {
 	Scopes           string            `json:"scopes,omitempty"`
 	ScopesUnreported bool              `json:"scopes_unreported,omitempty"`
 	Checks           []ResponseCheck   `json:"checks,omitempty"`
+	Revoked          []ResponseCheck   `json:"revoked,omitempty"`
 	Facts            map[string]string `json:"facts,omitempty"`
 	Label            string            `json:"label,omitempty"`
 }
@@ -144,6 +145,7 @@ type OAuthAccount struct {
 	Headers  map[string]HeaderValue `json:"headers,omitempty"`
 	Label    string                 `json:"label"`
 	Checks   []ResponseCheck        `json:"checks,omitempty"`
+	Revoked  []ResponseCheck        `json:"revoked,omitempty"`
 	Bindings map[string]string      `json:"bindings,omitempty"`
 }
 type OAuthShared struct {

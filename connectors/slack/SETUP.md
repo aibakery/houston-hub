@@ -8,12 +8,26 @@
 > Agents see what you can see, including private channels and direct messages.
 > With write access, they post and share files under your name.
 
+## Use Houston from Slackbot
+
+Connecting Slack also adds Houston to Slackbot in that workspace. Open a direct
+message with Slackbot, select **Apps**, then **+** next to Houston, and sign in
+to Houston. Slackbot asks before each Houston action: choose **Allow once** or
+**Always allow**. It stops waiting after 60 seconds, so ask for long work to run
+in the background. To disconnect, remove Houston in Slackbot, or remove Slack
+under **Your agents** in Houston's dashboard.
+
 ## Advanced
 
 Add one connection per workspace; Enterprise Grid-wide installations are unsupported.
-Reauthorize when changing access levels. Long channel histories may be slow because
-of Slack's app limits; search is often faster.
+Reauthorize when changing access levels. Slack limits how fast apps outside its
+Marketplace read channel history, so ask about a recent period rather than a
+whole history.
+
+Slack connections are personal: only the person who connected can use them, and
+workspace admins can't share them. Each teammate connects their own account.
 
 Deleting the Houston connection removes its saved authorization. Also revoke
 Houston on Slack's [app management](https://slack.com/apps/manage) page to end
-provider access.
+provider access. When you remove Houston in Slack, or your Slack account is
+deactivated, Houston removes the connection within about a day.

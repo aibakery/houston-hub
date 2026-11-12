@@ -44,6 +44,8 @@ func TestOAuthFactsValidation(t *testing.T) {
 		{`"pkce":"none",`, `"pkce":"none","refresh_response":{"label":"/team/name"},`, "refresh_response forbids facts, label"},
 		{`"pkce":"none",`, `"pkce":"none","account":{"url":"https://example.com/me","label":"/name"},`, "token_response.label conflicts with account"},
 		{`"pkce":"none",`, `"pkce":"none","authorize_params":{"team":"{{auth.oauth.team_id}}"},`, "browser parameters require public publisher/config values"},
+		{`"pkce":"none",`, `"pkce":"none","authorize_params":{"scope":"bot"},`, "reserved or invalid OAuth parameter scope"},
+		{`"pkce":"none",`, `"pkce":"none","scope_parameter":"user_scope","token_params":{"scope":"bot"},`, "reserved or invalid OAuth parameter scope"},
 		{`"host":["api.example.com"],"method":["GET"]`, `"host":["{{auth.oauth.team_id}}"],"method":["GET"]`, "host requires a required, unconditional string setting"},
 		{`{"match":{"protocol":"http","host":["api.example.com"],"method":["PUT"]`, `{"if":"{{ is auth.oauth.team_id \"T1\" }}","match":{"protocol":"http","host":["api.example.com"],"method":["PUT"]`, "cannot be used in predicates"},
 		{`"/channels/{channel}"`, `"/channels/x{{auth.oauth.team_id}}"`, "exactly one declared OAuth fact reference"},
@@ -53,6 +55,11 @@ func TestOAuthFactsValidation(t *testing.T) {
 		{`"/channels/{channel}"`, `"/channels/{{auth.oauth.team_id || auth.oauth.team_name}}"`, "exactly one declared OAuth fact reference"},
 		{`"pkce":"none",`, `"pkce":"none","refresh_response":{"scopes_unreported":true},`, "refresh_response forbids facts, label and scopes_unreported"},
 		{`"token_response":{"checks":[{"op":"exists","path":"/team/id"}],`, `"token_response":{"scopes_unreported":true,`, "scopes_unreported requires checks"},
+		{`"token_response":{"checks":`, `"token_response":{"revoked":[{"op":"exists","path":"/error"}],"checks":`, "token_response forbids revoked"},
+		{`"pkce":"none",`, `"pkce":"none","refresh_response":{"revoked":[{"op":"matches","path":"/error"}]},`, "revoked checks require equals"},
+		{`"pkce":"none",`, `"pkce":"none","refresh_response":{"revoked":[{"op":"exists","path":"/error"}]},`, "revoked checks require equals"},
+		{`"pkce":"none",`, `"pkce":"none","refresh_response":{"checks":[{"op":"equals","path":"/ok","value":true}],"revoked":[{"op":"equals","path":"/ok","value":false}]},`, "revoked checks cannot test a path that checks test"},
+		{`"token_response":{"checks":`, `"token_response":{"revoked":[{"op":"matches","path":"/error"}],"checks":`, "token_response forbids revoked"},
 		{`"label":"/team/name"}`, `"label":"/team/name","scopes":"/scope","scopes_unreported":true}`, "token scopes conflict with scopes_unreported"},
 	} {
 		raw := strings.Replace(factsManifest, tc.old, tc.new, 1)
@@ -66,6 +73,14 @@ func TestOAuthFactsValidation(t *testing.T) {
 	facts := strings.Replace(factsManifest, `"facts":{"team_id":"/team/id","team_name":"/team/name"}`, `"facts":`+string(tooMany), 1)
 	if _, err := Parse([]byte(facts)); err == nil || !strings.Contains(err.Error(), "at most 16 facts") {
 		t.Errorf("accepted more than %d facts: %v", MaxFacts, err)
+	}
+	revoked := strings.Replace(factsManifest, `"pkce":"none",`, `"pkce":"none","refresh_response":{"revoked":[{"op":"equals","path":"/error","value":"invalid_grant"}]},`, 1)
+	if m, err := Parse([]byte(revoked)); err != nil || len(m.Auth["oauth"].RefreshResponse.Revoked) != 1 {
+		t.Errorf("refresh revocation checks: %v", err)
+	}
+	botScope := strings.Replace(factsManifest, `"pkce":"none",`, `"pkce":"none","scope_parameter":"user_scope","authorize_params":{"scope":"mcp:connect"},`, 1)
+	if m, err := Parse([]byte(botScope)); err != nil || m.Auth["oauth"].AuthorizeParams["scope"] != "mcp:connect" {
+		t.Errorf("bot scope beside user_scope: %v", err)
 	}
 	unreported := strings.Replace(factsManifest, `"label":"/team/name"}`, `"label":"/team/name","scopes_unreported":true}`, 1)
 	if m, err := Parse([]byte(unreported)); err != nil || !m.Auth["oauth"].TokenResponse.ScopesUnreported || m.Auth["oauth"].TokenResponse.Scopes != "" {
