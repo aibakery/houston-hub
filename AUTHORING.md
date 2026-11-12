@@ -1064,9 +1064,12 @@ local names = await(fs.list("reports")) -- Sorted immediate child names.
 local output = fs.open("report.txt.gz", "w")
 output:write(compression.gzip(fs.open("report.txt", "r")))
 await(output:close())
+local snapshot = await(compression.gunzip(base64.decode(item.content)):readAll())
 ```
 
-Use `compression.gunzip` for an explicitly gzip-compressed file. HTTP already
+Use `compression.gunzip` for an explicitly gzip-compressed file or value. Both
+functions also accept a byte string of at most 8 MiB, the multipart and ZIP
+string-body bound; stream anything larger from a File or Reader. HTTP already
 handles supported Content-Encoding automatically; a `.gz` filename by itself does
 not trigger decoding. File paths refer to the user's execution session, not the
 server's general filesystem. Close files after explicit reads and seeks too.

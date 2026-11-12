@@ -49,8 +49,8 @@ type ZipEntry = {name:string,body:ByteSource,method:("deflate" | "store")?}
 type ZipEntryInfo = {name:string,size:number,compressedSize:number}
 type ZipArchive = {entries:{ZipEntryInfo},open:(ZipArchive,string)->StreamReader,close:(ZipArchive)->()}
 local compression: {
-    gzip:(Reader)->StreamReader,
-    gunzip:(Reader)->StreamReader,
+    gzip:(ByteSource)->StreamReader,
+    gunzip:(ByteSource)->StreamReader,
     zip:({ZipEntry})->StreamReader,
     unzip:(string | File)->Operation<ZipArchive>,
 } = nil :: any
