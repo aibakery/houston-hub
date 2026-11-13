@@ -198,6 +198,22 @@ return {
 		fails({"filterGroups[1] received an unknown field filter"}, c.searchObjects, {objectType = "contacts", filterGroups = {{filter = {filter}}}})
 		fails({"filterGroups[1].filters[1] must be an object"}, c.searchObjects, {objectType = "contacts", filterGroups = {{filters = {"email"}}}})
 		fails({"sorts must be an array of 1 to 1 items"}, c.searchObjects, {objectType = "contacts", sorts = {{propertyName = "a"}, {propertyName = "b"}}})
+		local function search(f: any, s: any?) return {objectType = "contacts", filterGroups = {{filters = {f}}}, sorts = s} end
+		local FILTER = "filterGroups[1].filters[1]"
+		local OPERATORS = "EQ, NEQ, LT, LTE, GT, GTE, BETWEEN, IN, NOT_IN, HAS_PROPERTY, NOT_HAS_PROPERTY, CONTAINS_TOKEN, NOT_CONTAINS_TOKEN"
+		fails({FILTER .. ".operator must be one of " .. OPERATORS}, c.searchObjects, search({propertyName = "email"}))
+		fails({FILTER .. ".operator must be one of"}, c.searchObjects, search({propertyName = "email", operator = "CONTAINS"}))
+		fails({FILTER .. ".propertyName must be a nonempty string"}, c.searchObjects, search({propertyName = "", operator = "EQ", value = "x"}))
+		fails({FILTER .. " received an unknown field property"}, c.searchObjects, search({property = "email", propertyName = "email", operator = "EQ"}))
+		fails({FILTER .. ".value must be a string"}, c.searchObjects, search({propertyName = "amount", operator = "GT", value = 5}))
+		fails({FILTER .. ".highValue must be a string"}, c.searchObjects, search({propertyName = "amount", operator = "BETWEEN", value = "1", highValue = 9}))
+		fails({FILTER .. ".values must be an array of 1 to 500 items"}, c.searchObjects, search({propertyName = "hs_tag_ids", operator = "IN", values = "a"}))
+		fails({FILTER .. ".values[2] must be a string"}, c.searchObjects, search({propertyName = "hs_tag_ids", operator = "IN", values = {"a", 2}}))
+		local ok = {propertyName = "email", operator = "HAS_PROPERTY"}
+		fails({"sorts[1] must be an object"}, c.searchObjects, search(ok, {"createdate"}))
+		fails({"sorts[1].direction must be one of ASCENDING, DESCENDING"}, c.searchObjects, search(ok, {{propertyName = "createdate"}}))
+		fails({"sorts[1].propertyName must be a nonempty string"}, c.searchObjects, search(ok, {{direction = "ASCENDING"}}))
+		fails({"sorts[1] received an unknown field order"}, c.searchObjects, search(ok, {{propertyName = "createdate", direction = "ASCENDING", order = 1}}))
 		fails({"limit must be an integer from 1 to 200"}, c.searchObjects, {objectType = "contacts", limit = 201})
 		fails({"searchObjects received an unknown option archived"}, c.searchObjects, {objectType = "contacts", archived = true})
 		fails({"inputs must be an array of 1 to 100 items"}, c.batchReadObjects, {objectType = "contacts", inputs = {}})

@@ -6,6 +6,8 @@ local API = "https://api.hubapi.com"
 local OBJECT_TYPES = {"contacts", "companies", "deals", "tickets", "notes", "tasks", "calls", "meetings", "emails"}
 local PIPELINE_TYPES = {"deals", "tickets"}
 local CATEGORIES = {"HUBSPOT_DEFINED", "USER_DEFINED", "INTEGRATOR_DEFINED"}
+local OPERATORS = {"EQ", "NEQ", "LT", "LTE", "GT", "GTE", "BETWEEN", "IN", "NOT_IN", "HAS_PROPERTY", "NOT_HAS_PROPERTY", "CONTAINS_TOKEN", "NOT_CONTAINS_TOKEN"}
+local DIRECTIONS = {"ASCENDING", "DESCENDING"}
 -- Property names a query or body may list, and associations or association types one call may send.
 local MAX_NAMES = 500
 local MAX_LINKS = 100
@@ -126,6 +128,21 @@ local function closed(value: any, field: string, fields: {string}): Options
 		assert(table.find(fields, key) ~= nil, field .. " received an unknown field " .. tostring(key))
 	end
 	return value
+end
+
+-- A search filter: {propertyName, operator, value?, highValue?, values?}, with string values.
+local function searchFilter(value: any, field: string)
+	closed(value, field, {"propertyName", "operator", "value", "highValue", "values"})
+	text(value.propertyName, field .. ".propertyName")
+	oneOf(value.operator, field .. ".operator", OPERATORS)
+	for _, key in {"value", "highValue"} do
+		assert(value[key] == nil or type(value[key]) == "string", field .. "." .. key .. " must be a string")
+	end
+	if value.values ~= nil then
+		for index, item in array(value.values, field .. ".values", MAX_NAMES) do
+			assert(type(item) == "string", field .. ".values[" .. tostring(index) .. "] must be a string")
+		end
+	end
 end
 
 -- Association types to set: {{associationCategory, associationTypeId}}, as HubSpot sends them.
@@ -445,17 +462,20 @@ stops at 10,000 results and allows 5 requests per second per account.]],
 				type = "object",
 				properties = {filters = {type = "array", minItems = 1, maxItems = 6, items = {
 					type = "object",
-					properties = {propertyName = {type = "string", minLength = 1}, operator = {type = "string", enum = {"EQ", "NEQ", "LT", "LTE", "GT", "GTE", "BETWEEN", "IN", "NOT_IN", "HAS_PROPERTY", "NOT_HAS_PROPERTY", "CONTAINS_TOKEN", "NOT_CONTAINS_TOKEN"}},
-						value = {type = "string"}, highValue = {type = "string"}, values = {type = "array", items = {type = "string"}}},
+					properties = {propertyName = {type = "string", minLength = 1}, operator = {type = "string", enum = OPERATORS},
+						value = {type = "string"}, highValue = {type = "string"},
+						values = {type = "array", minItems = 1, maxItems = MAX_NAMES, items = {type = "string"}}},
 					required = {"propertyName", "operator"},
+					additionalProperties = false,
 				}}},
 				required = {"filters"},
 				additionalProperties = false,
 			}},
 			sorts = {type = "array", minItems = 1, maxItems = 1, items = {
 				type = "object",
-				properties = {propertyName = {type = "string", minLength = 1}, direction = {type = "string", enum = {"ASCENDING", "DESCENDING"}}},
-				required = {"propertyName"},
+				properties = {propertyName = {type = "string", minLength = 1}, direction = {type = "string", enum = DIRECTIONS}},
+				required = {"propertyName", "direction"},
+				additionalProperties = false,
 			}},
 			properties = PROPERTY_NAMES,
 			limit = {type = "integer", minimum = 1, maximum = 200},
@@ -486,14 +506,22 @@ function exports.searchObjects(input: any): Options
 			local field = "filterGroups[" .. tostring(index) .. "]"
 			closed(group, field, {"filters"})
 			for position, filter in array(group.filters, field .. ".filters", 6) do
-				assert(type(filter) == "table", field .. ".filters[" .. tostring(position) .. "] must be an object")
+				searchFilter(filter, field .. ".filters[" .. tostring(position) .. "]")
 				total += 1
 			end
 		end
 		assert(total <= 18, "filterGroups may hold at most 18 filters in all")
 		body.filterGroups = groups
 	end
-	if args.sorts ~= nil then body.sorts = array(take(args, "sorts"), "sorts", 1) end
+	if args.sorts ~= nil then
+		body.sorts = array(take(args, "sorts"), "sorts", 1)
+		for index, sort in body.sorts do
+			local field = "sorts[" .. tostring(index) .. "]"
+			closed(sort, field, {"propertyName", "direction"})
+			text(sort.propertyName, field .. ".propertyName")
+			oneOf(sort.direction, field .. ".direction", DIRECTIONS)
+		end
+	end
 	if args.properties ~= nil then body.properties = names(take(args, "properties"), "properties") end
 	if args.limit ~= nil then body.limit = integer(take(args, "limit"), "limit", 1, 200) end
 	if args.after ~= nil then body.after = text(take(args, "after"), "after") end
