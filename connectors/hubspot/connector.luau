@@ -172,8 +172,8 @@ local function fail(operation: string, response: HttpResponse, write: boolean): 
 		retryable = (status == 429 and problem.policyName ~= "DAILY") or status == 423 or status == 477 or (not write and status >= 500)})
 end
 
--- One request to HubSpot. A table body is sent as JSON and a string body as is. An empty reply,
--- such as a 204, gives {success = true}; any other reply must be a JSON object.
+-- One request to HubSpot. A table body is sent as JSON and a string body as is. An empty reply to a
+-- DELETE (204) gives {success = true}; any other reply must be a JSON object.
 local function call(operation: string, method: string, path: string, body: any, write: boolean): Options
 	local headers: HttpHeaders = {}
 	local payload: string? = nil
@@ -186,7 +186,7 @@ local function call(operation: string, method: string, path: string, body: any, 
 	local response = await(http.request({method = method, url = API .. path, headers = headers, body = payload}))
 	if response.statusCode < 200 or response.statusCode >= 300 then fail(operation, response, write) end
 	local raw = await(response.body:readAll())
-	if string.match(raw, "^%s*$") then return {success = true} end
+	if method == "DELETE" and string.match(raw, "^%s*$") then return {success = true} end
 	local ok, value = pcall(json.decode, raw)
 	if not ok or type(value) ~= "table" or not string.match(raw, "^%s*{") then
 		houston.fail({operation = operation, layer = "upstream", upstream_status = response.statusCode,

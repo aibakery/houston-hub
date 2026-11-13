@@ -78,5 +78,9 @@ return {
 		-- A success must carry a JSON object.
 		upstream(200, "<html>Maintenance</html>", {}, c.getObject, CONTACT, {"HubSpot returned an invalid JSON object", '"retryable":false'})
 		upstream(200, "[]", {}, c.listObjects, {objectType = "contacts"}, {"invalid JSON object"})
+		-- Only deleteAssociation answers with an empty body (204); any other empty success is malformed.
+		upstream(200, "", {}, c.getObject, CONTACT, {"invalid JSON object"})
+		upstream(201, "", {}, c.createObject, CREATE, {"invalid JSON object", '"retryable":false'})
+		upstream(204, "", {}, c.createAssociation, LINK, {"invalid JSON object"})
 	end,
 }
