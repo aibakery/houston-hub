@@ -247,8 +247,8 @@ Rate limits: signing in with HubSpot allows 110 requests per 10 seconds per HubS
 shared by every Houston connection to it; an access token allows 100 to 190 per 10 seconds per
 key or app (250 with HubSpot's API limit increase), plus a daily quota for the account. The
 association endpoints have their own limits: 100 (Free and Starter) or 150 (Professional and
-Enterprise) requests per 10 seconds, and up to 500,000 per day. Prefer batchReadObjects,
-batchReadAssociations and searchObjects to loops of single reads. Houston itself retries only a
+Enterprise) requests per 10 seconds, and up to 500,000 per day (200 and 1,000,000 with the API limit
+increase). Prefer batchReadObjects, batchReadAssociations and searchObjects to loops of single reads. Houston itself retries only a
 short 429 wait.
 
 Errors read 'HubSpot HTTP <status> (<category>): <message>', for example
