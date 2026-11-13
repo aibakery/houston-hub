@@ -218,8 +218,8 @@ local REQUIRED = [[Properties required to create a record: notes, tasks and call
 hs_timestamp and hs_email_direction; meetings hs_timestamp, hs_meeting_title and
 hs_meeting_start_time (HubSpot's meetings guide also marks hubspot_owner_id required); deals
 dealname, dealstage and pipeline (HubSpot uses the default pipeline when pipeline is left out);
-tickets subject, hs_pipeline_stage and hs_pipeline; companies name or domain. Contacts need none,
-but give email, firstname or lastname.]]
+tickets subject, hs_pipeline_stage and hs_pipeline (again the default pipeline when left out);
+companies name or domain; contacts at least one of email, firstname or lastname.]]
 
 local help = {
 	text = [[HubSpot CRM API 2026-09 for one HubSpot account: contacts, companies, deals and tickets, their
