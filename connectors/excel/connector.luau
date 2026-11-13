@@ -465,6 +465,83 @@ function exports.getRange(input: any): Options
 end
 
 if config.access == "read-write" then
+	-- A minimal package: one empty worksheet, Sheet1, and the default Normal cell style.
+	local XML = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
+	local RELATIONSHIPS = "http://schemas.openxmlformats.org/package/2006/relationships"
+	local OFFICE = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+	local SPREADSHEET = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+	local MEDIA = "application/vnd.openxmlformats-officedocument.spreadsheetml."
+	local PACKAGE = {
+		{name = "[Content_Types].xml", body = XML .. '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+			.. '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+			.. '<Default Extension="xml" ContentType="application/xml"/>'
+			.. '<Override PartName="/xl/workbook.xml" ContentType="' .. MEDIA .. 'sheet.main+xml"/>'
+			.. '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="' .. MEDIA .. 'worksheet+xml"/>'
+			.. '<Override PartName="/xl/styles.xml" ContentType="' .. MEDIA .. 'styles+xml"/></Types>'},
+		{name = "_rels/.rels", body = XML .. '<Relationships xmlns="' .. RELATIONSHIPS .. '">'
+			.. '<Relationship Id="rId1" Type="' .. OFFICE .. '/officeDocument" Target="xl/workbook.xml"/></Relationships>'},
+		{name = "xl/workbook.xml", body = XML .. '<workbook xmlns="' .. SPREADSHEET .. '" xmlns:r="' .. OFFICE .. '">'
+			.. '<sheets><sheet name="Sheet1" sheetId="1" r:id="rId1"/></sheets></workbook>'},
+		{name = "xl/_rels/workbook.xml.rels", body = XML .. '<Relationships xmlns="' .. RELATIONSHIPS .. '">'
+			.. '<Relationship Id="rId1" Type="' .. OFFICE .. '/worksheet" Target="worksheets/sheet1.xml"/>'
+			.. '<Relationship Id="rId2" Type="' .. OFFICE .. '/styles" Target="styles.xml"/></Relationships>'},
+		{name = "xl/worksheets/sheet1.xml", body = XML .. '<worksheet xmlns="' .. SPREADSHEET .. '"><sheetData/></worksheet>'},
+		{name = "xl/styles.xml", body = XML .. '<styleSheet xmlns="' .. SPREADSHEET .. '">'
+			.. '<fonts count="1"><font><sz val="11"/><name val="Calibri"/></font></fonts>'
+			.. '<fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills>'
+			.. '<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>'
+			.. '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
+			.. '<cellXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/></cellXfs>'
+			.. '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>'},
+	}
+	-- The archive's bytes, built on first use: a string body is sent with its length.
+	local workbook: string? = nil
+
+	help.functions.createWorkbook = {
+		description = [[Creates an empty workbook with one worksheet, Sheet1, in parentId or the root folder and returns
+its OneDrive item: {id, name, size, webUrl, lastModifiedDateTime, parentReference, file}. name
+ends in .xlsx, does not start with a space and has none of " * : < > ? / \ | %. An existing
+file is never replaced: its name fails with HTTP 409 (nameAlreadyExists). A failed call may
+still have created the workbook, and repeating it then also fails with 409: look for it with
+findWorkbooks. Fill the sheet with updateRange and rename it with updateWorksheet.]],
+		inputSchema = {
+			type = "object",
+			properties = {
+				name = {type = "string", minLength = 6, description = "File name ending in .xlsx, such as 'Budget 2026.xlsx'."},
+				parentId = {type = "string", minLength = 1, description = "A folder's OneDrive item id, such as a workbook's parentReference.id; omit for the root folder."},
+			},
+			required = {"name"},
+			additionalProperties = false,
+			examples = {{name = "Budget 2026.xlsx"}, {name = "Q3 sales.xlsx", parentId = "01BYE5RZ56Y2GOVW7725BZO354PWSELRRZ"}} :: {any},
+		},
+		annotations = WRITE,
+	}
+	function exports.createWorkbook(input: any): Options
+		local args = options(input)
+		local name = text(args.name, "name")
+		assert(string.lower(string.sub(name, -5)) == ".xlsx" and #name > 5, "name must end in .xlsx, such as 'Budget 2026.xlsx'")
+		-- OneDrive refuses these characters in names; a colon would also end Graph's path-based
+		-- addressing early.
+		assert(not string.find(name, '[%c"*:<>?/\\|%%]') and not string.find(name, "^%s"),
+			'name cannot start with a space or contain " * : < > ? / \\ | %')
+		local folder = if args.parentId == nil then "/drive/root" else "/drive/items/" .. url.segment(text(args.parentId, "parentId"), "parentId")
+		args.name, args.parentId = nil, nil
+		done("createWorkbook", args)
+		workbook = workbook or await(compression.zip(PACKAGE):readAll())
+		local item = decode("createWorkbook", await(http.request({
+			method = "PUT",
+			url = API .. folder .. ":/" .. url.segment(name, "name") .. ":/content?@microsoft.graph.conflictBehavior=fail",
+			headers = {["Content-Type"] = {MEDIA .. "sheet"}},
+			body = workbook,
+		})), true)
+		if type(item.id) ~= "string" then
+			houston.fail({operation = "createWorkbook", layer = "upstream", retryable = false, message = "Microsoft Graph returned no item for the new workbook"})
+		end
+		local result: Options = {}
+		for field in string.gmatch(ITEM_FIELDS, "[^,]+") do result[field] = item[field] end
+		return result
+	end
+
 	help.functions.updateRange = {
 		description = [[Writes values, formulas or number formats to an address or a named range and returns
 {address, rowCount, columnCount, values}. Each grid matches the range's size. In values, null
