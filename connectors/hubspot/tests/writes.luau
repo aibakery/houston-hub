@@ -99,7 +99,7 @@ return {
 		fails({"types[1] received an unknown field label"}, c.createAssociation,
 			{objectType = "contacts", objectId = "1", toObjectType = "companies", toObjectId = "2", types = {{associationCategory = "HUBSPOT_DEFINED", associationTypeId = 1, label = "Primary"}}})
 		fails({"associations[1].to.id must be a string of digits"}, c.createObject, {objectType = "notes", properties = {hs_timestamp = "1"}, associations = {{to = {}, types = LINK}}})
-		fails({"associations[1].to must be {id}"}, c.createObject, {objectType = "notes", properties = {hs_timestamp = "1"}, associations = {{types = LINK}}})
+		fails({"associations[1].to must be an object"}, c.createObject, {objectType = "notes", properties = {hs_timestamp = "1"}, associations = {{types = LINK}}})
 		fails({"associations[1].types must be an array"}, c.createObject, {objectType = "notes", properties = {hs_timestamp = "1"}, associations = {{to = {id = "1"}}}})
 		fails({"associations[1] received an unknown field toObjectType"}, c.createObject,
 			{objectType = "notes", properties = {hs_timestamp = "1"}, associations = {{to = {id = "1"}, types = LINK, toObjectType = "contacts"}}})

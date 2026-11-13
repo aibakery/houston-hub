@@ -119,15 +119,21 @@ local function properties(value: any): Options
 	return copy
 end
 
+-- An object whose fields are all among the given names.
+local function closed(value: any, field: string, fields: {string}): Options
+	assert(type(value) == "table", field .. " must be an object")
+	for key in value do
+		assert(table.find(fields, key) ~= nil, field .. " received an unknown field " .. tostring(key))
+	end
+	return value
+end
+
 -- Association types to set: {{associationCategory, associationTypeId}}, as HubSpot sends them.
 local function associationTypes(value: any, field: string): {Options}
 	local types: {Options} = {}
 	for index, item in array(value, field, MAX_LINKS) do
 		local path = field .. "[" .. tostring(index) .. "]"
-		assert(type(item) == "table", path .. " must be an object")
-		for key in item do
-			assert(key == "associationCategory" or key == "associationTypeId", path .. " received an unknown field " .. tostring(key))
-		end
+		closed(item, path, {"associationCategory", "associationTypeId"})
 		table.insert(types, {
 			associationCategory = oneOf(item.associationCategory, path .. ".associationCategory", CATEGORIES),
 			associationTypeId = integer(item.associationTypeId, path .. ".associationTypeId", 1, 2147483647),
@@ -456,8 +462,7 @@ function exports.searchObjects(input: any): Options
 		local total = 0
 		for index, group in groups do
 			local field = "filterGroups[" .. tostring(index) .. "]"
-			assert(type(group) == "table", field .. " must be an object")
-			for key in group do assert(key == "filters", field .. " received an unknown field " .. tostring(key)) end
+			closed(group, field, {"filters"})
 			for position, filter in array(group.filters, field .. ".filters", 6) do
 				assert(type(filter) == "table", field .. ".filters[" .. tostring(position) .. "] must be an object")
 				total += 1
@@ -503,8 +508,7 @@ function exports.batchReadObjects(input: any): Options
 	local body: Options = {inputs = {}}
 	for index, item in array(take(args, "inputs"), "inputs", 100) do
 		local field = "inputs[" .. tostring(index) .. "]"
-		assert(type(item) == "table", field .. " must be an object")
-		for key in item do assert(key == "id", field .. " received an unknown field " .. tostring(key)) end
+		closed(item, field, {"id"})
 		idValue(item.id, field .. ".id", idProperty ~= nil)
 		table.insert(body.inputs, {id = item.id})
 	end
@@ -565,8 +569,7 @@ function exports.batchReadAssociations(input: any): Options
 	local inputs: {Options} = {}
 	for index, item in array(take(args, "inputs"), "inputs", 1000) do
 		local field = "inputs[" .. tostring(index) .. "]"
-		assert(type(item) == "table", field .. " must be an object")
-		for key in item do assert(key == "id" or key == "after", field .. " received an unknown field " .. tostring(key)) end
+		closed(item, field, {"id", "after"})
 		idValue(item.id, field .. ".id")
 		table.insert(inputs, {id = item.id, after = if item.after ~= nil then text(item.after, field .. ".after") else nil})
 	end
@@ -762,11 +765,8 @@ call may still have created the record, so search for it before repeating.]],
 			body.associations = {}
 			for index, item in array(take(args, "associations"), "associations", MAX_LINKS) do
 				local field = "associations[" .. tostring(index) .. "]"
-				assert(type(item) == "table", field .. " must be an object")
-				for key in item do assert(key == "to" or key == "types", field .. " received an unknown field " .. tostring(key)) end
-				local to = item.to
-				assert(type(to) == "table", field .. ".to must be {id}")
-				for key in to do assert(key == "id", field .. ".to received an unknown field " .. tostring(key)) end
+				closed(item, field, {"to", "types"})
+				local to = closed(item.to, field .. ".to", {"id"})
 				idValue(to.id, field .. ".to.id")
 				table.insert(body.associations, {to = {id = to.id}, types = associationTypes(item.types, field .. ".types")})
 			end
