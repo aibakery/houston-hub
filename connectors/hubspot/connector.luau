@@ -434,7 +434,9 @@ help.functions.getObject = {
 	description = [[One record: {id, properties, createdAt, updatedAt, archived, associations?, propertiesWithHistory?}.
 objectId is the record ID, or with idProperty the value of that unique property, such as a
 contact's email with idProperty = "email". properties names the properties to return beyond a few
-defaults; associations adds associated record IDs of those types.]],
+defaults; associations adds associated record IDs of those types. The ID goes in the URL path, so a
+value containing / or %, or made only of dots, is refused: read such a record with
+batchReadObjects, which sends IDs in its body.]],
 	inputSchema = {
 		type = "object",
 		properties = {objectType = OBJECT_TYPE, objectId = LOOKUP_ID, idProperty = ID_PROPERTY, properties = PROPERTY_NAMES,
@@ -842,8 +844,9 @@ record, so search for it before repeating.
 	help.functions.updateObject = {
 		description = [[Changes the named properties of a record and returns it; other properties keep their values,
 and an empty string clears one. objectId is the record ID, or with idProperty that unique
-property's value. Move a deal with dealstage (a stage ID from listPipelines), adding pipeline when
-the stage belongs to another pipeline; move a ticket with hs_pipeline_stage (and hs_pipeline).
+property's value. That value goes in the URL path, so one containing / or %, or made only
+of dots, is refused: find the record ID with batchReadObjects and update by record ID.
+Move a deal with dealstage (a stage ID from listPipelines), adding pipeline when the stage belongs to another pipeline; move a ticket with hs_pipeline_stage (and hs_pipeline).
 Repeating it changes nothing, so a server error is retryable.]],
 		inputSchema = {
 			type = "object",
