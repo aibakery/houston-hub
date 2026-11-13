@@ -320,7 +320,10 @@ local exports: {[string]: any} = {help = help}
 -- Schemas and hints shared by several operations.
 local OBJECT_TYPE = {type = "string", enum = OBJECT_TYPES}
 local RECORD_ID = {type = "string", pattern = "^[0-9]+$", description = "A record ID, as a string."}
-local LOOKUP_ID = {type = "string", minLength = 1, description = "A record ID, as a string, or with idProperty that property's value."}
+local LOOKUP_ID = {type = "string", minLength = 1, description = "A record ID (digits, as a string), or with idProperty that property's value."}
+-- Without idProperty, IDs must be record IDs: strings of digits.
+local WITHOUT_ID_PROPERTY = {["not"] = {required = {"idProperty"}}}
+local DIGITS = {pattern = "^[0-9]+$"}
 local ID_PROPERTY = {type = "string", minLength = 1, description = "A unique property, such as email for contacts, whose value objectId holds instead of the record ID."}
 local AFTER = {type = "string", minLength = 1, description = "paging.next.after from the previous page."}
 local function nameList(description: string): Options
@@ -380,6 +383,8 @@ defaults; associations adds associated record IDs of those types.]],
 		properties = {objectType = OBJECT_TYPE, objectId = LOOKUP_ID, idProperty = ID_PROPERTY, properties = PROPERTY_NAMES,
 			propertiesWithHistory = HISTORY_NAMES, associations = ASSOCIATED, archived = ARCHIVED},
 		required = {"objectType", "objectId"},
+		["if"] = WITHOUT_ID_PROPERTY,
+		["then"] = {properties = {objectId = DIGITS}},
 		additionalProperties = false,
 		examples = {
 			{objectType = "companies", objectId = "512", properties = {"name", "domain"}},
@@ -484,6 +489,8 @@ properties to return beyond a few defaults.]],
 			idProperty = ID_PROPERTY, properties = PROPERTY_NAMES, propertiesWithHistory = HISTORY_NAMES, archived = ARCHIVED,
 		},
 		required = {"objectType", "inputs"},
+		["if"] = WITHOUT_ID_PROPERTY,
+		["then"] = {properties = {inputs = {items = {properties = {id = DIGITS}}}}},
 		additionalProperties = false,
 		examples = {{objectType = "contacts", inputs = {{id = "101"}, {id = "102"}}, properties = {"email"}}},
 	},
@@ -777,6 +784,8 @@ the stage belongs to another pipeline; move a ticket with hs_pipeline_stage (and
 			type = "object",
 			properties = {objectType = OBJECT_TYPE, objectId = LOOKUP_ID, properties = PROPERTIES, idProperty = ID_PROPERTY},
 			required = {"objectType", "objectId", "properties"},
+			["if"] = WITHOUT_ID_PROPERTY,
+			["then"] = {properties = {objectId = DIGITS}},
 			additionalProperties = false,
 			examples = {
 				{objectType = "deals", objectId = "9876", properties = {dealstage = "closedwon"}},
