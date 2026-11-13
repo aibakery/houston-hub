@@ -3,8 +3,7 @@ return {
 	configure = function()
 		requests, responses = {}, {}
 		fs = fixture.files()
-		local multipart = http.multipart
-		http = {multipart = multipart, request = function(req)
+		http = {request = function(req)
 			if req.body ~= nil and type(req.body) ~= "string" then req.body = await(req.body:readAll()) end
 			table.insert(requests, req)
 			assert(#responses > 0, "unexpected request: " .. req.url)

@@ -15,8 +15,7 @@ return {
 		stream = nil
 		transportFailure = false
 		admissionFailure = false
-		local multipart = http.multipart
-		http = {multipart=multipart,request=function(req)
+		http = {request=function(req)
 			if admissionFailure then rejectedBody = req.body; error("HTTP admission failed") end
 			if req.body ~= nil and type(req.body) ~= "string" then req.body = await(req.body:readAll()) end
 			table.insert(requests,req)
@@ -65,7 +64,7 @@ return {
 			assert(chunk.data == string.rep("d",#chunk.data)); total += #chunk.data
 		end
 		await(file:close()); assert(total == size)
-		stream = compression.gunzip(fixture.reader("not gzip"))
+		stream = gzip.decode(fixture.reader("not gzip"))
 		assert(not pcall(c.downloadFile,{file_id="file_1",path="broken.pdf"}), "broken stream returned success")
 		stream, status, payload = nil, 403, '{"error":{"message":"File cannot be downloaded"}}'
 		ok, err = pcall(c.downloadFile,{file_id="file_1",path="denied.pdf"})

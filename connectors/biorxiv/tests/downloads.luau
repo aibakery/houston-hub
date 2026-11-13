@@ -71,7 +71,7 @@ return {
 		refused({requestError = {code = "timeout", message = "request deadline"}}, BIO, {"bioRxiv did not answer within 8 s; retry", '"retryable":true'})
 		kept()
 		-- A stream that breaks surfaces at the file's close instead of returning a download.
-		refused({reader = compression.gunzip(fixture.reader("not a gzip stream"))}, BIO, {"bioRxiv download failed", '"retryable":true'})
+		refused({reader = gzip.decode(fixture.reader("not a gzip stream"))}, BIO, {"bioRxiv download failed", '"retryable":true'})
 		-- An invalid session path fails before any request.
 		local before = #requests
 		assert(not pcall(rxiv.downloadPdf, {server = "biorxiv", doi = "10.1101/339747", version = 1, session_path = "../escape.pdf"}))

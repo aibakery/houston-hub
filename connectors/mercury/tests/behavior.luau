@@ -7,8 +7,7 @@ return {
   responseHeaders = {}
   fs = fixture.files()
   local f = fs.open("receipt.pdf", "w"); f:write("%PDF-receipt"); await(f:close())
-  local multipart = http.multipart
-  http = {multipart = multipart, request = function(req)
+  http = {request = function(req)
    calls += 1
    request = req
    if type(req.body) == "userdata" then uploaded = await(req.body:readAll()) end

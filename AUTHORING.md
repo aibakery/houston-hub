@@ -191,8 +191,8 @@ older deployments still reject style elements.
 ## Execution and waiting
 
 Each exported operation runs in a fresh connector VM and returns completed plain
-data. Connectors and caller scripts share `http.request`, `fs`, `compression`,
-`url`, `base64`, `sha`, `await`, and `awaitAll`. A request starts immediately and its operation settles
+data. Connectors and caller scripts share `http.request`, `fs`, `json`, `stream`,
+`gzip`, `zip`, `multipart`, `url`, `base64`, `sha`, `await`, and `awaitAll`. A request starts immediately and its operation settles
 when final headers and a body Reader are available. `await` retrieves the result;
 it does not start or rerun work. A local session cache lasts only for that
 invocation. No background work continues through another invocation.
@@ -214,7 +214,7 @@ response Reader to `fs.open(path, "w")` and awaiting the file's final close,
 which is what publishes the file.
 Reader pipelines use bounded native buffers. `readAll(maxBytes?)` explicitly
 allocates a string, defaults to 8 MiB, and fails and closes its source on overflow.
-HTTP, multipart and compression Readers also offer `readPrefix(maxBytes)`: it returns
+Readers (not Files) also offer `readPrefix(maxBytes)`: it returns
 at most `maxBytes` bytes and closes the Reader. Longer bodies and source errors end
 the prefix. It fails when the Reader is closed, cancelled (including an await
 timeout) or already in use, when the limit is not a positive integer (the Reader
@@ -224,17 +224,41 @@ Use it for bounded error snippets. Files have no `readPrefix`:
 `await(fd:read(maxBytes))` returns one `{done, data}` chunk of at most `maxBytes`
 bytes.
 
-Byte strings have fixed bounds; anything larger streams through a File or Reader:
+Each byte format is one global named like its Go package, with the same verbs:
+codecs `encode`/`decode` (`base64`, `gzip`, `json`), archives `create`/`open`
+(`zip`), builders `multipart.create` and `stream.concat`, digests `sha.sha256`
+and its siblings. Every helper that takes bytes accepts a byte string, a Luau
+`buffer`, a Reader or a File opened for reading: `http.request` bodies,
+`fd:write`, `stream.concat`, `multipart.create` and `zip.create` bodies, `gzip`,
+`base64`, `sha` and `json.decode` (`zip.open` takes a string, buffer or File, not
+a Reader). A buffer is copied when the call is made. The input decides the
+result: a string or buffer gives a string (or `json.decode`'s value) at once; a
+Reader or File gives a lazy Reader (`base64`, `gzip`) or an operation to await
+(`sha`, `json.decode`). Errors carry stable codes: `invalid_argument`,
+`limit_exceeded`, `decoding_error`, `closed` and `busy`; `tostring` of a caught
+error reads `code: message`. Each helper's `help()` ends with its limits.
 
-- 8 MiB: a connector call's arguments or result as JSON, a string `http.request`
-  body, the default `readAll` limit, and the string bodies of one `http.multipart`
-  or `compression.zip` call together.
-- 16 MiB: the input of `base64.encode`, `base64.decode`, and a string passed to
-  `compression.gzip`, `compression.gunzip` or `compression.unzip`.
+Byte strings have one bound, 8 MiB: a connector call's arguments or result as
+JSON, the default `readAll` limit, and the byte strings and buffers one helper
+call copies, in total. Exceeding it raises `limit_exceeded`; anything larger
+streams through a File or Reader.
 
-Base64 grows bytes by a third, so a JSON request or argument carrying base64 holds
-at most about 6 MiB of file. Say so in the connector's help when a provider
-accepts more, and name the larger route, such as a session file, a URL or save_as.
+A file inside a JSON request therefore never needs to be a string. Take a session
+file path as the argument, so the call itself stays small, and splice the file's
+base64 into the body with `stream.concat`:
+
+```lua
+local body = stream.concat({
+    '{"message":', json.encode(args.message), ',"content":"',
+    base64.encode(fs.open(args.path, "r")), '"}',
+})
+local response = await(http.request({method = "PUT", url = target,
+    headers = {["Content-Type"] = {"application/json"}}, body = body}))
+```
+
+The string parts are sent as written, so JSON-encode every value placed between
+them. A body built this way has no Content-Length and is sent chunked (or as
+HTTP/2 data frames), like any Reader body.
 
 Neither an error nor a timeout rolls back changes the provider has already
 accepted. Do not automatically replay partial batches or ambiguous writes;
@@ -624,10 +648,11 @@ field with `"format": "pem"`, which the form validates. A mode that can be
 `http.request({url, method, headers?, body?, timeoutMs?})` returns an operation
 whose result has `statusCode`, `headers`, and a body Reader. All headers use
 `{[string]: {string}}`; plain strings are invalid. `body` accepts bytes or a Reader.
-`http.multipart({{name, body, filename?, contentType?}, ...})` returns a streaming
-Reader and its `multipart/form-data` Content-Type (including a random boundary).
-Set that Content-Type header on the request and pass the Reader as its body.
-Part bodies accept strings, Readers, or readable Files. The helper takes ownership
+`multipart.create({{name, body, filename?, contentType?}, ...})` returns
+`{body, contentType}`: a streaming Reader and its `multipart/form-data`
+Content-Type (including a random boundary). Set that Content-Type header on the
+request and pass `body` as its body. Part bodies accept strings, buffers,
+Readers, or readable Files. The helper takes ownership
 of every Reader/File; closing or consuming the multipart Reader closes its sources.
 Validation errors leave sources usable. Parts must form a nonempty dense array
 of at most 128 entries, with at most 64 KiB of headers and 8 MiB of string bodies
@@ -1016,8 +1041,8 @@ characters; use it for query names and values. Numbers and booleans render as
 one path segment and raises `invalid_argument` for an empty value, a dot-only value
 such as `..` (or only dots and spaces, also before a `;`, `?` or `#`), `/`, `\`, `%`, control characters, values whose
 NFKC form contains those (such as U+FF0E), invisible format characters, best-fit
-separator look-alikes (such as U+00A5), invalid UTF-8 or more than 16 KiB, naming `name`
-but never echoing the value. Pass every caller-supplied path ID through it, or check
+separator look-alikes (such as U+00A5) or invalid UTF-8, naming `name`
+but never echoing the value. A value over 16 KiB raises `limit_exceeded`. Pass every caller-supplied path ID through it, or check
 it against a strict format such as `^[%w_%-]+$` or a numeric ID, so an ID cannot add
 path or dot segments. To keep a connector's own error text, wrap it:
 `local ok, segment = pcall(url.segment, id)`.
@@ -1028,17 +1053,25 @@ Opaque IDs that may contain separators, such as Notion property IDs, use
 selects the URL-safe alphabet, `pad = false` omits `=` padding and `wrap = true`
 breaks MIME lines at 76 characters with CRLF. `base64.decode(data)` accepts either
 alphabet, with or without padding, ignoring whitespace, and raises
-`invalid_argument` for other characters or a truncated length. Both refuse data
-over 16 MiB; to decode a streamed value in pieces, split text without whitespace
-at multiples of 4 characters.
+`decoding_error` for other characters or a truncated length. A byte string or
+buffer converts to a string. A Reader or File converts lazily to a Reader that
+takes ownership of it, as `gzip.encode` does; a streamed decode accepts exactly
+what a string decode does and raises `decoding_error` on read.
+
+`json.decode(data)` decodes a string or buffer at once, and returns an operation
+for a Reader or File, reading at most 8 MiB: `await(json.decode(response.body))`
+replaces `json.decode(await(response.body:readAll()))`. It raises
+`decoding_error` for malformed JSON; `json.encode` raises `invalid_argument` for
+a value it cannot represent and `limit_exceeded` for one too large or deep.
 
 `sha.sha1(data, {encoding?})`, `sha.sha256(data, {encoding?})` and
-`sha.sha512(data, {encoding?})` return the FIPS 180-4 digest of a byte string:
+`sha.sha512(data, {encoding?})` return the FIPS 180-4 digest of a byte string or
+buffer, or, for a Reader or File, an operation that reads it to its end and gives the
+digest:
 lowercase hex by default, `encoding = "base64"` for standard padded base64 or
-`"raw"` for the digest bytes. They raise `invalid_argument` for non-string data,
+`"raw"` for the digest bytes. They raise `invalid_argument` for other data,
 options other than `encoding`, or another encoding. These are plain digests, not
-signatures; use SHA-1 only where the provider requires it. A File or Reader must
-be read into a string first.
+signatures; use SHA-1 only where the provider requires it.
 
 Production helpers should also validate provider-specific error envelopes and
 mutation confirmations, and catch malformed JSON where a structured error helps.
@@ -1100,14 +1133,14 @@ local function upload(path: string)
 end
 
 local function uploadMultipart(path: string, filename: string)
-    local body, contentType = http.multipart({
+    local form = multipart.create({
         {name = "file", filename = filename, contentType = "application/pdf",
          body = fs.open(path, "r")},
         {name = "description", body = "Quarterly report"},
     })
     return responseJSON(await(http.request({
         method = "POST", url = "https://api.example.com/files/upload",
-        headers = {["Content-Type"] = {contentType}}, body = body,
+        headers = {["Content-Type"] = {form.contentType}}, body = form.body,
     })), "uploadMultipart")
 end
 ```
@@ -1128,16 +1161,15 @@ end
 local names = await(fs.list("reports")) -- Sorted immediate child names.
 
 local output = fs.open("report.txt.gz", "w")
-output:write(compression.gzip(fs.open("report.txt", "r")))
+output:write(gzip.encode(fs.open("report.txt", "r")))
 await(output:close())
 -- A provider field holding base64 gzip bytes, such as a compressed snapshot.
-local snapshot = await(compression.gunzip(base64.decode(item.content)):readAll())
+local snapshot = gzip.decode(base64.decode(item.content))
 ```
 
-Use `compression.gunzip` for an explicitly gzip-compressed file or value. Both
-functions also accept a byte string of at most 16 MiB, the `base64` and
-`compression.unzip` bound; stream anything larger from a File or Reader, and
-close a compression Reader you do not read, which releases its copy. HTTP already
+Use `gzip.decode` for an explicitly gzip-compressed file or value. A byte string
+or buffer of at most 8 MiB converts to a string at once, refusing a result over
+8 MiB; a File or Reader converts lazily to a Reader, for anything larger. HTTP already
 handles supported Content-Encoding automatically; a `.gz` filename by itself does
 not trigger decoding. File paths refer to the user's execution session, not the
 server's general filesystem. Close files after explicit reads and seeks too.
@@ -1159,21 +1191,21 @@ local function createWorkbook(filename: string, parts: {[string]: string})
         url = "https://graph.microsoft.com/v1.0/me/drive/root:/" .. url.segment(filename, "filename")
             .. ":/content?@microsoft.graph.conflictBehavior=fail",
         headers = {["Content-Type"] = {"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}},
-        body = compression.zip(entries),
+        body = zip.create(entries),
     })), "createWorkbook")
 end
 
 local function readSheetXml(path: string)
-    local archive = await(compression.unzip(fs.open(path, "r")))
+    local archive = await(zip.open(fs.open(path, "r")))
     local xml = await(archive:open("xl/worksheets/sheet1.xml"):readAll(4 * 1024 * 1024))
     archive:close()
     return xml
 end
 ```
 
-`compression.zip({{name, body, method?}, ...})` returns a lazy Reader of the
+`zip.create({{name, body, method?}, ...})` returns a lazy Reader of the
 archive, so pass it as a request body or write it to a file. Bodies are strings,
-Readers or readable Files, which stream on demand; the helper takes ownership of
+buffers, Readers or readable Files, which stream on demand; the helper takes ownership of
 them, and validation errors leave them usable. `method` is `"deflate"` (default)
 or `"store"`, for already compressed media or an EPUB's leading `mimetype`. String
 entries record their sizes up front; Reader entries are followed by a data
@@ -1186,7 +1218,7 @@ also be another entry's directory. Directories are implied by names. Entries car
 make equal archives. An archive holds at most 65,534 entries, 8 MiB of string
 bodies and names, and 4 GiB in all.
 
-`compression.unzip(archive)` reads a byte string of at most 16 MiB or takes
+`zip.open(archive)` reads a byte string or buffer of at most 8 MiB or takes
 ownership of a File opened for reading; write an HTTP body to a session file
 first. It returns an operation whose result lists `archive.entries` as
 `{name, size, compressedSize}` in archive order, omitting directory entries; a
@@ -1197,7 +1229,7 @@ turn. `archive:close()` releases the archive and its memory, failing Readers
 still open. ZIP64
 archives are read; nested archives are never opened automatically.
 
-`unzip` refuses, with `decoding_error`, a malformed or multi-disk archive and any
+`zip.open` refuses, with `decoding_error`, a malformed or multi-disk archive and any
 entry that is a symbolic link, has an unsafe or repeated name, or overlaps another
 entry. `open` raises `not_found` for a missing name, `decoding_error` for an
 encrypted entry or a method other than store and deflate, and `limit_exceeded`

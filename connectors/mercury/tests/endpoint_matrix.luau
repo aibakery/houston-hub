@@ -5,8 +5,7 @@ return {
   requests = {}
   fs = fixture.files()
   local f = fs.open("upload.bin", "w"); f:write("receipt" .. string.char(0, 255)); await(f:close())
-  local multipart = http.multipart
-  http = {multipart = multipart, request = function(req)
+  http = {request = function(req)
    table.insert(requests, req)
    if type(req.body) == "userdata" then req.uploaded = await(req.body:readAll()) end
    return fixture.operation({statusCode = status, headers = {["content-type"] = {media}}, body = fixture.reader(payload)})

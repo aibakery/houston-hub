@@ -314,7 +314,7 @@ local function decode(name: string, endpoint: Endpoint, response: HttpResponse):
 end
 
 -- Streams a session file with the other options as form fields.
-local function multipart(args: Options): (any, string)
+local function formBody(args: Options): (any, string)
 	local source = text(args.path, "path")
 	args.path = nil
 	local names: {string} = {}
@@ -328,15 +328,15 @@ local function multipart(args: Options): (any, string)
 		table.insert(parts, {name = key, body = if type(value) == "table" then json.encode(value) else plain(value)})
 	end
 	assert(await(fs.stat(source)).isFile, "path must be a session file")
-	-- http.multipart owns the file and closes it with the body; close it here if that fails.
+	-- multipart.create owns the file and closes it with the body; close it here if that fails.
 	local file = fs.open(source, "r")
 	table.insert(parts, {name = "source", filename = string.match(source, "[^/]+$"), contentType = "application/octet-stream", body = file})
-	local ok, body, contentType = pcall(http.multipart, parts)
+	local ok, form = pcall(multipart.create, parts)
 	if not ok then
 		pcall(function() await(file:close()) end)
-		error(body, 0)
+		error(form, 0)
 	end
-	return body, contentType
+	return form.body, form.contentType
 end
 
 local function request(name: string, endpoint: Endpoint, input: Options?): any
@@ -377,7 +377,7 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 		end
 		if endpoint.upload and args.path ~= nil then
 			local contentType
-			body, contentType = multipart(args)
+			body, contentType = formBody(args)
 			headers["Content-Type"] = {contentType}
 		else
 			headers["Content-Type"] = {"application/json"}

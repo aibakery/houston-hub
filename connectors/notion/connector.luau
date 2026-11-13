@@ -145,10 +145,10 @@ if not ADMIN and config.access == "read-write" then
 		local parts: {MultipartPart} = {}
 		if part ~= nil then table.insert(parts, {name = "part_number", body = tostring(part)}) end
 		table.insert(parts, {name = "file", filename = filename, contentType = contentType, body = fs.open(path, "r")})
-		local body, multipartType = http.multipart(parts)
+		local form = multipart.create(parts)
 		local h = headers()
-		h["Content-Type"] = {multipartType}
-		return responseJSON("sendFileUpload", await(http.request({method = "POST", url = API .. "/v1/file_uploads/" .. id .. "/send", headers = h, body = body})))
+		h["Content-Type"] = {form.contentType}
+		return responseJSON("sendFileUpload", await(http.request({method = "POST", url = API .. "/v1/file_uploads/" .. id .. "/send", headers = h, body = form.body})))
 	end
 	help.sendFileUpload = "sendFileUpload({file_upload_id, path, filename?, content_type?, part_number?}) -> Notion file_upload. Streams a session file via native multipart. filename defaults to the path basename; content_type defaults to application/octet-stream. For multi_part uploads send each prepared part file with its 1-based part_number, then completeFileUpload. Creation/import modes and number_of_parts are supplied to createFileUpload. Attach the completed file_upload ID to a page/block/comment before Notion's expiry. No automatic retry."
 	exports.streamSession = function(input: Options): Options

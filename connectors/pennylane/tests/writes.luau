@@ -5,8 +5,7 @@ return {
 		status = 201
 		payload = '{"id":1}'
 		fs = fixture.files()
-		local multipart = http.multipart
-		http = {multipart = multipart, request = function(req)
+		http = {request = function(req)
 			if req.body ~= nil and type(req.body) ~= "string" then req.body = await(req.body:readAll()) end
 			table.insert(requests, req)
 			return fixture.operation({statusCode = status, headers = {}, body = fixture.reader(payload)})

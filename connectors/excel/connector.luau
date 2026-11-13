@@ -527,7 +527,7 @@ findWorkbooks. Fill the sheet with updateRange and rename it with updateWorkshee
 		local folder = if args.parentId == nil then "/drive/root" else "/drive/items/" .. url.segment(text(args.parentId, "parentId"), "parentId")
 		args.name, args.parentId = nil, nil
 		done("createWorkbook", args)
-		workbook = workbook or await(compression.zip(PACKAGE):readAll())
+		workbook = workbook or await(zip.create(PACKAGE):readAll())
 		local item = decode("createWorkbook", await(http.request({
 			method = "PUT",
 			url = API .. folder .. ":/" .. url.segment(name, "name") .. ":/content?@microsoft.graph.conflictBehavior=fail",
