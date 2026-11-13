@@ -62,7 +62,7 @@ return {
 				if access == "read-write" then
 					scopes = m.concat(scopes, { "w_member_social" })
 				end
-				if not (m.equal(r.Scopes, scopes)) or (m.raw.auth["oauth"].scope_separator ~= ",") then
+				if not (m.equal(r.Scopes, scopes)) or (m.raw.auth["oauth"].scope_separator ~= " ") then
 					m.fail("access=%s scopes %s", access, r.Scopes)
 				end
 				r.Context.Auth["oauth"].access_token = "fixture-token"
