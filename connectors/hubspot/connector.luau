@@ -247,14 +247,6 @@ local function crm(family: string, ...: string): string
 	return table.concat({"/crm", family, VERSION, ...}, "/")
 end
 
--- Properties HubSpot requires to create each object type, from its object and activity guides.
-local REQUIRED = [[Properties required to create a record: notes, tasks and calls need hs_timestamp; emails
-hs_timestamp and hs_email_direction; meetings hs_timestamp, hs_meeting_title and
-hs_meeting_start_time (HubSpot's meetings guide also marks hubspot_owner_id required); deals
-dealname, dealstage and pipeline (HubSpot uses the default pipeline when pipeline is left out);
-tickets subject, hs_pipeline_stage and hs_pipeline (again the default pipeline when left out);
-companies name or domain; contacts at least one of email, firstname or lastname.]]
-
 local help = {
 	text = "HubSpot CRM API " .. VERSION .. [[ for one HubSpot account: contacts, companies, deals and tickets, their
 activities (notes, tasks, calls, meetings and logged emails), the associations between records,
@@ -273,42 +265,36 @@ results is always an array. Example: local page = hubspot.listObjects({objectTyp
 limit = 100, properties = {"email", "firstname"}}); for the next page, repeat the call with the
 same options plus after = page.paging.next.after.
 
-searchObjects filters and sorts records (see the search topic). New or changed records take a
-moment to appear in search, archived records never do, a query stops at 10,000 results, and
-search allows 5 requests per second per account.
+searchObjects filters and sorts records: its description gives its limits, and the search topic
+its filters. The associations and activities topics explain how records are linked and how to
+read their notes, tasks, calls, meetings and emails.
 
 Rate limits: signing in with HubSpot allows 110 requests per 10 seconds per HubSpot account,
 shared by every Houston connection to it; an access token allows 100 to 190 per 10 seconds per
 key or app (250 with HubSpot's API limit increase), plus a daily quota for the account. The
 association endpoints have their own limits: 100 (Free and Starter) or 150 (Professional and
-Enterprise) requests per 10 seconds, and up to 500,000 per day (200 and 1,000,000 with the API limit
-increase). Prefer batchReadObjects, batchReadAssociations and searchObjects to loops of single reads. Houston itself retries only a
-short 429 wait.
+Enterprise) requests per 10 seconds, and up to 500,000 per day (200 and 1,000,000 with the API
+limit increase). Prefer batchReadObjects, batchReadAssociations and searchObjects to loops of
+single reads. Houston itself retries only a short 429 wait.
 
 Errors read 'HubSpot HTTP <status> (<category>): <message>', for example
 'HubSpot HTTP 400 (VALIDATION_ERROR): Property values were not valid'. 429 (except the daily
-limit), 423 and 477 are retryable, and so are server errors on reads. A 477 means HubSpot is
-moving the account between data centres, which can last hours: Retry-After says how long. A
-missing permission is a 403 (MISSING_SCOPES) naming the scopes needed ('needs one of: ...'): the
-account admin must add the scope to the service key or app, or reconnect. A 401 means the token
-is invalid or revoked.]]
+limit), 423, 477 and server errors are retryable. A 477 means HubSpot is moving the account
+between data centres, which can last hours: Retry-After says how long. A missing permission is a
+403 (MISSING_SCOPES) naming the scopes needed ('needs one of: ...'): the account admin must add
+the scope to the service key or app, or reconnect. A 401 means the token is invalid or revoked.]]
 		.. (if config.access == "read-write" then [[
 
 
-Writes: createObject is not idempotent, and a failed or timed-out call may still have created the
-record, so search for it before repeating. updateObject changes only the named properties. A
-deal moves between stages through updateObject with dealstage (plus pipeline when the pipeline
-changes), a ticket with hs_pipeline_stage (plus hs_pipeline). Notes, tasks and the other
-activities are records created with createObject (see the activities topic). deleteAssociation
-removes every association between two records and deletes neither record. Server errors on
-createObject are not retryable: check for the record before repeating the call. updateObject and
-the association writes are idempotent, so their server errors are retryable.
-
-]] .. REQUIRED else ""),
+Writes: createObject creates records, activities included (see the activities topic);
+updateObject changes their properties, which also moves a deal or ticket between stages;
+createDefaultAssociation, createAssociation and deleteAssociation link and unlink records (see the
+associations topic). Each one's description gives its rules. All of them give the same result when
+repeated except createObject, whose server errors are therefore not retryable.]] else ""),
 	functions = {} :: {[string]: any},
 	sections = {
 		search = [[searchObjects body fields: query (text searched in the default text properties), filterGroups,
-sorts, properties, limit (1 to 200) and after. filterGroups are ORed and the filters inside one
+sorts, properties, limit and after. filterGroups are ORed and the filters inside one
 group are ANDed: at most 5 groups, 6 filters per group and 18 filters in all. A filter is
 {propertyName, operator, value} where operator is EQ, NEQ, LT, LTE, GT, GTE, HAS_PROPERTY,
 NOT_HAS_PROPERTY, CONTAINS_TOKEN or NOT_CONTAINS_TOKEN (value may use * as a wildcard, as in
@@ -342,10 +328,9 @@ listAssociations reads one record's associations of one type; batchReadAssociati
 for up to 1,000 records; listObjects and getObject also return associated IDs with
 associations = {"companies"}.]] .. (if config.access == "read-write" then [[
 
-createDefaultAssociation links two records without a label. createAssociation sets labelled types
-on a pair: the types sent replace the pair's existing labels, so include every label to keep.
-createObject can link a new record at creation with associations = {{to = {id}, types}}.
-deleteAssociation removes every association between the two records.]] else ""),
+createDefaultAssociation links two records without a label, createAssociation sets labelled types
+on a pair, and deleteAssociation unlinks a pair. createObject can link a new record at creation
+with associations = {{to = {id}, types}}.]] else ""),
 		activities = [[Notes, tasks, calls, meetings and emails (logged one-to-one emails) are object types like
 contacts. hs_timestamp places an activity on the timeline (a task's due date), as ISO 8601 UTC or
 epoch milliseconds. Useful properties:
@@ -366,9 +351,9 @@ hubspot_owner_id holds an owner id from listOwners.]] .. (if config.access == "r
 Create an activity with createObject and associations to the records it concerns, for example a
 note on contact 101: createObject({objectType = "notes", properties = {hs_timestamp =
 "2026-11-13T10:00:00Z", hs_note_body = "Called about renewal."}, associations = {{to = {id = "101"},
-types = {{associationCategory = "HUBSPOT_DEFINED", associationTypeId = 202}}}}}). Complete a task
-with updateObject and hs_task_status = "COMPLETED".
-]] .. REQUIRED else ""),
+types = {{associationCategory = "HUBSPOT_DEFINED", associationTypeId = 202}}}}}). See createObject
+for the properties each activity requires. Complete a task with updateObject and
+hs_task_status = "COMPLETED".]] else ""),
 	},
 }
 local exports: {[string]: any} = {help = help}
@@ -463,10 +448,10 @@ end
 
 help.functions.searchObjects = {
 	description = [[Searches records of objectType: {total, results = {record}, paging = {next = {after}}?}. Every
-field except objectType goes to HubSpot unchanged; see the search topic for filters and operators.
-filterGroups holds at most 5 groups ({filters = {...}}, at most 6 each and 18 in all), sorts one
-rule, limit 1 to 200 (default 10). Search is eventually consistent, excludes archived records,
-stops at 10,000 results and allows 5 requests per second per account.]],
+field except objectType goes to HubSpot unchanged once its shape is checked; the search topic
+explains filterGroups, filters and sorts. limit is 1 to 200 (default 10). Search is eventually
+consistent (new or changed records take a moment to appear), excludes archived records, stops at
+10,000 results and allows 5 requests per second per account.]],
 	inputSchema = {
 		type = "object",
 		properties = {
@@ -795,7 +780,12 @@ internal name; associations links the new record, each {to = {id}, types = {{ass
 associationTypeId}}} (see the associations topic for type IDs). HubSpot refuses a contact whose
 email already exists (409). Not idempotent: a failed or timed-out call may still have created the
 record, so search for it before repeating.
-]] .. REQUIRED,
+Required properties: notes, tasks and calls need hs_timestamp; emails hs_timestamp and
+hs_email_direction; meetings hs_timestamp, hs_meeting_title and hs_meeting_start_time
+(HubSpot's meetings guide also marks hubspot_owner_id required); deals dealname, dealstage and
+pipeline (HubSpot uses the default pipeline when pipeline is left out); tickets subject,
+hs_pipeline_stage and hs_pipeline (again the default pipeline when left out); companies name or
+domain; contacts at least one of email, firstname or lastname.]],
 		inputSchema = {
 			type = "object",
 			properties = {
@@ -846,8 +836,8 @@ record, so search for it before repeating.
 and an empty string clears one. objectId is the record ID, or with idProperty that unique
 property's value. That value goes in the URL path, so one containing / or %, or made only
 of dots, is refused: find the record ID with batchReadObjects and update by record ID.
-Move a deal with dealstage (a stage ID from listPipelines), adding pipeline when the stage belongs to another pipeline; move a ticket with hs_pipeline_stage (and hs_pipeline).
-Repeating it changes nothing, so a server error is retryable.]],
+Move a deal with dealstage (a stage ID from listPipelines), adding pipeline when the stage
+belongs to another pipeline; move a ticket with hs_pipeline_stage (and hs_pipeline).]],
 		inputSchema = {
 			type = "object",
 			properties = {objectType = OBJECT_TYPE, objectId = LOOKUP_ID, properties = PROPERTIES, idProperty = ID_PROPERTY},
@@ -875,8 +865,7 @@ Repeating it changes nothing, so a server error is retryable.]],
 
 	help.functions.createDefaultAssociation = {
 		description = [[Links two records with HubSpot's default, unlabelled association, in both directions:
-{status, results = {{from, to, associationSpec}}}. Repeating it changes nothing, so a server error is
-retryable.]],
+{status, results = {{from, to, associationSpec}}}.]],
 		inputSchema = {
 			type = "object",
 			properties = {fromObjectType = OBJECT_TYPE, fromObjectId = RECORD_ID, toObjectType = OBJECT_TYPE, toObjectId = RECORD_ID},
@@ -898,7 +887,7 @@ retryable.]],
 		description = [[Sets labelled association types between two records: {fromObjectTypeId, fromObjectId,
 toObjectTypeId, toObjectId, labels}. types replaces the labels the pair already has, so include
 every label to keep. Type IDs depend on direction; see the associations topic and
-listAssociationLabels. Repeating it with the same types changes nothing, so a server error is retryable.]],
+listAssociationLabels.]],
 		inputSchema = {
 			type = "object",
 			properties = {objectType = OBJECT_TYPE, objectId = RECORD_ID, toObjectType = OBJECT_TYPE, toObjectId = RECORD_ID, types = ASSOCIATION_TYPES},
@@ -920,8 +909,7 @@ listAssociationLabels. Repeating it with the same types changes nothing, so a se
 
 	help.functions.deleteAssociation = {
 		description = [[Removes every association between two records, labelled or not, and returns {success = true}.
-Neither record is deleted; createDefaultAssociation or createAssociation links them again.
-Repeating it changes nothing, so a server error is retryable.]],
+Neither record is deleted; createDefaultAssociation or createAssociation links them again.]],
 		inputSchema = {
 			type = "object",
 			properties = {objectType = OBJECT_TYPE, objectId = RECORD_ID, toObjectType = OBJECT_TYPE, toObjectId = RECORD_ID},
