@@ -143,9 +143,11 @@ local function associationTypes(value: any, field: string): {Options}
 end
 
 -- HubSpot errors are {status, message, correlationId, category, errors = {{message, code, context}}},
--- every field optional; rate limits answer {errorType, policyName}. 429 (except the daily limit),
--- 423 (a 2-second lock) and 477 (a data migration) are transient. Server errors are retryable only
--- for idempotent calls: a create that failed with one may still have been applied.
+-- every field optional; rate limits answer {errorType, policyName}. 429, 423 (a 2-second lock) and
+-- 477 (a data migration) are transient, except the daily limit: policyName DAILY, or, for access
+-- tokens (not OAuth), X-HubSpot-RateLimit-Daily-Remaining 0, which decides when the body is
+-- unreadable. Server errors are retryable only for idempotent calls: a create that failed with one
+-- may still have been applied.
 -- Validation errors can list many properties, so up to 16 KiB is read; the message keeps a bounded
 -- part of each field.
 local function fail(operation: string, response: HttpResponse, idempotent: boolean): never
@@ -171,12 +173,15 @@ local function fail(operation: string, response: HttpResponse, idempotent: boole
 	end
 	if #scopes > 0 then message ..= "; needs one of: " .. table.concat(scopes, ", ") end
 	if status == 429 and type(problem.policyName) == "string" then message ..= "; policy " .. string.sub(problem.policyName, 1, 64) end
+	local remaining = response.headers["x-hubspot-ratelimit-daily-remaining"]
+	local daily = status == 429 and (problem.policyName == "DAILY" or (remaining ~= nil and tonumber(remaining[1]) == 0))
+	if daily and problem.policyName ~= "DAILY" then message ..= "; daily limit reached" end
 	local retry = response.headers["retry-after"]
 	if retry and retry[1] then message ..= "; Retry-After: " .. string.sub(retry[1], 1, 40) end
 	if type(problem.correlationId) == "string" then message ..= "; correlationId " .. string.sub(problem.correlationId, 1, 64) end
 	if status == 401 then message ..= " (check the connection's access token, or reconnect)" end
 	return houston.fail({operation = operation, layer = "upstream", upstream_status = status, message = message,
-		retryable = (status == 429 and problem.policyName ~= "DAILY") or status == 423 or status == 477 or (idempotent and status >= 500)})
+		retryable = (status == 429 and not daily) or status == 423 or status == 477 or (idempotent and status >= 500)})
 end
 
 -- One request to HubSpot. A table body is sent as JSON and a string body as is. An empty reply to a

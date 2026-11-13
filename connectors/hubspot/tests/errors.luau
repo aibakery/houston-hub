@@ -64,6 +64,15 @@ return {
 			c.createObject, CREATE, {"HTTP 429 (RATE_LIMIT): You have reached your daily limit.", "policy DAILY", '"retryable":false'})
 		upstream(429, '{"status":"error","message":"You have reached your secondly limit.","errorType":"RATE_LIMIT"}', {},
 			c.searchObjects, {objectType = "deals"}, {"HTTP 429", "secondly limit", '"retryable":true'})
+		-- Access tokens also report the daily quota in a header, which decides even when the body is unreadable.
+		local SPENT = {["x-hubspot-ratelimit-daily-remaining"] = {"0"}}
+		upstream(429, "<html>Too many requests</html>", SPENT, c.listObjects, {objectType = "deals"}, {"HubSpot HTTP 429", "daily limit reached", '"retryable":false'})
+		upstream(429, json.encode({status = "error", errorType = "RATE_LIMIT", policyName = "DAILY", message = string.rep("x", 20000)}), SPENT,
+			c.getObject, CONTACT, {"HubSpot HTTP 429", "daily limit reached", '"retryable":false'})
+		upstream(429, '{"status":"error","errorType":"RATE_LIMIT","policyName":"TEN_SECONDLY_ROLLING"}', SPENT,
+			c.listOwners, nil, {"policy TEN_SECONDLY_ROLLING", "daily limit reached", '"retryable":false'})
+		upstream(429, "<html>Too many requests</html>", {["x-hubspot-ratelimit-daily-remaining"] = {"5000"}}, c.listObjects, {objectType = "deals"},
+			{"HubSpot HTTP 429", '"retryable":true'}, {"daily limit"})
 		upstream(423, '{"status":"error","message":"Locked"}', {}, c.createAssociation, LINK, {"HubSpot HTTP 423: Locked", '"retryable":true'})
 		upstream(477, '{"status":"error","message":"Migration in progress"}', {["retry-after"] = {"3600"}},
 			c.getObject, CONTACT, {"HTTP 477", "Retry-After: 3600", '"retryable":true'})
