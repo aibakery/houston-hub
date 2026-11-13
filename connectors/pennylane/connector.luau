@@ -347,7 +347,7 @@ end
 
 -- A session file and the endpoint's other form fields as one multipart body. Everything is
 -- validated before the file opens, and the file is closed again if building the body fails.
-local function multipart(name: string, endpoint: Endpoint, args: Options): (any, string)
+local function formBody(name: string, endpoint: Endpoint, args: Options): (any, string)
 	local source = args.file
 	assert(type(source) == "string" and source ~= "", "file must be a session file path")
 	local filename = if args.filename ~= nil then args.filename else string.match(source, "[^/]+$")
@@ -374,7 +374,8 @@ local function multipart(name: string, endpoint: Endpoint, args: Options): (any,
 	local ok, body, bodyType = pcall(function()
 		await(file)
 		table.insert(parts, {name = "file", filename = filename, contentType = contentType, body = file})
-		return http.multipart(parts)
+		local form = multipart.create(parts)
+		return form.body, form.contentType
 	end)
 	if not ok then
 		pcall(function() await(file:close()) end)
@@ -406,7 +407,7 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 	local body: any = nil
 	if endpoint.body == "multipart" then
 		local contentType
-		body, contentType = multipart(name, endpoint, args)
+		body, contentType = formBody(name, endpoint, args)
 		headers["Content-Type"] = {contentType}
 	elseif type(endpoint.body) == "string" then
 		local field = endpoint.body :: string

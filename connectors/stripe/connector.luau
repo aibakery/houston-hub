@@ -203,17 +203,17 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 		local parts: {any} = {}
 		for _, field in fields(args) do table.insert(parts, {name = field[1], body = field[2]}) end
 		local file = fs.open(source, "r")
-		local ok, multipart, multipartType = pcall(function()
+		local ok, form = pcall(function()
 			await(file)
 			table.insert(parts, {name = "file", filename = filename, contentType = contentType, body = file})
-			return http.multipart(parts)
+			return multipart.create(parts)
 		end)
 		if not ok then
 			pcall(function() await(file:close()) end)
-			error(multipart)
+			error(form)
 		end
-		body = multipart
-		headers["Content-Type"] = {multipartType}
+		body = form.body
+		headers["Content-Type"] = {form.contentType}
 		host = "files.stripe.com"
 	else
 		local encoded: {string} = {}

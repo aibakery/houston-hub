@@ -6,8 +6,7 @@ return {
 	configure = function()
 		requests = {}; payload = "{}"; status = 200
 		fs = fixture.files()
-		local multipart = http.multipart
-		http = {multipart = multipart, request = function(req)
+		http = {request = function(req)
 			assert(req.headers.Authorization == nil and not string.find(req.url, "access_token", 1, true))
 			if req.body ~= nil and type(req.body) ~= "string" then req.body = await(req.body:readAll()) end
 			table.insert(requests, req)

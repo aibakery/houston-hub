@@ -8,7 +8,6 @@ return {
         local file = nativeFiles.open("uploads/report.bin", "w")
         file:write(binary)
         await(file:close())
-        local multipart = http.multipart
         streamSources = {}
         function streamed(bytes)
             local native = fixture.reader(bytes)
@@ -40,7 +39,7 @@ return {
             end,
         }
         http = {
-            multipart = multipart,
+            
             request = function(req)
                 table.insert(requests, req)
                 if req.body ~= nil and type(req.body) ~= "string" then

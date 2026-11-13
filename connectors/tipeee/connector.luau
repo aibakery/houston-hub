@@ -290,9 +290,9 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 		for _, file in fileSpecs do
 			table.insert(parts, {name = file.name, filename = file.spec.filename, contentType = file.spec.contentType, body = fs.open(file.spec.path, "r")})
 		end
-		local contentType: string
-		body, contentType = http.multipart(parts)
-		headers["Content-Type"] = {contentType}
+		local form = multipart.create(parts)
+		body = form.body
+		headers["Content-Type"] = {form.contentType}
 	elseif endpoint.body == "json" then
 		assert(next(files) == nil, "files require a multipart operation")
 		body = json.encode(data)

@@ -28,7 +28,9 @@ type Readable = {
 }
 type StreamReader = Readable & {close: (Readable) -> (), readPrefix: (Readable, number) -> Operation<string>}
 type Reader = StreamReader | File
-type ByteSource = string | Reader
+-- Bytes held in memory; a buffer is copied when a call takes it.
+type Bytes = string | buffer
+type ByteSource = Bytes | Reader
 type Writer = {write: (Writer, ByteSource) -> Operation<number>}
 type File = Operation<File> & Readable & Writer & {
     seek: (File, number, "start" | "current" | "end") -> Operation<number>,
@@ -44,26 +46,25 @@ type PackedResults<T> = {[number]: T, n: number}
 local await: <T>(Operation<T>, number?) -> T = nil :: any
 -- Groups may mix result types; every input must still be an Operation.
 local awaitAll: ({Operation<any>}, number?) -> PackedResults<any> = nil :: any
-local http: {request: (HttpRequest) -> Operation<HttpResponse>,multipart: ({MultipartPart}) -> (StreamReader,string)} = nil :: any
+local http: {request: (HttpRequest) -> Operation<HttpResponse>} = nil :: any
+local multipart: {create: ({MultipartPart}) -> {body: StreamReader, contentType: string}} = nil :: any
 local stream: {concat:({ByteSource})->StreamReader} = nil :: any
 type ZipEntry = {name:string,body:ByteSource,method:("deflate" | "store")?}
 type ZipEntryInfo = {name:string,size:number,compressedSize:number}
 type ZipArchive = {entries:{ZipEntryInfo},open:(ZipArchive,string)->StreamReader,close:(ZipArchive)->()}
-local compression: {
-    gzip:(ByteSource)->StreamReader,
-    gunzip:(ByteSource)->StreamReader,
-    zip:({ZipEntry})->StreamReader,
-    unzip:(string | File)->Operation<ZipArchive>,
-} = nil :: any
+-- Codecs convert bytes in memory at once and Readers or Files lazily.
+type Codec = ((Bytes)->string) & ((Reader)->StreamReader)
+local gzip: {encode:Codec,decode:Codec} = nil :: any
+local zip: {create:({ZipEntry})->StreamReader,open:(Bytes | File)->Operation<ZipArchive>} = nil :: any
 local url: {encode:(string | number | boolean)->string,segment:(string,string?)->string} = nil :: any
 -- Byte strings convert to strings; Readers and Files stream.
 type Base64Options = {url:boolean?,pad:boolean?,wrap:boolean?}
 local base64: {
-    encode:((string,Base64Options?)->string) & ((Reader,Base64Options?)->StreamReader),
-    decode:((string)->string) & ((Reader)->StreamReader),
+    encode:((Bytes,Base64Options?)->string) & ((Reader,Base64Options?)->StreamReader),
+    decode:Codec,
 } = nil :: any
 type ShaOptions = {encoding:("hex" | "base64" | "raw")?}
-type ShaDigest = ((string,ShaOptions?)->string) & ((Reader,ShaOptions?)->Operation<string>)
+type ShaDigest = ((Bytes,ShaOptions?)->string) & ((Reader,ShaOptions?)->Operation<string>)
 local sha: {sha1:ShaDigest,sha256:ShaDigest,sha512:ShaDigest} = nil :: any
 type DbParam = string | number | boolean
 type DbQuery = {sql:string,params:({DbParam} | {[string]:DbParam})?,maxRows:number?,readOnly:boolean?}
@@ -82,7 +83,7 @@ local fs: {
     signedGetUrl:(string,number?)->Operation<string>,
     signedPutUrl:(string,number?)->Operation<string>,
 } = nil :: any
-local json: {encode:(any)->string,decode:(string)->any,jq:(any,string)->any} = nil :: any
+local json: {encode:(any)->string,decode:(ByteSource)->any,jq:(any,string)->any} = nil :: any
 local houston: {fail:(any)->never,seal:(any)->string,unseal:(string)->any} = nil :: any
 local require: (string)->any = nil :: any
 `

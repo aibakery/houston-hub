@@ -40,7 +40,7 @@ return {
 		assert(#requests == before, "oversized upload reached Dropbox")
 
 		-- A native source failure surfaces at final close rather than returning a download URL.
-		responses = {compression.gunzip(fixture.reader("not a gzip stream"))}
+		responses = {gzip.decode(fixture.reader("not a gzip stream"))}
 		ok, err = pcall(c.download, {path = "/broken.bin", session_path = "broken.bin"})
 		assert(not ok, "a failed stream returned a successful download")
 		assert(#requests == before + 1 and #responses == 0)

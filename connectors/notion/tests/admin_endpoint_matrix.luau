@@ -6,8 +6,7 @@ return {
   requests={}
   fs=fixture.files()
   local file=fs.open("upload.bin","w"); file:write("notion"..string.char(0,255)); await(file:close())
-  local multipart=http.multipart
-  http={multipart=multipart,request=function(req)
+  http={request=function(req)
    table.insert(requests,req)
    if type(req.body)=="userdata" then req.uploaded=await(req.body:readAll()) end
    return fixture.operation({statusCode=200,headers={},body=fixture.reader('{"object":"fixture","results":[],"next_cursor":null,"has_more":false,"future":{"retained":true}}')})

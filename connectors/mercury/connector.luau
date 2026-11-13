@@ -98,7 +98,8 @@ local function uploadBody(name: string, args: Options): (Reader, string)
 	assert(next(args) == nil, name .. " received an unknown option")
 	assert(await(fs.stat(path)).size <= 32 * 1024 * 1024, "Mercury uploads must not exceed 32 MB")
 	table.insert(parts, {name = "file", filename = filename, contentType = contentType, body = fs.open(path, "r")})
-	return http.multipart(parts)
+	local form = multipart.create(parts)
+	return form.body, form.contentType
 end
 
 local function request(name: string, endpoint: Endpoint, input: Options?): any

@@ -26,7 +26,7 @@ end
 -- not exposed.
 local endpoints: {[string]: Endpoint} = {
 	sendEmail = {method = "POST", path = "/emails", extra = {"idempotency_key"}, doc = "emails/send-email",
-		about = "Body {from='Name <you@your-domain>', to (address or array of at most 50), subject, html?, text?, cc?, bcc?, reply_to?, headers?, attachments?={{filename, content (base64) or path (public URL), content_type?, content_id?}}, tags?={{name, value}}, scheduled_at? (ISO 8601 or 'in 1 hour', at most 30 days ahead), topic_id?, template?={id (or alias), variables?}}. Sends real email; returns {id}."},
+		about = "Body {from='Name <you@your-domain>', to (address or array of at most 50), subject, html?, text?, cc?, bcc?, reply_to?, headers?, attachments?={{filename, file (session file path), content (base64) or path (public URL), content_type?, content_id?}}, tags?={{name, value}}, scheduled_at? (ISO 8601 or 'in 1 hour', at most 30 days ahead), topic_id?, template?={id (or alias), variables?}}. Sends real email; returns {id}."},
 	sendBatchEmails = {method = "POST", path = "/emails/batch", body = "emails", extra = {"idempotency_key"}, doc = "emails/send-batch-emails",
 		about = "emails: an array of 1..100 sendEmail bodies, without attachments. Returns {data={{id}}} in order; one invalid email rejects the whole batch."},
 	listEmails = {method = "GET", path = "/emails", query = PAGE, doc = "emails/list-emails", about = "Sent emails, newest first, with last_event."},
@@ -411,7 +411,56 @@ local function upload(args: Options, path: string): (any, string)
 		table.insert(parts, {name = field, body = if kind == "table" then json.encode(value) else tostring(value)})
 	end
 	table.insert(parts, {name = "file", filename = string.match(path, "[^/]+$"), contentType = "text/csv", body = fs.open(path, "r")})
-	return http.multipart(parts)
+	local form = multipart.create(parts)
+	return form.body, form.contentType
+end
+
+-- A JSON object whose members are written as given, except that an attachment with
+-- file = a session file path sends that file's base64 as its content, streamed so the
+-- email can exceed the 8 MiB limit on strings.
+local function jsonBody(args: Options): any
+	local attachments = args.attachments
+	local streamed = false
+	if type(attachments) == "table" then
+		for _, attachment in attachments do
+			if type(attachment) == "table" and attachment.file ~= nil then streamed = true end
+		end
+	end
+	if not streamed then return json.encode(args) end
+	local keys: {string} = {}
+	for key in args do if key ~= "attachments" then table.insert(keys, key) end end
+	table.sort(keys)
+	local parts: {any} = {"{"}
+	for _, key in keys do table.insert(parts, json.encode(key) .. ":" .. json.encode(args[key]) .. ",") end
+	table.insert(parts, '"attachments":[')
+	for index, attachment in attachments do
+		assert(type(attachment) == "table", "attachments must be tables")
+		local file = attachment.file
+		local fields: {[string]: any} = table.clone(attachment)
+		fields.file = nil
+		if file ~= nil then
+			assert(type(file) == "string" and file ~= "", "attachment file must be a session file path")
+			assert(fields.content == nil and fields.path == nil, "an attachment takes one of content, path or file")
+			assert(await(fs.stat(file)).isFile, "attachment file must be a session file")
+			if fields.filename == nil then fields.filename = string.match(file, "[^/]+$") end
+		end
+		local names: {string} = {}
+		for key in fields do table.insert(names, key) end
+		table.sort(names)
+		local members: {string} = {}
+		for _, key in names do table.insert(members, json.encode(key) .. ":" .. json.encode(fields[key])) end
+		local separator = if index > 1 then "," else ""
+		if file == nil then
+			table.insert(parts, separator .. "{" .. table.concat(members, ",") .. "}")
+		else
+			table.insert(members, '"content":"')
+			table.insert(parts, separator .. "{" .. table.concat(members, ","))
+			table.insert(parts, base64.encode(fs.open(file, "r")))
+			table.insert(parts, '"}')
+		end
+	end
+	table.insert(parts, "]}")
+	return stream.concat(parts)
 end
 
 local function request(name: string, endpoint: Endpoint, input: Options?): any
@@ -455,7 +504,7 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 		body = json.encode(args[field])
 		args[field] = nil
 	elseif hasBody(endpoint) then
-		body = json.encode(args)
+		body = jsonBody(args)
 		args = {}
 	end
 	local unknown = next(args)
@@ -469,7 +518,7 @@ end
 return operations(endpoints, request, {
 	"Resend API. Every function takes one named options object with Resend's snake_case names; ? marks optional fields and ...body the JSON body fields. Results are Resend's JSON unchanged, such as {id} for a send or {object='list', has_more, data} for a list. In bodies, pass json.decode('[]') for empty arrays and json.decode('null') to clear a field. Connector calls return completed values: use them directly, without await.",
 	"IDs are UUIDs; contacts, suppressions and inboxes also accept an email address, templates an alias and events a name. Lists return one page: limit is 1..100 (this connector sends 100 when omitted); while has_more, pass after = the last item's id (or before = the first item's id to go back). Multi-value query fields such as metrics, folders or labels take an array or a comma-separated string.",
-	"Sending: from must use a domain verified in Resend (see listDomains); without one, only onboarding@resend.dev can send, and only to the account owner's address. Use html, text or a published template. scheduled_at schedules up to 30 days ahead; cancelEmail or updateEmail change a scheduled email. Pass idempotency_key (1..256 characters, kept 24 hours) to sendEmail, sendBatchEmails, replyToThreadEmail, forwardThreadEmail, sendDraft and createDraft so a repeated call never sends (or drafts) twice. Attachments take base64 content or a public URL as path, at most 40 MB per email. A Houston request stops at 8 MiB, so base64 content carries at most about 6 MiB of files per email; pass a larger file as path, such as await(fs.signedGetUrl(file)) for a session file. Signed links expire, so use them for immediate sends rather than distant scheduled_at times.",
+	"Sending: from must use a domain verified in Resend (see listDomains); without one, only onboarding@resend.dev can send, and only to the account owner's address. Use html, text or a published template. scheduled_at schedules up to 30 days ahead; cancelEmail or updateEmail change a scheduled email. Pass idempotency_key (1..256 characters, kept 24 hours) to sendEmail, sendBatchEmails, replyToThreadEmail, forwardThreadEmail, sendDraft and createDraft so a repeated call never sends (or drafts) twice. Attachments take file (a session file path, streamed, filename defaulting to its name), base64 content, or a public URL as path, at most 40 MB per email. Prefer file for session files: a Houston call stops at 8 MiB, so base64 content passed in the call carries at most about 6 MiB of files.",
 	"Examples: resend.sendEmail({from='Acme <hello@acme.com>', to={'ana@example.com'}, subject='Welcome', html='<p>Hi Ana</p>', idempotency_key='welcome/ana'}); resend.sendBatchEmails({emails={{from=..., to='a@example.com', subject='Hi', text='Hello'}}}); resend.listEmails({limit=20}); resend.getReceivedEmail({email_id=id, html_format='cid'}); resend.getReceivedEmailAttachment({email_id=id, attachment_id=a.id, path='invoice.pdf'}) saves a session file; resend.createContact({email='ana@example.com', segments={{id=segment}}}); resend.listThreads({inbox_id='support@acme.com', folders={'inbox'}, read=false}); resend.updateThread({inbox_id=inbox, thread_id=t.id, read=true}).",
 	"Read-only connections omit writes, getWebhook (signing secrets) and getLog (logged request bodies). A Resend key with Sending access can only send email; other calls fail with HTTP 401 restricted_api_key. Resend allows 10 requests per second per team; the free plan allows 100 emails a day and 3,000 a month, counting received email and each recipient (HTTP 429 daily_quota_exceeded or monthly_quota_exceeded).",
 	"Side effects: sendEmail, sendBatchEmails, replyToThreadEmail, forwardThreadEmail, sendDraft, sendBroadcast, createBroadcast with send=true and sendEvent (through automations) email real people, and updateInboxAgent actions let Resend's agent draft, forward, file or trash an inbox's email on its own; shareEmail creates a public link. There are no automatic retries: after a timeout or 5xx, check listEmails or getEmail before repeating a send without an idempotency_key. Errors report the HTTP status, Resend's error name and message.",

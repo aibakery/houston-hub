@@ -1,7 +1,7 @@
 -- GitHub REST API, version 2026-03-10. Arguments and results keep GitHub's native field names.
 type Options = {[string]: any}
 type Endpoint = {method: string, path: string, query: {string}?, required: {string}?, body: boolean?, save: string?,
-	diff: boolean?, auth: string?, about: string}
+	diff: boolean?, upload: ("contents" | "blob")?, auth: string?, about: string}
 
 local API = "https://api.github.com"
 local VERSION = "2026-03-10"
@@ -57,8 +57,8 @@ local endpoints: {[string]: Endpoint} = {
 	getReadme = {method = "GET", path = "/repos/{owner}/{repo}/readme", query = {"ref"}, about = "The README, base64 in content."},
 	getContent = {method = "GET", path = "/repos/{owner}/{repo}/contents/{path}", query = {"ref"}, save = "application/vnd.github.raw+json",
 		about = "A directory listing, or a file with base64 content up to 1 MB. save_as saves raw bytes (up to 100 MB). List the root with getTree."},
-	putFile = {method = "PUT", path = "/repos/{owner}/{repo}/contents/{path}", required = {"message", "content"},
-		about = "Body {message, content (base64), sha (required to replace a file), branch?, committer?}. Commits one file."},
+	putFile = {method = "PUT", path = "/repos/{owner}/{repo}/contents/{path}", required = {"message", "content"}, upload = "contents",
+		about = "Body {message, content (base64), sha (required to replace a file), branch?, committer?}. Commits one file; content_path='name' streams a session file instead of content."},
 	deleteFile = {method = "DELETE", path = "/repos/{owner}/{repo}/contents/{path}", required = {"message", "sha"}, body = true,
 		about = "Body {message, sha, branch?}. Commits the deletion."},
 	downloadTarball = {method = "GET", path = "/repos/{owner}/{repo}/tarball/{ref}", required = {"save_as"}, save = JSON, about = "Saves a .tar.gz archive of ref."},
@@ -109,7 +109,8 @@ local endpoints: {[string]: Endpoint} = {
 		about = "Body {tree={{path, mode, type, sha or content}}, base_tree?}."},
 	getBlob = {method = "GET", path = "/repos/{owner}/{repo}/git/blobs/{file_sha}", save = "application/vnd.github.raw+json",
 		about = "A blob, base64 in content; save_as saves its raw bytes (up to 100 MB)."},
-	createBlob = {method = "POST", path = "/repos/{owner}/{repo}/git/blobs", required = {"content"}, about = "Body {content, encoding? ('utf-8' or 'base64')}."},
+	createBlob = {method = "POST", path = "/repos/{owner}/{repo}/git/blobs", required = {"content"}, upload = "blob",
+		about = "Body {content, encoding? ('utf-8' or 'base64')}. content_path='name' streams a session file as base64 instead of content."},
 	getGitCommit = {method = "GET", path = "/repos/{owner}/{repo}/git/commits/{commit_sha}", about = "A commit object with its tree and parents."},
 	createGitCommit = {method = "POST", path = "/repos/{owner}/{repo}/git/commits", required = {"message", "tree"},
 		about = "Body {message, tree, parents, author?}. Then updateRef moves the branch."},
@@ -442,15 +443,39 @@ local function download(destination: string, fetch: (any) -> any): any
 	return result
 end
 
+-- A JSON body whose content field is a session file's base64, streamed so the file never
+-- becomes a string and can exceed the 8 MiB limit on strings.
+local function streamedBody(args: Options, file: string): any
+	local keys: {string} = {}
+	for key in args do table.insert(keys, key) end
+	table.sort(keys)
+	local parts: {any} = {'{"content":"', base64.encode(fs.open(file, "r")), '"'}
+	for _, key in keys do table.insert(parts, "," .. json.encode(key) .. ":" .. json.encode(args[key])) end
+	table.insert(parts, "}")
+	return stream.concat(parts)
+end
+
 local function request(name: string, endpoint: Endpoint, input: Options?): any
 	local args = options(input)
+	local file: string? = nil
+	if endpoint.upload and args.content_path ~= nil then
+		local source = text(args.content_path, "content_path")
+		file = source
+		assert(args.content == nil, "pass content or content_path, not both")
+		args.content_path = nil
+		if endpoint.upload == "blob" then
+			assert(args.encoding == nil or args.encoding == "base64", "content_path sends base64; omit encoding")
+			args.encoding = "base64"
+		end
+		assert(await(fs.stat(source)).isFile, "content_path must be a session file")
+	end
 	local path = string.gsub(endpoint.path, "{([%w_]+)}", function(field: string)
 		local value = segment(args[field], field)
 		args[field] = nil
 		return value
 	end)
 	for _, field in endpoint.required or NONE do
-		assert(args[field] ~= nil and args[field] ~= NULL, field .. " is required")
+		assert((args[field] ~= nil and args[field] ~= NULL) or (field == "content" and file ~= nil), field .. " is required")
 	end
 	local headers: HttpHeaders = {Accept = {JSON}, ["X-GitHub-Api-Version"] = {VERSION}}
 	local destination: string? = nil
@@ -476,11 +501,11 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 		args[field] = nil
 	end
 	if #query > 0 then path ..= "?" .. table.concat(query, "&") end
-	local body: string? = nil
+	local body: any = nil
 	local sends = if endpoint.body == nil then endpoint.method == "POST" or endpoint.method == "PATCH" or endpoint.method == "PUT" else endpoint.body
 	if sends then
 		headers["Content-Type"] = {"application/json"}
-		body = json.encode(args)
+		body = if file then streamedBody(args, file) else json.encode(args)
 		args = {}
 	end
 	local unknown = next(args)
@@ -537,6 +562,7 @@ local function signature(endpoint: Endpoint): string
 	end
 	if endpoint.save then table.insert(fields, if table.find(required, "save_as") then "save_as" else "save_as?") end
 	if endpoint.diff then table.insert(fields, "format?") end
+	if endpoint.upload then table.insert(fields, "content_path?") end
 	return "({" .. table.concat(fields, ", ") .. "})"
 end
 
@@ -545,7 +571,7 @@ exports.help = function(): string
 		"GitHub REST API " .. VERSION .. ". Each function takes one options object with GitHub's snake_case names (? marks optional); writes also take the JSON body fields listed after Body. Results are GitHub's JSON unchanged; write replies without a body return {success=true}. Connector calls return completed values: use them directly, without await. In bodies, json.decode('[]') is an empty array and json.decode('null') clears a field.",
 		"Start with github.getAuthenticatedUser().login, github.listMyRepos({sort='pushed', per_page=20}) or github.searchIssues({q='is:pr is:open author:@me'}); github.listUserEvents({username=login}) gives recent activity. branch, ref, path, tag, tree_sha, basehead and label name may contain slashes and percent signs (ref='heads/feature/x', path='src/100%.md'), but not backslashes or escapes of separators and dots such as %2F.",
 		"Lists return one page: page? means per_page (1..100, default 30) and page (from 1); a shorter page is the last. JSON and text results over 8 MiB fail; use save_as or smaller pages. Search returns {total_count, incomplete_results, items}: at most 1,000 results and 30 requests per minute (searchCode 10).",
-		"Files: getContent returns base64 content; save_as='name' saves raw bytes as a session file instead. Houston requests and replies stop at 8 MiB, so base64 content in getContent, getBlob, putFile and createBlob carries at most about 6 MiB of file; read larger files with save_as. download_url links lose their private-repository token (fetch private files with save_as), and temp_clone_token is removed. save_as functions return {path, size, url} and replace that session file only when the download succeeds; a failed download leaves it as it was; search large logs with fs.grep. getCommit, compareCommits and getPull take format='diff' or 'patch' and return that text, without paging. To commit several files, chain createBlob, createTree, createGitCommit and updateRef.",
+		"Files: getContent returns base64 content; save_as='name' saves raw bytes as a session file instead. Houston requests and replies stop at 8 MiB, so base64 content in getContent and getBlob carries at most about 6 MiB of file: read larger files with save_as. putFile and createBlob take content_path='name' instead of content to stream a session file of any size up to GitHub's 100 MB file limit. download_url links lose their private-repository token (fetch private files with save_as), and temp_clone_token is removed. save_as functions return {path, size, url} and replace that session file only when the download succeeds; a failed download leaves it as it was; search large logs with fs.grep. getCommit, compareCommits and getPull take format='diff' or 'patch' and return that text, without paging. To commit several files, chain createBlob, createTree, createGitCommit and updateRef.",
 		"Access: GitHub enforces the token's permissions and repository selection; Connect with GitHub reaches public data and repositories where Houston's GitHub App is installed. A 403 or 404 may mean missing access; errors give GitHub's message, needed permissions and rate-limit resets. Read-only connections omit writes. Notifications need a classic token and installation lists Connect with GitHub; check runs and suites need a classic token or Connect with GitHub.",
 		"Writes can notify people and trigger workflows. No automatic retries: after a timeout or 5xx, read the resource again before repeating a write. Repository deletion, settings administration, secrets, webhooks, deploy keys and GraphQL are not exposed.",
 	}
