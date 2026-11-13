@@ -3,7 +3,7 @@ return {
 	configure = function()
 		requests, responses = {}, {}
 		http = {request = function(req)
-			assert(req.headers == nil or req.headers.Authorization == nil, "the proxy injects Authorization")
+			for name in req.headers or {} do assert(string.lower(name) ~= "authorization", "the proxy injects Authorization") end
 			table.insert(requests, req)
 			assert(#responses > 0, "unexpected request: " .. req.url)
 			local response = table.remove(responses, 1)
@@ -13,14 +13,21 @@ return {
 	run = function(c)
 		local API = "https://api.hubapi.com"
 		local OBJECTS = API .. "/crm/objects/2026-09/"
+		local SEGMENT = "must be one nonempty URL path segment"
 		local function last() return requests[#requests] end
+		local function same(a: any, b: any): boolean
+			if type(a) ~= "table" or type(b) ~= "table" then return a == b end
+			for key, value in a do if not same(value, b[key]) then return false end end
+			for key in b do if a[key] == nil then return false end end
+			return true
+		end
 		local function get(href: string)
 			assert(last().method == "GET" and last().url == href and last().body == nil, last().method .. " " .. last().url)
 		end
-		local function post(href: string): any
+		local function post(href: string, expected: any)
 			assert(last().method == "POST" and last().url == href, last().method .. " " .. last().url)
 			assert(last().headers["Content-Type"][1] == "application/json", "JSON body without Content-Type")
-			return json.decode(last().body)
+			assert(same(json.decode(last().body), expected), "unexpected body " .. last().body)
 		end
 		local function empty(value: any)
 			assert(#value.results == 0 and json.encode(value.results) == "[]", json.encode(value))
@@ -39,7 +46,7 @@ return {
 		-- Records: one page at a time, query lists comma-separated in a fixed order, archived only when true.
 		responses = {
 			{body = '{"results":[{"id":"101","properties":{"email":"ana@example.com","firstname":"Ana"},"archived":false}],"paging":{"next":{"after":"102","link":"x"}}}'},
-			{body = '{"results":[]}'}, {body = '{}'},
+			{body = '{"results":[]}'}, {body = '{}'}, {body = '{"results":[]}'},
 			{body = '{"id":"101","properties":{"email":"ana@example.com"},"associations":{"companies":{"results":[{"id":"512","type":"contact_to_company"}]}}}'},
 			{body = '{"id":"512","properties":{"name":"Acme"}}'},
 		}
@@ -51,6 +58,9 @@ return {
 		get(OBJECTS .. "contacts?after=102")
 		empty(c.listObjects({objectType = "deals", archived = false}))
 		get(OBJECTS .. "deals")
+		-- A cursor cannot add query parameters of its own.
+		empty(c.listObjects({objectType = "contacts", after = "1&archived=true"}))
+		get(OBJECTS .. "contacts?after=1%26archived%3Dtrue")
 		local contact = c.getObject({objectType = "contacts", objectId = "ana@example.com", idProperty = "email", properties = {"email"}, associations = {"companies"}})
 		get(OBJECTS .. "contacts/ana%40example.com?idProperty=email&properties=email&associations=companies")
 		assert(contact.associations.companies.results[1].id == "512", json.encode(contact))
@@ -67,37 +77,37 @@ return {
 			{body = '{"total":0,"results":[]}'},
 			{status = 207, body = '{"status":"COMPLETE","results":[{"id":"101"}],"numErrors":1,"errors":[{"status":"error","category":"OBJECT_NOT_FOUND","message":"Could not get some CONTACT objects"}]}'},
 			{body = '{"status":"COMPLETE","results":[{"id":"101","properties":{"email":"ana@example.com"}}]}'},
+			{body = '{"status":"COMPLETE","results":[]}'}, {body = '{"status":"COMPLETE"}'},
 		}
 		local filterGroups = {{filters = {{propertyName = "dealstage", operator = "EQ", value = "contractsent"}}},
 			{filters = {{propertyName = "amount", operator = "BETWEEN", value = "1000", highValue = "5000"}, {propertyName = "hs_tag_ids", operator = "IN", values = {"a", "b"}}}}}
-		local found = c.searchObjects({objectType = "deals", query = "renewal", filterGroups = filterGroups,
-			sorts = {{propertyName = "closedate", direction = "ASCENDING"}}, properties = {"dealname"}, limit = 200, after = "20"})
+		local sorts = {{propertyName = "closedate", direction = "ASCENDING"}}
+		local found = c.searchObjects({objectType = "deals", query = "renewal", filterGroups = filterGroups, sorts = sorts,
+			properties = {"dealname"}, limit = 200, after = "20"})
 		assert(found.total == 1 and found.results[1].id == "9876" and found.paging.next.after == "21")
-		local sent = post(OBJECTS .. "deals/search")
-		assert(sent.query == "renewal" and sent.limit == 200 and sent.after == "20" and sent.properties[1] == "dealname" and sent.sorts[1].direction == "ASCENDING", last().body)
-		assert(#sent.filterGroups == 2 and sent.filterGroups[2].filters[1].highValue == "5000" and sent.filterGroups[2].filters[2].values[2] == "b" and sent.objectType == nil, last().body)
+		post(OBJECTS .. "deals/search", {query = "renewal", filterGroups = filterGroups, sorts = sorts, properties = {"dealname"}, limit = 200, after = "20"})
 		local none = c.searchObjects({objectType = "notes"})
 		empty(none)
-		assert(none.total == 0 and post(OBJECTS .. "notes/search") ~= nil and last().body == "{}", last().body)
+		assert(none.total == 0 and last().body == "{}", last().body)
+		post(OBJECTS .. "notes/search", {})
 		local batch = c.batchReadObjects({objectType = "contacts", inputs = {{id = "101"}, {id = "999"}}, properties = {"email"},
 			propertiesWithHistory = {"lifecyclestage"}, archived = true})
 		assert(batch.results[1].id == "101" and batch.numErrors == 1 and batch.errors[1].category == "OBJECT_NOT_FOUND")
-		sent = post(OBJECTS .. "contacts/batch/read?archived=true")
-		assert(#sent.inputs == 2 and sent.inputs[2].id == "999" and sent.properties[1] == "email" and sent.propertiesWithHistory[1] == "lifecyclestage" and sent.idProperty == nil, last().body)
+		post(OBJECTS .. "contacts/batch/read?archived=true", {inputs = {{id = "101"}, {id = "999"}}, properties = {"email"}, propertiesWithHistory = {"lifecyclestage"}})
 		c.batchReadObjects({objectType = "contacts", idProperty = "email", inputs = {{id = "ana@example.com"}}})
-		sent = post(OBJECTS .. "contacts/batch/read")
-		assert(sent.idProperty == "email" and sent.inputs[1].id == "ana@example.com" and sent.properties == nil, last().body)
+		post(OBJECTS .. "contacts/batch/read", {idProperty = "email", inputs = {{id = "ana@example.com"}}})
 		-- Body IDs are JSON values, not path segments: any nonempty unique value goes out unchanged.
-		responses = {{body = '{"status":"COMPLETE","results":[]}'}}
-		c.batchReadObjects({objectType = "companies", idProperty = "path", inputs = {{id = "a/b"}, {id = "50%"}, {id = ".."}}})
-		sent = post(OBJECTS .. "companies/batch/read")
-		assert(sent.inputs[1].id == "a/b" and sent.inputs[2].id == "50%" and sent.inputs[3].id == "..", last().body)
+		empty(c.batchReadObjects({objectType = "companies", idProperty = "path", inputs = {{id = "a/b"}, {id = "50%"}, {id = ".."}}}))
+		post(OBJECTS .. "companies/batch/read", {idProperty = "path", inputs = {{id = "a/b"}, {id = "50%"}, {id = ".."}}})
+		empty(c.batchReadObjects({objectType = "tickets", inputs = {{id = "5"}}}))
+		post(OBJECTS .. "tickets/batch/read", {inputs = {{id = "5"}}})
 
 		-- Associations between records, read one record or many at a time, and their labels.
 		responses = {
 			{body = '{"results":[{"toObjectId":101,"associationTypes":[{"category":"HUBSPOT_DEFINED","typeId":3,"label":null}]}],"paging":{"next":{"after":"x2"}}}'},
 			{body = '{"results":[]}'},
 			{status = 207, body = '{"status":"COMPLETE","results":[{"from":{"id":"9876"},"to":[{"toObjectId":512,"associationTypes":[{"category":"HUBSPOT_DEFINED","typeId":5,"label":"Primary"}]}]}],"errors":[{"status":"error","category":"OBJECT_NOT_FOUND"}]}'},
+			{body = '{"status":"COMPLETE","results":[]}'},
 			{body = '{"results":[{"category":"HUBSPOT_DEFINED","typeId":1,"label":"Primary"},{"category":"USER_DEFINED","typeId":36,"label":"Decision maker"}]}'},
 			{body = '{"results":[]}'},
 		}
@@ -108,11 +118,13 @@ return {
 		get(OBJECTS .. "contacts/101/associations/notes")
 		local many = c.batchReadAssociations({fromObjectType = "deals", toObjectType = "companies", inputs = {{id = "9876"}, {id = "9877", after = "abc"}}})
 		assert(many.results[1].to[1].associationTypes[1].label == "Primary" and many.errors[1].category == "OBJECT_NOT_FOUND")
-		sent = post(API .. "/crm/associations/2026-09/deals/companies/batch/read")
-		assert(#sent.inputs == 2 and sent.inputs[1].after == nil and sent.inputs[2].after == "abc", last().body)
+		post(API .. "/crm/associations/2026-09/deals/companies/batch/read", {inputs = {{id = "9876"}, {id = "9877", after = "abc"}}})
+		empty(c.batchReadAssociations({fromObjectType = "contacts", toObjectType = "notes", inputs = {{id = "101"}}}))
+		post(API .. "/crm/associations/2026-09/contacts/notes/batch/read", {inputs = {{id = "101"}}})
 		assert(c.listAssociationLabels({fromObjectType = "contacts", toObjectType = "companies"}).results[2].typeId == 36)
 		get(API .. "/crm/associations/2026-09/contacts/companies/labels")
 		empty(c.listAssociationLabels({fromObjectType = "tickets", toObjectType = "deals"}))
+		get(API .. "/crm/associations/2026-09/tickets/deals/labels")
 
 		-- Pipelines, owners and property definitions.
 		responses = {
@@ -161,8 +173,8 @@ return {
 		fails({"objectId must be a string of digits"}, c.getObject, {objectType = "contacts", objectId = "abc"})
 		fails({"objectId must be a string of digits"}, c.getObject, {objectType = "contacts", objectId = "../users"})
 		fails({"objectId must be a string of digits"}, c.listAssociations, {objectType = "contacts", objectId = "ana@example.com", toObjectType = "companies"})
-		assert(not pcall(c.getObject, {objectType = "contacts", objectId = "../users", idProperty = "email"}), "a dot segment reached the network")
-		assert(not pcall(c.getObject, {objectType = "contacts", objectId = "a/b", idProperty = "email"}), "a slash reached the network")
+		fails({"objectId " .. SEGMENT}, c.getObject, {objectType = "contacts", objectId = "../users", idProperty = "email"})
+		fails({"objectId " .. SEGMENT}, c.getObject, {objectType = "contacts", objectId = "a/b", idProperty = "email"})
 		for _, limit in {0, 101, 1.5, "10"} do
 			fails({"limit must be an integer from 1 to 100"}, c.listObjects, {objectType = "contacts", limit = limit})
 		end
@@ -193,6 +205,7 @@ return {
 		for index = 1, 1001 do table.insert(ids, {id = tostring(index)}) end
 		fails({"inputs must be an array of 1 to 100 items"}, c.batchReadObjects, {objectType = "contacts", inputs = table.move(ids, 1, 101, 1, {})})
 		fails({"inputs[1].id must be a string of digits"}, c.batchReadObjects, {objectType = "contacts", inputs = {{id = 101}}})
+		fails({"inputs[1].id must be a nonempty string"}, c.batchReadObjects, {objectType = "contacts", idProperty = "email", inputs = {{id = ""}}})
 		fails({"inputs[1] received an unknown field properties"}, c.batchReadObjects, {objectType = "contacts", inputs = {{id = "1", properties = {"email"}}}})
 		fails({"inputs must be an array of 1 to 1000 items"}, c.batchReadAssociations, {fromObjectType = "deals", toObjectType = "companies", inputs = ids})
 		fails({"properties must be an array of 1 to 500 items"}, c.listObjects, {objectType = "contacts", properties = {}})
@@ -200,7 +213,7 @@ return {
 		fails({"properties[1] must be a nonempty name without commas"}, c.getObject, {objectType = "contacts", objectId = "1", properties = {"email,phone"}})
 		fails({"objectType must be one of deals, tickets"}, c.listPipelines, {objectType = "contacts"})
 		fails({"pipelineId must be a nonempty string"}, c.getPipeline, {objectType = "deals"})
-		assert(not pcall(c.getPipeline, {objectType = "deals", pipelineId = ".."}), "a dot segment reached the network")
+		fails({"pipelineId " .. SEGMENT}, c.getPipeline, {objectType = "deals", pipelineId = ".."})
 		fails({"propertyName must be a property's internal name"}, c.getProperty, {objectType = "contacts", propertyName = "a/b"})
 		fails({"ownerId must be a string of digits"}, c.getOwner, {ownerId = "abc"})
 		fails({"idProperty must be one of id, userId"}, c.getOwner, {ownerId = "1", idProperty = "email"})

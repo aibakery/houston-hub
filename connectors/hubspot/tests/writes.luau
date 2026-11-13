@@ -4,7 +4,7 @@ return {
 	configure = function()
 		requests, responses = {}, {}
 		http = {request = function(req)
-			assert(req.headers == nil or req.headers.Authorization == nil, "the proxy injects Authorization")
+			for name in req.headers or {} do assert(string.lower(name) ~= "authorization", "the proxy injects Authorization") end
 			table.insert(requests, req)
 			assert(#responses > 0, "unexpected request: " .. req.url)
 			local response = table.remove(responses, 1)
@@ -14,10 +14,16 @@ return {
 	run = function(c)
 		local OBJECTS = "https://api.hubapi.com/crm/objects/2026-09/"
 		local function last() return requests[#requests] end
-		local function sent(method: string, href: string): any
+		local function same(a: any, b: any): boolean
+			if type(a) ~= "table" or type(b) ~= "table" then return a == b end
+			for key, value in a do if not same(value, b[key]) then return false end end
+			for key in b do if a[key] == nil then return false end end
+			return true
+		end
+		local function sent(method: string, href: string, expected: any)
 			assert(last().method == method and last().url == href, last().method .. " " .. last().url)
 			assert(last().headers["Content-Type"][1] == "application/json", "JSON body without Content-Type")
-			return json.decode(last().body)
+			assert(same(json.decode(last().body), expected), "unexpected body " .. last().body)
 		end
 		local function fails(expected: {string}, fn: (...any) -> any, ...: any)
 			local ok, err = pcall(fn, ...)
@@ -37,29 +43,28 @@ return {
 			{status = 201, body = '{"id":"301","properties":{"hs_note_body":"Called about renewal."}}'},
 			{status = 201, body = '{"id":"401"}'},
 		}
-		assert(c.createObject({objectType = "contacts", properties = {email = "ana@example.com", firstname = "Ana", hs_count = 3, opted_in = false}}).id == "101")
-		local body = sent("POST", OBJECTS .. "contacts")
-		assert(body.properties.email == "ana@example.com" and body.properties.hs_count == 3 and body.properties.opted_in == false and body.associations == nil, last().body)
-		c.createObject({objectType = "notes", properties = {hs_timestamp = "2026-11-13T10:00:00Z", hs_note_body = "Called about renewal."},
-			associations = {{to = {id = "101"}, types = {{associationCategory = "HUBSPOT_DEFINED", associationTypeId = 202}}},
-				{to = {id = "512"}, types = {{associationCategory = "HUBSPOT_DEFINED", associationTypeId = 190}}}}})
-		body = sent("POST", OBJECTS .. "notes")
-		assert(body.properties.hs_timestamp == "2026-11-13T10:00:00Z" and #body.associations == 2 and body.associations[2].to.id == "512", last().body)
-		assert(body.associations[1].types[1].associationCategory == "HUBSPOT_DEFINED" and body.associations[1].types[1].associationTypeId == 202, last().body)
+		local contact = {email = "ana@example.com", firstname = "Ana", hs_count = 3, opted_in = false}
+		assert(c.createObject({objectType = "contacts", properties = contact}).id == "101")
+		sent("POST", OBJECTS .. "contacts", {properties = contact})
+		local note = {hs_timestamp = "2026-11-13T10:00:00Z", hs_note_body = "Called about renewal."}
+		local links = {{to = {id = "101"}, types = {{associationCategory = "HUBSPOT_DEFINED", associationTypeId = 202}}},
+			{to = {id = "512"}, types = {{associationCategory = "HUBSPOT_DEFINED", associationTypeId = 190}}}}
+		c.createObject({objectType = "notes", properties = note, associations = links})
+		sent("POST", OBJECTS .. "notes", {properties = note, associations = links})
 		assert(string.find(last().body, '"types":[{', 1, true) ~= nil, last().body)
-		c.createObject({objectType = "tasks", properties = {hs_timestamp = "2026-11-20T09:00:00Z", hs_task_subject = "Send contract", hs_task_status = "NOT_STARTED"},
-			associations = {{to = {id = "9876"}, types = {{associationCategory = "HUBSPOT_DEFINED", associationTypeId = 216}}}}})
-		body = sent("POST", OBJECTS .. "tasks")
-		assert(body.properties.hs_task_subject == "Send contract" and body.associations[1].to.id == "9876" and body.associations[1].types[1].associationTypeId == 216, last().body)
+		local task = {hs_timestamp = "2026-11-20T09:00:00Z", hs_task_subject = "Send contract", hs_task_status = "NOT_STARTED"}
+		local onDeal = {{to = {id = "9876"}, types = {{associationCategory = "HUBSPOT_DEFINED", associationTypeId = 216}}}}
+		c.createObject({objectType = "tasks", properties = task, associations = onDeal})
+		sent("POST", OBJECTS .. "tasks", {properties = task, associations = onDeal})
 
 		-- Updates PATCH only the named properties, by record ID or by a unique property.
-		responses = {{body = '{"id":"9876","properties":{"dealstage":"closedwon"}}'}, {body = '{"id":"101"}'}}
+		responses = {{body = '{"id":"9876","properties":{"dealstage":"closedwon"}}'}, {body = '{"id":"101"}'}, {body = '{"id":"7"}'}}
 		assert(c.updateObject({objectType = "deals", objectId = "9876", properties = {dealstage = "closedwon", amount = ""}}).properties.dealstage == "closedwon")
-		body = sent("PATCH", OBJECTS .. "deals/9876")
-		assert(body.properties.dealstage == "closedwon" and body.properties.amount == "" and body.objectId == nil, last().body)
+		sent("PATCH", OBJECTS .. "deals/9876", {properties = {dealstage = "closedwon", amount = ""}})
 		c.updateObject({objectType = "contacts", objectId = "ana@example.com", idProperty = "email", properties = {jobtitle = "CTO"}})
-		body = sent("PATCH", OBJECTS .. "contacts/ana%40example.com?idProperty=email")
-		assert(body.properties.jobtitle == "CTO" and body.idProperty == nil, last().body)
+		sent("PATCH", OBJECTS .. "contacts/ana%40example.com?idProperty=email", {properties = {jobtitle = "CTO"}})
+		c.updateObject({objectType = "contacts", objectId = "sku:123", idProperty = "sku", properties = {jobtitle = "CTO"}})
+		sent("PATCH", OBJECTS .. "contacts/sku%3A123?idProperty=sku", {properties = {jobtitle = "CTO"}})
 
 		-- Associations: a default link has an empty body, a labelled one a JSON array, and a delete none.
 		responses = {
@@ -70,11 +75,11 @@ return {
 		assert(c.createDefaultAssociation({fromObjectType = "contacts", fromObjectId = "101", toObjectType = "companies", toObjectId = "512"}).results[1].to.id == "512")
 		assert(last().method == "PUT" and last().url == OBJECTS .. "contacts/101/associations/default/companies/512", last().url)
 		assert(last().body == "" and (last().headers == nil or last().headers["Content-Type"] == nil), "a default association sends an empty body")
-		local labels = c.createAssociation({objectType = "contacts", objectId = "101", toObjectType = "companies", toObjectId = "512",
-			types = {{associationCategory = "HUBSPOT_DEFINED", associationTypeId = 1}, {associationCategory = "USER_DEFINED", associationTypeId = 36}}})
+		local types = {{associationCategory = "HUBSPOT_DEFINED", associationTypeId = 1}, {associationCategory = "USER_DEFINED", associationTypeId = 36}}
+		local labels = c.createAssociation({objectType = "contacts", objectId = "101", toObjectType = "companies", toObjectId = "512", types = types})
 		assert(labels.labels[1] == "Primary" and labels.toObjectId == 512)
-		body = sent("PUT", OBJECTS .. "contacts/101/associations/companies/512")
-		assert(string.sub(last().body, 1, 1) == "[" and #body == 2 and body[2].associationCategory == "USER_DEFINED" and body[2].associationTypeId == 36, last().body)
+		sent("PUT", OBJECTS .. "contacts/101/associations/companies/512", types)
+		assert(string.sub(last().body, 1, 1) == "[", last().body)
 		local removed = c.deleteAssociation({objectType = "contacts", objectId = "101", toObjectType = "companies", toObjectId = "512"})
 		assert(removed.success == true and last().method == "DELETE" and last().url == OBJECTS .. "contacts/101/associations/companies/512" and last().body == nil, last().url)
 

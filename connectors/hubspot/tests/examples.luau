@@ -1,18 +1,24 @@
 -- Every documented example runs as a real call against a permissive HubSpot mock; read-write
--- documents every operation.
-local MORE = {listObjects = 2, getObject = 2, searchObjects = 3, listOwners = 2, createObject = 3, updateObject = 3}
+-- documents every operation. Each operation's examples come from its help record: indexes are tried
+-- until the record has no more, so a new example cannot be skipped.
 local function run(c)
 	local names = {}
 	for name in c do table.insert(names, name) end
 	table.sort(names)
 	local count = 0
 	for _, name in names do
-		for index = 1, MORE[name] or 1 do
-			fixture.example(name, index)
+		local index = 1
+		while true do
+			local ok, err = pcall(fixture.example, name, index)
+			if not ok then
+				assert(index > 1 and string.find(tostring(err), "example index out of range", 1, true), name .. " example " .. index .. ": " .. tostring(err))
+				break
+			end
 			count += 1
+			index += 1
 		end
 	end
-	assert(#names == 18 and calls == count, "an example made no request, or more than one")
+	assert(calls == count, "an example made no request, or more than one")
 end
 local function configure()
 	calls = 0
