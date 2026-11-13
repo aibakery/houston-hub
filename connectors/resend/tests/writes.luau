@@ -5,9 +5,8 @@ return {
 		status = 200
 		payload = '{"id":"49a3999c-0ce1-4ea6-ab68-afcd6dc2e794"}'
 		fs = fixture.files()
-		local multipart = http.multipart
-		http = {multipart = multipart, request = function(req)
-			if req.body ~= nil and type(req.body) ~= "string" then req.body = await(req.body:readAll()) end
+		http = {request = function(req)
+			if req.body ~= nil and type(req.body) ~= "string" then req.body = await(req.body:readAll(16 * 1024 * 1024)) end
 			table.insert(requests, req)
 			return fixture.operation({statusCode = status, headers = {}, body = fixture.reader(payload)})
 		end}
@@ -139,5 +138,33 @@ return {
 		rejected(function() resend.createContactImport({path = "imports/contacts.csv", on_conflict = json.decode("null")}) end, "on_conflict must be a string, number, boolean, object or array")
 		rejected(function() resend.createContactImport({column_map = {email = "email"}}) end, "path is required")
 		rejected(function() resend.createContactImport({path = "imports/missing.csv"}) end, "path imports/missing.csv is not a session file")
+
+		-- A session file attachment streams its base64 into the JSON body, past the 8 MiB limit on strings.
+		local chunk = string.rep("pdf\0", 1200000) -- 4.8 MB, a multiple of 3 bytes
+		local file = fs.open("reports/q3.pdf", "w")
+		for _ = 1, 2 do await(file:write(chunk)) end
+		await(file:close())
+		resend.sendEmail({from = "Acme <hello@acme.com>", to = "ana@example.com", subject = "Q3", text = "Attached",
+			attachments = {{content = "aGk=", filename = "hi.txt"}, {file = "reports/q3.pdf", content_type = "application/pdf"}}})
+		local sent = json.decode(last().body)
+		assert(last().url == API .. "/emails" and sent.subject == "Q3" and sent.to == "ana@example.com", string.sub(last().body, 1, 200))
+		assert(sent.attachments[1].content == "aGk=" and sent.attachments[1].filename == "hi.txt")
+		local attached = sent.attachments[2]
+		assert(attached.filename == "q3.pdf" and attached.content_type == "application/pdf" and attached.file == nil)
+		assert(attached.content == string.rep(base64.encode(chunk), 2) and #attached.content > 8 * 1024 * 1024)
+		rejected(function() resend.sendEmail({from = "a@acme.com", to = "b@example.com", subject = "s", text = "t",
+			attachments = {{file = "reports/q3.pdf", path = "https://example.com/q3.pdf"}}}) end, "an attachment takes one of content, path or file")
+		rejected(function() resend.sendEmail({from = "a@acme.com", to = "b@example.com", subject = "s", text = "t",
+			attachments = {{file = "reports/missing.pdf"}}}) end, "not_found")
+		local note = fs.open("notes.txt", "w")
+		await(note:write("hi"))
+		await(note:close())
+		local many = {}
+		for i = 1, 60 do many[i] = {file = "notes.txt", filename = "note" .. i .. ".txt"} end
+		resend.sendEmail({from = "a@acme.com", to = "b@example.com", subject = "s", text = "t", attachments = many})
+		sent = json.decode(last().body)
+		assert(#sent.attachments == 60 and sent.attachments[60].filename == "note60.txt" and sent.attachments[60].content == "aGk=")
+		rejected(function() resend.sendEmail({from = "a@acme.com", to = "b@example.com", subject = "s", text = "t",
+			attachments = {x = {file = "notes.txt"}}}) end, "attachments must be an array")
 	end,
 }

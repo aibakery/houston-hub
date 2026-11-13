@@ -93,7 +93,7 @@ return {
 		assert(last().method == "PUT" and last().url == ME .. "/root:/Budget%202026.xlsx:/content?@microsoft.graph.conflictBehavior=fail", last().url)
 		assert(last().headers["Content-Type"][1] == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 		assert(created.id == "N1" and created.parentReference.id == "P1" and created.file.mimeType ~= nil and created.createdBy == nil and created["@microsoft.graph.downloadUrl"] == nil)
-		local archive = await(compression.unzip(last().body))
+		local archive = await(zip.open(last().body))
 		local parts = {}
 		for _, entry in archive.entries do table.insert(parts, entry.name) end
 		assert(table.concat(parts, ",") == "[Content_Types].xml,_rels/.rels,xl/workbook.xml,xl/_rels/workbook.xml.rels,xl/worksheets/sheet1.xml,xl/styles.xml", table.concat(parts, ","))

@@ -2,6 +2,7 @@ return {
 	scenario = {publisher = {}, config = {access = "read-write"}, auth_method = "token", auth_config = {token = "fixture-token"}},
 	configure = function()
 		requests = {}
+		fs = fixture.files()
 		payload = "{}"
 		status = 200
 		http = {request = function(req)
@@ -21,6 +22,7 @@ return {
 		end
 		local function sent(method, url, body)
 			local req = last()
+			if req.body ~= nil and type(req.body) ~= "string" then req.body = await(req.body:readAll(16 * 1024 * 1024)) end
 			assert(req.method == method and req.url == url, req.method .. " " .. req.url)
 			assert(req.headers.Authorization == nil and req.headers["X-GitHub-Api-Version"][1] == "2026-03-10")
 			if body == nil then
@@ -72,6 +74,22 @@ return {
 		local commit = github.putFile({owner = "o", repo = "r", path = "docs/a.md", message = "Update", content = "aGk=", sha = "old", branch = "feature/x"})
 		sent("PUT", API .. "/repos/o/r/contents/docs%2Fa.md", '{"message":"Update","content":"aGk=","sha":"old","branch":"feature/x"}')
 		assert(commit.commit.sha == "c1")
+		-- A session file streams as the base64 content, past the 8 MiB limit on strings.
+		local chunk = string.rep("binary\0", 429999) -- 3 MB, a multiple of 3 bytes
+		local function streamed() last().body = await(last().body:readAll(16 * 1024 * 1024)); return json.decode(last().body) end
+		local file = fs.open("large.bin", "w")
+		for _ = 1, 3 do await(file:write(chunk)) end
+		await(file:close())
+		github.putFile({owner = "o", repo = "r", path = "docs/large.bin", message = "Add \"large\"", content_path = "large.bin", branch = "main"})
+		local body = streamed()
+		assert(body.message == "Add \"large\"" and body.branch == "main" and body.content_path == nil, string.sub(last().body, 1, 200))
+		assert(body.content == string.rep(base64.encode(chunk), 3) and #body.content > 8 * 1024 * 1024)
+		github.createBlob({owner = "o", repo = "r", content_path = "large.bin"})
+		body = streamed()
+		assert(last().url == API .. "/repos/o/r/git/blobs" and body.encoding == "base64" and #body.content == 4 * #chunk)
+		rejected(function() github.putFile({owner = "o", repo = "r", path = "a.md", message = "m", content = "aGk=", content_path = "large.bin"}) end, "pass content or content_path, not both")
+		rejected(function() github.createBlob({owner = "o", repo = "r", content_path = "large.bin", encoding = "utf-8"}) end, "content_path sends base64")
+		rejected(function() github.createBlob({owner = "o", repo = "r", content_path = "missing.bin"}) end, "not_found")
 		github.deleteFile({owner = "o", repo = "r", path = "docs/a.md", message = "Remove", sha = "new"})
 		sent("DELETE", API .. "/repos/o/r/contents/docs%2Fa.md", '{"message":"Remove","sha":"new"}')
 

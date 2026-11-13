@@ -124,7 +124,7 @@ local function execute(name: string, document: string, variables: Options, opera
 	end
 	local response = await(http.request(call))
 	local success = response.statusCode >= 200 and response.statusCode < 300
-	local raw = await(if success then response.body:readAll() else response.body:readPrefix(16 * 1024))
+	local raw: string = await(if success then response.body:readAll() else response.body:readPrefix(16 * 1024))
 	local ok, body = pcall(json.decode, raw)
 	if not ok then body = nil end
 	if not success then failed(name, response, body, raw) end

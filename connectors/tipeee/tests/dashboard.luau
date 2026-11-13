@@ -5,8 +5,7 @@ return {
  configure=function()
   requests={}; payload="{}"
   fs=fixture.files()
-  local multipart=http.multipart
-  http={multipart=multipart,request=function(req)
+  http={request=function(req)
    if req.body then req.body=await(req.body:readAll()) end
    table.insert(requests,req)
    return fixture.operation({statusCode=200,headers={},body=fixture.reader(payload)})
