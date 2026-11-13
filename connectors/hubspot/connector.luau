@@ -3,6 +3,7 @@
 type Options = {[string]: any}
 
 local API = "https://api.hubapi.com"
+local VERSION = "2026-09"
 local OBJECT_TYPES = {"contacts", "companies", "deals", "tickets", "notes", "tasks", "calls", "meetings", "emails"}
 local PIPELINE_TYPES = {"deals", "tickets"}
 local CATEGORIES = {"HUBSPOT_DEFINED", "USER_DEFINED", "INTEGRATOR_DEFINED"}
@@ -231,8 +232,9 @@ local function results(value: Options): Options
 	return value
 end
 
-local function objects(kind: string): string
-	return "/crm/objects/2026-09/" .. kind
+-- A CRM API path, /crm/<family>/<VERSION>/<segments>, from segments already checked or encoded.
+local function crm(family: string, ...: string): string
+	return table.concat({"/crm", family, VERSION, ...}, "/")
 end
 
 -- Properties HubSpot requires to create each object type, from its object and activity guides.
@@ -244,7 +246,7 @@ tickets subject, hs_pipeline_stage and hs_pipeline (again the default pipeline w
 companies name or domain; contacts at least one of email, firstname or lastname.]]
 
 local help = {
-	text = [[HubSpot CRM API 2026-09 for one HubSpot account: contacts, companies, deals and tickets, their
+	text = "HubSpot CRM API " .. VERSION .. [[ for one HubSpot account: contacts, companies, deals and tickets, their
 activities (notes, tasks, calls, meetings and logged emails), the associations between records,
 deal and ticket pipelines, owners and property definitions. Every operation takes one named
 options object with HubSpot's field names and returns HubSpot's JSON unchanged. Connector calls
@@ -415,7 +417,7 @@ function exports.listObjects(input: any): Options
 	local kind = oneOf(take(args, "objectType"), "objectType", OBJECT_TYPES)
 	local q = query(args, {"limit", "after", "properties", "propertiesWithHistory", "associations", "archived"}, 100)
 	done("listObjects", args)
-	return results(call("listObjects", "GET", objects(kind) .. q, nil, true))
+	return results(call("listObjects", "GET", crm("objects", kind) .. q, nil, true))
 end
 
 help.functions.getObject = {
@@ -444,7 +446,7 @@ function exports.getObject(input: any): Options
 	local id = recordId(take(args, "objectId"), "objectId", args.idProperty ~= nil)
 	local q = query(args, {"idProperty", "properties", "propertiesWithHistory", "associations", "archived"})
 	done("getObject", args)
-	return call("getObject", "GET", objects(kind) .. "/" .. id .. q, nil, true)
+	return call("getObject", "GET", crm("objects", kind, id) .. q, nil, true)
 end
 
 help.functions.searchObjects = {
@@ -526,7 +528,7 @@ function exports.searchObjects(input: any): Options
 	if args.limit ~= nil then body.limit = integer(take(args, "limit"), "limit", 1, 200) end
 	if args.after ~= nil then body.after = text(take(args, "after"), "after") end
 	done("searchObjects", args)
-	return results(call("searchObjects", "POST", objects(kind) .. "/search", body, true))
+	return results(call("searchObjects", "POST", crm("objects", kind, "search"), body, true))
 end
 
 help.functions.batchReadObjects = {
@@ -568,7 +570,7 @@ function exports.batchReadObjects(input: any): Options
 	if args.propertiesWithHistory ~= nil then body.propertiesWithHistory = names(take(args, "propertiesWithHistory"), "propertiesWithHistory") end
 	local q = query(args, {"archived"})
 	done("batchReadObjects", args)
-	return results(call("batchReadObjects", "POST", objects(kind) .. "/batch/read" .. q, body, true))
+	return results(call("batchReadObjects", "POST", crm("objects", kind, "batch", "read") .. q, body, true))
 end
 
 help.functions.listAssociations = {
@@ -592,7 +594,7 @@ function exports.listAssociations(input: any): Options
 	local to = oneOf(take(args, "toObjectType"), "toObjectType", OBJECT_TYPES)
 	local q = query(args, {"limit", "after"}, 500)
 	done("listAssociations", args)
-	return results(call("listAssociations", "GET", objects(kind) .. "/" .. id .. "/associations/" .. to .. q, nil, true))
+	return results(call("listAssociations", "GET", crm("objects", kind, id, "associations", to) .. q, nil, true))
 end
 
 help.functions.batchReadAssociations = {
@@ -625,7 +627,7 @@ function exports.batchReadAssociations(input: any): Options
 		table.insert(inputs, {id = item.id, after = if item.after ~= nil then text(item.after, field .. ".after") else nil})
 	end
 	done("batchReadAssociations", args)
-	return results(call("batchReadAssociations", "POST", "/crm/associations/2026-09/" .. from .. "/" .. to .. "/batch/read", {inputs = inputs}, true))
+	return results(call("batchReadAssociations", "POST", crm("associations", from, to, "batch", "read"), {inputs = inputs}, true))
 end
 
 help.functions.listAssociationLabels = {
@@ -645,7 +647,7 @@ function exports.listAssociationLabels(input: any): Options
 	local from = oneOf(take(args, "fromObjectType"), "fromObjectType", OBJECT_TYPES)
 	local to = oneOf(take(args, "toObjectType"), "toObjectType", OBJECT_TYPES)
 	done("listAssociationLabels", args)
-	return results(call("listAssociationLabels", "GET", "/crm/associations/2026-09/" .. from .. "/" .. to .. "/labels", nil, true))
+	return results(call("listAssociationLabels", "GET", crm("associations", from, to, "labels"), nil, true))
 end
 
 help.functions.listPipelines = {
@@ -667,7 +669,7 @@ function exports.listPipelines(input: any): Options
 	local args = options(input)
 	local kind = oneOf(take(args, "objectType"), "objectType", PIPELINE_TYPES)
 	done("listPipelines", args)
-	return results(call("listPipelines", "GET", "/crm/pipelines/2026-09/" .. kind, nil, true))
+	return results(call("listPipelines", "GET", crm("pipelines", kind), nil, true))
 end
 
 help.functions.getPipeline = {
@@ -687,7 +689,7 @@ function exports.getPipeline(input: any): Options
 	local kind = oneOf(take(args, "objectType"), "objectType", PIPELINE_TYPES)
 	local id = url.segment(text(take(args, "pipelineId"), "pipelineId"), "pipelineId")
 	done("getPipeline", args)
-	return call("getPipeline", "GET", "/crm/pipelines/2026-09/" .. kind .. "/" .. id, nil, true)
+	return call("getPipeline", "GET", crm("pipelines", kind, id), nil, true)
 end
 
 help.functions.listOwners = {
@@ -707,7 +709,7 @@ function exports.listOwners(input: any): Options
 	local args = options(input)
 	local q = query(args, {"email", "limit", "after", "archived"}, 500)
 	done("listOwners", args)
-	return results(call("listOwners", "GET", "/crm/owners/2026-09" .. q, nil, true))
+	return results(call("listOwners", "GET", crm("owners") .. q, nil, true))
 end
 
 help.functions.getOwner = {
@@ -728,7 +730,7 @@ function exports.getOwner(input: any): Options
 	if args.idProperty ~= nil then oneOf(args.idProperty, "idProperty", {"id", "userId"}) end
 	local q = query(args, {"idProperty", "archived"})
 	done("getOwner", args)
-	return call("getOwner", "GET", "/crm/owners/2026-09/" .. id .. q, nil, true)
+	return call("getOwner", "GET", crm("owners", id) .. q, nil, true)
 end
 
 help.functions.listProperties = {
@@ -751,7 +753,7 @@ function exports.listProperties(input: any): Options
 	local kind = oneOf(take(args, "objectType"), "objectType", OBJECT_TYPES)
 	local q = query(args, {"archived"})
 	done("listProperties", args)
-	return results(call("listProperties", "GET", "/crm/properties/2026-09/" .. kind .. q, nil, true))
+	return results(call("listProperties", "GET", crm("properties", kind) .. q, nil, true))
 end
 
 help.functions.getProperty = {
@@ -772,7 +774,7 @@ function exports.getProperty(input: any): Options
 	assert(type(name) == "string" and string.match(name, "^[%w_]+$") ~= nil, "propertyName must be a property's internal name")
 	local q = query(args, {"archived"})
 	done("getProperty", args)
-	return call("getProperty", "GET", "/crm/properties/2026-09/" .. kind .. "/" .. name .. q, nil, true)
+	return call("getProperty", "GET", crm("properties", kind, name) .. q, nil, true)
 end
 
 if config.access == "read-write" then
@@ -825,7 +827,7 @@ record, so search for it before repeating.
 			end
 		end
 		done("createObject", args)
-		return call("createObject", "POST", objects(kind), body, false)
+		return call("createObject", "POST", crm("objects", kind), body, false)
 	end
 
 	help.functions.updateObject = {
@@ -856,7 +858,7 @@ Repeating it changes nothing, so a server error is retryable.]],
 		local body = {properties = properties(take(args, "properties"))}
 		local q = query(args, {"idProperty"})
 		done("updateObject", args)
-		return call("updateObject", "PATCH", objects(kind) .. "/" .. id .. q, body, true)
+		return call("updateObject", "PATCH", crm("objects", kind, id) .. q, body, true)
 	end
 
 	help.functions.createDefaultAssociation = {
@@ -879,7 +881,7 @@ retryable.]],
 		local to = oneOf(take(args, "toObjectType"), "toObjectType", OBJECT_TYPES)
 		local toId = recordId(take(args, "toObjectId"), "toObjectId")
 		done("createDefaultAssociation", args)
-		return call("createDefaultAssociation", "PUT", objects(from) .. "/" .. fromId .. "/associations/default/" .. to .. "/" .. toId, "", true)
+		return call("createDefaultAssociation", "PUT", crm("objects", from, fromId, "associations", "default", to, toId), "", true)
 	end
 
 	help.functions.createAssociation = {
@@ -905,7 +907,7 @@ listAssociationLabels. Repeating it with the same types changes nothing, so a se
 		local toId = recordId(take(args, "toObjectId"), "toObjectId")
 		local types = associationTypes(take(args, "types"), "types")
 		done("createAssociation", args)
-		return call("createAssociation", "PUT", objects(kind) .. "/" .. id .. "/associations/" .. to .. "/" .. toId, types, true)
+		return call("createAssociation", "PUT", crm("objects", kind, id, "associations", to, toId), types, true)
 	end
 
 	help.functions.deleteAssociation = {
@@ -928,7 +930,7 @@ Repeating it changes nothing, so a server error is retryable.]],
 		local to = oneOf(take(args, "toObjectType"), "toObjectType", OBJECT_TYPES)
 		local toId = recordId(take(args, "toObjectId"), "toObjectId")
 		done("deleteAssociation", args)
-		return call("deleteAssociation", "DELETE", objects(kind) .. "/" .. id .. "/associations/" .. to .. "/" .. toId, nil, true)
+		return call("deleteAssociation", "DELETE", crm("objects", kind, id, "associations", to, toId), nil, true)
 	end
 end
 
