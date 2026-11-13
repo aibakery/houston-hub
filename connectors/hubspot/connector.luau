@@ -139,9 +139,10 @@ end
 -- HubSpot errors are {status, message, correlationId, category, errors = {{message, code, context}}},
 -- every field optional; rate limits answer {errorType, policyName}. 429 (except the daily limit),
 -- 423 (a 2-second lock) and 477 (a data migration) are transient. A write that failed with a server
--- error may still have been applied, so only reads retry those.
+-- error may still have been applied, so only reads retry those. Validation errors can list many
+-- properties, so up to 16 KiB is read; the message keeps a bounded part of each field.
 local function fail(operation: string, response: HttpResponse, write: boolean): never
-	local ok, decoded = pcall(json.decode, await(response.body:readPrefix(4096)))
+	local ok, decoded = pcall(json.decode, await(response.body:readPrefix(16384)))
 	local problem: Options = if ok and type(decoded) == "table" then decoded else {}
 	local status = response.statusCode
 	local message = "HubSpot HTTP " .. tostring(status)

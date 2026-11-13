@@ -45,12 +45,14 @@ return {
 		upstream(400, json.encode({status = "error", message = "Property values were not valid", correlationId = "c-400", category = "VALIDATION_ERROR",
 			errors = {{message = "Property amount must be a number", code = "INVALID_DECIMAL", context = {propertyName = {"amount"}}}}}), {},
 			c.updateObject, UPDATE, {"HTTP 400 (VALIDATION_ERROR): Property values were not valid; Property amount must be a number", "correlationId c-400", '"retryable":false'})
-		-- Messages are cut; a body beyond the 4 KiB prefix read for errors gives the status line alone.
-		local long = upstream(400, json.encode({status = "error", category = "VALIDATION_ERROR", message = string.rep("x", 2500),
-			errors = {{message = string.rep("y", 1000)}, {message = "second"}, {message = "third"}, {message = "fourth"}}}), {},
-			c.searchObjects, {objectType = "contacts"}, {string.rep("x", 600), string.rep("y", 200), "; second; third"}, {string.rep("x", 601), string.rep("y", 201), "fourth"})
+		-- Long bodies keep their category and cut messages; a body beyond the 16 KiB read for errors
+		-- gives the status line alone.
+		local long = upstream(400, json.encode({status = "error", category = "VALIDATION_ERROR", message = string.rep("x", 5000),
+			errors = {{message = string.rep("y", 5000)}, {message = "second"}, {message = "third"}, {message = "fourth"}}}), {},
+			c.searchObjects, {objectType = "contacts"}, {"HTTP 400 (VALIDATION_ERROR): " .. string.rep("x", 600), string.rep("y", 200), "; second; third"},
+			{string.rep("x", 601), string.rep("y", 201), "fourth"})
 		assert(#long < 2000, "error message is not bounded: " .. #long)
-		upstream(400, json.encode({status = "error", category = "VALIDATION_ERROR", message = string.rep("x", 5000)}), {},
+		upstream(400, json.encode({status = "error", category = "VALIDATION_ERROR", message = string.rep("x", 20000)}), {},
 			c.searchObjects, {objectType = "contacts"}, {"HubSpot HTTP 400", '"retryable":false'}, {"VALIDATION_ERROR", "xxx"})
 		upstream(409, '{"status":"error","message":"Contact already exists. Existing ID: 101","category":"CONFLICT"}', {},
 			c.createObject, CREATE, {"HTTP 409 (CONFLICT): Contact already exists", '"retryable":false'})
