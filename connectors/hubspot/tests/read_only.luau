@@ -56,6 +56,10 @@ return {
 		assert(contact.associations.companies.results[1].id == "512", json.encode(contact))
 		assert(c.getObject({objectType = "companies", objectId = "512", propertiesWithHistory = {"name"}, archived = true}).properties.name == "Acme")
 		get(OBJECTS .. "companies/512?propertiesWithHistory=name&archived=true")
+		-- A unique property value may hold characters such as a colon, sent percent-encoded.
+		responses = {{body = '{"id":"77","properties":{"sku":"sku:123"}}'}}
+		assert(c.getObject({objectType = "contacts", objectId = "sku:123", idProperty = "sku"}).id == "77")
+		get(OBJECTS .. "contacts/sku%3A123?idProperty=sku")
 
 		-- Search and batch reads POST exactly the given fields; 207 partial batches are results.
 		responses = {

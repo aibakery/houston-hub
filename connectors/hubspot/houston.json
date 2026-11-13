@@ -156,6 +156,9 @@
           "/crm/properties/2026-09/meetings/{propertyName}",
           "/crm/properties/2026-09/emails",
           "/crm/properties/2026-09/emails/{propertyName}"
+        ],
+        "colon_path_parameters": [
+          "objectId"
         ]
       },
       "action": {
@@ -255,6 +258,9 @@
           "/crm/objects/2026-09/calls/{objectId}",
           "/crm/objects/2026-09/meetings/{objectId}",
           "/crm/objects/2026-09/emails/{objectId}"
+        ],
+        "colon_path_parameters": [
+          "objectId"
         ]
       },
       "action": {

@@ -12,6 +12,7 @@ return {
 	contract = function(m)
 		local reads = {
 			"GET " .. OBJECTS .. "contacts/ana%40example.com?idProperty=email&properties=email",
+			"GET " .. OBJECTS .. "contacts/sku%3A123?idProperty=sku",
 			"GET " .. OBJECTS .. "deals/9876/associations/contacts?limit=500&after=x1",
 			"POST " .. OBJECTS .. "deals/search", "POST " .. OBJECTS .. "notes/batch/read?archived=true",
 			"POST " .. API .. "/crm/associations/2026-09/deals/companies/batch/read",
@@ -29,6 +30,7 @@ return {
 			table.insert(reads, "GET " .. API .. "/crm/properties/2026-09/" .. kind .. "/hs_timestamp")
 			table.insert(writes, "POST " .. OBJECTS .. kind)
 			table.insert(writes, "PATCH " .. OBJECTS .. kind .. "/101?idProperty=email")
+			table.insert(writes, "PATCH " .. OBJECTS .. kind .. "/sku%3A123?idProperty=sku")
 			table.insert(writes, "PUT " .. OBJECTS .. kind .. "/101/associations/companies/512")
 			table.insert(writes, "PUT " .. OBJECTS .. kind .. "/101/associations/default/companies/512")
 			table.insert(writes, "DELETE " .. OBJECTS .. kind .. "/101/associations/companies/512")
