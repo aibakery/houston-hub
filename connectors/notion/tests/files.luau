@@ -39,7 +39,6 @@ return {
             end,
         }
         http = {
-            
             request = function(req)
                 table.insert(requests, req)
                 if req.body ~= nil and type(req.body) ~= "string" then

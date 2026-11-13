@@ -55,6 +55,7 @@ func TestRuntimeIOContracts(t *testing.T) {
 		{"gzip a stream", `local fd=fs.open("out.gz","w"); fd:write(gzip.encode(fs.open("in","r"))); await(fd:close()); local plain:string=await(gzip.decode(fs.open("out.gz","r")):readAll()); return plain`, false},
 		{"gzip string is not a Reader", `return gzip.encode("x"):readAll()`, true},
 		{"json from a stream", `local res=await(http.request({method="GET",url="https://example.com"})); local value=await(json.decode(res.body)); local direct=json.decode(buffer.fromstring("{}")); return value, direct`, false},
+		{"streamed decode without await", `local res=await(http.request({method="GET",url="https://example.com"})); return json.decode(res.body).items`, true},
 		{"gzip a number", `return gzip.encode(42)`, true},
 		{"base64 helpers", `local encoded:string=base64.encode("x",{url=true,pad=false,wrap=false}); local decoded:string=base64.decode(encoded); return decoded`, false},
 		{"base64 option type", `return base64.encode("x",{wrap=1})`, true},

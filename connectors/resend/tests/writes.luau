@@ -156,5 +156,15 @@ return {
 			attachments = {{file = "reports/q3.pdf", path = "https://example.com/q3.pdf"}}}) end, "an attachment takes one of content, path or file")
 		rejected(function() resend.sendEmail({from = "a@acme.com", to = "b@example.com", subject = "s", text = "t",
 			attachments = {{file = "reports/missing.pdf"}}}) end, "not_found")
+		local note = fs.open("notes.txt", "w")
+		await(note:write("hi"))
+		await(note:close())
+		local many = {}
+		for i = 1, 60 do many[i] = {file = "notes.txt", filename = "note" .. i .. ".txt"} end
+		resend.sendEmail({from = "a@acme.com", to = "b@example.com", subject = "s", text = "t", attachments = many})
+		sent = json.decode(last().body)
+		assert(#sent.attachments == 60 and sent.attachments[60].filename == "note60.txt" and sent.attachments[60].content == "aGk=")
+		rejected(function() resend.sendEmail({from = "a@acme.com", to = "b@example.com", subject = "s", text = "t",
+			attachments = {x = {file = "notes.txt"}}}) end, "attachments must be an array")
 	end,
 }

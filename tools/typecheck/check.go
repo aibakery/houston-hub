@@ -83,7 +83,7 @@ local fs: {
     signedGetUrl:(string,number?)->Operation<string>,
     signedPutUrl:(string,number?)->Operation<string>,
 } = nil :: any
-local json: {encode:(any)->string,decode:(ByteSource)->any,jq:(any,string)->any} = nil :: any
+local json: {encode:(any)->string,decode:((Bytes)->any) & ((Reader)->Operation<any>),jq:(any,string)->any} = nil :: any
 local houston: {fail:(any)->never,seal:(any)->string,unseal:(string)->any} = nil :: any
 local require: (string)->any = nil :: any
 `

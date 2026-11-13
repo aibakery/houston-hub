@@ -445,14 +445,10 @@ end
 
 -- A JSON body whose content field is a session file's base64, streamed so the file never
 -- becomes a string and can exceed the 8 MiB limit on strings.
+-- The other fields are never empty: putFile requires message, and createBlob sets encoding.
 local function streamedBody(args: Options, file: string): any
-	local keys: {string} = {}
-	for key in args do table.insert(keys, key) end
-	table.sort(keys)
-	local parts: {any} = {'{"content":"', base64.encode(fs.open(file, "r")), '"'}
-	for _, key in keys do table.insert(parts, "," .. json.encode(key) .. ":" .. json.encode(args[key])) end
-	table.insert(parts, "}")
-	return stream.concat(parts)
+	local rest = string.sub(json.encode(args), 2)
+	return stream.concat({'{"content":"', base64.encode(fs.open(file, "r")), '",' .. rest})
 end
 
 local function request(name: string, endpoint: Endpoint, input: Options?): any

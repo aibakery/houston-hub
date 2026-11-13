@@ -93,7 +93,7 @@ local endpoints: {[string]: Endpoint} = {
 		doc = "inboxes/forward-thread-email", about = "Body {to, cc?, bcc?, html? or text? (a note above the original), subject?, attachments?, headers?}. Sends now, with the original's attachments."},
 	listDrafts = {method = "GET", path = "/inboxes/{inbox_id}/drafts", query = PAGE, doc = "inboxes/list-drafts", about = "Unsent drafts, most recently updated first."},
 	createDraft = {method = "POST", path = "/inboxes/{inbox_id}/drafts", extra = {"idempotency_key"}, doc = "inboxes/create-draft",
-		about = "Body {to?, cc?, bcc?, subject?, html?, text?, attachments?={{filename, content (base64), content_type}}, thread_id and reply_to_email_id? for a reply}. Returns {id}; an email has at most one reply draft."},
+		about = "Body {to?, cc?, bcc?, subject?, html?, text?, attachments?={{filename, content (base64) or file (session file path), content_type}}, thread_id and reply_to_email_id? for a reply}. Returns {id}; an email has at most one reply draft."},
 	getDraft = {method = "GET", path = "/inboxes/{inbox_id}/drafts/{draft_id}", doc = "inboxes/get-draft", about = "A draft with its content."},
 	updateDraft = {method = "PATCH", path = "/inboxes/{inbox_id}/drafts/{draft_id}", doc = "inboxes/update-draft",
 		about = "Body: createDraft's content fields to change; attachments replace all, and html or text replaces the whole body."},
@@ -427,39 +427,42 @@ local function jsonBody(args: Options): any
 		end
 	end
 	if not streamed then return json.encode(args) end
-	local keys: {string} = {}
-	for key in args do if key ~= "attachments" then table.insert(keys, key) end end
-	table.sort(keys)
-	local parts: {any} = {"{"}
-	for _, key in keys do table.insert(parts, json.encode(key) .. ":" .. json.encode(args[key]) .. ",") end
-	table.insert(parts, '"attachments":[')
-	for index, attachment in attachments do
+	-- Check every attachment before opening any file.
+	local count = 0
+	for _ in attachments do count += 1 end
+	assert(count == #attachments, "attachments must be an array")
+	for _, attachment in attachments do
 		assert(type(attachment) == "table", "attachments must be tables")
 		local file = attachment.file
-		local fields: {[string]: any} = table.clone(attachment)
-		fields.file = nil
 		if file ~= nil then
 			assert(type(file) == "string" and file ~= "", "attachment file must be a session file path")
-			assert(fields.content == nil and fields.path == nil, "an attachment takes one of content, path or file")
+			assert(attachment.content == nil and attachment.path == nil, "an attachment takes one of content, path or file")
 			assert(await(fs.stat(file)).isFile, "attachment file must be a session file")
-			if fields.filename == nil then fields.filename = string.match(file, "[^/]+$") end
-		end
-		local names: {string} = {}
-		for key in fields do table.insert(names, key) end
-		table.sort(names)
-		local members: {string} = {}
-		for _, key in names do table.insert(members, json.encode(key) .. ":" .. json.encode(fields[key])) end
-		local separator = if index > 1 then "," else ""
-		if file == nil then
-			table.insert(parts, separator .. "{" .. table.concat(members, ",") .. "}")
-		else
-			table.insert(members, '"content":"')
-			table.insert(parts, separator .. "{" .. table.concat(members, ","))
-			table.insert(parts, base64.encode(fs.open(file, "r")))
-			table.insert(parts, '"}')
 		end
 	end
-	table.insert(parts, "]}")
+	-- Neighbouring text joins into one part, so each file adds about two parts.
+	local rest: Options = table.clone(args)
+	rest.attachments = nil
+	local text = if next(rest) == nil then "{" else string.sub(json.encode(rest), 1, -2) .. ","
+	local parts: {any} = {}
+	text ..= '"attachments":['
+	for index, attachment in attachments do
+		local fields: {[string]: any} = table.clone(attachment)
+		local file = fields.file
+		fields.file = nil
+		if file ~= nil and fields.filename == nil then fields.filename = string.match(file, "[^/]+$") end
+		local encoded = json.encode(fields)
+		if index > 1 then text ..= "," end
+		if file == nil then
+			text ..= encoded
+		else
+			text ..= string.sub(encoded, 1, -2) .. ',"content":"'
+			table.insert(parts, text)
+			table.insert(parts, base64.encode(fs.open(file, "r")))
+			text = '"}'
+		end
+	end
+	table.insert(parts, text .. "]}")
 	return stream.concat(parts)
 end
 
