@@ -1,9 +1,8 @@
 # Connect HubSpot
 
 1. Choose **Read-only** or **Read and write** and select **Authorize connection**.
-2. In HubSpot, choose the account to connect and review the permissions Houston asks
-   for. While HubSpot still lists Houston as unverified, select **Connect app**, type
-   **I accept the risk**, then select **Connect**. Otherwise select **Connect app**.
+2. In HubSpot, choose the account to connect, review the permissions Houston asks for
+   and select **Connect app**.
 
 > Connecting installs Houston's app in the HubSpot account, which needs a Super Admin
 > or a user with the **HubSpot Marketplace access** permission. Switching a connection
@@ -49,5 +48,6 @@ scopes; it covers tickets too.
 - A rotated, expired or deleted key stops working: paste the new key in the connection.
 - To revoke Houston's access, uninstall Houston from the account's **Connected Apps**
   in HubSpot, or delete the key, then remove the connection in Houston.
-- HubSpot limits how many requests an app or key may make every 10 seconds and every
-  day; busy accounts can briefly reach them.
+- HubSpot limits how many requests an app or key may make every 10 seconds, and service
+  keys and private apps also share a daily quota for the account; busy accounts can
+  briefly reach these limits.
