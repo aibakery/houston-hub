@@ -45,6 +45,7 @@ local await: <T>(Operation<T>, number?) -> T = nil :: any
 -- Groups may mix result types; every input must still be an Operation.
 local awaitAll: ({Operation<any>}, number?) -> PackedResults<any> = nil :: any
 local http: {request: (HttpRequest) -> Operation<HttpResponse>,multipart: ({MultipartPart}) -> (StreamReader,string)} = nil :: any
+local stream: {concat:({ByteSource})->StreamReader} = nil :: any
 type ZipEntry = {name:string,body:ByteSource,method:("deflate" | "store")?}
 type ZipEntryInfo = {name:string,size:number,compressedSize:number}
 type ZipArchive = {entries:{ZipEntryInfo},open:(ZipArchive,string)->StreamReader,close:(ZipArchive)->()}
@@ -55,8 +56,14 @@ local compression: {
     unzip:(string | File)->Operation<ZipArchive>,
 } = nil :: any
 local url: {encode:(string | number | boolean)->string,segment:(string,string?)->string} = nil :: any
-local base64: {encode:(string,{url:boolean?,pad:boolean?,wrap:boolean?}?)->string,decode:(string)->string} = nil :: any
-type ShaDigest = (string,{encoding:("hex" | "base64" | "raw")?}?)->string
+-- Byte strings convert to strings; Readers and Files stream.
+type Base64Options = {url:boolean?,pad:boolean?,wrap:boolean?}
+local base64: {
+    encode:((string,Base64Options?)->string) & ((Reader,Base64Options?)->StreamReader),
+    decode:((string)->string) & ((Reader)->StreamReader),
+} = nil :: any
+type ShaOptions = {encoding:("hex" | "base64" | "raw")?}
+type ShaDigest = ((string,ShaOptions?)->string) & ((Reader,ShaOptions?)->Operation<string>)
 local sha: {sha1:ShaDigest,sha256:ShaDigest,sha512:ShaDigest} = nil :: any
 type DbParam = string | number | boolean
 type DbQuery = {sql:string,params:({DbParam} | {[string]:DbParam})?,maxRows:number?,readOnly:boolean?}
