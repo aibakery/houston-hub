@@ -138,10 +138,11 @@ end
 
 -- HubSpot errors are {status, message, correlationId, category, errors = {{message, code, context}}},
 -- every field optional; rate limits answer {errorType, policyName}. 429 (except the daily limit),
--- 423 (a 2-second lock) and 477 (a data migration) are transient. A write that failed with a server
--- error may still have been applied, so only reads retry those. Validation errors can list many
--- properties, so up to 16 KiB is read; the message keeps a bounded part of each field.
-local function fail(operation: string, response: HttpResponse, write: boolean): never
+-- 423 (a 2-second lock) and 477 (a data migration) are transient. Server errors are retryable only
+-- for idempotent calls: a create or update that failed with one may still have been applied.
+-- Validation errors can list many properties, so up to 16 KiB is read; the message keeps a bounded
+-- part of each field.
+local function fail(operation: string, response: HttpResponse, idempotent: boolean): never
 	local ok, decoded = pcall(json.decode, await(response.body:readPrefix(16384)))
 	local problem: Options = if ok and type(decoded) == "table" then decoded else {}
 	local status = response.statusCode
@@ -169,12 +170,13 @@ local function fail(operation: string, response: HttpResponse, write: boolean): 
 	if type(problem.correlationId) == "string" then message ..= "; correlationId " .. string.sub(problem.correlationId, 1, 64) end
 	if status == 401 then message ..= " (check the connection's access token, or reconnect)" end
 	return houston.fail({operation = operation, layer = "upstream", upstream_status = status, message = message,
-		retryable = (status == 429 and problem.policyName ~= "DAILY") or status == 423 or status == 477 or (not write and status >= 500)})
+		retryable = (status == 429 and problem.policyName ~= "DAILY") or status == 423 or status == 477 or (idempotent and status >= 500)})
 end
 
 -- One request to HubSpot. A table body is sent as JSON and a string body as is. An empty reply to a
--- DELETE (204) gives {success = true}; any other reply must be a JSON object.
-local function call(operation: string, method: string, path: string, body: any, write: boolean): Options
+-- DELETE (204) gives {success = true}; any other reply must be a JSON object. idempotent marks
+-- reads and association changes, which are safe to repeat after a server error.
+local function call(operation: string, method: string, path: string, body: any, idempotent: boolean): Options
 	local headers: HttpHeaders = {}
 	local payload: string? = nil
 	if type(body) == "table" then
@@ -184,7 +186,7 @@ local function call(operation: string, method: string, path: string, body: any, 
 		payload = body
 	end
 	local response = await(http.request({method = method, url = API .. path, headers = headers, body = payload}))
-	if response.statusCode < 200 or response.statusCode >= 300 then fail(operation, response, write) end
+	if response.statusCode < 200 or response.statusCode >= 300 then fail(operation, response, idempotent) end
 	local raw = await(response.body:readAll())
 	if method == "DELETE" and string.match(raw, "^%s*$") then return {success = true} end
 	local ok, value = pcall(json.decode, raw)
@@ -245,8 +247,9 @@ record, so search for it before repeating. updateObject changes only the named p
 deal moves between stages through updateObject with dealstage (plus pipeline when the pipeline
 changes), a ticket with hs_pipeline_stage (plus hs_pipeline). Notes and tasks are records created
 with createObject and need hs_timestamp (see the activities topic). deleteAssociation removes every
-association between two records and deletes neither record. Server errors on writes are not
-retryable: check the record before repeating the call.]] else ""),
+association between two records and deletes neither record. Server errors on createObject and
+updateObject are not retryable: check the record before repeating the call. The association
+writes are idempotent, so their server errors are retryable.]] else ""),
 	functions = {} :: {[string]: any},
 	sections = {
 		search = [[searchObjects body fields: query (text searched in the default text properties), filterGroups,
@@ -364,7 +367,7 @@ function exports.listObjects(input: any): Options
 	local kind = oneOf(take(args, "objectType"), "objectType", OBJECT_TYPES)
 	local q = query(args, {"limit", "after", "properties", "propertiesWithHistory", "associations", "archived"}, 100)
 	done("listObjects", args)
-	return results(call("listObjects", "GET", objects(kind) .. q, nil, false))
+	return results(call("listObjects", "GET", objects(kind) .. q, nil, true))
 end
 
 help.functions.getObject = {
@@ -391,7 +394,7 @@ function exports.getObject(input: any): Options
 	local id = recordId(take(args, "objectId"), "objectId", args.idProperty ~= nil)
 	local q = query(args, {"idProperty", "properties", "propertiesWithHistory", "associations", "archived"})
 	done("getObject", args)
-	return call("getObject", "GET", objects(kind) .. "/" .. id .. q, nil, false)
+	return call("getObject", "GET", objects(kind) .. "/" .. id .. q, nil, true)
 end
 
 help.functions.searchObjects = {
@@ -463,7 +466,7 @@ function exports.searchObjects(input: any): Options
 	if args.limit ~= nil then body.limit = integer(take(args, "limit"), "limit", 1, 200) end
 	if args.after ~= nil then body.after = text(take(args, "after"), "after") end
 	done("searchObjects", args)
-	return results(call("searchObjects", "POST", objects(kind) .. "/search", body, false))
+	return results(call("searchObjects", "POST", objects(kind) .. "/search", body, true))
 end
 
 help.functions.batchReadObjects = {
@@ -503,7 +506,7 @@ function exports.batchReadObjects(input: any): Options
 	if args.propertiesWithHistory ~= nil then body.propertiesWithHistory = names(take(args, "propertiesWithHistory"), "propertiesWithHistory") end
 	local q = query(args, {"archived"})
 	done("batchReadObjects", args)
-	return results(call("batchReadObjects", "POST", objects(kind) .. "/batch/read" .. q, body, false))
+	return results(call("batchReadObjects", "POST", objects(kind) .. "/batch/read" .. q, body, true))
 end
 
 help.functions.listAssociations = {
@@ -527,7 +530,7 @@ function exports.listAssociations(input: any): Options
 	local to = oneOf(take(args, "toObjectType"), "toObjectType", OBJECT_TYPES)
 	local q = query(args, {"limit", "after"}, 500)
 	done("listAssociations", args)
-	return results(call("listAssociations", "GET", objects(kind) .. "/" .. id .. "/associations/" .. to .. q, nil, false))
+	return results(call("listAssociations", "GET", objects(kind) .. "/" .. id .. "/associations/" .. to .. q, nil, true))
 end
 
 help.functions.batchReadAssociations = {
@@ -561,7 +564,7 @@ function exports.batchReadAssociations(input: any): Options
 		table.insert(inputs, {id = item.id, after = if item.after ~= nil then text(item.after, field .. ".after") else nil})
 	end
 	done("batchReadAssociations", args)
-	return results(call("batchReadAssociations", "POST", "/crm/associations/2026-09/" .. from .. "/" .. to .. "/batch/read", {inputs = inputs}, false))
+	return results(call("batchReadAssociations", "POST", "/crm/associations/2026-09/" .. from .. "/" .. to .. "/batch/read", {inputs = inputs}, true))
 end
 
 help.functions.listAssociationLabels = {
@@ -581,7 +584,7 @@ function exports.listAssociationLabels(input: any): Options
 	local from = oneOf(take(args, "fromObjectType"), "fromObjectType", OBJECT_TYPES)
 	local to = oneOf(take(args, "toObjectType"), "toObjectType", OBJECT_TYPES)
 	done("listAssociationLabels", args)
-	return results(call("listAssociationLabels", "GET", "/crm/associations/2026-09/" .. from .. "/" .. to .. "/labels", nil, false))
+	return results(call("listAssociationLabels", "GET", "/crm/associations/2026-09/" .. from .. "/" .. to .. "/labels", nil, true))
 end
 
 help.functions.listPipelines = {
@@ -603,7 +606,7 @@ function exports.listPipelines(input: any): Options
 	local args = options(input)
 	local kind = oneOf(take(args, "objectType"), "objectType", PIPELINE_TYPES)
 	done("listPipelines", args)
-	return results(call("listPipelines", "GET", "/crm/pipelines/2026-09/" .. kind, nil, false))
+	return results(call("listPipelines", "GET", "/crm/pipelines/2026-09/" .. kind, nil, true))
 end
 
 help.functions.getPipeline = {
@@ -623,7 +626,7 @@ function exports.getPipeline(input: any): Options
 	local kind = oneOf(take(args, "objectType"), "objectType", PIPELINE_TYPES)
 	local id = url.segment(text(take(args, "pipelineId"), "pipelineId"), "pipelineId")
 	done("getPipeline", args)
-	return call("getPipeline", "GET", "/crm/pipelines/2026-09/" .. kind .. "/" .. id, nil, false)
+	return call("getPipeline", "GET", "/crm/pipelines/2026-09/" .. kind .. "/" .. id, nil, true)
 end
 
 help.functions.listOwners = {
@@ -643,7 +646,7 @@ function exports.listOwners(input: any): Options
 	local args = options(input)
 	local q = query(args, {"email", "limit", "after", "archived"}, 500)
 	done("listOwners", args)
-	return results(call("listOwners", "GET", "/crm/owners/2026-09" .. q, nil, false))
+	return results(call("listOwners", "GET", "/crm/owners/2026-09" .. q, nil, true))
 end
 
 help.functions.getOwner = {
@@ -664,7 +667,7 @@ function exports.getOwner(input: any): Options
 	if args.idProperty ~= nil then oneOf(args.idProperty, "idProperty", {"id", "userId"}) end
 	local q = query(args, {"idProperty", "archived"})
 	done("getOwner", args)
-	return call("getOwner", "GET", "/crm/owners/2026-09/" .. id .. q, nil, false)
+	return call("getOwner", "GET", "/crm/owners/2026-09/" .. id .. q, nil, true)
 end
 
 help.functions.listProperties = {
@@ -686,7 +689,7 @@ function exports.listProperties(input: any): Options
 	local kind = oneOf(take(args, "objectType"), "objectType", OBJECT_TYPES)
 	local q = query(args, {"archived"})
 	done("listProperties", args)
-	return results(call("listProperties", "GET", "/crm/properties/2026-09/" .. kind .. q, nil, false))
+	return results(call("listProperties", "GET", "/crm/properties/2026-09/" .. kind .. q, nil, true))
 end
 
 help.functions.getProperty = {
@@ -707,7 +710,7 @@ function exports.getProperty(input: any): Options
 	assert(type(name) == "string" and string.match(name, "^[%w_]+$") ~= nil, "propertyName must be a property's internal name")
 	local q = query(args, {"archived"})
 	done("getProperty", args)
-	return call("getProperty", "GET", "/crm/properties/2026-09/" .. kind .. "/" .. name .. q, nil, false)
+	return call("getProperty", "GET", "/crm/properties/2026-09/" .. kind .. "/" .. name .. q, nil, true)
 end
 
 if config.access == "read-write" then
@@ -762,7 +765,7 @@ call may still have created the record, so search for it before repeating.]],
 			end
 		end
 		done("createObject", args)
-		return call("createObject", "POST", objects(kind), body, true)
+		return call("createObject", "POST", objects(kind), body, false)
 	end
 
 	help.functions.updateObject = {
@@ -790,12 +793,13 @@ the stage belongs to another pipeline; move a ticket with hs_pipeline_stage (and
 		local body = {properties = properties(take(args, "properties"))}
 		local q = query(args, {"idProperty"})
 		done("updateObject", args)
-		return call("updateObject", "PATCH", objects(kind) .. "/" .. id .. q, body, true)
+		return call("updateObject", "PATCH", objects(kind) .. "/" .. id .. q, body, false)
 	end
 
 	help.functions.createDefaultAssociation = {
 		description = [[Links two records with HubSpot's default, unlabelled association, in both directions:
-{status, results = {{from, to, associationSpec}}}. Repeating it changes nothing.]],
+{status, results = {{from, to, associationSpec}}}. Repeating it changes nothing, so a server error is
+retryable.]],
 		inputSchema = {
 			type = "object",
 			properties = {fromObjectType = OBJECT_TYPE, fromObjectId = RECORD_ID, toObjectType = OBJECT_TYPE, toObjectId = RECORD_ID},
@@ -819,7 +823,7 @@ the stage belongs to another pipeline; move a ticket with hs_pipeline_stage (and
 		description = [[Sets labelled association types between two records: {fromObjectTypeId, fromObjectId,
 toObjectTypeId, toObjectId, labels}. types replaces the labels the pair already has, so include
 every label to keep. Type IDs depend on direction; see the associations topic and
-listAssociationLabels.]],
+listAssociationLabels. Repeating it with the same types changes nothing, so a server error is retryable.]],
 		inputSchema = {
 			type = "object",
 			properties = {objectType = OBJECT_TYPE, objectId = RECORD_ID, toObjectType = OBJECT_TYPE, toObjectId = RECORD_ID, types = ASSOCIATION_TYPES},
@@ -828,7 +832,7 @@ listAssociationLabels.]],
 			examples = {{objectType = "contacts", objectId = "101", toObjectType = "companies", toObjectId = "512",
 				types = {{associationCategory = "HUBSPOT_DEFINED", associationTypeId = 1}}}},
 		},
-		annotations = LINK,
+		annotations = DESTRUCTIVE,
 	}
 	function exports.createAssociation(input: any): Options
 		local args = options(input)
@@ -843,7 +847,8 @@ listAssociationLabels.]],
 
 	help.functions.deleteAssociation = {
 		description = [[Removes every association between two records, labelled or not, and returns {success = true}.
-Neither record is deleted; createDefaultAssociation or createAssociation links them again.]],
+Neither record is deleted; createDefaultAssociation or createAssociation links them again.
+Repeating it changes nothing, so a server error is retryable.]],
 		inputSchema = {
 			type = "object",
 			properties = {objectType = OBJECT_TYPE, objectId = RECORD_ID, toObjectType = OBJECT_TYPE, toObjectId = RECORD_ID},
