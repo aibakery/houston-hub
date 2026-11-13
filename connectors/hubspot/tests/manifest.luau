@@ -38,9 +38,21 @@ return {
 		-- The token never reaches HubSpot's OAuth endpoints (token exchange, introspection, revocation,
 		-- or /oauth/v1/access-tokens, which echoes the token), account details, other hosts, record
 		-- deletes, bulk writes, merges, schema administration, other object types or API versions.
-		-- Two reads stay reachable although the connector never sends them: an {objectId} placeholder
+		-- Some routes stay reachable although the connector never sends them. An {objectId} placeholder
 		-- admits any one segment, and /crm/properties/2026-09/<type>/{propertyName} also admits
-		-- "groups" (property groups). Both are GET and expose nothing beyond the granted scopes.
+		-- "groups" (property groups); both are GET and expose nothing beyond the granted scopes. The
+		-- {fromObjectType} and {toObjectType} placeholders of the association routes admit any object type,
+		-- such as quotes: a manifest cannot constrain placeholder values, and listing every pair of the
+		-- nine types would take about 500 paths. Luau bounds them to the nine types, and the token's scopes
+		-- bound what HubSpot answers.
+		local anyTypeReads = {
+			"GET " .. OBJECTS .. "contacts/101/associations/quotes", "GET " .. API .. "/crm/associations/2026-09/contacts/quotes/labels",
+			"POST " .. API .. "/crm/associations/2026-09/quotes/contacts/batch/read",
+		}
+		local anyTypeWrites = {
+			"PUT " .. OBJECTS .. "contacts/101/associations/quotes/7", "PUT " .. OBJECTS .. "contacts/101/associations/default/quotes/7",
+			"DELETE " .. OBJECTS .. "contacts/101/associations/quotes/7",
+		}
 		local denied = {
 			"POST " .. API .. "/oauth/2026-09/token", "POST " .. API .. "/oauth/v3/token", "POST " .. API .. "/oauth/v1/token",
 			"GET " .. API .. "/oauth/v1/access-tokens/fixture-token", "GET " .. API .. "/oauth/v1/refresh-tokens/x",
@@ -84,7 +96,9 @@ return {
 				end
 				m.routes(r, "Bearer fixture-token", true, reads)
 				m.rejectOverrides(r, reads)
+				m.routes(r, "Bearer fixture-token", true, anyTypeReads)
 				m.routes(r, "Bearer fixture-token", access == "read-write", writes)
+				m.routes(r, "Bearer fixture-token", access == "read-write", anyTypeWrites)
 				if access == "read-write" then m.rejectOverrides(r, writes) end
 				m.routes(r, "Bearer fixture-token", false, denied)
 			end

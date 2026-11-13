@@ -109,6 +109,9 @@ return {
 		fails({"associations[1] received an unknown field toObjectType"}, c.createObject,
 			{objectType = "notes", properties = {hs_timestamp = "1"}, associations = {{to = {id = "1"}, types = LINK, toObjectType = "contacts"}}})
 		fails({"toObjectType must be one of"}, c.createDefaultAssociation, {fromObjectType = "contacts", fromObjectId = "1", toObjectType = "products", toObjectId = "2"})
+		fails({"toObjectType must be one of"}, c.createDefaultAssociation, {fromObjectType = "contacts", fromObjectId = "101", toObjectType = "quotes", toObjectId = "7"})
+		fails({"toObjectType must be one of"}, c.createAssociation, {objectType = "contacts", objectId = "101", toObjectType = "quotes", toObjectId = "7", types = LINK})
+		fails({"toObjectType must be one of"}, c.deleteAssociation, {objectType = "contacts", objectId = "101", toObjectType = "quotes", toObjectId = "7"})
 		fails({"toObjectId must be a string of digits"}, c.deleteAssociation, {objectType = "contacts", objectId = "1", toObjectType = "companies", toObjectId = "../2"})
 		fails({"deleteAssociation received an unknown option types"}, c.deleteAssociation, {objectType = "contacts", objectId = "1", toObjectType = "companies", toObjectId = "2", types = LINK})
 		assert(#requests == before, "invalid writes reached HubSpot")

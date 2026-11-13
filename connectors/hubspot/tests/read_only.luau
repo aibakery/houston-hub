@@ -169,6 +169,10 @@ return {
 		fails({TYPE}, c.searchObjects, {objectType = "Contacts"})
 		fails({"toObjectType must be one of"}, c.listAssociations, {objectType = "deals", objectId = "1", toObjectType = "products"})
 		fails({"fromObjectType must be one of"}, c.batchReadAssociations, {fromObjectType = "2-1234", toObjectType = "deals", inputs = {{id = "1"}}})
+		-- The proxy admits any association type, so Luau keeps it to the nine.
+		fails({"toObjectType must be one of"}, c.listAssociations, {objectType = "contacts", objectId = "101", toObjectType = "quotes"})
+		fails({"toObjectType must be one of"}, c.listAssociationLabels, {fromObjectType = "contacts", toObjectType = "quotes"})
+		fails({"fromObjectType must be one of"}, c.batchReadAssociations, {fromObjectType = "quotes", toObjectType = "contacts", inputs = {{id = "7"}}})
 		fails({"objectId must be a string of digits"}, c.getObject, {objectType = "contacts", objectId = 101})
 		fails({"objectId must be a string of digits"}, c.getObject, {objectType = "contacts", objectId = "abc"})
 		fails({"objectId must be a string of digits"}, c.getObject, {objectType = "contacts", objectId = "../users"})
