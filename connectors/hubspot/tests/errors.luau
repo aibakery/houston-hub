@@ -68,9 +68,9 @@ return {
 		upstream(477, '{"status":"error","message":"Migration in progress"}', {["retry-after"] = {"3600"}},
 			c.getObject, CONTACT, {"HTTP 477", "Retry-After: 3600", '"retryable":true'})
 
-		-- Server errors: reads and association changes are safe to repeat; creates and updates may have been applied.
+		-- Server errors: reads, updates and association changes are safe to repeat; a create may have been applied.
 		upstream(502, "<html><body>Bad gateway</body></html>", {}, c.listObjects, {objectType = "deals"}, {"HubSpot HTTP 502", '"retryable":true'}, {"html"})
-		upstream(502, "", {}, c.updateObject, UPDATE, {"HubSpot HTTP 502", '"retryable":false'})
+		upstream(502, "", {}, c.updateObject, UPDATE, {"HubSpot HTTP 502", '"retryable":true'})
 		upstream(500, '{"status":"error","message":"internal error"}', {}, c.createObject, CREATE, {"HTTP 500: internal error", '"retryable":false'})
 		upstream(500, '{"status":"error","message":"internal error"}', {}, c.createAssociation, LINK, {"HTTP 500: internal error", '"retryable":true'})
 		upstream(503, "", {}, c.createDefaultAssociation, {fromObjectType = "contacts", fromObjectId = "101", toObjectType = "companies", toObjectId = "512"}, {"HubSpot HTTP 503", '"retryable":true'})

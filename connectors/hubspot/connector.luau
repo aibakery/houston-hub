@@ -145,7 +145,7 @@ end
 -- HubSpot errors are {status, message, correlationId, category, errors = {{message, code, context}}},
 -- every field optional; rate limits answer {errorType, policyName}. 429 (except the daily limit),
 -- 423 (a 2-second lock) and 477 (a data migration) are transient. Server errors are retryable only
--- for idempotent calls: a create or update that failed with one may still have been applied.
+-- for idempotent calls: a create that failed with one may still have been applied.
 -- Validation errors can list many properties, so up to 16 KiB is read; the message keeps a bounded
 -- part of each field.
 local function fail(operation: string, response: HttpResponse, idempotent: boolean): never
@@ -181,7 +181,7 @@ end
 
 -- One request to HubSpot. A table body is sent as JSON and a string body as is. An empty reply to a
 -- DELETE (204) gives {success = true}; any other reply must be a JSON object. idempotent marks
--- reads and association changes, which are safe to repeat after a server error.
+-- reads, updates and association changes, which are safe to repeat after a server error.
 local function call(operation: string, method: string, path: string, body: any, idempotent: boolean): Options
 	local headers: HttpHeaders = {}
 	local payload: string? = nil
@@ -267,8 +267,8 @@ deal moves between stages through updateObject with dealstage (plus pipeline whe
 changes), a ticket with hs_pipeline_stage (plus hs_pipeline). Notes, tasks and the other
 activities are records created with createObject (see the activities topic). deleteAssociation
 removes every association between two records and deletes neither record. Server errors on
-createObject and updateObject are not retryable: check the record before repeating the call. The
-association writes are idempotent, so their server errors are retryable.
+createObject are not retryable: check for the record before repeating the call. updateObject and
+the association writes are idempotent, so their server errors are retryable.
 
 ]] .. REQUIRED else ""),
 	functions = {} :: {[string]: any},
@@ -366,7 +366,7 @@ local PROPERTIES = {type = "object", minProperties = 1, additionalProperties = {
 	description = "Property internal names and values; an empty string clears a value."}
 local READ = {readOnlyHint = true, openWorldHint = true}
 local WRITE = {readOnlyHint = false, destructiveHint = false, openWorldHint = true}
-local LINK = {readOnlyHint = false, destructiveHint = false, idempotentHint = true, openWorldHint = true}
+local IDEMPOTENT = {readOnlyHint = false, destructiveHint = false, idempotentHint = true, openWorldHint = true}
 local DESTRUCTIVE = {readOnlyHint = false, destructiveHint = true, idempotentHint = true, openWorldHint = true}
 
 help.functions.listObjects = {
@@ -799,7 +799,8 @@ record, so search for it before repeating.
 		description = [[Changes the named properties of a record and returns it; other properties keep their values,
 and an empty string clears one. objectId is the record ID, or with idProperty that unique
 property's value. Move a deal with dealstage (a stage ID from listPipelines), adding pipeline when
-the stage belongs to another pipeline; move a ticket with hs_pipeline_stage (and hs_pipeline).]],
+the stage belongs to another pipeline; move a ticket with hs_pipeline_stage (and hs_pipeline).
+Repeating it changes nothing, so a server error is retryable.]],
 		inputSchema = {
 			type = "object",
 			properties = {objectType = OBJECT_TYPE, objectId = LOOKUP_ID, properties = PROPERTIES, idProperty = ID_PROPERTY},
@@ -813,7 +814,7 @@ the stage belongs to another pipeline; move a ticket with hs_pipeline_stage (and
 				{objectType = "contacts", objectId = "ana@example.com", idProperty = "email", properties = {jobtitle = "CTO"}},
 			} :: {any},
 		},
-		annotations = WRITE,
+		annotations = IDEMPOTENT,
 	}
 	function exports.updateObject(input: any): Options
 		local args = options(input)
@@ -822,7 +823,7 @@ the stage belongs to another pipeline; move a ticket with hs_pipeline_stage (and
 		local body = {properties = properties(take(args, "properties"))}
 		local q = query(args, {"idProperty"})
 		done("updateObject", args)
-		return call("updateObject", "PATCH", objects(kind) .. "/" .. id .. q, body, false)
+		return call("updateObject", "PATCH", objects(kind) .. "/" .. id .. q, body, true)
 	end
 
 	help.functions.createDefaultAssociation = {
@@ -836,7 +837,7 @@ retryable.]],
 			additionalProperties = false,
 			examples = {{fromObjectType = "contacts", fromObjectId = "101", toObjectType = "companies", toObjectId = "512"}},
 		},
-		annotations = LINK,
+		annotations = IDEMPOTENT,
 	}
 	function exports.createDefaultAssociation(input: any): Options
 		local args = options(input)
