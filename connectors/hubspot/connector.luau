@@ -213,6 +213,14 @@ local function objects(kind: string): string
 	return "/crm/objects/2026-09/" .. kind
 end
 
+-- Properties HubSpot requires to create each object type, from its object and activity guides.
+local REQUIRED = [[Properties required to create a record: notes, tasks and calls need hs_timestamp; emails
+hs_timestamp and hs_email_direction; meetings hs_timestamp, hs_meeting_title and
+hs_meeting_start_time (HubSpot's meetings guide also marks hubspot_owner_id required); deals
+dealname, dealstage and pipeline (HubSpot uses the default pipeline when pipeline is left out);
+tickets subject, hs_pipeline_stage and hs_pipeline; companies name or domain. Contacts need none,
+but give email, firstname or lastname.]]
+
 local help = {
 	text = [[HubSpot CRM API 2026-09 for one HubSpot account: contacts, companies, deals and tickets, their
 activities (notes, tasks, calls, meetings and logged emails), the associations between records,
@@ -237,25 +245,32 @@ search allows 5 requests per second per account.
 
 Rate limits: signing in with HubSpot allows 110 requests per 10 seconds per HubSpot account,
 shared by every Houston connection to it; an access token allows 100 to 190 per 10 seconds per
-key or app, plus a daily quota. Prefer batchReadObjects, batchReadAssociations and searchObjects
-to loops of single reads. Houston itself retries only a short 429 wait.
+key or app (250 with HubSpot's API limit increase), plus a daily quota for the account. The
+association endpoints have their own limits: 100 (Free and Starter) or 150 (Professional and
+Enterprise) requests per 10 seconds, and up to 500,000 per day. Prefer batchReadObjects,
+batchReadAssociations and searchObjects to loops of single reads. Houston itself retries only a
+short 429 wait.
 
 Errors read 'HubSpot HTTP <status> (<category>): <message>', for example
 'HubSpot HTTP 400 (VALIDATION_ERROR): Property values were not valid'. 429 (except the daily
-limit), 423 and 477 are retryable, and so are server errors on reads. A missing permission is a
-403 (MISSING_SCOPES) naming the scopes needed ('needs one of: ...'): the account admin must add
-the scope to the service key or app, or reconnect. A 401 means the token is invalid or revoked.]]
+limit), 423 and 477 are retryable, and so are server errors on reads. A 477 means HubSpot is
+moving the account between data centres, which can last hours: Retry-After says how long. A
+missing permission is a 403 (MISSING_SCOPES) naming the scopes needed ('needs one of: ...'): the
+account admin must add the scope to the service key or app, or reconnect. A 401 means the token
+is invalid or revoked.]]
 		.. (if config.access == "read-write" then [[
 
 
 Writes: createObject is not idempotent, and a failed or timed-out call may still have created the
 record, so search for it before repeating. updateObject changes only the named properties. A
 deal moves between stages through updateObject with dealstage (plus pipeline when the pipeline
-changes), a ticket with hs_pipeline_stage (plus hs_pipeline). Notes and tasks are records created
-with createObject and need hs_timestamp (see the activities topic). deleteAssociation removes every
-association between two records and deletes neither record. Server errors on createObject and
-updateObject are not retryable: check the record before repeating the call. The association
-writes are idempotent, so their server errors are retryable.]] else ""),
+changes), a ticket with hs_pipeline_stage (plus hs_pipeline). Notes, tasks and the other
+activities are records created with createObject (see the activities topic). deleteAssociation
+removes every association between two records and deletes neither record. Server errors on
+createObject and updateObject are not retryable: check the record before repeating the call. The
+association writes are idempotent, so their server errors are retryable.
+
+]] .. REQUIRED else ""),
 	functions = {} :: {[string]: any},
 	sections = {
 		search = [[searchObjects body fields: query (text searched in the default text properties), filterGroups,
@@ -268,7 +283,7 @@ must be lowercase for string properties. Values are strings; dates may be epoch 
 ISO 8601. The pseudo-property associations.{type}, with a singular type such as
 associations.contact or associations.company, finds records associated with that record ID.
 sorts holds one rule, {propertyName, direction = "ASCENDING" | "DESCENDING"}; results default to
-creation order. Example:
+creation order. HubSpot refuses a search request body over 3,000 characters. Example:
 hubspot.searchObjects({objectType = "deals", filterGroups = {{filters = {
   {propertyName = "dealstage", operator = "EQ", value = "contractsent"},
   {propertyName = "amount", operator = "GTE", value = "10000"}}}},
@@ -298,10 +313,10 @@ on a pair: the types sent replace the pair's existing labels, so include every l
 createObject can link a new record at creation with associations = {{to = {id}, types}}.
 deleteAssociation removes every association between the two records.]] else ""),
 		activities = [[Notes, tasks, calls, meetings and emails (logged one-to-one emails) are object types like
-contacts. Useful properties:
-notes: hs_timestamp (required: its position on the timeline, ISO 8601 UTC or epoch milliseconds),
-hs_note_body (at most 65,536 characters), hubspot_owner_id, hs_attachment_ids.
-tasks: hs_timestamp (required: the due date), hs_task_subject, hs_task_body, hs_task_status
+contacts. hs_timestamp places an activity on the timeline (a task's due date), as ISO 8601 UTC or
+epoch milliseconds. Useful properties:
+notes: hs_timestamp, hs_note_body (at most 65,536 characters), hubspot_owner_id, hs_attachment_ids.
+tasks: hs_timestamp, hs_task_subject, hs_task_body, hs_task_status
 (NOT_STARTED or COMPLETED), hs_task_priority (LOW, MEDIUM or HIGH), hs_task_type (EMAIL, CALL or
 TODO), hubspot_owner_id, hs_task_reminders (epoch milliseconds).
 calls: hs_timestamp, hs_call_title, hs_call_body, hs_call_direction, hs_call_duration,
@@ -318,7 +333,8 @@ Create an activity with createObject and associations to the records it concerns
 note on contact 101: createObject({objectType = "notes", properties = {hs_timestamp =
 "2026-11-13T10:00:00Z", hs_note_body = "Called about renewal."}, associations = {{to = {id = "101"},
 types = {{associationCategory = "HUBSPOT_DEFINED", associationTypeId = 202}}}}}). Complete a task
-with updateObject and hs_task_status = "COMPLETED".]] else ""),
+with updateObject and hs_task_status = "COMPLETED".
+]] .. REQUIRED else ""),
 	},
 }
 local exports: {[string]: any} = {help = help}
@@ -357,7 +373,8 @@ help.functions.listObjects = {
 	description = [[One page of records of objectType, oldest first: {results = {record}, paging = {next = {after}}?}.
 limit is 1 to 100 (HubSpot's default is 10). properties names the properties to return, beyond a
 few defaults; associations adds each record's associated IDs of those types. archived = true
-lists only archived records.]],
+lists only archived records. propertiesWithHistory lowers the number of records HubSpot returns
+per request.]],
 	inputSchema = {
 		type = "object",
 		properties = {objectType = OBJECT_TYPE, limit = {type = "integer", minimum = 1, maximum = 100}, after = AFTER,
@@ -483,7 +500,8 @@ help.functions.batchReadObjects = {
 	description = [[Reads up to 100 records of objectType at once: {status, results = {record}, numErrors?, errors?}.
 inputs are {{id}}: record IDs, or with idProperty values of that unique property. IDs that do not
 exist are reported in errors (HTTP 207) while the others are returned. properties names the
-properties to return beyond a few defaults.]],
+properties to return beyond a few defaults; propertiesWithHistory lowers the number of records
+HubSpot returns per request.]],
 	inputSchema = {
 		type = "object",
 		properties = {
@@ -522,8 +540,8 @@ end
 
 help.functions.listAssociations = {
 	description = [[One page of the records of toObjectType associated with one record:
-{results = {{toObjectId, associationTypes = {{category, typeId, label}}}}, paging?}. toObjectId is a
-number; pass it as a string to other operations. limit is 1 to 500 (the default).]],
+{results = {{toObjectId, associationTypes = {{category, typeId, label}}}}, paging?}. toObjectId may come
+back as a number or a string; pass it to other operations as a string. limit is 1 to 500 (the default).]],
 	inputSchema = {
 		type = "object",
 		properties = {objectType = OBJECT_TYPE, objectId = RECORD_ID, toObjectType = OBJECT_TYPE,
@@ -640,9 +658,9 @@ function exports.getPipeline(input: any): Options
 end
 
 help.functions.listOwners = {
-	description = [[One page of the account's owners, the users and teams records can be assigned to:
-{results = {{id, email, firstName, lastName, userId, type, teams}}, paging?}. An owner's id is what
-hubspot_owner_id holds on records; userId is the HubSpot user's ID. email finds one owner. limit
+	description = [[One page of the account's owners, the users (type "PERSON") and queues (type "QUEUE") that
+records can be assigned to: {results = {{id, email, firstName, lastName, userId, type, teams}},
+paging?}. teams lists the teams an owner belongs to. An owner's id is what hubspot_owner_id holds; userId is the HubSpot user's ID. email finds one owner. limit
 is 1 to 500 (default 100).]],
 	inputSchema = {
 		type = "object",
@@ -681,7 +699,8 @@ function exports.getOwner(input: any): Options
 end
 
 help.functions.listProperties = {
-	description = [[Every property definition of objectType: {results = {{name, label, type, fieldType,
+	description = [[The non-sensitive property definitions of objectType (HubSpot leaves out properties holding
+sensitive data): {results = {{name, label, type, fieldType,
 groupName, description, options = {{label, value}}, calculated, hasUniqueValue, hidden, ...}}}.
 name is the internal name that properties lists and writes use; for enumerations, options give
 the values a property accepts (such as lifecyclestage or hs_task_status).]],
@@ -727,9 +746,10 @@ if config.access == "read-write" then
 	help.functions.createObject = {
 		description = [[Creates a record of objectType and returns it (HTTP 201). properties sets property values by
 internal name; associations links the new record, each {to = {id}, types = {{associationCategory,
-associationTypeId}}} (see the associations topic for type IDs). Notes and tasks need hs_timestamp.
-HubSpot refuses a contact whose email already exists (409). Not idempotent: a failed or timed-out
-call may still have created the record, so search for it before repeating.]],
+associationTypeId}}} (see the associations topic for type IDs). HubSpot refuses a contact whose
+email already exists (409). Not idempotent: a failed or timed-out call may still have created the
+record, so search for it before repeating.
+]] .. REQUIRED,
 		inputSchema = {
 			type = "object",
 			properties = {
