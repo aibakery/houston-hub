@@ -87,6 +87,11 @@ return {
 		c.batchReadObjects({objectType = "contacts", idProperty = "email", inputs = {{id = "ana@example.com"}}})
 		sent = post(OBJECTS .. "contacts/batch/read")
 		assert(sent.idProperty == "email" and sent.inputs[1].id == "ana@example.com" and sent.properties == nil, last().body)
+		-- Body IDs are JSON values, not path segments: any nonempty unique value goes out unchanged.
+		responses = {{body = '{"status":"COMPLETE","results":[]}'}}
+		c.batchReadObjects({objectType = "companies", idProperty = "path", inputs = {{id = "a/b"}, {id = "50%"}, {id = ".."}}})
+		sent = post(OBJECTS .. "companies/batch/read")
+		assert(sent.inputs[1].id == "a/b" and sent.inputs[2].id == "50%" and sent.inputs[3].id == "..", last().body)
 
 		-- Associations between records, read one record or many at a time, and their labels.
 		responses = {

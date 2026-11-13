@@ -44,15 +44,17 @@ local function oneOf(value: any, field: string, allowed: {string}): string
 	return value
 end
 
--- Record IDs are strings of digits. With idProperty, the path holds that property's unique value
--- instead, such as a contact's email. Either way the ID is one encoded path segment.
+-- Record IDs are strings of digits. With idProperty, an ID is that property's unique value instead,
+-- such as a contact's email.
+local function idValue(value: any, field: string, idProperty: boolean?): string
+	if idProperty then return text(value, field) end
+	assert(type(value) == "string" and string.match(value, "^%d+$") ~= nil, field .. " must be a string of digits")
+	return value
+end
+
+-- A record ID in a path, as one encoded segment.
 local function recordId(value: any, field: string, idProperty: boolean?): string
-	if idProperty then
-		text(value, field)
-	else
-		assert(type(value) == "string" and string.match(value, "^%d+$") ~= nil, field .. " must be a string of digits")
-	end
-	return url.segment(value, field)
+	return url.segment(idValue(value, field, idProperty), field)
 end
 
 -- A dense array of 1 to max items, so that it encodes as a JSON array.
@@ -492,7 +494,7 @@ function exports.batchReadObjects(input: any): Options
 		local field = "inputs[" .. tostring(index) .. "]"
 		assert(type(item) == "table", field .. " must be an object")
 		for key in item do assert(key == "id", field .. " received an unknown field " .. tostring(key)) end
-		recordId(item.id, field .. ".id", idProperty ~= nil)
+		idValue(item.id, field .. ".id", idProperty ~= nil)
 		table.insert(body.inputs, {id = item.id})
 	end
 	if idProperty ~= nil then body.idProperty = text(idProperty, "idProperty") end
@@ -554,7 +556,7 @@ function exports.batchReadAssociations(input: any): Options
 		local field = "inputs[" .. tostring(index) .. "]"
 		assert(type(item) == "table", field .. " must be an object")
 		for key in item do assert(key == "id" or key == "after", field .. " received an unknown field " .. tostring(key)) end
-		recordId(item.id, field .. ".id")
+		idValue(item.id, field .. ".id")
 		table.insert(inputs, {id = item.id, after = if item.after ~= nil then text(item.after, field .. ".after") else nil})
 	end
 	done("batchReadAssociations", args)
@@ -754,7 +756,7 @@ call may still have created the record, so search for it before repeating.]],
 				local to = item.to
 				assert(type(to) == "table", field .. ".to must be {id}")
 				for key in to do assert(key == "id", field .. ".to received an unknown field " .. tostring(key)) end
-				recordId(to.id, field .. ".to.id")
+				idValue(to.id, field .. ".to.id")
 				table.insert(body.associations, {to = {id = to.id}, types = associationTypes(item.types, field .. ".types")})
 			end
 		end
