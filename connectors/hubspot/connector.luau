@@ -60,6 +60,16 @@ local function recordId(value: any, field: string, idProperty: boolean?): string
 	return url.segment(idValue(value, field, idProperty), field)
 end
 
+-- An object type taken from args[field]: one of the nine, or of allowed.
+local function objectType(args: Options, field: string, allowed: {string}?): string
+	return oneOf(take(args, field), field, allowed or OBJECT_TYPES)
+end
+
+-- A record taken from args as path segments: its object type and its record ID.
+local function record(args: Options, typeField: string, idField: string): (string, string)
+	return objectType(args, typeField), recordId(take(args, idField), idField)
+end
+
 -- A dense array of 1 to max items, so that it encodes as a JSON array.
 local function array(value: any, field: string, max: number): {any}
 	local problem = field .. " must be an array of 1 to " .. tostring(max) .. " items"
@@ -414,7 +424,7 @@ per request.]],
 }
 function exports.listObjects(input: any): Options
 	local args = options(input)
-	local kind = oneOf(take(args, "objectType"), "objectType", OBJECT_TYPES)
+	local kind = objectType(args, "objectType")
 	local q = query(args, {"limit", "after", "properties", "propertiesWithHistory", "associations", "archived"}, 100)
 	done("listObjects", args)
 	return results(call("listObjects", "GET", crm("objects", kind) .. q, nil, true))
@@ -442,7 +452,7 @@ defaults; associations adds associated record IDs of those types.]],
 }
 function exports.getObject(input: any): Options
 	local args = options(input)
-	local kind = oneOf(take(args, "objectType"), "objectType", OBJECT_TYPES)
+	local kind = objectType(args, "objectType")
 	local id = recordId(take(args, "objectId"), "objectId", args.idProperty ~= nil)
 	local q = query(args, {"idProperty", "properties", "propertiesWithHistory", "associations", "archived"})
 	done("getObject", args)
@@ -498,7 +508,7 @@ stops at 10,000 results and allows 5 requests per second per account.]],
 }
 function exports.searchObjects(input: any): Options
 	local args = options(input)
-	local kind = oneOf(take(args, "objectType"), "objectType", OBJECT_TYPES)
+	local kind = objectType(args, "objectType")
 	local body: Options = {}
 	if args.query ~= nil then body.query = text(take(args, "query"), "query") end
 	if args.filterGroups ~= nil then
@@ -556,7 +566,7 @@ HubSpot returns per request.]],
 }
 function exports.batchReadObjects(input: any): Options
 	local args = options(input)
-	local kind = oneOf(take(args, "objectType"), "objectType", OBJECT_TYPES)
+	local kind = objectType(args, "objectType")
 	local idProperty = take(args, "idProperty")
 	local body: Options = {inputs = {}}
 	for index, item in array(take(args, "inputs"), "inputs", 100) do
@@ -589,9 +599,8 @@ back as a number or a string; pass it to other operations as a string. limit is 
 }
 function exports.listAssociations(input: any): Options
 	local args = options(input)
-	local kind = oneOf(take(args, "objectType"), "objectType", OBJECT_TYPES)
-	local id = recordId(take(args, "objectId"), "objectId")
-	local to = oneOf(take(args, "toObjectType"), "toObjectType", OBJECT_TYPES)
+	local kind, id = record(args, "objectType", "objectId")
+	local to = objectType(args, "toObjectType")
 	local q = query(args, {"limit", "after"}, 500)
 	done("listAssociations", args)
 	return results(call("listAssociations", "GET", crm("objects", kind, id, "associations", to) .. q, nil, true))
@@ -617,8 +626,8 @@ inputs are {{id, after?}}; after continues one record's associations from its pa
 }
 function exports.batchReadAssociations(input: any): Options
 	local args = options(input)
-	local from = oneOf(take(args, "fromObjectType"), "fromObjectType", OBJECT_TYPES)
-	local to = oneOf(take(args, "toObjectType"), "toObjectType", OBJECT_TYPES)
+	local from = objectType(args, "fromObjectType")
+	local to = objectType(args, "toObjectType")
 	local inputs: {Options} = {}
 	for index, item in array(take(args, "inputs"), "inputs", 1000) do
 		local field = "inputs[" .. tostring(index) .. "]"
@@ -644,8 +653,8 @@ custom labels: {results = {{category, typeId, label}}}. label is null for the de
 }
 function exports.listAssociationLabels(input: any): Options
 	local args = options(input)
-	local from = oneOf(take(args, "fromObjectType"), "fromObjectType", OBJECT_TYPES)
-	local to = oneOf(take(args, "toObjectType"), "toObjectType", OBJECT_TYPES)
+	local from = objectType(args, "fromObjectType")
+	local to = objectType(args, "toObjectType")
 	done("listAssociationLabels", args)
 	return results(call("listAssociationLabels", "GET", crm("associations", from, to, "labels"), nil, true))
 end
@@ -667,7 +676,7 @@ CLOSED.]],
 }
 function exports.listPipelines(input: any): Options
 	local args = options(input)
-	local kind = oneOf(take(args, "objectType"), "objectType", PIPELINE_TYPES)
+	local kind = objectType(args, "objectType", PIPELINE_TYPES)
 	done("listPipelines", args)
 	return results(call("listPipelines", "GET", crm("pipelines", kind), nil, true))
 end
@@ -686,7 +695,7 @@ displayOrder, metadata}}}. The default pipeline's ID is often "default" for deal
 }
 function exports.getPipeline(input: any): Options
 	local args = options(input)
-	local kind = oneOf(take(args, "objectType"), "objectType", PIPELINE_TYPES)
+	local kind = objectType(args, "objectType", PIPELINE_TYPES)
 	local id = url.segment(text(take(args, "pipelineId"), "pipelineId"), "pipelineId")
 	done("getPipeline", args)
 	return call("getPipeline", "GET", crm("pipelines", kind, id), nil, true)
@@ -750,7 +759,7 @@ the values a property accepts (such as lifecyclestage or hs_task_status).]],
 }
 function exports.listProperties(input: any): Options
 	local args = options(input)
-	local kind = oneOf(take(args, "objectType"), "objectType", OBJECT_TYPES)
+	local kind = objectType(args, "objectType")
 	local q = query(args, {"archived"})
 	done("listProperties", args)
 	return results(call("listProperties", "GET", crm("properties", kind) .. q, nil, true))
@@ -769,7 +778,7 @@ help.functions.getProperty = {
 }
 function exports.getProperty(input: any): Options
 	local args = options(input)
-	local kind = oneOf(take(args, "objectType"), "objectType", OBJECT_TYPES)
+	local kind = objectType(args, "objectType")
 	local name = take(args, "propertyName")
 	assert(type(name) == "string" and string.match(name, "^[%w_]+$") ~= nil, "propertyName must be a property's internal name")
 	local q = query(args, {"archived"})
@@ -814,7 +823,7 @@ record, so search for it before repeating.
 	}
 	function exports.createObject(input: any): Options
 		local args = options(input)
-		local kind = oneOf(take(args, "objectType"), "objectType", OBJECT_TYPES)
+		local kind = objectType(args, "objectType")
 		local body: Options = {properties = properties(take(args, "properties"))}
 		if args.associations ~= nil then
 			body.associations = {}
@@ -853,7 +862,7 @@ Repeating it changes nothing, so a server error is retryable.]],
 	}
 	function exports.updateObject(input: any): Options
 		local args = options(input)
-		local kind = oneOf(take(args, "objectType"), "objectType", OBJECT_TYPES)
+		local kind = objectType(args, "objectType")
 		local id = recordId(take(args, "objectId"), "objectId", args.idProperty ~= nil)
 		local body = {properties = properties(take(args, "properties"))}
 		local q = query(args, {"idProperty"})
@@ -876,10 +885,8 @@ retryable.]],
 	}
 	function exports.createDefaultAssociation(input: any): Options
 		local args = options(input)
-		local from = oneOf(take(args, "fromObjectType"), "fromObjectType", OBJECT_TYPES)
-		local fromId = recordId(take(args, "fromObjectId"), "fromObjectId")
-		local to = oneOf(take(args, "toObjectType"), "toObjectType", OBJECT_TYPES)
-		local toId = recordId(take(args, "toObjectId"), "toObjectId")
+		local from, fromId = record(args, "fromObjectType", "fromObjectId")
+		local to, toId = record(args, "toObjectType", "toObjectId")
 		done("createDefaultAssociation", args)
 		return call("createDefaultAssociation", "PUT", crm("objects", from, fromId, "associations", "default", to, toId), "", true)
 	end
@@ -901,10 +908,8 @@ listAssociationLabels. Repeating it with the same types changes nothing, so a se
 	}
 	function exports.createAssociation(input: any): Options
 		local args = options(input)
-		local kind = oneOf(take(args, "objectType"), "objectType", OBJECT_TYPES)
-		local id = recordId(take(args, "objectId"), "objectId")
-		local to = oneOf(take(args, "toObjectType"), "toObjectType", OBJECT_TYPES)
-		local toId = recordId(take(args, "toObjectId"), "toObjectId")
+		local kind, id = record(args, "objectType", "objectId")
+		local to, toId = record(args, "toObjectType", "toObjectId")
 		local types = associationTypes(take(args, "types"), "types")
 		done("createAssociation", args)
 		return call("createAssociation", "PUT", crm("objects", kind, id, "associations", to, toId), types, true)
@@ -925,10 +930,8 @@ Repeating it changes nothing, so a server error is retryable.]],
 	}
 	function exports.deleteAssociation(input: any): Options
 		local args = options(input)
-		local kind = oneOf(take(args, "objectType"), "objectType", OBJECT_TYPES)
-		local id = recordId(take(args, "objectId"), "objectId")
-		local to = oneOf(take(args, "toObjectType"), "toObjectType", OBJECT_TYPES)
-		local toId = recordId(take(args, "toObjectId"), "toObjectId")
+		local kind, id = record(args, "objectType", "objectId")
+		local to, toId = record(args, "toObjectType", "toObjectId")
 		done("deleteAssociation", args)
 		return call("deleteAssociation", "DELETE", crm("objects", kind, id, "associations", to, toId), nil, true)
 	end
