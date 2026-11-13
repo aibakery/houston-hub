@@ -1,0 +1,344 @@
+{
+  "schema_version": 1,
+  "name": "HubSpot",
+  "warning": "**Pending HubSpot review.** HubSpot is still reviewing Houston's app. Until HubSpot lists it, you will see an *unverified app* warning while connecting: select **Connect app**, type **I accept the risk**, then select **Connect**.",
+  "files": [
+    "connector.luau"
+  ],
+  "icon": "icon.svg",
+  "config": {
+    "access": {
+      "type": "string",
+      "label": "Access",
+      "default": "read-only",
+      "options": [
+        {
+          "label": "Read-only",
+          "value": "read-only"
+        },
+        {
+          "label": "Read and write",
+          "value": "read-write"
+        }
+      ]
+    }
+  },
+  "auth": {
+    "oauth": {
+      "type": "oauth2",
+      "label": "Connect with HubSpot",
+      "order": 1,
+      "authorize_url": "https://app.hubspot.com/oauth/authorize",
+      "token_url": "https://api.hubapi.com/oauth/2026-09/token",
+      "client_auth": "body",
+      "pkce": "S256",
+      "client_id": "{{publisher.client_id}}",
+      "client_secret": "{{publisher.client_secret}}",
+      "require_refresh": true,
+      "scopes": [
+        {
+          "values": [
+            "oauth",
+            "crm.objects.contacts.read",
+            "crm.objects.companies.read",
+            "crm.objects.deals.read",
+            "crm.objects.tickets.read",
+            "crm.objects.owners.read",
+            "crm.schemas.contacts.read",
+            "crm.schemas.companies.read",
+            "crm.schemas.deals.read",
+            "crm.schemas.tickets.read",
+            "sales-email-read"
+          ]
+        },
+        {
+          "if": "{{ is config.access \"read-write\" }}",
+          "values": [
+            "crm.objects.contacts.write",
+            "crm.objects.companies.write",
+            "crm.objects.deals.write",
+            "crm.objects.tickets.write"
+          ]
+        }
+      ],
+      "token_response": {
+        "scopes": "/scopes"
+      },
+      "refresh_response": {
+        "scopes": "/scopes"
+      }
+    },
+    "token": {
+      "type": "manual",
+      "label": "Service key or private app access token",
+      "order": 2,
+      "config": {
+        "token": {
+          "type": "secret",
+          "label": "Access token",
+          "required": true
+        }
+      }
+    }
+  },
+  "publisher": {
+    "client_id": {
+      "type": "string",
+      "label": "HubSpot app client ID",
+      "order": 1
+    },
+    "client_secret": {
+      "type": "secret",
+      "label": "HubSpot app client secret",
+      "order": 2
+    }
+  },
+  "proxy": [
+    {
+      "match": {
+        "protocol": "http",
+        "host": [
+          "api.hubapi.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/crm/objects/2026-09/contacts",
+          "/crm/objects/2026-09/contacts/{objectId}",
+          "/crm/objects/2026-09/contacts/{objectId}/associations/{toObjectType}",
+          "/crm/objects/2026-09/companies",
+          "/crm/objects/2026-09/companies/{objectId}",
+          "/crm/objects/2026-09/companies/{objectId}/associations/{toObjectType}",
+          "/crm/objects/2026-09/deals",
+          "/crm/objects/2026-09/deals/{objectId}",
+          "/crm/objects/2026-09/deals/{objectId}/associations/{toObjectType}",
+          "/crm/objects/2026-09/tickets",
+          "/crm/objects/2026-09/tickets/{objectId}",
+          "/crm/objects/2026-09/tickets/{objectId}/associations/{toObjectType}",
+          "/crm/objects/2026-09/notes",
+          "/crm/objects/2026-09/notes/{objectId}",
+          "/crm/objects/2026-09/notes/{objectId}/associations/{toObjectType}",
+          "/crm/objects/2026-09/tasks",
+          "/crm/objects/2026-09/tasks/{objectId}",
+          "/crm/objects/2026-09/tasks/{objectId}/associations/{toObjectType}",
+          "/crm/objects/2026-09/calls",
+          "/crm/objects/2026-09/calls/{objectId}",
+          "/crm/objects/2026-09/calls/{objectId}/associations/{toObjectType}",
+          "/crm/objects/2026-09/meetings",
+          "/crm/objects/2026-09/meetings/{objectId}",
+          "/crm/objects/2026-09/meetings/{objectId}/associations/{toObjectType}",
+          "/crm/objects/2026-09/emails",
+          "/crm/objects/2026-09/emails/{objectId}",
+          "/crm/objects/2026-09/emails/{objectId}/associations/{toObjectType}",
+          "/crm/associations/2026-09/{fromObjectType}/{toObjectType}/labels",
+          "/crm/pipelines/2026-09/deals",
+          "/crm/pipelines/2026-09/deals/{pipelineId}",
+          "/crm/pipelines/2026-09/tickets",
+          "/crm/pipelines/2026-09/tickets/{pipelineId}",
+          "/crm/owners/2026-09",
+          "/crm/owners/2026-09/{ownerId}",
+          "/crm/properties/2026-09/contacts",
+          "/crm/properties/2026-09/contacts/{propertyName}",
+          "/crm/properties/2026-09/companies",
+          "/crm/properties/2026-09/companies/{propertyName}",
+          "/crm/properties/2026-09/deals",
+          "/crm/properties/2026-09/deals/{propertyName}",
+          "/crm/properties/2026-09/tickets",
+          "/crm/properties/2026-09/tickets/{propertyName}",
+          "/crm/properties/2026-09/notes",
+          "/crm/properties/2026-09/notes/{propertyName}",
+          "/crm/properties/2026-09/tasks",
+          "/crm/properties/2026-09/tasks/{propertyName}",
+          "/crm/properties/2026-09/calls",
+          "/crm/properties/2026-09/calls/{propertyName}",
+          "/crm/properties/2026-09/meetings",
+          "/crm/properties/2026-09/meetings/{propertyName}",
+          "/crm/properties/2026-09/emails",
+          "/crm/properties/2026-09/emails/{propertyName}"
+        ],
+        "colon_path_parameters": [
+          "objectId"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token || auth.token.token}}"
+          }
+        }
+      }
+    },
+    {
+      "match": {
+        "protocol": "http",
+        "host": [
+          "api.hubapi.com"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/crm/objects/2026-09/contacts/search",
+          "/crm/objects/2026-09/contacts/batch/read",
+          "/crm/objects/2026-09/companies/search",
+          "/crm/objects/2026-09/companies/batch/read",
+          "/crm/objects/2026-09/deals/search",
+          "/crm/objects/2026-09/deals/batch/read",
+          "/crm/objects/2026-09/tickets/search",
+          "/crm/objects/2026-09/tickets/batch/read",
+          "/crm/objects/2026-09/notes/search",
+          "/crm/objects/2026-09/notes/batch/read",
+          "/crm/objects/2026-09/tasks/search",
+          "/crm/objects/2026-09/tasks/batch/read",
+          "/crm/objects/2026-09/calls/search",
+          "/crm/objects/2026-09/calls/batch/read",
+          "/crm/objects/2026-09/meetings/search",
+          "/crm/objects/2026-09/meetings/batch/read",
+          "/crm/objects/2026-09/emails/search",
+          "/crm/objects/2026-09/emails/batch/read",
+          "/crm/associations/2026-09/{fromObjectType}/{toObjectType}/batch/read"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token || auth.token.token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "api.hubapi.com"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/crm/objects/2026-09/contacts",
+          "/crm/objects/2026-09/companies",
+          "/crm/objects/2026-09/deals",
+          "/crm/objects/2026-09/tickets",
+          "/crm/objects/2026-09/notes",
+          "/crm/objects/2026-09/tasks",
+          "/crm/objects/2026-09/calls",
+          "/crm/objects/2026-09/meetings",
+          "/crm/objects/2026-09/emails"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token || auth.token.token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "api.hubapi.com"
+        ],
+        "method": [
+          "PATCH"
+        ],
+        "path": [
+          "/crm/objects/2026-09/contacts/{objectId}",
+          "/crm/objects/2026-09/companies/{objectId}",
+          "/crm/objects/2026-09/deals/{objectId}",
+          "/crm/objects/2026-09/tickets/{objectId}",
+          "/crm/objects/2026-09/notes/{objectId}",
+          "/crm/objects/2026-09/tasks/{objectId}",
+          "/crm/objects/2026-09/calls/{objectId}",
+          "/crm/objects/2026-09/meetings/{objectId}",
+          "/crm/objects/2026-09/emails/{objectId}"
+        ],
+        "colon_path_parameters": [
+          "objectId"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token || auth.token.token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "api.hubapi.com"
+        ],
+        "method": [
+          "PUT"
+        ],
+        "path": [
+          "/crm/objects/2026-09/contacts/{objectId}/associations/{toObjectType}/{toObjectId}",
+          "/crm/objects/2026-09/contacts/{fromObjectId}/associations/default/{toObjectType}/{toObjectId}",
+          "/crm/objects/2026-09/companies/{objectId}/associations/{toObjectType}/{toObjectId}",
+          "/crm/objects/2026-09/companies/{fromObjectId}/associations/default/{toObjectType}/{toObjectId}",
+          "/crm/objects/2026-09/deals/{objectId}/associations/{toObjectType}/{toObjectId}",
+          "/crm/objects/2026-09/deals/{fromObjectId}/associations/default/{toObjectType}/{toObjectId}",
+          "/crm/objects/2026-09/tickets/{objectId}/associations/{toObjectType}/{toObjectId}",
+          "/crm/objects/2026-09/tickets/{fromObjectId}/associations/default/{toObjectType}/{toObjectId}",
+          "/crm/objects/2026-09/notes/{objectId}/associations/{toObjectType}/{toObjectId}",
+          "/crm/objects/2026-09/notes/{fromObjectId}/associations/default/{toObjectType}/{toObjectId}",
+          "/crm/objects/2026-09/tasks/{objectId}/associations/{toObjectType}/{toObjectId}",
+          "/crm/objects/2026-09/tasks/{fromObjectId}/associations/default/{toObjectType}/{toObjectId}",
+          "/crm/objects/2026-09/calls/{objectId}/associations/{toObjectType}/{toObjectId}",
+          "/crm/objects/2026-09/calls/{fromObjectId}/associations/default/{toObjectType}/{toObjectId}",
+          "/crm/objects/2026-09/meetings/{objectId}/associations/{toObjectType}/{toObjectId}",
+          "/crm/objects/2026-09/meetings/{fromObjectId}/associations/default/{toObjectType}/{toObjectId}",
+          "/crm/objects/2026-09/emails/{objectId}/associations/{toObjectType}/{toObjectId}",
+          "/crm/objects/2026-09/emails/{fromObjectId}/associations/default/{toObjectType}/{toObjectId}"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token || auth.token.token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "api.hubapi.com"
+        ],
+        "method": [
+          "DELETE"
+        ],
+        "path": [
+          "/crm/objects/2026-09/contacts/{objectId}/associations/{toObjectType}/{toObjectId}",
+          "/crm/objects/2026-09/companies/{objectId}/associations/{toObjectType}/{toObjectId}",
+          "/crm/objects/2026-09/deals/{objectId}/associations/{toObjectType}/{toObjectId}",
+          "/crm/objects/2026-09/tickets/{objectId}/associations/{toObjectType}/{toObjectId}",
+          "/crm/objects/2026-09/notes/{objectId}/associations/{toObjectType}/{toObjectId}",
+          "/crm/objects/2026-09/tasks/{objectId}/associations/{toObjectType}/{toObjectId}",
+          "/crm/objects/2026-09/calls/{objectId}/associations/{toObjectType}/{toObjectId}",
+          "/crm/objects/2026-09/meetings/{objectId}/associations/{toObjectType}/{toObjectId}",
+          "/crm/objects/2026-09/emails/{objectId}/associations/{toObjectType}/{toObjectId}"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token || auth.token.token}}"
+          }
+        }
+      }
+    }
+  ]
+}
