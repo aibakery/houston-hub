@@ -32,7 +32,7 @@
       "client_secret": "{{publisher.client_secret}}",
       "client_auth": "body",
       "pkce": "none",
-      "scope_separator": ",",
+      "scope_separator": " ",
       "scopes": [
         {
           "values": [

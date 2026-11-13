@@ -187,21 +187,45 @@ func (m *Manifest) resolveFields(source string, fields map[string]Field, input m
 // remain absent from all reference contexts. OAuth tokens are lifecycle-owned;
 // call RequireCredentials before native header preparation.
 func (m *Manifest) Resolve(publisher, config, auth map[string]any, selected string) (*Resolved, error) {
-	return m.resolve(publisher, config, auth, selected, false)
+	return m.resolve(publisher, config, auth, selected, false, false)
+}
+
+// ResolveFederated resolves connection-owned inputs without publisher settings.
+// The caller must authorize broker operations separately. Any publisher value
+// needed by a local proxy still fails resolution; delegation never invents a
+// credential or permits a request requiring a hosted transport.
+func (m *Manifest) ResolveFederated(config, auth map[string]any, selected string, draft bool) (*Resolved, error) {
+	return m.resolve(nil, config, auth, selected, draft, true)
+}
+
+// ResolveHosted resolves the local policy projection for a hosted transport.
+// Proxy matches and predicates remain authoritative locally, while credential
+// actions are applied only by the hosted instance against the original manifest.
+// The result must never be used as authority to inject publisher credentials.
+func (m *Manifest) ResolveHosted(config, auth map[string]any, selected string, draft bool) (*Resolved, error) {
+	projected := *m
+	projected.Proxy = make(ProxyRules, len(m.Proxy))
+	copy(projected.Proxy, m.Proxy)
+	for i := range projected.Proxy {
+		projected.Proxy[i].Action = ProxyAction{}
+	}
+	return projected.resolve(nil, config, auth, selected, draft, true)
 }
 
 // ResolveDraft returns active form metadata even when required inputs are not
 // supplied. Context.Errors records failures and no failed prerequisite is false.
 func (m *Manifest) ResolveDraft(publisher, config, auth map[string]any, selected string) (*Resolved, error) {
-	return m.resolve(publisher, config, auth, selected, true)
+	return m.resolve(publisher, config, auth, selected, true, false)
 }
-func (m *Manifest) resolve(publisher, config, auth map[string]any, selected string, draft bool) (*Resolved, error) {
+func (m *Manifest) resolve(publisher, config, auth map[string]any, selected string, draft, federated bool) (*Resolved, error) {
 	r := &Resolved{Context: Context{Publisher: map[string]any{}, Config: map[string]any{}, Auth: map[string]map[string]any{}, SelectedAuth: selected, Errors: map[string]error{}}, PublicConfig: map[string]any{}}
 	c := &r.Context
 	var e error
-	r.PublisherFields, e = m.resolveFields("publisher", m.Publisher, publisher, c, false)
-	if e != nil {
-		return r, e
+	if !federated {
+		r.PublisherFields, e = m.resolveFields("publisher", m.Publisher, publisher, c, false)
+		if e != nil {
+			return r, e
+		}
 	}
 	r.ConfigFields, e = m.resolveFields("config", m.Config, config, c, !draft)
 	if e != nil {
@@ -223,7 +247,7 @@ func (m *Manifest) resolve(publisher, config, auth map[string]any, selected stri
 			continue
 		}
 		if yes {
-			if a.RequiresAuthorization() {
+			if a.RequiresAuthorization() && (!federated || !a.PublisherClient()) {
 				for _, s := range a.AuthorizationSettings() {
 					if s == "" {
 						continue

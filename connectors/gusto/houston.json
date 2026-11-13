@@ -51,6 +51,7 @@
       "token_url": "https://api.gusto.com/oauth/token",
       "client_id": "{{publisher.client_id}}",
       "client_secret": "{{publisher.client_secret}}",
+      "client_auth": "body",
       "pkce": "none",
       "require_refresh": true,
       "account": {
@@ -72,6 +73,7 @@
       "token_url": "https://api.gusto.com/oauth/token",
       "client_id": "{{config.client_id}}",
       "client_secret": "{{config.client_secret}}",
+      "client_auth": "body",
       "pkce": "none",
       "require_refresh": true,
       "account": {
@@ -93,6 +95,7 @@
       "token_url": "https://api.gusto-demo.com/oauth/token",
       "client_id": "{{config.client_id}}",
       "client_secret": "{{config.client_secret}}",
+      "client_auth": "body",
       "pkce": "none",
       "require_refresh": true,
       "account": {
