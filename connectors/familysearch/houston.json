@@ -1,0 +1,1154 @@
+{
+  "access": [
+    {
+      "default": "read",
+      "label": "Access",
+      "levels": [
+        {
+          "label": "Read",
+          "value": "read"
+        },
+        {
+          "label": "Write",
+          "value": "write"
+        }
+      ],
+      "name": "data"
+    }
+  ],
+  "auth": {
+    "oauth": {
+      "account": {
+        "headers": {
+          "Accept": {
+            "value": "application/x-fs-v1+json"
+          },
+          "Authorization": {
+            "value": "Bearer {{auth.oauth.access_token}}"
+          }
+        },
+        "label": "/users/0/id",
+        "method": "GET",
+        "url": "https://api.familysearch.org/platform/users/current"
+      },
+      "authorize_url": "https://ident.familysearch.org/cis-web/oauth2/v3/authorization",
+      "client_auth": "none",
+      "client_id": "{{config.client_id}}",
+      "if": "{{ is config.environment \"production\" }}",
+      "label": "Sign in with FamilySearch",
+      "order": 1,
+      "pkce": "S256",
+      "token_url": "https://ident.familysearch.org/cis-web/oauth2/v3/token",
+      "type": "oauth2"
+    },
+    "oauth_beta": {
+      "account": {
+        "headers": {
+          "Accept": {
+            "value": "application/x-fs-v1+json"
+          },
+          "Authorization": {
+            "value": "Bearer {{auth.oauth_beta.access_token}}"
+          }
+        },
+        "label": "/users/0/id",
+        "method": "GET",
+        "url": "https://apibeta.familysearch.org/platform/users/current"
+      },
+      "authorize_url": "https://identbeta.familysearch.org/cis-web/oauth2/v3/authorization",
+      "client_auth": "none",
+      "client_id": "{{config.client_id}}",
+      "if": "{{ is config.environment \"beta\" }}",
+      "label": "Sign in with FamilySearch Beta",
+      "order": 1,
+      "pkce": "S256",
+      "token_url": "https://identbeta.familysearch.org/cis-web/oauth2/v3/token",
+      "type": "oauth2"
+    },
+    "token": {
+      "config": {
+        "token": {
+          "label": "Access token",
+          "required": true,
+          "type": "secret"
+        }
+      },
+      "description": "A short-lived token obtained through FamilySearch OAuth, not your app key or password.",
+      "label": "Existing access token",
+      "order": 2,
+      "type": "manual"
+    }
+  },
+  "config": {
+    "client_id": {
+      "description": "Your public OAuth application key, enabled for the selected environment. Register the displayed callback URI with FamilySearch before signing in.",
+      "label": "FamilySearch app key",
+      "order": 3,
+      "type": "string"
+    },
+    "environment": {
+      "default": "production",
+      "label": "Environment",
+      "options": [
+        {
+          "label": "Production",
+          "value": "production"
+        },
+        {
+          "label": "Beta (test data)",
+          "value": "beta"
+        }
+      ],
+      "order": 2,
+      "type": "string"
+    }
+  },
+  "connections": "personal-only",
+  "files": [
+    "connector.luau"
+  ],
+  "icon": "icon.svg",
+  "name": "FamilySearch",
+  "proxy": [
+    {
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token || auth.oauth_beta.access_token || auth.token.token}}"
+          }
+        }
+      },
+      "if": "{{ is config.environment \"production\" }}",
+      "match": {
+        "host": [
+          "api.familysearch.org"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/platform/collection",
+          "/platform/collections",
+          "/platform/collections/{collection}",
+          "/platform/dates",
+          "/platform/discussions/discussions/{did}",
+          "/platform/discussions/discussions/{did}/comments",
+          "/platform/groups",
+          "/platform/groups/{groupid}",
+          "/platform/memories/artifacts/{mid}",
+          "/platform/memories/memories",
+          "/platform/memories/memories/{mid}",
+          "/platform/memories/memories/{mid}/comments",
+          "/platform/memories/memories/{mid}/personas",
+          "/platform/memories/memories/{mid}/personas/{pid}",
+          "/platform/memories/users/{uid}/memories",
+          "/platform/names/script",
+          "/platform/names/segments",
+          "/platform/pending-modifications",
+          "/platform/places/description",
+          "/platform/places/description/{pdid}",
+          "/platform/places/description/{pdid}/attributes",
+          "/platform/places/description/{pdid}/children",
+          "/platform/places/description/{pdid}/related",
+          "/platform/places/groups/{pgid}",
+          "/platform/places/parents",
+          "/platform/places/search",
+          "/platform/places/type-groups",
+          "/platform/places/type-groups/{ptgid}",
+          "/platform/places/types",
+          "/platform/places/types/{ptid}",
+          "/platform/places/{pid}",
+          "/platform/places/{pid}/ischild",
+          "/platform/sources/collections",
+          "/platform/sources/collections/{udcid}",
+          "/platform/sources/collections/{udcid}/descriptions",
+          "/platform/sources/descriptions",
+          "/platform/sources/descriptions/{sdid}",
+          "/platform/sources/{uid}/collections",
+          "/platform/sources/{uid}/collections/descriptions",
+          "/platform/tree/ancestry",
+          "/platform/tree/child-and-parents-relationships/{caprid}",
+          "/platform/tree/child-and-parents-relationships/{caprid}/changes",
+          "/platform/tree/child-and-parents-relationships/{caprid}/notes",
+          "/platform/tree/child-and-parents-relationships/{caprid}/notes/{nid}",
+          "/platform/tree/child-and-parents-relationships/{caprid}/source-references",
+          "/platform/tree/child-and-parents-relationships/{caprid}/sources",
+          "/platform/tree/couple-relationships/{crid}",
+          "/platform/tree/couple-relationships/{crid}/changes",
+          "/platform/tree/couple-relationships/{crid}/notes",
+          "/platform/tree/couple-relationships/{crid}/notes/{nid}",
+          "/platform/tree/couple-relationships/{crid}/source-references",
+          "/platform/tree/couple-relationships/{crid}/sources",
+          "/platform/tree/current-person",
+          "/platform/tree/descendancy",
+          "/platform/tree/persons",
+          "/platform/tree/persons/{pid}",
+          "/platform/tree/persons/{pid}/changes",
+          "/platform/tree/persons/{pid}/children",
+          "/platform/tree/persons/{pid}/families",
+          "/platform/tree/persons/{pid}/matches",
+          "/platform/tree/persons/{pid}/memories",
+          "/platform/tree/persons/{pid}/merges/{dpid}",
+          "/platform/tree/persons/{pid}/not-a-match",
+          "/platform/tree/persons/{pid}/notes",
+          "/platform/tree/persons/{pid}/notes/{nid}",
+          "/platform/tree/persons/{pid}/parents",
+          "/platform/tree/persons/{pid}/portrait",
+          "/platform/tree/persons/{pid}/portraits",
+          "/platform/tree/persons/{pid}/relationships/{opid}",
+          "/platform/tree/persons/{pid}/sources",
+          "/platform/tree/persons/{pid}/spouses",
+          "/platform/tree/search",
+          "/platform/tree/source-references",
+          "/platform/tree/users/{uid}/preferred-parent-relationships/{pid}",
+          "/platform/tree/users/{uid}/preferred-spouse-relationships/{pid}",
+          "/platform/trees/current",
+          "/platform/trees/{tid}",
+          "/platform/trees/{tid}/changes",
+          "/platform/trees/{tid}/matches",
+          "/platform/trees/{tid}/persons",
+          "/platform/users/agents/{uid}",
+          "/platform/users/current",
+          "/platform/users/current/partner-eligible",
+          "/platform/users/{uid}/history",
+          "/platform/vocab/concepts/search",
+          "/platform/vocab/concepts/{cvcid}",
+          "/platform/vocab/concepts/{cvcid}/definition/{locale}",
+          "/platform/vocab/lists/{cvlid}",
+          "/platform/vocab/terms/{cvtid}",
+          "/platform/vocab/terms/{cvtid}/translations/{locale}"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token || auth.oauth_beta.access_token || auth.token.token}}"
+          }
+        }
+      },
+      "if": "{{ is config.environment \"production\" }}",
+      "match": {
+        "colon_path_parameters": [
+          "gpids",
+          "mid",
+          "nid",
+          "pid",
+          "sdid",
+          "tid",
+          "uid"
+        ],
+        "host": [
+          "api.familysearch.org"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/platform/genealogies/agents/{uid}",
+          "/platform/genealogies/media/{mid}",
+          "/platform/genealogies/notes/{nid}",
+          "/platform/genealogies/persons/{gpids}/bulkmatches",
+          "/platform/genealogies/persons/{pid}",
+          "/platform/genealogies/persons/{pid}/changes",
+          "/platform/genealogies/persons/{pid}/matches",
+          "/platform/genealogies/sources/{sdid}",
+          "/platform/genealogies/trees",
+          "/platform/genealogies/trees/{tid}",
+          "/platform/genealogies/trees/{tid}/persons"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token || auth.oauth_beta.access_token || auth.token.token}}"
+          }
+        }
+      },
+      "if": "{{ is config.environment \"production\" }}",
+      "match": {
+        "host": [
+          "api.familysearch.org"
+        ],
+        "method": [
+          "HEAD"
+        ],
+        "path": [
+          "/platform/discussions/discussions/{did}",
+          "/platform/sources/descriptions/{sdid}",
+          "/platform/tree/child-and-parents-relationships/{caprid}",
+          "/platform/tree/child-and-parents-relationships/{caprid}/changes",
+          "/platform/tree/couple-relationships/{crid}",
+          "/platform/tree/couple-relationships/{crid}/changes",
+          "/platform/tree/persons/{pid}",
+          "/platform/tree/persons/{pid}/changes",
+          "/platform/tree/persons/{pid}/matches"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token || auth.oauth_beta.access_token || auth.token.token}}"
+          }
+        }
+      },
+      "if": "{{ is config.environment \"production\" }}",
+      "match": {
+        "colon_path_parameters": [
+          "pid"
+        ],
+        "host": [
+          "api.familysearch.org"
+        ],
+        "method": [
+          "HEAD"
+        ],
+        "path": [
+          "/platform/genealogies/persons/{pid}"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token || auth.oauth_beta.access_token || auth.token.token}}"
+          }
+        }
+      },
+      "if": "{{ is config.environment \"production\" }}",
+      "match": {
+        "host": [
+          "api.familysearch.org"
+        ],
+        "method": [
+          "OPTIONS"
+        ],
+        "path": [
+          "/platform/tree/persons/{pid}/merges/{dpid}"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token || auth.oauth_beta.access_token || auth.token.token}}"
+          }
+        }
+      },
+      "if": "{{ is config.environment \"production\" }}",
+      "match": {
+        "host": [
+          "api.familysearch.org"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/platform/names/segments",
+          "/platform/sources/descriptions/changes",
+          "/platform/tree/matches"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token || auth.oauth_beta.access_token || auth.token.token}}"
+          }
+        }
+      },
+      "if": "{{ is config.environment \"production\" }}",
+      "match": {
+        "colon_path_parameters": [
+          "tid"
+        ],
+        "host": [
+          "api.familysearch.org"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/platform/genealogies/trees/{tid}/persons/external-ids"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token || auth.oauth_beta.access_token || auth.token.token}}"
+          }
+        }
+      },
+      "if": "{{ and (is config.environment \"production\") (allows access.data \"write\") }}",
+      "match": {
+        "host": [
+          "api.familysearch.org"
+        ],
+        "method": [
+          "DELETE"
+        ],
+        "path": [
+          "/platform/discussions/discussions/{did}/comments/{cmid}",
+          "/platform/groups/{groupid}",
+          "/platform/memories/memories/{mid}",
+          "/platform/memories/memories/{mid}/artifacts/{aid}/coverage",
+          "/platform/memories/memories/{mid}/comments/{cmid}",
+          "/platform/memories/memories/{mid}/personas/{pid}",
+          "/platform/sources/collections/{udcid}",
+          "/platform/sources/descriptions/{sdid}",
+          "/platform/sources/{uid}/collections/descriptions",
+          "/platform/tree/child-and-parents-relationships/{caprid}",
+          "/platform/tree/child-and-parents-relationships/{caprid}/notes/{nid}",
+          "/platform/tree/child-and-parents-relationships/{caprid}/source-references/{srid}",
+          "/platform/tree/child-and-parents-relationships/{caprid}/{role}",
+          "/platform/tree/child-and-parents-relationships/{caprid}/{role}/conclusions/{cid}",
+          "/platform/tree/couple-relationships/{crid}",
+          "/platform/tree/couple-relationships/{crid}/conclusions/{cid}",
+          "/platform/tree/couple-relationships/{crid}/notes/{nid}",
+          "/platform/tree/couple-relationships/{crid}/source-references/{srid}",
+          "/platform/tree/persons/{pid}",
+          "/platform/tree/persons/{pid}/conclusions/{cid}",
+          "/platform/tree/persons/{pid}/discussion-references/{drid}",
+          "/platform/tree/persons/{pid}/memory-references/{erid}",
+          "/platform/tree/persons/{pid}/not-a-match",
+          "/platform/tree/persons/{pid}/not-a-match/{nmid}",
+          "/platform/tree/persons/{pid}/notes/{nid}",
+          "/platform/tree/persons/{pid}/portrait",
+          "/platform/tree/persons/{pid}/source-references/{srid}",
+          "/platform/tree/persons/{pid}/tree-person-reference/{tprid}",
+          "/platform/tree/users/{uid}/preferred-parent-relationships/{pid}",
+          "/platform/tree/users/{uid}/preferred-spouse-relationships/{pid}",
+          "/platform/trees/{tid}",
+          "/platform/users/{uid}/history/{pid}"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token || auth.oauth_beta.access_token || auth.token.token}}"
+          }
+        }
+      },
+      "if": "{{ and (is config.environment \"production\") (allows access.data \"write\") }}",
+      "match": {
+        "colon_path_parameters": [
+          "cid",
+          "mid",
+          "pid",
+          "sdid",
+          "tid"
+        ],
+        "host": [
+          "api.familysearch.org"
+        ],
+        "method": [
+          "DELETE"
+        ],
+        "path": [
+          "/platform/genealogies/media/{mid}",
+          "/platform/genealogies/persons/{pid}",
+          "/platform/genealogies/persons/{pid}/conclusions/{cid}",
+          "/platform/genealogies/persons/{pid}/relationships/{cid}",
+          "/platform/genealogies/sources/{sdid}",
+          "/platform/genealogies/trees/{tid}"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token || auth.oauth_beta.access_token || auth.token.token}}"
+          }
+        }
+      },
+      "if": "{{ and (is config.environment \"production\") (allows access.data \"write\") }}",
+      "match": {
+        "host": [
+          "api.familysearch.org"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/platform/users/current/partner-account-created"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token || auth.oauth_beta.access_token || auth.token.token}}"
+          }
+        }
+      },
+      "if": "{{ and (is config.environment \"production\") (allows access.data \"write\") }}",
+      "match": {
+        "host": [
+          "api.familysearch.org"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/platform/discussions/discussions",
+          "/platform/discussions/discussions/{did}",
+          "/platform/discussions/discussions/{did}/comments",
+          "/platform/groups",
+          "/platform/groups/{groupid}",
+          "/platform/memories/memories",
+          "/platform/memories/memories/{mid}",
+          "/platform/memories/memories/{mid}/artifacts/{aid}",
+          "/platform/memories/memories/{mid}/comments",
+          "/platform/memories/memories/{mid}/personas",
+          "/platform/memories/memories/{mid}/personas/{pid}",
+          "/platform/sources/collections",
+          "/platform/sources/collections/{udcid}",
+          "/platform/sources/collections/{udcid}/descriptions",
+          "/platform/sources/descriptions",
+          "/platform/sources/descriptions/{sdid}",
+          "/platform/tree/changes/{chid}/restore",
+          "/platform/tree/child-and-parents-relationships/{caprid}",
+          "/platform/tree/child-and-parents-relationships/{caprid}/notes",
+          "/platform/tree/child-and-parents-relationships/{caprid}/notes/{nid}",
+          "/platform/tree/child-and-parents-relationships/{caprid}/parents/order",
+          "/platform/tree/child-and-parents-relationships/{caprid}/restore",
+          "/platform/tree/child-and-parents-relationships/{caprid}/source-references",
+          "/platform/tree/couple-relationships/{crid}",
+          "/platform/tree/couple-relationships/{crid}/notes",
+          "/platform/tree/couple-relationships/{crid}/notes/{nid}",
+          "/platform/tree/couple-relationships/{crid}/restore",
+          "/platform/tree/couple-relationships/{crid}/source-references",
+          "/platform/tree/couple-relationships/{crid}/spouses/order",
+          "/platform/tree/persons",
+          "/platform/tree/persons/{pid}",
+          "/platform/tree/persons/{pid}/matches",
+          "/platform/tree/persons/{pid}/memories",
+          "/platform/tree/persons/{pid}/merges/{dpid}",
+          "/platform/tree/persons/{pid}/not-a-match",
+          "/platform/tree/persons/{pid}/notes",
+          "/platform/tree/persons/{pid}/notes/{nid}",
+          "/platform/tree/persons/{pid}/portraits",
+          "/platform/tree/persons/{pid}/published",
+          "/platform/tree/persons/{pid}/restore",
+          "/platform/tree/relationships",
+          "/platform/trees",
+          "/platform/trees/current",
+          "/platform/trees/{tid}",
+          "/platform/users/current/partner-account-created",
+          "/platform/users/{uid}/history",
+          "/platform/vocab/concepts/{cvcid}/definition/{locale}",
+          "/platform/vocab/terms/{cvtid}/translations/{locale}"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token || auth.oauth_beta.access_token || auth.token.token}}"
+          }
+        }
+      },
+      "if": "{{ and (is config.environment \"production\") (allows access.data \"write\") }}",
+      "match": {
+        "colon_path_parameters": [
+          "cid",
+          "dpid",
+          "mid",
+          "pid",
+          "sdid",
+          "tid"
+        ],
+        "host": [
+          "api.familysearch.org"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/platform/genealogies/media/{mid}",
+          "/platform/genealogies/persons/{pid}",
+          "/platform/genealogies/persons/{pid}/merges/{dpid}",
+          "/platform/genealogies/persons/{pid}/relationships/{cid}",
+          "/platform/genealogies/persons/{pid}/restore",
+          "/platform/genealogies/sources/{sdid}",
+          "/platform/genealogies/trees",
+          "/platform/genealogies/trees/{tid}",
+          "/platform/genealogies/trees/{tid}/media",
+          "/platform/genealogies/trees/{tid}/persons",
+          "/platform/genealogies/trees/{tid}/sources"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token || auth.oauth_beta.access_token || auth.token.token}}"
+          }
+        }
+      },
+      "if": "{{ and (is config.environment \"production\") (allows access.data \"write\") }}",
+      "match": {
+        "host": [
+          "api.familysearch.org"
+        ],
+        "method": [
+          "PUT"
+        ],
+        "path": [
+          "/platform/tree/users/{uid}/preferred-parent-relationships/{pid}",
+          "/platform/tree/users/{uid}/preferred-spouse-relationships/{pid}"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token || auth.oauth_beta.access_token || auth.token.token}}"
+          }
+        }
+      },
+      "if": "{{ is config.environment \"beta\" }}",
+      "match": {
+        "host": [
+          "apibeta.familysearch.org"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/platform/collection",
+          "/platform/collections",
+          "/platform/collections/{collection}",
+          "/platform/dates",
+          "/platform/discussions/discussions/{did}",
+          "/platform/discussions/discussions/{did}/comments",
+          "/platform/groups",
+          "/platform/groups/{groupid}",
+          "/platform/memories/artifacts/{mid}",
+          "/platform/memories/memories",
+          "/platform/memories/memories/{mid}",
+          "/platform/memories/memories/{mid}/comments",
+          "/platform/memories/memories/{mid}/personas",
+          "/platform/memories/memories/{mid}/personas/{pid}",
+          "/platform/memories/users/{uid}/memories",
+          "/platform/names/script",
+          "/platform/names/segments",
+          "/platform/pending-modifications",
+          "/platform/places/description",
+          "/platform/places/description/{pdid}",
+          "/platform/places/description/{pdid}/attributes",
+          "/platform/places/description/{pdid}/children",
+          "/platform/places/description/{pdid}/related",
+          "/platform/places/groups/{pgid}",
+          "/platform/places/parents",
+          "/platform/places/search",
+          "/platform/places/type-groups",
+          "/platform/places/type-groups/{ptgid}",
+          "/platform/places/types",
+          "/platform/places/types/{ptid}",
+          "/platform/places/{pid}",
+          "/platform/places/{pid}/ischild",
+          "/platform/sources/collections",
+          "/platform/sources/collections/{udcid}",
+          "/platform/sources/collections/{udcid}/descriptions",
+          "/platform/sources/descriptions",
+          "/platform/sources/descriptions/{sdid}",
+          "/platform/sources/{uid}/collections",
+          "/platform/sources/{uid}/collections/descriptions",
+          "/platform/tree/ancestry",
+          "/platform/tree/child-and-parents-relationships/{caprid}",
+          "/platform/tree/child-and-parents-relationships/{caprid}/changes",
+          "/platform/tree/child-and-parents-relationships/{caprid}/notes",
+          "/platform/tree/child-and-parents-relationships/{caprid}/notes/{nid}",
+          "/platform/tree/child-and-parents-relationships/{caprid}/source-references",
+          "/platform/tree/child-and-parents-relationships/{caprid}/sources",
+          "/platform/tree/couple-relationships/{crid}",
+          "/platform/tree/couple-relationships/{crid}/changes",
+          "/platform/tree/couple-relationships/{crid}/notes",
+          "/platform/tree/couple-relationships/{crid}/notes/{nid}",
+          "/platform/tree/couple-relationships/{crid}/source-references",
+          "/platform/tree/couple-relationships/{crid}/sources",
+          "/platform/tree/current-person",
+          "/platform/tree/descendancy",
+          "/platform/tree/persons",
+          "/platform/tree/persons/{pid}",
+          "/platform/tree/persons/{pid}/changes",
+          "/platform/tree/persons/{pid}/children",
+          "/platform/tree/persons/{pid}/families",
+          "/platform/tree/persons/{pid}/matches",
+          "/platform/tree/persons/{pid}/memories",
+          "/platform/tree/persons/{pid}/merges/{dpid}",
+          "/platform/tree/persons/{pid}/not-a-match",
+          "/platform/tree/persons/{pid}/notes",
+          "/platform/tree/persons/{pid}/notes/{nid}",
+          "/platform/tree/persons/{pid}/parents",
+          "/platform/tree/persons/{pid}/portrait",
+          "/platform/tree/persons/{pid}/portraits",
+          "/platform/tree/persons/{pid}/relationships/{opid}",
+          "/platform/tree/persons/{pid}/sources",
+          "/platform/tree/persons/{pid}/spouses",
+          "/platform/tree/search",
+          "/platform/tree/source-references",
+          "/platform/tree/users/{uid}/preferred-parent-relationships/{pid}",
+          "/platform/tree/users/{uid}/preferred-spouse-relationships/{pid}",
+          "/platform/trees/current",
+          "/platform/trees/{tid}",
+          "/platform/trees/{tid}/changes",
+          "/platform/trees/{tid}/matches",
+          "/platform/trees/{tid}/persons",
+          "/platform/users/agents/{uid}",
+          "/platform/users/current",
+          "/platform/users/current/partner-eligible",
+          "/platform/users/{uid}/history",
+          "/platform/vocab/concepts/search",
+          "/platform/vocab/concepts/{cvcid}",
+          "/platform/vocab/concepts/{cvcid}/definition/{locale}",
+          "/platform/vocab/lists/{cvlid}",
+          "/platform/vocab/terms/{cvtid}",
+          "/platform/vocab/terms/{cvtid}/translations/{locale}"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token || auth.oauth_beta.access_token || auth.token.token}}"
+          }
+        }
+      },
+      "if": "{{ is config.environment \"beta\" }}",
+      "match": {
+        "colon_path_parameters": [
+          "gpids",
+          "mid",
+          "nid",
+          "pid",
+          "sdid",
+          "tid",
+          "uid"
+        ],
+        "host": [
+          "apibeta.familysearch.org"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/platform/genealogies/agents/{uid}",
+          "/platform/genealogies/media/{mid}",
+          "/platform/genealogies/notes/{nid}",
+          "/platform/genealogies/persons/{gpids}/bulkmatches",
+          "/platform/genealogies/persons/{pid}",
+          "/platform/genealogies/persons/{pid}/changes",
+          "/platform/genealogies/persons/{pid}/matches",
+          "/platform/genealogies/sources/{sdid}",
+          "/platform/genealogies/trees",
+          "/platform/genealogies/trees/{tid}",
+          "/platform/genealogies/trees/{tid}/persons"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token || auth.oauth_beta.access_token || auth.token.token}}"
+          }
+        }
+      },
+      "if": "{{ is config.environment \"beta\" }}",
+      "match": {
+        "host": [
+          "apibeta.familysearch.org"
+        ],
+        "method": [
+          "HEAD"
+        ],
+        "path": [
+          "/platform/discussions/discussions/{did}",
+          "/platform/sources/descriptions/{sdid}",
+          "/platform/tree/child-and-parents-relationships/{caprid}",
+          "/platform/tree/child-and-parents-relationships/{caprid}/changes",
+          "/platform/tree/couple-relationships/{crid}",
+          "/platform/tree/couple-relationships/{crid}/changes",
+          "/platform/tree/persons/{pid}",
+          "/platform/tree/persons/{pid}/changes",
+          "/platform/tree/persons/{pid}/matches"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token || auth.oauth_beta.access_token || auth.token.token}}"
+          }
+        }
+      },
+      "if": "{{ is config.environment \"beta\" }}",
+      "match": {
+        "colon_path_parameters": [
+          "pid"
+        ],
+        "host": [
+          "apibeta.familysearch.org"
+        ],
+        "method": [
+          "HEAD"
+        ],
+        "path": [
+          "/platform/genealogies/persons/{pid}"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token || auth.oauth_beta.access_token || auth.token.token}}"
+          }
+        }
+      },
+      "if": "{{ is config.environment \"beta\" }}",
+      "match": {
+        "host": [
+          "apibeta.familysearch.org"
+        ],
+        "method": [
+          "OPTIONS"
+        ],
+        "path": [
+          "/platform/tree/persons/{pid}/merges/{dpid}"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token || auth.oauth_beta.access_token || auth.token.token}}"
+          }
+        }
+      },
+      "if": "{{ is config.environment \"beta\" }}",
+      "match": {
+        "host": [
+          "apibeta.familysearch.org"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/platform/names/segments",
+          "/platform/sources/descriptions/changes",
+          "/platform/tree/matches"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token || auth.oauth_beta.access_token || auth.token.token}}"
+          }
+        }
+      },
+      "if": "{{ is config.environment \"beta\" }}",
+      "match": {
+        "colon_path_parameters": [
+          "tid"
+        ],
+        "host": [
+          "apibeta.familysearch.org"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/platform/genealogies/trees/{tid}/persons/external-ids"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token || auth.oauth_beta.access_token || auth.token.token}}"
+          }
+        }
+      },
+      "if": "{{ and (is config.environment \"beta\") (allows access.data \"write\") }}",
+      "match": {
+        "host": [
+          "apibeta.familysearch.org"
+        ],
+        "method": [
+          "DELETE"
+        ],
+        "path": [
+          "/platform/discussions/discussions/{did}/comments/{cmid}",
+          "/platform/groups/{groupid}",
+          "/platform/memories/memories/{mid}",
+          "/platform/memories/memories/{mid}/artifacts/{aid}/coverage",
+          "/platform/memories/memories/{mid}/comments/{cmid}",
+          "/platform/memories/memories/{mid}/personas/{pid}",
+          "/platform/sources/collections/{udcid}",
+          "/platform/sources/descriptions/{sdid}",
+          "/platform/sources/{uid}/collections/descriptions",
+          "/platform/tree/child-and-parents-relationships/{caprid}",
+          "/platform/tree/child-and-parents-relationships/{caprid}/notes/{nid}",
+          "/platform/tree/child-and-parents-relationships/{caprid}/source-references/{srid}",
+          "/platform/tree/child-and-parents-relationships/{caprid}/{role}",
+          "/platform/tree/child-and-parents-relationships/{caprid}/{role}/conclusions/{cid}",
+          "/platform/tree/couple-relationships/{crid}",
+          "/platform/tree/couple-relationships/{crid}/conclusions/{cid}",
+          "/platform/tree/couple-relationships/{crid}/notes/{nid}",
+          "/platform/tree/couple-relationships/{crid}/source-references/{srid}",
+          "/platform/tree/persons/{pid}",
+          "/platform/tree/persons/{pid}/conclusions/{cid}",
+          "/platform/tree/persons/{pid}/discussion-references/{drid}",
+          "/platform/tree/persons/{pid}/memory-references/{erid}",
+          "/platform/tree/persons/{pid}/not-a-match",
+          "/platform/tree/persons/{pid}/not-a-match/{nmid}",
+          "/platform/tree/persons/{pid}/notes/{nid}",
+          "/platform/tree/persons/{pid}/portrait",
+          "/platform/tree/persons/{pid}/source-references/{srid}",
+          "/platform/tree/persons/{pid}/tree-person-reference/{tprid}",
+          "/platform/tree/users/{uid}/preferred-parent-relationships/{pid}",
+          "/platform/tree/users/{uid}/preferred-spouse-relationships/{pid}",
+          "/platform/trees/{tid}",
+          "/platform/users/{uid}/history/{pid}"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token || auth.oauth_beta.access_token || auth.token.token}}"
+          }
+        }
+      },
+      "if": "{{ and (is config.environment \"beta\") (allows access.data \"write\") }}",
+      "match": {
+        "colon_path_parameters": [
+          "cid",
+          "mid",
+          "pid",
+          "sdid",
+          "tid"
+        ],
+        "host": [
+          "apibeta.familysearch.org"
+        ],
+        "method": [
+          "DELETE"
+        ],
+        "path": [
+          "/platform/genealogies/media/{mid}",
+          "/platform/genealogies/persons/{pid}",
+          "/platform/genealogies/persons/{pid}/conclusions/{cid}",
+          "/platform/genealogies/persons/{pid}/relationships/{cid}",
+          "/platform/genealogies/sources/{sdid}",
+          "/platform/genealogies/trees/{tid}"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token || auth.oauth_beta.access_token || auth.token.token}}"
+          }
+        }
+      },
+      "if": "{{ and (is config.environment \"beta\") (allows access.data \"write\") }}",
+      "match": {
+        "host": [
+          "apibeta.familysearch.org"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/platform/users/current/partner-account-created"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token || auth.oauth_beta.access_token || auth.token.token}}"
+          }
+        }
+      },
+      "if": "{{ and (is config.environment \"beta\") (allows access.data \"write\") }}",
+      "match": {
+        "host": [
+          "apibeta.familysearch.org"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/platform/discussions/discussions",
+          "/platform/discussions/discussions/{did}",
+          "/platform/discussions/discussions/{did}/comments",
+          "/platform/groups",
+          "/platform/groups/{groupid}",
+          "/platform/memories/memories",
+          "/platform/memories/memories/{mid}",
+          "/platform/memories/memories/{mid}/artifacts/{aid}",
+          "/platform/memories/memories/{mid}/comments",
+          "/platform/memories/memories/{mid}/personas",
+          "/platform/memories/memories/{mid}/personas/{pid}",
+          "/platform/sources/collections",
+          "/platform/sources/collections/{udcid}",
+          "/platform/sources/collections/{udcid}/descriptions",
+          "/platform/sources/descriptions",
+          "/platform/sources/descriptions/{sdid}",
+          "/platform/tree/changes/{chid}/restore",
+          "/platform/tree/child-and-parents-relationships/{caprid}",
+          "/platform/tree/child-and-parents-relationships/{caprid}/notes",
+          "/platform/tree/child-and-parents-relationships/{caprid}/notes/{nid}",
+          "/platform/tree/child-and-parents-relationships/{caprid}/parents/order",
+          "/platform/tree/child-and-parents-relationships/{caprid}/restore",
+          "/platform/tree/child-and-parents-relationships/{caprid}/source-references",
+          "/platform/tree/couple-relationships/{crid}",
+          "/platform/tree/couple-relationships/{crid}/notes",
+          "/platform/tree/couple-relationships/{crid}/notes/{nid}",
+          "/platform/tree/couple-relationships/{crid}/restore",
+          "/platform/tree/couple-relationships/{crid}/source-references",
+          "/platform/tree/couple-relationships/{crid}/spouses/order",
+          "/platform/tree/persons",
+          "/platform/tree/persons/{pid}",
+          "/platform/tree/persons/{pid}/matches",
+          "/platform/tree/persons/{pid}/memories",
+          "/platform/tree/persons/{pid}/merges/{dpid}",
+          "/platform/tree/persons/{pid}/not-a-match",
+          "/platform/tree/persons/{pid}/notes",
+          "/platform/tree/persons/{pid}/notes/{nid}",
+          "/platform/tree/persons/{pid}/portraits",
+          "/platform/tree/persons/{pid}/published",
+          "/platform/tree/persons/{pid}/restore",
+          "/platform/tree/relationships",
+          "/platform/trees",
+          "/platform/trees/current",
+          "/platform/trees/{tid}",
+          "/platform/users/current/partner-account-created",
+          "/platform/users/{uid}/history",
+          "/platform/vocab/concepts/{cvcid}/definition/{locale}",
+          "/platform/vocab/terms/{cvtid}/translations/{locale}"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token || auth.oauth_beta.access_token || auth.token.token}}"
+          }
+        }
+      },
+      "if": "{{ and (is config.environment \"beta\") (allows access.data \"write\") }}",
+      "match": {
+        "colon_path_parameters": [
+          "cid",
+          "dpid",
+          "mid",
+          "pid",
+          "sdid",
+          "tid"
+        ],
+        "host": [
+          "apibeta.familysearch.org"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/platform/genealogies/media/{mid}",
+          "/platform/genealogies/persons/{pid}",
+          "/platform/genealogies/persons/{pid}/merges/{dpid}",
+          "/platform/genealogies/persons/{pid}/relationships/{cid}",
+          "/platform/genealogies/persons/{pid}/restore",
+          "/platform/genealogies/sources/{sdid}",
+          "/platform/genealogies/trees",
+          "/platform/genealogies/trees/{tid}",
+          "/platform/genealogies/trees/{tid}/media",
+          "/platform/genealogies/trees/{tid}/persons",
+          "/platform/genealogies/trees/{tid}/sources"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token || auth.oauth_beta.access_token || auth.token.token}}"
+          }
+        }
+      },
+      "if": "{{ and (is config.environment \"beta\") (allows access.data \"write\") }}",
+      "match": {
+        "host": [
+          "apibeta.familysearch.org"
+        ],
+        "method": [
+          "PUT"
+        ],
+        "path": [
+          "/platform/tree/users/{uid}/preferred-parent-relationships/{pid}",
+          "/platform/tree/users/{uid}/preferred-spouse-relationships/{pid}"
+        ],
+        "protocol": "http"
+      }
+    }
+  ],
+  "schema_version": 2,
+  "warning": "FamilySearch requires app approval for Production. Its [AI addendum](https://developers.familysearch.org/main/docs/ai-disclosure-addendum) requires express written permission before using FamilySearch content with AI, plus advance disclosure for AI-created or modified contributions."
+}
