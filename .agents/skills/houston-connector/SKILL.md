@@ -23,6 +23,11 @@ writes report success or partial failure. Use sibling connectors for relevant
 provider or transport behavior, checking assumptions against the provider docs.
 Keep changes scoped to the requested connector and behavior.
 
+For large or full-API connectors, plan resource namespaces before implementation.
+Follow AUTHORING.md's configured exports and help guidance: root help should be
+a compact resource overview, with focused indexes and function help inside each
+namespace. Split large groups further and verify scoped discovery in fixtures.
+
 Create or update the bundle's `houston.json`, Luau entrypoints, provider icon,
 short user-facing README and SETUP, and Luau behavioral fixtures. README explains
 capabilities and access; SETUP contains only account connection steps, with rare

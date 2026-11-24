@@ -21,7 +21,10 @@ surface sharing a small request layer.
 ## Workflow
 
 1. Read the provider's official API and authentication documentation. List the
-   operations, required permissions, pagination and file-transfer behavior.
+   operations, required permissions, pagination and file-transfer behavior. For
+   large or full-API connectors, plan resource namespaces before implementing
+   operations so root `help()` stays a compact overview. See
+   [configured exports and help](#configured-exports-help-and-provider-validation).
 2. Create a bundle with a manifest, pure-initializing Luau entrypoints, official
    provider icon, account-user README and SETUP, and behavior fixtures.
 3. Implement operations using the runtime examples below. Keep credentials in
@@ -767,7 +770,13 @@ operation list. Help must be deterministic and must never probe credentials or
 call a provider. Keep README documentation for humans; agent help comes from Luau.
 There is no operation classification sidecar or exported metadata registry.
 
-Large connectors can group operations into plain namespace tables. Each namespace
+Large and full-API connectors should group operations into resource namespaces
+by default. Root `help()` should orient callers with a short list of API areas,
+not enumerate the entire API. Split large areas into child namespaces so no
+individual scope becomes another overwhelming operation index. Small connectors
+can retain a flat interface when their complete operation list is easy to scan.
+
+Namespace exports are plain tables. Each namespace
 owns its local help and may contain child namespaces, up to eight levels. Every
 namespace and its parent supplies help metadata. For example:
 
@@ -810,6 +819,16 @@ supported. New and substantively reworked connectors use structured records.
 Namespace-bearing fixtures also expose scoped `help`, `functions`, and
 `namespaces` for testing discovery. Existing flat fixtures retain their
 operation-only table; production connections always have discovery metadata.
+
+For broad API coverage, test the discovery experience as well as individual
+operations: keep root and local indexes compact, verify that focused help
+contains parameters and examples, and recursively check that every enabled
+operation is discoverable under the correct namespace. Exercise restricted
+access too, including the omission of empty namespaces. The
+[Umami namespace fixture](connectors/umami/tests/namespaces.luau) and
+[FamilySearch read-only fixture](connectors/familysearch/tests/oauth_read.luau)
+demonstrate these checks; choose practical size bounds for the connector's
+resource groups.
 
 Provider functions validate their arguments and upstream responses. Keep plain-data
 boundaries, nonempty IDs, finite safe integer sizes, explicit empty arrays, unique
