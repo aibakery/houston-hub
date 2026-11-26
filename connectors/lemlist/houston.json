@@ -1,0 +1,360 @@
+{
+  "schema_version": 2,
+  "name": "lemlist",
+  "files": [
+    "connector.luau"
+  ],
+  "icon": "icon.svg",
+  "access": [
+    {
+      "name": "data",
+      "label": "Access",
+      "levels": [
+        {
+          "value": "read",
+          "label": "Read"
+        },
+        {
+          "value": "write",
+          "label": "Write"
+        }
+      ],
+      "default": "read"
+    }
+  ],
+  "auth": {
+    "api_key": {
+      "type": "manual",
+      "label": "API key",
+      "config": {
+        "token": {
+          "label": "API key",
+          "required": true,
+          "type": "secret"
+        }
+      }
+    }
+  },
+  "proxy": [
+    {
+      "match": {
+        "protocol": "http",
+        "host": [
+          "api.lemlist.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/api/activities",
+          "/api/campaigns",
+          "/api/campaigns/reports",
+          "/api/campaigns/{campaignId}",
+          "/api/campaigns/{campaignId}/leads",
+          "/api/campaigns/{campaignId}/schedules",
+          "/api/campaigns/{campaignId}/senders",
+          "/api/campaigns/{campaignId}/sequences",
+          "/api/campaigns/{campaignId}/statutes",
+          "/api/companies",
+          "/api/companies/lists",
+          "/api/companies/{companyId}",
+          "/api/companies/{companyId}/notes",
+          "/api/contact-sourcing",
+          "/api/contacts",
+          "/api/contacts/lists",
+          "/api/contacts/{idOrEmail}",
+          "/api/contacts/{idOrEmail}/notes",
+          "/api/crm/filters",
+          "/api/database/filters",
+          "/api/database/personas",
+          "/api/database/saved-searches",
+          "/api/database/saved-searches/{savedSearchId}",
+          "/api/deliverability/alerts",
+          "/api/deliverability/alerts/{alertId}",
+          "/api/deliverability/incidents",
+          "/api/enrich/{enrichId}",
+          "/api/fields",
+          "/api/hooks",
+          "/api/inbox",
+          "/api/inbox/labels",
+          "/api/inbox/labels/{labelId}",
+          "/api/inbox/{contactId}",
+          "/api/inbox/{contactId}/drafts",
+          "/api/inbox/{contactId}/drafts/{draftId}",
+          "/api/leads",
+          "/api/message-templates",
+          "/api/message-templates/tags",
+          "/api/message-templates/{templateId}",
+          "/api/schedules",
+          "/api/schedules/{scheduleId}",
+          "/api/sender-picture/mailboxes",
+          "/api/senders",
+          "/api/sequences/{sequenceId}/steps/{stepId}/ab-test",
+          "/api/sequences/{sequenceId}/steps/{stepId}/branches",
+          "/api/sequences/{sequenceId}/steps/{stepId}/sender",
+          "/api/snippets",
+          "/api/snippets/{snippetId}",
+          "/api/team/credits",
+          "/api/team/crmUsers",
+          "/api/team/senders",
+          "/api/user/channels",
+          "/api/users/{userId}",
+          "/api/v2/campaigns/{campaignId}/stats",
+          "/api/v2/enrichments/providers",
+          "/api/v2/enrichments/waterfalls",
+          "/api/v2/enrichments/waterfalls/{waterfallId}",
+          "/api/v2/tasks",
+          "/api/v2/tasks/filters",
+          "/api/v2/unsubscribes/contacts/{contactId}",
+          "/api/v2/unsubscribes/variables",
+          "/api/v2/unsubscribes/variables/{value}",
+          "/api/warmup/errors",
+          "/api/warmup/{userMailboxId}/settings",
+          "/api/watchlist",
+          "/api/watchlist/filter-values",
+          "/api/watchlist/filters",
+          "/api/watchlist/history",
+          "/api/watchlist/library",
+          "/api/watchlist/signals"
+        ]
+      },
+      "action": {
+        "basic_auth": {
+          "username": "",
+          "password": "{{auth.api_key.token}}"
+        }
+      }
+    },
+    {
+      "match": {
+        "protocol": "http",
+        "host": [
+          "api.lemlist.com"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/api/database/companies",
+          "/api/database/people",
+          "/api/v2/campaigns/stats/batch"
+        ]
+      },
+      "action": {
+        "basic_auth": {
+          "username": "",
+          "password": "{{auth.api_key.token}}"
+        }
+      }
+    },
+    {
+      "if": "{{ allows access.data \"write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "api.lemlist.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/api/team"
+        ]
+      },
+      "action": {
+        "basic_auth": {
+          "username": "",
+          "password": "{{auth.api_key.token}}"
+        }
+      }
+    },
+    {
+      "if": "{{ allows access.data \"write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "api.lemlist.com"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/api/campaigns",
+          "/api/campaigns/{campaignId}/duplicate",
+          "/api/campaigns/{campaignId}/leads",
+          "/api/campaigns/{campaignId}/leads/import",
+          "/api/campaigns/{campaignId}/leads/{leadIdOrEmail}/interested",
+          "/api/campaigns/{campaignId}/leads/{leadIdOrEmail}/notinterested",
+          "/api/campaigns/{campaignId}/pause",
+          "/api/campaigns/{campaignId}/schedules/{scheduleId}",
+          "/api/campaigns/{campaignId}/senders",
+          "/api/campaigns/{campaignId}/start",
+          "/api/campaigns/{campaignId}/steps/{stepId}/skip",
+          "/api/campaigns/{campaignId}/steps/{stepId}/skip-for-leads",
+          "/api/campaigns/{campaignId}/triggers/watch-lists",
+          "/api/companies",
+          "/api/companies/lists",
+          "/api/companies/lists/{listId}/entities",
+          "/api/companies/merge",
+          "/api/companies/{companyId}/notes",
+          "/api/contact-sourcing",
+          "/api/contact-sourcing/contacts",
+          "/api/contacts",
+          "/api/contacts/lists",
+          "/api/contacts/lists/{listId}/entities",
+          "/api/contacts/merge",
+          "/api/contacts/{idOrEmail}/notes",
+          "/api/database/personas",
+          "/api/database/saved-searches",
+          "/api/deliverability/alerts",
+          "/api/enrich",
+          "/api/hooks",
+          "/api/inbox/conversations/labels/{contactId}",
+          "/api/inbox/email",
+          "/api/inbox/labels",
+          "/api/inbox/linkedin",
+          "/api/inbox/sms",
+          "/api/inbox/whatsapp",
+          "/api/inbox/{contactId}/drafts",
+          "/api/leads/interested/{leadIdOrEmail}",
+          "/api/leads/notinterested/{leadIdOrEmail}",
+          "/api/leads/pause/{leadId}",
+          "/api/leads/review/{leadId}",
+          "/api/leads/start/{leadId}",
+          "/api/leads/{leadId}/enrich",
+          "/api/leads/{leadId}/variables",
+          "/api/schedules",
+          "/api/sender-picture/sync",
+          "/api/sequences/{sequenceId}/steps",
+          "/api/sequences/{sequenceId}/steps/{stepId}/ab-test",
+          "/api/sequences/{sequenceId}/steps/{stepId}/ab-test/winner",
+          "/api/sequences/{sequenceId}/steps/{stepId}/branches",
+          "/api/tasks",
+          "/api/tasks/ignore",
+          "/api/user/email-accounts/{emailAccountId}/test",
+          "/api/v2/enrichments/bulk",
+          "/api/v2/unsubscribes/contacts/{contactId}",
+          "/api/v2/unsubscribes/variables",
+          "/api/v2/unsubscribes/variables/{value}",
+          "/api/warmup/{userMailboxId}/pause",
+          "/api/warmup/{userMailboxId}/start",
+          "/api/watchlist",
+          "/api/watchlist/crm-lists",
+          "/api/watchlist/{watchListId}/external-signals"
+        ]
+      },
+      "action": {
+        "basic_auth": {
+          "username": "",
+          "password": "{{auth.api_key.token}}"
+        }
+      }
+    },
+    {
+      "if": "{{ allows access.data \"write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "api.lemlist.com"
+        ],
+        "method": [
+          "PUT"
+        ],
+        "path": [
+          "/api/campaigns/{campaignId}/leads/{leadIdOrEmail}/steps/{stepId}/personalization",
+          "/api/campaigns/{campaignId}/senders",
+          "/api/sequences/{sequenceId}/steps/{stepId}/sender",
+          "/api/v2/enrichments/waterfalls/{waterfallId}/reset",
+          "/api/watchlist/signals"
+        ]
+      },
+      "action": {
+        "basic_auth": {
+          "username": "",
+          "password": "{{auth.api_key.token}}"
+        }
+      }
+    },
+    {
+      "if": "{{ allows access.data \"write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "api.lemlist.com"
+        ],
+        "method": [
+          "PATCH"
+        ],
+        "path": [
+          "/api/campaigns/{campaignId}",
+          "/api/campaigns/{campaignId}/leads/{leadId}",
+          "/api/campaigns/{campaignId}/senders/{userId}",
+          "/api/database/saved-searches/{savedSearchId}",
+          "/api/deliverability/alerts/{alertId}",
+          "/api/inbox/{contactId}/drafts/{draftId}",
+          "/api/leads/{leadId}/variables",
+          "/api/schedules/{scheduleId}",
+          "/api/sequences/{sequenceId}/steps/{stepId}",
+          "/api/sequences/{sequenceId}/steps/{stepId}/ab-test",
+          "/api/sequences/{sequenceId}/steps/{stepId}/branches",
+          "/api/sequences/{sequenceId}/steps/{stepId}/branches/{branchSequenceId}",
+          "/api/tasks",
+          "/api/users/{userId}/linkedin-limits",
+          "/api/v2/enrichments/waterfalls/{waterfallId}",
+          "/api/warmup/{userMailboxId}/settings",
+          "/api/watchlist"
+        ]
+      },
+      "action": {
+        "basic_auth": {
+          "username": "",
+          "password": "{{auth.api_key.token}}"
+        }
+      }
+    },
+    {
+      "if": "{{ allows access.data \"write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "api.lemlist.com"
+        ],
+        "method": [
+          "DELETE"
+        ],
+        "path": [
+          "/api/activities/{activityId}/recording-transcript",
+          "/api/campaigns/{campaignId}/leads/{leadIdOrEmail}",
+          "/api/campaigns/{campaignId}/leads/{leadIdOrEmail}/steps/{stepId}/personalization",
+          "/api/campaigns/{campaignId}/senders/{userId}",
+          "/api/campaigns/{campaignId}/triggers/watch-lists/{watchListId}",
+          "/api/companies/{companyId}",
+          "/api/contacts/{idOrEmail}",
+          "/api/database/personas/{personaId}",
+          "/api/database/saved-searches/{savedSearchId}",
+          "/api/deliverability/alerts/{alertId}",
+          "/api/hooks/{hookId}",
+          "/api/inbox/conversations/labels/{contactId}",
+          "/api/inbox/{contactId}/drafts/{draftId}",
+          "/api/leads/{leadId}/variables",
+          "/api/schedules/{scheduleId}",
+          "/api/sequences/{sequenceId}/steps/{stepId}",
+          "/api/sequences/{sequenceId}/steps/{stepId}/ab-test",
+          "/api/sequences/{sequenceId}/steps/{stepId}/branches/{branchSequenceId}",
+          "/api/sequences/{sequenceId}/steps/{stepId}/sender",
+          "/api/user/email-accounts/{emailAccountId}",
+          "/api/v2/enrichments/providers/{providerId}/connection",
+          "/api/v2/unsubscribes/contacts/{contactId}",
+          "/api/v2/unsubscribes/variables/{value}",
+          "/api/watchlist"
+        ]
+      },
+      "action": {
+        "basic_auth": {
+          "username": "",
+          "password": "{{auth.api_key.token}}"
+        }
+      }
+    }
+  ]
+}
