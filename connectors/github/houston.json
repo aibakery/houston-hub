@@ -1,4 +1,38 @@
 {
+  "connection_label": [
+    {
+      "if": "{{ isDefined auth.oauth }}",
+      "request": {
+        "headers": {
+          "Accept": {
+            "value": "application/vnd.github+json"
+          },
+          "Authorization": {
+            "value": "Bearer {{auth.oauth.access_token}}"
+          }
+        },
+        "method": "GET",
+        "url": "https://api.github.com/user"
+      },
+      "select": "/login"
+    },
+    {
+      "if": "{{ isDefined auth.token }}",
+      "request": {
+        "headers": {
+          "Accept": {
+            "value": "application/vnd.github+json"
+          },
+          "Authorization": {
+            "value": "Bearer {{auth.token.token}}"
+          }
+        },
+        "method": "GET",
+        "url": "https://api.github.com/user"
+      },
+      "select": "/login"
+    }
+  ],
   "schema_version": 2,
   "name": "GitHub",
   "files": [

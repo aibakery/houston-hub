@@ -71,6 +71,7 @@ func Schema() ([]byte, error) {
 	enum("AuthMethod", "brand", Brands...)
 	enum("OAuthAccount", "method", "GET", "POST")
 	enum("OAuthShared", "method", "GET", "POST")
+	enum("ConnectionLabelRequest", "method", "GET", "POST")
 	enum("ResponseCheck", "op", "exists", "equals")
 	enum("ProxyMatch", "protocol", "http", "postgres", "mysql", "clickhouse", "redis", "imap")
 	enum("Manifest", "icon", "icon.svg", "icon.png")
@@ -91,6 +92,9 @@ func Schema() ([]byte, error) {
 	props("AuthMethod")["setup_url"].(map[string]any)["description"] = "Manual methods only: a literal HTTPS link where people create the credential."
 	props("AuthMethod")["setup_params"].(map[string]any)["description"] = "Manual methods only: query parameter to access row; the link carries each row's level except none."
 	props("Manifest")["warning"].(map[string]any)["description"] = "Markdown notice shown prominently wherever people set up or review this connector, such as a pending provider approval that affects their experience."
+	props("Manifest")["connection_label"].(map[string]any)["description"] = "Optional presentation rules. The first matching rule is the only source; absent, empty or failed results show no label. Rules never alter authorization or connection readiness."
+	props("ConnectionLabelRule")["value"].(map[string]any)["description"] = "Literal or template using public connection config or selected auth fields; secrets and publisher fields are forbidden."
+	props("ConnectionLabelRequest")["url"].(map[string]any)["description"] = "HTTPS URL with a literal scheme and optional public connection references. Publisher credentials require a publisher-controlled recipient."
 	props("Manifest")["connections"].(map[string]any)["enum"] = ConnectionPolicies
 	props("Manifest")["connections"].(map[string]any)["description"] = "Which connections Houston accepts: personal-only, shared-only, or unrestricted (the default). Set personal-only when the provider forbids sharing one person's authorization with other users."
 	for _, nk := range [][2]string{{"Manifest", "files"}, {"Manifest", "proxy"}, {"Field", "options"}, {"ScopeGroup", "values"}, {"ProxyMatch", "host"}, {"ProxyMatch", "method"}, {"ProxyMatch", "path"}} {
@@ -105,7 +109,7 @@ func Schema() ([]byte, error) {
 	for _, nk := range [][2]string{{"Manifest", "config"}, {"Manifest", "publisher"}, {"Manifest", "auth"}, {"AuthMethod", "config"}} {
 		props(nk[0])[nk[1]].(map[string]any)["propertyNames"] = map[string]any{"pattern": nameRE.String()}
 	}
-	for _, n := range []string{"Field", "AuthMethod", "ScopeGroup", "Proxy", "HeaderValue"} {
+	for _, n := range []string{"Field", "AuthMethod", "ScopeGroup", "Proxy", "HeaderValue", "ConnectionLabelRule"} {
 		props(n)["if"].(map[string]any)["pattern"] = `^\s*\{\{.+\}\}\s*$`
 	}
 	props("Field")["min_length"].(map[string]any)["minimum"] = 0
@@ -163,6 +167,13 @@ func Schema() ([]byte, error) {
 		map[string]any{"if": condition("type", "oauth2"), "then": map[string]any{"if": condition("client_auth", "none"), "then": map[string]any{"properties": map[string]any{"client_secret": false, "pkce": map[string]any{"const": "S256"}}}, "else": map[string]any{"required": []string{"client_secret"}}}},
 	}
 	def("BasicAuth")["oneOf"] = []any{map[string]any{"maxProperties": 0}, map[string]any{"required": []string{"username", "password"}}}
+	labelValue := forbid("request", "select")
+	labelValue["required"] = []string{"value"}
+	labelRequest := forbid("value")
+	labelRequest["required"] = []string{"request", "select"}
+	def("ConnectionLabelRule")["oneOf"] = []any{labelValue, labelRequest}
+	props("ConnectionLabelRule")["select"].(map[string]any)["pattern"] = `^(?:/(?:[^~]|~[01])*)+$`
+	def("ConnectionLabelRequest")["allOf"] = []any{map[string]any{"if": map[string]any{"required": []string{"body"}}, "then": map[string]any{"required": []string{"method"}, "properties": map[string]any{"method": map[string]any{"const": "POST"}}}}}
 	def("ResponseCheck")["allOf"] = []any{map[string]any{"if": condition("op", "equals"), "then": map[string]any{"required": []string{"value"}}, "else": forbid("value")}}
 	def("Field")["allOf"] = []any{
 		map[string]any{"if": condition("type", "secret"), "then": forbid("default", "display", "options")},

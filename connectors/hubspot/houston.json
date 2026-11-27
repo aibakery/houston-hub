@@ -1,4 +1,10 @@
 {
+  "connection_label": [
+    {
+      "if": "{{ isDefined auth.token }}",
+      "value": "API token"
+    }
+  ],
   "schema_version": 2,
   "name": "HubSpot",
   "warning": "**Pending HubSpot review.** HubSpot is still reviewing Houston's app. Until HubSpot lists it, you will see an *unverified app* warning while connecting: select **Connect app**, type **I accept the risk**, then select **Connect**.",

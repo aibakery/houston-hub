@@ -1,4 +1,19 @@
 {
+  "connection_label": [
+    {
+      "if": "{{ isDefined auth.api_key }}",
+      "request": {
+        "headers": {
+          "Authorization": {
+            "value": "Bearer {{auth.api_key.token}}"
+          }
+        },
+        "method": "GET",
+        "url": "https://api.cal.com/v2/me"
+      },
+      "select": "/data/email"
+    }
+  ],
   "schema_version": 2,
   "name": "Cal.com",
   "files": [

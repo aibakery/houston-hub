@@ -1,4 +1,19 @@
 {
+  "connection_label": [
+    {
+      "if": "{{ isDefined auth.oauth }}",
+      "request": {
+        "headers": {
+          "Authorization": {
+            "value": "Bot {{publisher.bot_token}}"
+          }
+        },
+        "method": "GET",
+        "url": "https://discord.com/api/v10/guilds/{{auth.oauth.guild_id}}"
+      },
+      "select": "/name"
+    }
+  ],
   "schema_version": 2,
   "name": "Discord",
   "files": [

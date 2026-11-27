@@ -456,7 +456,10 @@ func (m *Manifest) validatePredicate(s, phase string, used map[string]bool) erro
 		if phase == "publisher" && !strings.HasPrefix(n.ref, "publisher.") {
 			return fmt.Errorf("publisher predicates require publisher references")
 		}
-		if isAuth && phase != "proxy" && phase != "header" {
+		if phase == "connection_label" && (strings.HasPrefix(n.ref, "publisher.") || f.Type == "secret") {
+			return fmt.Errorf("connection label predicates require public connection values")
+		}
+		if isAuth && phase != "proxy" && phase != "header" && phase != "connection_label" {
 			return fmt.Errorf("auth references forbidden before selection")
 		}
 		if f.Type == "secret" {

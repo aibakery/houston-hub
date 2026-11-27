@@ -311,6 +311,45 @@ Authentication methods may declare `availability: {"status": "preview",
 gate for starting sign-in, presented alongside the method. It does not revoke an
 existing connection or change its runtime authorization.
 
+### Connection labels
+
+Use the optional root `connection_label` array for the useful account, workspace,
+or authentication detail shown beneath a connection's title. Rules use the same
+`if` predicates as other manifest declarations. Houston selects the first matching
+rule and uses only that source; an absent, empty or failed result leaves the label
+blank. There is no service-name or authorization-label fallback.
+
+```json
+"connection_label": [
+  {
+    "if": "{{ isDefined auth.token }}",
+    "request": {
+      "url": "https://api.example.com/profile",
+      "headers": {
+        "Authorization": { "value": "Bearer {{auth.token.token}}" }
+      }
+    },
+    "select": "/email"
+  },
+  { "value": "{{config.workspace_name}}" }
+]
+```
+
+Each rule declares either `value` or `request` with `select`, a JSON pointer.
+`value` can be a literal such as `API key`, or a template using nonsecret connection
+config and selected auth inputs or facts. Publisher fields and secrets cannot
+appear in values, URLs, or rule conditions. A request URL starts with literal
+`https://` and can include public references, such as a bound workspace ID in its
+path. Publisher-owned credentials cannot be sent to a connection-controlled host.
+
+Requests default to `GET`; use `POST` only for documented read-only identity
+endpoints, such as Dropbox's current-account endpoint. Optional `body` is a literal
+scalar object and requires `POST`. Headers follow the native credential-injection
+rules. Discovery is repeatable and separate from authorization: no label request
+or missing field may block a working connection or require another sign-in.
+These display rules do not bind account identity, grant permissions, or make a
+display-only config field require reauthorization.
+
 ### Brokered connections with Composio
 
 Any publisher can declare a `composio` method. Set `api_key` to an exact reference
@@ -374,7 +413,8 @@ Gmail limits composed messages to 8 MiB, and Drive accepts much larger files, so
 validate an upload above 4 MB with the publisher's project before treating that
 range as verified.
 
-An optional `account` GET request obtains a label through its JSON pointer. As
+An optional `account` GET request obtains authorization account metadata through
+its JSON pointer. It does not supply the displayed `connection_label`. As
 with OAuth account lookup, this fixed manifest-declared request runs only during
 server-side authorization, outside the proxy rules for connector calls. Its
 headers may reference only nonsecret fields; the native transport supplies
@@ -418,11 +458,12 @@ exposed as the read-only `auth.facts` table (`auth.facts.guild_id`), as
 `{{auth.oauth.guild_id}}` in proxy header and query values, and as a whole proxy
 path segment (see [Transport and exports](#transport-and-exports)); facts are
 not allowed in hosts, OAuth parameters, database settings or `if` predicates.
-`label` names the connection's account when no `account` request is declared.
+`label` records authorization account metadata when no `account` request is declared;
+the displayed subtitle comes only from `connection_label`.
 Refreshes keep the original facts and label, so `refresh_response` cannot
 declare them and its body may omit them. Reconnecting with a different value for
 a bound fact is rejected and the user must add a new connection, so bind stable
-identifiers only and keep display names in `label`. Fixtures set
+identifiers only and use a repeatable `connection_label` request for display names. Fixtures set
 `scenario.facts = {guild_id = "1"}`; undeclared names are rejected.
 
 Houston rejects a token whose response reports granted scopes that lack a

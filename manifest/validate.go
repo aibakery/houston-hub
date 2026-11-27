@@ -275,13 +275,17 @@ func (m *Manifest) Validate() error {
 		}
 	}
 
+	labelUsed := map[string]bool{}
+	if err := m.validateConnectionLabels(labelUsed); err != nil {
+		return err
+	}
 	for n := range m.Publisher {
-		if !used["publisher."+n] {
+		if !used["publisher."+n] && !labelUsed["publisher."+n] {
 			return fmt.Errorf("unused publisher field %s", n)
 		}
 	}
 	for n, f := range m.Config {
-		if f.Type == "secret" && !used["config."+n] {
+		if f.Type == "secret" && !used["config."+n] && !labelUsed["config."+n] {
 			return fmt.Errorf("unused secret config field %s", n)
 		}
 		if !f.Reauthorizes() && used["config."+n] {
@@ -290,7 +294,7 @@ func (m *Manifest) Validate() error {
 	}
 	for k, a := range m.Auth {
 		for n := range a.Config {
-			if !used["auth."+k+"."+n] {
+			if !used["auth."+k+"."+n] && !labelUsed["auth."+k+"."+n] {
 				return fmt.Errorf("unused auth field %s.%s", k, n)
 			}
 		}
@@ -829,7 +833,7 @@ func checkPresence(data []byte) error {
 			parts := strings.Split(p, ".")
 			dictionary := p == "manifest.config" || p == "manifest.publisher" || p == "manifest.auth" ||
 				p == "manifest.proxy[].match.header" || p == "manifest.proxy[].action.headers.set" ||
-				p == "manifest.proxy[].action.query" ||
+				p == "manifest.proxy[].action.query" || p == "manifest.connection_label[].request.headers" || p == "manifest.connection_label[].request.body" ||
 				len(parts) == 4 && parts[1] == "auth" && (parts[3] == "config" || parts[3] == "setup_params") ||
 				len(parts) == 5 && parts[1] == "auth" && (parts[3] == "account" || parts[3] == "shared") && (parts[4] == "headers" || parts[4] == "body")
 			for k, v := range x {
@@ -859,6 +863,21 @@ func checkPresence(data []byte) error {
 	}
 	if v, ok := root["icon"]; ok && v == "" {
 		return fmt.Errorf("icon must be nonempty")
+	}
+	if rules, ok := root["connection_label"].([]any); ok {
+		for _, value := range rules {
+			rule, _ := value.(map[string]any)
+			if _, hasValue := rule["value"]; hasValue {
+				if _, hasSelect := rule["select"]; hasSelect {
+					return fmt.Errorf("connection label select requires request")
+				}
+			}
+			if request, ok := rule["request"].(map[string]any); ok {
+				if method, exists := request["method"]; exists && method == "" {
+					return fmt.Errorf("connection label method must be nonempty")
+				}
+			}
+		}
 	}
 	var fields func(any) error
 	fields = func(v any) error {

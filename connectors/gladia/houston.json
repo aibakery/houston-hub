@@ -1,4 +1,9 @@
 {
+  "connection_label": [
+    {
+      "value": "API key"
+    }
+  ],
   "schema_version": 2,
   "name": "Gladia",
   "verification_key": "1e48e216259bbfcdcd245351d78a94ae6cca578b843bc7a3c5498cc1baafa929",

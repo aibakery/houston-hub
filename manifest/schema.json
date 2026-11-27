@@ -406,6 +406,103 @@
       "required": [],
       "type": "object"
     },
+    "ConnectionLabelRequest": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "required": [
+              "body"
+            ]
+          },
+          "then": {
+            "properties": {
+              "method": {
+                "const": "POST"
+              }
+            },
+            "required": [
+              "method"
+            ]
+          }
+        }
+      ],
+      "properties": {
+        "body": {
+          "additionalProperties": {
+            "type": [
+              "string",
+              "boolean",
+              "number"
+            ]
+          },
+          "type": "object"
+        },
+        "headers": {
+          "additionalProperties": {
+            "$ref": "#/$defs/HeaderValue"
+          },
+          "type": "object"
+        },
+        "method": {
+          "enum": [
+            "GET",
+            "POST"
+          ],
+          "type": "string"
+        },
+        "url": {
+          "description": "HTTPS URL with a literal scheme and optional public connection references. Publisher credentials require a publisher-controlled recipient.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "url"
+      ],
+      "type": "object"
+    },
+    "ConnectionLabelRule": {
+      "additionalProperties": false,
+      "oneOf": [
+        {
+          "properties": {
+            "request": false,
+            "select": false
+          },
+          "required": [
+            "value"
+          ]
+        },
+        {
+          "properties": {
+            "value": false
+          },
+          "required": [
+            "request",
+            "select"
+          ]
+        }
+      ],
+      "properties": {
+        "if": {
+          "pattern": "^\\s*\\{\\{.+\\}\\}\\s*$",
+          "type": "string"
+        },
+        "request": {
+          "$ref": "#/$defs/ConnectionLabelRequest"
+        },
+        "select": {
+          "pattern": "^(?:/(?:[^~]|~[01])*)+$",
+          "type": "string"
+        },
+        "value": {
+          "description": "Literal or template using public connection config or selected auth fields; secrets and publisher fields are forbidden.",
+          "type": "string"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
     "DatabaseConnection": {
       "additionalProperties": false,
       "properties": {
@@ -699,6 +796,13 @@
             "pattern": "^[a-z][a-z0-9_]{0,63}$"
           },
           "type": "object"
+        },
+        "connection_label": {
+          "description": "Optional presentation rules. The first matching rule is the only source; absent, empty or failed results show no label. Rules never alter authorization or connection readiness.",
+          "items": {
+            "$ref": "#/$defs/ConnectionLabelRule"
+          },
+          "type": "array"
         },
         "connections": {
           "description": "Which connections Houston accepts: personal-only, shared-only, or unrestricted (the default). Set personal-only when the provider forbids sharing one person's authorization with other users.",

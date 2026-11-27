@@ -1,4 +1,32 @@
 {
+  "connection_label": [
+    {
+      "if": "{{ isDefined auth.oauth }}",
+      "request": {
+        "headers": {
+          "Authorization": {
+            "value": "Bearer {{auth.oauth.access_token}}"
+          }
+        },
+        "method": "GET",
+        "url": "https://api.figma.com/v1/me"
+      },
+      "select": "/email"
+    },
+    {
+      "if": "{{ isDefined auth.token }}",
+      "request": {
+        "headers": {
+          "X-Figma-Token": {
+            "value": "{{auth.token.token}}"
+          }
+        },
+        "method": "GET",
+        "url": "https://api.figma.com/v1/me"
+      },
+      "select": "/email"
+    }
+  ],
   "schema_version": 2,
   "name": "Figma",
   "files": [

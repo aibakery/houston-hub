@@ -1,4 +1,19 @@
 {
+  "connection_label": [
+    {
+      "if": "{{ isDefined auth.oauth }}",
+      "request": {
+        "headers": {
+          "Authorization": {
+            "value": "Bearer {{auth.oauth.access_token}}"
+          }
+        },
+        "method": "POST",
+        "url": "https://api.dropboxapi.com/2/users/get_current_account"
+      },
+      "select": "/email"
+    }
+  ],
   "schema_version": 2,
   "name": "Dropbox",
   "files": [

@@ -1,4 +1,19 @@
 {
+  "connection_label": [
+    {
+      "if": "{{ isDefined auth.token }}",
+      "request": {
+        "headers": {
+          "Authorization": {
+            "value": "Bearer {{auth.token.token}}"
+          }
+        },
+        "method": "GET",
+        "url": "https://{{config.api_host}}/v1/me"
+      },
+      "select": "/email"
+    }
+  ],
   "schema_version": 2,
   "name": "Wise",
   "files": [

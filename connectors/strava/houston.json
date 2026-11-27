@@ -1,4 +1,19 @@
 {
+  "connection_label": [
+    {
+      "if": "{{ isDefined auth.oauth }}",
+      "request": {
+        "headers": {
+          "Authorization": {
+            "value": "Bearer {{auth.oauth.access_token}}"
+          }
+        },
+        "method": "GET",
+        "url": "https://www.strava.com/api/v3/athlete"
+      },
+      "select": "/firstname"
+    }
+  ],
   "schema_version": 2,
   "name": "Strava",
   "warning": "**Limited availability.** Strava caps how many athletes can connect Houston's Strava app until Strava reviews it. If Strava reports that the app has reached its athlete limit, try again later.",

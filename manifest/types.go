@@ -28,7 +28,24 @@ type Manifest struct {
 	Config          map[string]Field      `json:"config,omitempty"`
 	Publisher       map[string]Field      `json:"publisher,omitempty"`
 	Auth            map[string]AuthMethod `json:"auth,omitempty"`
+	ConnectionLabel []ConnectionLabelRule `json:"connection_label,omitempty"`
 	Proxy           ProxyRules            `json:"proxy"`
+}
+
+// ConnectionLabelRule supplies optional presentation metadata, never authority.
+// The first matching rule is the only source, even when its value is unavailable.
+type ConnectionLabelRule struct {
+	If      string                  `json:"if,omitempty"`
+	Value   *string                 `json:"value,omitempty"`
+	Request *ConnectionLabelRequest `json:"request,omitempty"`
+	Select  string                  `json:"select,omitempty"`
+}
+
+type ConnectionLabelRequest struct {
+	URL     string                 `json:"url"`
+	Method  string                 `json:"method,omitempty"`
+	Headers map[string]HeaderValue `json:"headers,omitempty"`
+	Body    map[string]any         `json:"body,omitempty"`
 }
 
 // ConnectionPolicy says which connections Houston accepts for a connector. An
