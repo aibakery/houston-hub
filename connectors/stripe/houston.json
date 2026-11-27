@@ -1,4 +1,22 @@
 {
+  "connection_label": [
+    {
+      "if": "{{ isDefined auth.token }}",
+      "request": {
+        "headers": {
+          "Authorization": {
+            "value": "Bearer {{auth.token.token}}"
+          },
+          "Stripe-Version": {
+            "value": "2026-09-30.endive"
+          }
+        },
+        "method": "GET",
+        "url": "https://api.stripe.com/v1/account"
+      },
+      "select": "/email"
+    }
+  ],
   "access": [
     {
       "default": "read",

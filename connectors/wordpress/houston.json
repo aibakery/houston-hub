@@ -1,4 +1,9 @@
 {
+  "connection_label": [
+    {
+      "value": "{{config.site_host}}"
+    }
+  ],
   "schema_version": 2,
   "name": "WordPress",
   "files": [

@@ -1,4 +1,9 @@
 {
+  "connection_label": [
+    {
+      "value": "{{config.username}}"
+    }
+  ],
   "schema_version": 2,
   "name": "IMAP",
   "files": [

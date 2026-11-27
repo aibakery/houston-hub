@@ -1,4 +1,32 @@
 {
+  "connection_label": [
+    {
+      "if": "{{ isDefined auth.oauth }}",
+      "request": {
+        "headers": {
+          "Authorization": {
+            "value": "Bearer {{auth.oauth.access_token}}"
+          }
+        },
+        "method": "GET",
+        "url": "https://api.calendly.com/users/me"
+      },
+      "select": "/resource/email"
+    },
+    {
+      "if": "{{ isDefined auth.token }}",
+      "request": {
+        "headers": {
+          "Authorization": {
+            "value": "Bearer {{auth.token.token}}"
+          }
+        },
+        "method": "GET",
+        "url": "https://api.calendly.com/users/me"
+      },
+      "select": "/resource/email"
+    }
+  ],
   "schema_version": 2,
   "name": "Calendly",
   "files": [

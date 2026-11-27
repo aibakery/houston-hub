@@ -1,4 +1,19 @@
 {
+  "connection_label": [
+    {
+      "if": "{{ isDefined auth.oauth }}",
+      "request": {
+        "headers": {
+          "Authorization": {
+            "value": "Bearer {{auth.oauth.access_token}}"
+          }
+        },
+        "method": "GET",
+        "url": "https://api.linkedin.com/v2/userinfo"
+      },
+      "select": "/name"
+    }
+  ],
   "schema_version": 2,
   "name": "LinkedIn",
   "files": [

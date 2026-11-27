@@ -1,4 +1,45 @@
 {
+  "connection_label": [
+    {
+      "if": "{{ isDefined auth.carta }}",
+      "request": {
+        "headers": {
+          "Authorization": {
+            "value": "Bearer {{auth.carta.access_token}}"
+          }
+        },
+        "method": "GET",
+        "url": "https://api.carta.com/v1alpha1/user"
+      },
+      "select": "/user/email"
+    },
+    {
+      "if": "{{ isDefined auth.own_app }}",
+      "request": {
+        "headers": {
+          "Authorization": {
+            "value": "Bearer {{auth.own_app.access_token}}"
+          }
+        },
+        "method": "GET",
+        "url": "https://api.carta.com/v1alpha1/user"
+      },
+      "select": "/user/email"
+    },
+    {
+      "if": "{{ isDefined auth.playground }}",
+      "request": {
+        "headers": {
+          "Authorization": {
+            "value": "Bearer {{auth.playground.access_token}}"
+          }
+        },
+        "method": "GET",
+        "url": "https://api.playground.carta.team/v1alpha1/user"
+      },
+      "select": "/user/email"
+    }
+  ],
   "schema_version": 2,
   "name": "Carta",
   "files": [

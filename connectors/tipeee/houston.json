@@ -1,4 +1,9 @@
 {
+  "connection_label": [
+    {
+      "value": "Website session"
+    }
+  ],
   "schema_version": 2,
   "name": "Tipeee",
   "files": [

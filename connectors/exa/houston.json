@@ -1,4 +1,9 @@
 {
+  "connection_label": [
+    {
+      "value": "API key"
+    }
+  ],
   "schema_version": 2,
   "name": "Exa",
   "stateless": true,

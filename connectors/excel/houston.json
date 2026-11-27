@@ -1,4 +1,19 @@
 {
+  "connection_label": [
+    {
+      "if": "{{ isDefined auth.oauth }}",
+      "request": {
+        "headers": {
+          "Authorization": {
+            "value": "Bearer {{auth.oauth.access_token}}"
+          }
+        },
+        "method": "GET",
+        "url": "https://graph.microsoft.com/v1.0/me?$select=userPrincipalName"
+      },
+      "select": "/userPrincipalName"
+    }
+  ],
   "schema_version": 2,
   "name": "Microsoft Excel",
   "warning": "**Work or school accounts only.** Microsoft's Excel API does not support workbooks in a personal OneDrive, so Outlook.com and other personal Microsoft accounts cannot connect.",

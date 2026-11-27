@@ -1,4 +1,9 @@
 {
+  "connection_label": [
+    {
+      "value": "Page access token"
+    }
+  ],
   "schema_version": 2,
   "name": "Meta Business Suite",
   "files": [

@@ -1,4 +1,9 @@
 {
+  "connection_label": [
+    {
+      "value": "{{config.host}} / {{config.database}}"
+    }
+  ],
   "schema_version": 2,
   "name": "ClickHouse",
   "files": [

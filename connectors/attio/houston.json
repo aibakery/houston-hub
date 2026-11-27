@@ -1,4 +1,19 @@
 {
+  "connection_label": [
+    {
+      "if": "{{ isDefined auth.token }}",
+      "request": {
+        "headers": {
+          "Authorization": {
+            "value": "Bearer {{auth.token.token}}"
+          }
+        },
+        "method": "GET",
+        "url": "https://api.attio.com/v2/self"
+      },
+      "select": "/workspace_name"
+    }
+  ],
   "schema_version": 2,
   "name": "Attio",
   "files": [

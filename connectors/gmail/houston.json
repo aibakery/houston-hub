@@ -1,4 +1,27 @@
 {
+  "connection_label": [
+    {
+      "if": "{{ isDefined auth.composio }}",
+      "request": {
+        "method": "GET",
+        "url": "https://gmail.googleapis.com/gmail/v1/users/me/profile"
+      },
+      "select": "/emailAddress"
+    },
+    {
+      "if": "{{ isDefined auth.oauth }}",
+      "request": {
+        "headers": {
+          "Authorization": {
+            "value": "Bearer {{auth.oauth.access_token}}"
+          }
+        },
+        "method": "GET",
+        "url": "https://www.googleapis.com/oauth2/v2/userinfo"
+      },
+      "select": "/email"
+    }
+  ],
   "schema_version": 2,
   "name": "Gmail",
   "verification_key": "f8f70b3e9c1ae4e9b94e4cabb680db1c7ac85847721986fa399925cfdc79b980",

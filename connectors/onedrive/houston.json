@@ -1,4 +1,19 @@
 {
+  "connection_label": [
+    {
+      "if": "{{ isDefined auth.oauth }}",
+      "request": {
+        "headers": {
+          "Authorization": {
+            "value": "Bearer {{auth.oauth.access_token}}"
+          }
+        },
+        "method": "GET",
+        "url": "https://graph.microsoft.com/v1.0/me?$select=userPrincipalName"
+      },
+      "select": "/userPrincipalName"
+    }
+  ],
   "schema_version": 2,
   "name": "Microsoft OneDrive",
   "files": [

@@ -1,4 +1,13 @@
 {
+  "connection_label": [
+    {
+      "if": "{{ is config.deployment \"self-hosted\" }}",
+      "value": "{{config.host}}"
+    },
+    {
+      "value": "API key"
+    }
+  ],
   "auth": {
     "token": {
       "config": {

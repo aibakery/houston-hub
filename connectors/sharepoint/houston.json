@@ -1,4 +1,19 @@
 {
+  "connection_label": [
+    {
+      "if": "{{ isDefined auth.oauth }}",
+      "request": {
+        "headers": {
+          "Authorization": {
+            "value": "Bearer {{auth.oauth.access_token}}"
+          }
+        },
+        "method": "GET",
+        "url": "https://graph.microsoft.com/v1.0/me?$select=userPrincipalName"
+      },
+      "select": "/userPrincipalName"
+    }
+  ],
   "schema_version": 2,
   "name": "Microsoft SharePoint",
   "warning": "**Work or school accounts only, usually with an administrator's approval.** Personal Microsoft accounts have no SharePoint, and most organizations require an administrator to approve Houston SharePoint once.",

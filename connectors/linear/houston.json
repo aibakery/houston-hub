@@ -1,4 +1,38 @@
 {
+  "connection_label": [
+    {
+      "if": "{{ isDefined auth.oauth }}",
+      "request": {
+        "headers": {
+          "Authorization": {
+            "value": "Bearer {{auth.oauth.access_token}}"
+          },
+          "apollo-require-preflight": {
+            "value": "true"
+          }
+        },
+        "method": "GET",
+        "url": "https://api.linear.app/graphql?query=%7Bviewer%7Bemail%7D%7D"
+      },
+      "select": "/data/viewer/email"
+    },
+    {
+      "if": "{{ isDefined auth.token }}",
+      "request": {
+        "headers": {
+          "Authorization": {
+            "value": "{{auth.token.token}}"
+          },
+          "apollo-require-preflight": {
+            "value": "true"
+          }
+        },
+        "method": "GET",
+        "url": "https://api.linear.app/graphql?query=%7Bviewer%7Bemail%7D%7D"
+      },
+      "select": "/data/viewer/email"
+    }
+  ],
   "schema_version": 2,
   "name": "Linear",
   "files": [

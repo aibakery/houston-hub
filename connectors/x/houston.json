@@ -1,4 +1,9 @@
 {
+  "connection_label": [
+    {
+      "value": "App bearer token"
+    }
+  ],
   "schema_version": 2,
   "name": "X",
   "description": "Search and browse public tweets, profiles, user timelines, and mentions on X.",

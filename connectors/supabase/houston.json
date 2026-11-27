@@ -1,4 +1,9 @@
 {
+  "connection_label": [
+    {
+      "value": "{{config.host}} / {{config.database}}"
+    }
+  ],
   "access": [
     {
       "default": "read",
